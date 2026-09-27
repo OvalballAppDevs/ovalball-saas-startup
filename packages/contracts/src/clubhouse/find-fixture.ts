@@ -33,14 +33,27 @@ type Client = SupabaseClient<Database>
 
 export type FindFixtureVenuePreference = "home" | "away" | "either"
 
-/** The full UI-level search intent. Only `teamId`/`distance`/`teamRugbyCode` are read by this module's
- * own query -- `dates`/`venuePreference` travel through untouched to the eventual /fixtures/new handoff
- * (one date at a time, once a specific candidate+date is chosen), because Section 6 has no availability
- * data to filter by on its own and no venue data to judge a club's own home/away preference against.
+/**
+ * THE FULL UI-LEVEL SEARCH INTENT -- FF-1's own shared search-session model (mock-up reconciliation,
+ * "Find a Fixture" as a flagship product, not a utility screen). Transient presentation/workflow state
+ * only, never a second source of authority: every field here still passes through the exact same
+ * canonical reads and RLS-gated RPCs it always did.
+ *
+ * `teamIds` (plural, FF-1's own major conceptual improvement over the previous single `teamId`): 1+ of
+ * the viewer's own real, active teams, exactly the set `readClubTeams`/team-context authority already
+ * exposes -- never a wider set. NOT YET MULTI-TEAM MATCHED: `find_fixture_candidate_teams` and every
+ * read below still query ONE team at a time; true "N of these M teams are compatible with this club,
+ * with per-team availability" matching is FF-2/FF-3's own stated work (the next stage in this
+ * programme), not built here. `readFindFixtureCandidates` uses `teamIds[0]` as the representative query
+ * team -- a deliberate, stated limitation, never a silently faked multi-team result.
+ *
  * `dates` is Section 7's own multi-date search -- 1 to 6 candidate dates, the bound
- * `find_fixture_candidate_availability` itself enforces server-side. */
+ * `find_fixture_candidate_availability` itself enforces server-side. `venuePreference` travels through
+ * untouched to the eventual /fixtures/new handoff (one date at a time, once a specific candidate+date is
+ * chosen), because this module has no venue data to judge a club's own home/away preference against.
+ */
 export interface FindFixtureCriteria {
-  teamId: string
+  teamIds: string[]
   teamRugbyCode: string | null
   dates: string[]
   venuePreference: FindFixtureVenuePreference
@@ -151,13 +164,15 @@ export function applyFindFixturePartnerFilter(candidates: readonly FindFixtureCa
  */
 export async function readFindFixtureCandidates(
   supabase: Client,
-  criteria: Pick<FindFixtureCriteria, "teamId" | "teamRugbyCode" | "distance">,
+  criteria: Pick<FindFixtureCriteria, "teamIds" | "teamRugbyCode" | "distance">,
   viewerClubId: string | null,
   viewerTeamId: string | null
 ): Promise<FindFixtureResult> {
+  const primaryTeamId = criteria.teamIds[0]
+  if (!primaryTeamId) return { actionable: [], directoryOnly: [] }
   const [markers, candidateRowsResult] = await Promise.all([
     readClubhouseMarkers(supabase, viewerClubId, viewerTeamId),
-    supabase.rpc("find_fixture_candidate_teams", { p_team_id: criteria.teamId }),
+    supabase.rpc("find_fixture_candidate_teams", { p_team_id: primaryTeamId }),
   ])
   if (candidateRowsResult.error) throw candidateRowsResult.error
 
@@ -189,4 +204,29 @@ export function nextWeekdayDates(fromIso: string, isoWeekday: number, count: num
     dates.push(d.toISOString().slice(0, 10))
   }
   return dates
+}
+
+/** Sorted, deduplicated, capped at 6 -- the exact bound `find_fixture_candidate_availability` itself
+ * enforces server-side. The one place this arithmetic lives now (FF-1's date strip, and any future
+ * caller), pinned directly rather than only inspected inside the screen that uses it. */
+export function dedupeFindFixtureDates(candidates: readonly string[]): string[] {
+  return [...new Set(candidates)].sort().slice(0, 6)
+}
+
+/**
+ * A GENERIC TOGGLE: add if absent, remove if present -- FF-1's own multi-select team rows and its
+ * date-strip tiles are both "tap to include/exclude from a small set" controls, and this is the one
+ * place that arithmetic lives rather than being re-written per control.
+ */
+export function toggleSelection<T>(current: readonly T[], value: T): T[] {
+  return current.includes(value) ? current.filter((v) => v !== value) : [...current, value]
+}
+
+/**
+ * THE CTA'S OWN VALIDATION RULE (Section 13 of the FF-1 spec): never a meaningless search state. Pure
+ * and pinned directly so "cannot proceed without a team" and "cannot proceed without a date" are real,
+ * permanent regression tests, not just an inline `disabled` expression nobody re-checks.
+ */
+export function canSearchFindFixtureCriteria(criteria: Pick<FindFixtureCriteria, "teamIds" | "dates">): boolean {
+  return criteria.teamIds.length > 0 && criteria.dates.length > 0
 }

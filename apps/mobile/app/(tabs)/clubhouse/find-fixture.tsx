@@ -4,23 +4,26 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Constants from "expo-constants"
 
+import { shiftDays } from "@ovalball/contracts"
 import {
   applyClubhouseDistanceFilter,
   applyFindFixturePartnerFilter,
   buildFindFixtureAvailability,
-  buildFindFixtureCandidates,
+  canSearchFindFixtureCriteria,
   countNoKnownClashDates,
+  dedupeFindFixtureDates,
   distanceMiles,
   findDistanceOrigin,
   inviteClubToOvalball,
-  nextWeekdayDates,
-  readClubhouseMarkers,
   readFindFixtureCandidateAvailability,
+  readFindFixtureCandidates,
   sortFindFixtureCandidates,
+  toggleSelection,
   type ClubMapMarker,
   type ClubhouseDistanceFilter,
   type FindFixtureCandidate,
   type FindFixtureCandidateAvailability,
+  type FindFixtureCriteria,
   type FindFixturePartnerFilter,
   type FindFixtureSort,
   type FindFixtureVenuePreference,
@@ -32,24 +35,30 @@ import { useAppContexts } from "../../../src/context/contexts"
 import { teamRugbyCode } from "../../../src/agenda/opponent-search"
 import { ClubCrest, ClubhouseEmptyState, DistanceChips, NetworkPill } from "../../../src/clubhouse/components"
 import { Button, CardSkeleton, ErrorState } from "../../../src/components/ui"
-import { ChoiceField, DateField } from "../../../src/components/form"
-import { ChevronRight, Layers, LayoutGrid, MapPin, Search, Share2, Users } from "../../../src/components/icons"
+import { DateField } from "../../../src/components/form"
+import { Check, ChevronDown, ChevronRight, Layers, LayoutGrid, MapPin, Search, Share2, SlidersHorizontal, Users } from "../../../src/components/icons"
 import { colour, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
 import { webUrl } from "../../../src/config/environment"
 import { todayIso } from "../../../src/agenda/load"
 
 /**
- * CLUBHOUSE PROGRAMME SECTION 6 -- FIND A FIXTURE.
+ * FF-1 -- FIND A FIXTURE HOME (mock-up reconciliation: "Find a Fixture" is a flagship product within
+ * Clubhouse now, not one utility screen -- built section by section against the owner's own 10-screen
+ * storyboard, this pass installing ONLY the first screen).
  *
- * Answers "who could we play?" through the shared `packages/contracts/src/clubhouse/find-fixture.ts`
- * contract -- the same compatibility rule, marker population and distance/partner logic the main
- * Clubhouse map already uses. Selecting a candidate hands off into the EXISTING `/fixtures/new`
- * composer (prefilled) -- this screen never creates a fixture or a request itself.
+ * THE SEARCH SESSION MODEL is `FindFixtureCriteria` (packages/contracts/src/clubhouse/find-fixture.ts)
+ * -- extended this pass from a single `teamId` to `teamIds: string[]`, FF-1's own major conceptual
+ * improvement (multi-team selection), and now genuinely consumed here via `readFindFixtureCandidates`
+ * rather than the screen calling `find_fixture_candidate_teams` inline and duplicating
+ * `buildFindFixtureCandidates`'s own projection -- converging onto the canonical contract that already
+ * existed but had no real caller.
  *
- * ONE FETCH, LOCAL FILTERING. Changing distance, sort or the partner toggle never re-hits the network:
- * `readClubhouseMarkers` + `find_fixture_candidate_teams` are fetched once per selected team, and
- * every criterion after that is a pure, instant client-side recombination -- the same shape the main
- * Clubhouse map/list screen already uses for its own filters.
+ * WHAT FF-1 DOES NOT DO (deliberately, per the programme's own section-by-section instruction): redesign
+ * Compatible Results, build the animated Smart Matching screen, or make true multi-team matching real --
+ * `readFindFixtureCandidates` still queries ONE team (`teamIds[0]`) per search; the results below are
+ * the SAME single-team-at-a-time results the previous pass already built, now fed from the new criteria
+ * object rather than a bare `teamId`. Multi-team compatibility ("3/3 selected teams matched") is FF-2/
+ * FF-3's own stated work.
  */
 
 // Expo Go cannot load the native MapLibre module -- see apps/mobile/app/(tabs)/clubhouse/index.tsx's
@@ -58,16 +67,20 @@ import { todayIso } from "../../../src/agenda/load"
 // never refactored sight-unseen on a screen this session cannot live-test on a physical device.
 const DIRECTORY_ONLY_CAP = 20
 const MAX_DATES = 6
+const STRIP_LENGTH = 7
 
 /** Sorted, deduplicated, capped at 6 -- the exact bound find_fixture_candidate_availability itself enforces. */
-function dedupeDates(candidates: string[]): string[] {
-  return [...new Set(candidates)].sort().slice(0, MAX_DATES)
-}
-
 /** "Sat 17 Oct" -- rugby-friendly, never a raw ISO string. */
 function shortDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`)
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
+}
+
+/** "Senior Men" / "Senior Women" / "Age Grade" -- only ever a category the team's own canonical data
+ * actually states, never invented to fill the mock's own illustrative labels. */
+function teamCategoryLabel(team: ClubTeam): string {
+  if (team.category === "senior") return team.gender === "womens" ? "Senior Women" : team.gender === "mens" ? "Senior Men" : "Senior"
+  return "Age Grade"
 }
 
 const isExpoGo = Constants.appOwnership === "expo"
@@ -98,11 +111,13 @@ export default function FindFixture() {
   const clubContext = active?.kind === "club"
 
   // ---------------------------------------------------------------------------------------------
-  // TEAM SELECTION -- preselected in team context; a real choice only when the club has more than
-  // one eligible side (never an unnecessary selection screen for a club with exactly one).
+  // 2. SELECT OUR TEAMS -- real multi-select for a club-context viewer, from the exact same
+  // `readClubTeams` population (and therefore the exact same authority boundary) the single-select
+  // flow always used; a team-context viewer has exactly one legitimate team, so it is shown locked
+  // rather than as a pointless one-row "selector".
   // ---------------------------------------------------------------------------------------------
   const [clubTeams, setClubTeams] = useState<ClubTeam[] | null>(null)
-  const [chosenTeam, setChosenTeam] = useState<{ id: string; label: string; rugbyCode: string | null } | null>(null)
+  const [selectedClubTeamIds, setSelectedClubTeamIds] = useState<string[]>([])
 
   useEffect(() => {
     if (!clubContext || !viewerClubId) return
@@ -115,9 +130,12 @@ export default function FindFixture() {
     }
   }, [clubContext, viewerClubId])
 
+  // A club with exactly one active side has nothing to choose -- pre-selected, matching the previous
+  // single-select behaviour exactly (zero functionality lost). A club with several starts with NONE
+  // selected: guessing which of several real sides the viewer means would be a fabricated default.
   useEffect(() => {
-    if (!clubContext || !clubTeams || chosenTeam) return
-    if (clubTeams.length === 1) setChosenTeam({ id: clubTeams[0]!.id, label: clubTeams[0]!.fullLabel, rugbyCode: clubTeams[0]!.rugbyCode })
+    if (!clubContext || !clubTeams || selectedClubTeamIds.length > 0) return
+    if (clubTeams.length === 1) setSelectedClubTeamIds([clubTeams[0]!.id])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clubContext, clubTeams])
 
@@ -127,59 +145,86 @@ export default function FindFixture() {
     void teamRugbyCode(supabase, contextTeamId).then(setContextTeamRugbyCode)
   }, [contextTeamId])
 
-  const teamId = clubContext ? chosenTeam?.id ?? null : contextTeamId
-  const teamLabel = clubContext ? chosenTeam?.label ?? null : active?.kind === "team" ? active.label : null
-  const teamRugbyCodeValue = clubContext ? (chosenTeam?.rugbyCode ?? null) : contextTeamRugbyCode
+  function toggleTeam(id: string) {
+    setSelectedClubTeamIds((prev) => toggleSelection(prev, id))
+  }
+
+  const selectedTeamIds = useMemo(() => (clubContext ? selectedClubTeamIds : contextTeamId ? [contextTeamId] : []), [clubContext, selectedClubTeamIds, contextTeamId])
+  const primaryTeamId = selectedTeamIds[0] ?? null
+  const teamRugbyCodeValue = clubContext ? (clubTeams?.find((t) => t.id === primaryTeamId)?.rugbyCode ?? null) : contextTeamRugbyCode
 
   // ---------------------------------------------------------------------------------------------
-  // CRITERIA -- venue preference travels to the /fixtures/new handoff untouched; distance, sort and
-  // the partner toggle are applied locally to one fetched population (see file header). `dates` is
-  // Section 7's own multi-date search -- 1 to 6 dates, entirely optional: with none selected, results
-  // show plain compatibility only (Section 6's own behaviour), never a fabricated availability claim.
+  // 1. SELECT DATE(S) -- a real date STRIP (mock-up reconciliation), not a quick-button list plus a
+  // native picker bolted on. `dates` is still the same up-to-6-dates search-session field Section 7
+  // always used; `stripAnchor` is purely which 7-day window is currently visible, never itself part
+  // of the search criteria.
   // ---------------------------------------------------------------------------------------------
   const [dates, setDates] = useState<string[]>([])
-  const [pendingDate, setPendingDate] = useState(todayIso())
+  const [stripAnchor, setStripAnchor] = useState(todayIso())
+  const [jumpPickerOpen, setJumpPickerOpen] = useState(false)
+
+  function toggleDate(iso: string) {
+    setDates((prev) => (prev.includes(iso) ? prev.filter((d) => d !== iso) : dedupeFindFixtureDates([...prev, iso])))
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // 3. MATCH PREFERENCES + secondary filters. Distance stays real but moves behind "More Filters"
+  // (Section 11's own instruction) -- the primary workflow is date -> teams -> home/away -> search,
+  // never buried under filter chrome.
+  // ---------------------------------------------------------------------------------------------
   const [venuePreference, setVenuePreference] = useState<FindFixtureVenuePreference>("either")
   const [distance, setDistance] = useState<ClubhouseDistanceFilter>("any")
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false)
   const [sort, setSort] = useState<FindFixtureSort>("nearest")
   const [partnerFilter, setPartnerFilter] = useState<FindFixturePartnerFilter>("all")
   const [mode, setMode] = useState<"map" | "list">(isExpoGo ? "list" : "map")
 
+  // ---------------------------------------------------------------------------------------------
+  // THE SEARCH ITSELF -- only ever runs once the CTA is pressed with valid criteria (Section 13:
+  // never a meaningless search state), never auto-loaded the moment a team happens to be chosen.
+  // ---------------------------------------------------------------------------------------------
+  const [searched, setSearched] = useState(false)
   const [markers, setMarkers] = useState<ClubMapMarker[] | null>(null)
-  const [candidateRows, setCandidateRows] = useState<{ team_id: string; club_id: string; display_name: string; age_group: string | null; gender: string | null }[] | null>(null)
+  const [actionable, setActionable] = useState<FindFixtureCandidate[]>([])
+  const [directoryOnly, setDirectoryOnly] = useState<ClubMapMarker[]>([])
   const [error, setError] = useState<string | null>(null)
   const [availabilityRows, setAvailabilityRows] = useState<{ opponent_team_id: string; the_date: string; status: string }[] | null>(null)
 
-  const load = useCallback(async () => {
-    if (!teamId) return
+  const criteria: FindFixtureCriteria = useMemo(
+    () => ({ teamIds: selectedTeamIds, teamRugbyCode: teamRugbyCodeValue, dates, venuePreference, distance }),
+    [selectedTeamIds, teamRugbyCodeValue, dates, venuePreference, distance]
+  )
+  const canSearch = canSearchFindFixtureCriteria(criteria)
+
+  const runSearch = useCallback(async () => {
+    if (!canSearch) return
+    setSearched(true)
     setError(null)
     setMarkers(null)
-    setCandidateRows(null)
     try {
-      const [markerRows, rpcResult] = await Promise.all([
-        readClubhouseMarkers(supabase, viewerClubId, contextTeamId),
-        supabase.rpc("find_fixture_candidate_teams", { p_team_id: teamId }),
-      ])
-      if (rpcResult.error) throw rpcResult.error
-      setMarkers(markerRows)
-      setCandidateRows(rpcResult.data ?? [])
+      const result = await readFindFixtureCandidates(supabase, criteria, viewerClubId, contextTeamId)
+      setActionable(result.actionable)
+      setDirectoryOnly(result.directoryOnly)
+      // A real marker population for the map preview and directory-only distance filtering, the
+      // same one `readFindFixtureCandidates` already fetched internally -- read again here only for
+      // `findDistanceOrigin`, never a second directory query's worth of new network cost (this is the
+      // same call `readClubhouseMarkers` itself is, cached by nothing but genuinely cheap at today's
+      // real scale, exactly as the map screen's own doc comment already establishes).
+      setMarkers([...result.actionable, ...result.directoryOnly])
     } catch {
       setError("Couldn't search for opposition. Check your connection and try again.")
     }
-  }, [teamId, viewerClubId, contextTeamId])
+  }, [canSearch, criteria, viewerClubId, contextTeamId])
 
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  // AVAILABILITY (Section 7) -- fires only once real dates are chosen; entirely separate from `load`
-  // above so changing dates never re-fetches the marker/compatibility population, and changing team
-  // never re-fetches availability for dates that may no longer apply.
+  // AVAILABILITY (Section 7) -- fires only once real dates are chosen and a search has actually run;
+  // entirely separate from `runSearch` above so changing dates never re-fetches the marker/
+  // compatibility population, and re-running the search never re-fetches availability for dates that
+  // may no longer apply.
   useEffect(() => {
     let live = true
     setAvailabilityRows(null)
-    if (!teamId || dates.length === 0) return
-    void readFindFixtureCandidateAvailability(supabase, teamId, dates)
+    if (!searched || !primaryTeamId || dates.length === 0) return
+    void readFindFixtureCandidateAvailability(supabase, primaryTeamId, dates)
       .then((rows) => {
         if (live) setAvailabilityRows(rows)
       })
@@ -189,14 +234,9 @@ export default function FindFixture() {
     return () => {
       live = false
     }
-  }, [teamId, dates])
+  }, [searched, primaryTeamId, dates])
 
   const origin = useMemo(() => (markers ? findDistanceOrigin(markers) : null), [markers])
-
-  const { actionable, directoryOnly } = useMemo(() => {
-    if (!markers || !candidateRows) return { actionable: [] as FindFixtureCandidate[], directoryOnly: [] as ClubMapMarker[] }
-    return buildFindFixtureCandidates(markers, candidateRows, teamRugbyCodeValue)
-  }, [markers, candidateRows, teamRugbyCodeValue])
 
   const filteredActionable = useMemo(() => {
     const byDistance = applyClubhouseDistanceFilter(actionable, distance, origin) as FindFixtureCandidate[]
@@ -204,9 +244,6 @@ export default function FindFixture() {
     return sortFindFixtureCandidates(byPartner, sort, origin)
   }, [actionable, distance, origin, partnerFilter, sort])
 
-  // Availability per compatible TEAM -- built only once both the candidates and the availability rows
-  // are ready; a non-partner candidate reads "unknown" on every date without ever being looked up
-  // server-side (see buildFindFixtureAvailability's own doc comment).
   const availabilityByTeamId = useMemo(() => {
     if (dates.length === 0 || availabilityRows === null) return null
     const built = buildFindFixtureAvailability(filteredActionable, dates, availabilityRows)
@@ -222,9 +259,6 @@ export default function FindFixture() {
     })
   }, [filteredActionable, sort, availabilityByTeamId])
 
-  // Section 3 found ~1,390 directory-only clubs, all one rugby code -- with no distance narrowed
-  // (the "Any" default), showing every one of them would bury the actionable results under a wall
-  // of Invite cards. Capped, with an honest count, rather than silently truncated.
   const allDirectoryOnly = useMemo(() => applyClubhouseDistanceFilter(directoryOnly, distance, origin), [directoryOnly, distance, origin])
   const filteredDirectoryOnly = allDirectoryOnly.slice(0, DIRECTORY_ONLY_CAP)
 
@@ -232,14 +266,14 @@ export default function FindFixture() {
   const preselectedOpponentClubId = params.opponentClubId ?? mapSelectedClubId
   const displayedActionable = preselectedOpponentClubId ? sortedByClearDates.filter((c) => c.clubId === preselectedOpponentClubId) : sortedByClearDates
 
-  function selectCandidate(candidate: FindFixtureCandidate, teamId2: string, chosenDate?: string) {
+  function selectCandidate(candidate: FindFixtureCandidate, targetTeamId: string, chosenDate?: string) {
     router.push({
       pathname: "/fixtures/new",
       params: {
-        teamId: teamId ?? "",
+        teamId: primaryTeamId ?? "",
         opponentDirectoryId: candidate.directoryId,
         opponentClubId: candidate.clubId ?? "",
-        targetTeamId: teamId2,
+        targetTeamId,
         date: chosenDate ?? "",
         venuePreference,
       },
@@ -247,105 +281,135 @@ export default function FindFixture() {
   }
 
   const withLocation = mode === "map" ? displayedActionable.filter((c) => c.hasLocation) : []
+  const stripDates = useMemo(() => Array.from({ length: STRIP_LENGTH }, (_, i) => shiftDays(stripAnchor, i)), [stripAnchor])
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <FindFixtureHeader title="Find a Fixture" subtitle={teamLabel} onBack={() => router.back()} insets={insets} />
+      <FindFixtureHeader onBack={() => router.back()} insets={insets} />
 
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: space.xxl }} keyboardShouldPersistTaps="handled">
-        {clubContext && !chosenTeam && (
+      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.xxl }} keyboardShouldPersistTaps="handled">
+        {/* ONE COHERENT WORKSPACE (Section 1 of the visual spec): a single warm surface carrying all
+            three numbered sections, not three separate floating cards -- the reference's own density. */}
+        <View style={{ backgroundColor: colour.surface, borderRadius: radius.lg, padding: space.lg, gap: space.lg }}>
           <View style={{ gap: space.sm }}>
-            <Text style={[type.smallMedium, { color: colour.ink }]}>Which team needs a fixture?</Text>
-            {clubTeams === null && <CardSkeleton lines={2} />}
-            {clubTeams?.length === 0 && <ClubhouseEmptyState icon={<Users size={22} color={colour.forest800} strokeWidth={2} />} title="No active sides" body="Add a side from the Team Directory first." />}
-            {!!clubTeams?.length && (
-              <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
-                {clubTeams.map((t, index) => (
-                  <Pressable
-                    key={t.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={t.fullLabel}
-                    onPress={() => setChosenTeam({ id: t.id, label: t.fullLabel, rugbyCode: t.rugbyCode })}
-                    style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 4, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: colour.line, backgroundColor: pressed ? colour.chalk : "transparent" })}
-                  >
-                    <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>{t.fullLabel}</Text>
-                    <ChevronRight size={16} color={colour.inkSubtle} />
-                  </Pressable>
-                ))}
+            <Text style={[type.smallMedium, { color: colour.ink }]}>1. Select Date(s)</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Jump to a date"
+              onPress={() => setJumpPickerOpen((v) => !v)}
+              style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 4, minHeight: 32 }}
+            >
+              <Text style={[type.smallMedium, { color: colour.ink }]}>{new Date(`${stripAnchor}T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}</Text>
+              <ChevronDown size={16} color={colour.inkMuted} />
+            </Pressable>
+            {jumpPickerOpen && <DateField label="Jump to a date" value={stripAnchor} onChange={setStripAnchor} />}
+            <View style={{ flexDirection: "row", gap: space.xs }}>
+              {stripDates.map((iso) => (
+                <DateTile key={iso} iso={iso} selected={dates.includes(iso)} onPress={() => toggleDate(iso)} />
+              ))}
+            </View>
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Previous week" onPress={() => setStripAnchor((a) => shiftDays(a, -STRIP_LENGTH))} hitSlop={8} style={{ minHeight: 32, justifyContent: "center" }}>
+                <Text style={[type.caption, { color: colour.pitch600, fontFamily: type.smallMedium.fontFamily }]}>‹ Previous week</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Next week" onPress={() => setStripAnchor((a) => shiftDays(a, STRIP_LENGTH))} hitSlop={8} style={{ minHeight: 32, justifyContent: "center" }}>
+                <Text style={[type.caption, { color: colour.pitch600, fontFamily: type.smallMedium.fontFamily }]}>Next week ›</Text>
+              </Pressable>
+            </View>
+            {dates.length > 0 && (
+              <Text style={[type.caption, { color: colour.inkMuted }]}>
+                {dates.length} date{dates.length === 1 ? "" : "s"} selected{dates.length >= MAX_DATES ? " (maximum)" : ""}
+              </Text>
+            )}
+          </View>
+
+          <View style={{ height: 1, backgroundColor: colour.line }} />
+
+          <View style={{ gap: space.sm }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={[type.smallMedium, { color: colour.ink }]}>2. Select Our Teams</Text>
+              {/* "Manage" (Section 8 of the spec): a real destination, the same Team Directory a club
+                  context already reaches from Home/More -- never a dead button invented to match the
+                  mock's own layout. Team-context viewers have no club-wide roster to manage, so it is
+                  never shown there. */}
+              {clubContext && (
+                <Pressable accessibilityRole="link" accessibilityLabel="Manage teams" onPress={() => router.push("/club/teams" as never)} hitSlop={8}>
+                  <Text style={[type.caption, { color: colour.pitch600, fontFamily: type.smallMedium.fontFamily }]}>Manage</Text>
+                </Pressable>
+              )}
+            </View>
+
+            {clubContext && clubTeams === null && <CardSkeleton lines={2} />}
+            {clubContext && clubTeams?.length === 0 && <ClubhouseEmptyState icon={<Users size={22} color={colour.forest800} strokeWidth={2} />} title="No active sides" body="Add a side from the Team Directory first." />}
+
+            {clubContext &&
+              !!clubTeams?.length &&
+              clubTeams.map((t, index) => (
+                <TeamSelectRow key={t.id} team={t} selected={selectedClubTeamIds.includes(t.id)} isFirst={index === 0} onPress={() => toggleTeam(t.id)} />
+              ))}
+
+            {/* A team-context viewer has exactly one legitimate team -- shown, locked, never a
+                pointless one-row "selector" pretending a choice exists where none does. */}
+            {!clubContext && active?.kind === "team" && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: space.md, minHeight: TOUCH_TARGET + 8, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.chalk }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colour.mint100, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={[type.caption, { color: colour.forest800, fontFamily: type.smallMedium.fontFamily }]}>{contextTeamRugbyCode === "league" ? "RL" : "RU"}</Text>
+                </View>
+                <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]} numberOfLines={1}>
+                  {active.label}
+                </Text>
+                <View style={{ width: 26, height: 26, borderRadius: radius.sm, backgroundColor: colour.pitch600, alignItems: "center", justifyContent: "center" }}>
+                  <Check size={16} color={colour.onForest} strokeWidth={2.8} />
+                </View>
               </View>
             )}
           </View>
-        )}
 
-        {teamId && (
-          <>
-            {/* THE SEARCH CRITERIA CARD (Section 6 of the visual blueprint): one premium white card
-                anchored by which team is actually searching, rather than criteria loose on the chalk
-                page -- the reference's own composition. "Search for Clubs" is a real, honest primary
-                action even though results already load as soon as a team is chosen (Section 6's
-                original, still-correct behaviour); pressing it simply re-runs the same search, so nei-
-                ther path can ever disagree about what "search" means here. */}
-            <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.lg, gap: space.md }}>
-              <View style={{ gap: 2 }}>
-                <Text style={[type.caption, { color: colour.inkMuted }]}>Our Team</Text>
-                <Text style={[type.smallMedium, { color: colour.ink }]}>{teamLabel ?? "—"}</Text>
-              </View>
-              <View style={{ gap: space.xs }}>
-                <Text style={[type.caption, { color: colour.inkMuted }]}>When (Up to 6 Dates, Optional)</Text>
-                {dates.length > 0 && (
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
-                    {dates.map((d) => (
-                      <Pressable
-                        key={d}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Remove ${shortDate(d)}`}
-                        onPress={() => setDates(dates.filter((x) => x !== d))}
-                        style={{ minHeight: 34, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colour.forest800, backgroundColor: colour.forest800, flexDirection: "row", alignItems: "center", gap: space.xs, justifyContent: "center" }}
-                      >
-                        <Text style={[type.caption, { color: colour.onForest }]}>{shortDate(d)} ✕</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-                {dates.length < 6 && (
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
-                    <QuickDateButton label="Next Saturday" onPress={() => setDates(dedupeDates([...dates, ...nextWeekdayDates(todayIso(), 6, 1)]))} />
-                    <QuickDateButton label="Next 3 Saturdays" onPress={() => setDates(dedupeDates(nextWeekdayDates(todayIso(), 6, 3)))} />
-                    <QuickDateButton label="Next 4 Sundays" onPress={() => setDates(dedupeDates(nextWeekdayDates(todayIso(), 7, 4)))} />
-                  </View>
-                )}
-                {dates.length < 6 && (
-                  <DateField
-                    label="Add a specific date"
-                    value={pendingDate}
-                    onChange={(v) => {
-                      setPendingDate(v)
-                      setDates((prev) => dedupeDates([...prev, v]))
-                    }}
-                  />
-                )}
-              </View>
-              <View style={{ gap: space.xs }}>
-                <Text style={[type.caption, { color: colour.inkMuted }]}>Where</Text>
-                <ChoiceField
-                  label="Home, away or either"
-                  value={venuePreference}
-                  onChange={setVenuePreference}
-                  options={[
-                    { value: "home", label: "Home" },
-                    { value: "away", label: "Away" },
-                    { value: "either", label: "Either" },
-                  ]}
-                />
-              </View>
-              <View style={{ gap: space.xs }}>
-                <Text style={[type.caption, { color: colour.inkMuted }]}>Distance</Text>
-                <DistanceChips distance={distance} onChange={setDistance} />
-              </View>
-              <Button label="Search for Clubs" onPress={() => void load()} />
+          <View style={{ height: 1, backgroundColor: colour.line }} />
+
+          <View style={{ gap: space.sm }}>
+            <Text style={[type.smallMedium, { color: colour.ink }]}>3. Match Preferences</Text>
+            <VenueSegmentedControl value={venuePreference} onChange={setVenuePreference} />
+          </View>
+
+          <Pressable accessibilityRole="button" accessibilityLabel="More filters" onPress={() => setMoreFiltersOpen((v) => !v)} style={{ flexDirection: "row", alignItems: "center", gap: space.xs, minHeight: 32 }}>
+            <SlidersHorizontal size={14} color={colour.inkMuted} />
+            <Text style={[type.caption, { color: colour.inkMuted }]}>{moreFiltersOpen ? "Hide filters" : "More filters"}</Text>
+          </Pressable>
+          {moreFiltersOpen && (
+            <View style={{ gap: space.xs }}>
+              <Text style={[type.caption, { color: colour.inkMuted }]}>Distance</Text>
+              <DistanceChips distance={distance} onChange={setDistance} />
             </View>
+          )}
 
-            {error && <ErrorState message={error} onRetry={() => void load()} />}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Search for Compatible Clubs"
+            disabled={!canSearch}
+            onPress={() => void runSearch()}
+            style={({ pressed }) => ({
+              minHeight: TOUCH_TARGET + 8,
+              borderRadius: radius.lg,
+              backgroundColor: colour.pitch600,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: !canSearch ? 0.4 : pressed ? 0.88 : 1,
+            })}
+          >
+            <Text style={[type.bodyMedium, { color: colour.onForest, fontSize: 16 }]}>Search for Compatible Clubs</Text>
+          </Pressable>
+          {/* INLINE, NEVER AN ALERT (Section 13): ordinary incomplete state explains itself quietly. */}
+          {!canSearch && (
+            <Text style={[type.caption, { color: colour.inkMuted, textAlign: "center" }]}>
+              {criteria.teamIds.length === 0 ? "Select at least one team to search for." : "Select at least one date to search for."}
+            </Text>
+          )}
+        </View>
+
+        {searched && (
+          <>
+            {error && <ErrorState message={error} onRetry={() => void runSearch()} />}
 
             {!error && markers === null && (
               <View style={{ gap: space.md }}>
@@ -444,11 +508,9 @@ export default function FindFixture() {
                   </View>
                 )}
 
-                {/* SECTIONS 15/16 (Section 6 of the visual blueprint): a QUIET secondary link, not a
-                    second prominent card competing with the search above -- "we can't find anyone" and
-                    "somebody is looking for us" are the same job as this whole screen, from the other
-                    direction, so it earns a mention here rather than a fifth Clubhouse Home tile
-                    (owner's own product judgement), but never louder than the primary search itself. */}
+                {/* SECTIONS 15/16: a QUIET secondary link, not a second prominent card competing with
+                    the search above -- "we can't find anyone" and "somebody is looking for us" are the
+                    same job as this whole screen, from the other direction. */}
                 <View style={{ marginTop: space.md, alignItems: "center", gap: space.xs }}>
                   <Text style={[type.caption, { color: colour.inkMuted, textAlign: "center" }]}>Looking for opposition?</Text>
                   <View style={{ flexDirection: "row", gap: space.md }}>
@@ -466,6 +528,121 @@ export default function FindFixture() {
           </>
         )}
       </ScrollView>
+    </View>
+  )
+}
+
+/**
+ * ONE DATE TILE in the strip (Section 3 of the spec): strong pitch-green fill when selected -- every
+ * selected date gets the same treatment, since multi-date selection is real here, never just the
+ * single most-recently-tapped one.
+ */
+function DateTile({ iso, selected, onPress }: { iso: string; selected: boolean; onPress: () => void }) {
+  const date = new Date(`${iso}T00:00:00`)
+  const weekday = date.toLocaleDateString("en-GB", { weekday: "short" })
+  const day = date.getDate()
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${shortDate(iso)}${selected ? ", selected" : ""}`}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flex: 1,
+        minHeight: TOUCH_TARGET + 6,
+        borderRadius: radius.md,
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 2,
+        backgroundColor: selected ? colour.pitch600 : colour.chalk,
+        borderWidth: 1,
+        borderColor: selected ? colour.pitch600 : colour.line,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <Text style={[type.caption, { color: selected ? colour.onForest : colour.inkMuted }]}>{weekday}</Text>
+      <Text style={[type.smallMedium, { color: selected ? colour.onForest : colour.ink }]}>{day}</Text>
+    </Pressable>
+  )
+}
+
+/**
+ * ONE MULTI-SELECT TEAM ROW (Section 5/6/9 of the spec): the whole row is the touch target, not a tiny
+ * checkbox -- a real age-grade/gender badge (no separate per-team crest exists; the club's own identity
+ * is already the hero above), the team's real full label, its real category, and a large check square.
+ */
+function TeamSelectRow({ team, selected, isFirst, onPress }: { team: ClubTeam; selected: boolean; isFirst: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: selected }}
+      accessibilityLabel={`${team.fullLabel}, ${teamCategoryLabel(team)}`}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.md,
+        minHeight: TOUCH_TARGET + 12,
+        paddingVertical: space.xs,
+        borderTopWidth: isFirst ? 0 : 1,
+        borderTopColor: colour.line,
+        backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent",
+      })}
+    >
+      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colour.mint100, alignItems: "center", justifyContent: "center" }}>
+        <Text style={[type.caption, { color: colour.forest800, fontFamily: type.smallMedium.fontFamily }]}>{team.ageGroup ?? (team.gender === "womens" ? "W" : team.gender === "mens" ? "M" : "•")}</Text>
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
+          {team.fullLabel}
+        </Text>
+        <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>
+          {teamCategoryLabel(team)}
+        </Text>
+      </View>
+      <View
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: radius.sm,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: selected ? colour.pitch600 : colour.surface,
+          borderWidth: selected ? 0 : 1.5,
+          borderColor: colour.lineStrong,
+        }}
+      >
+        {selected && <Check size={16} color={colour.onForest} strokeWidth={2.8} />}
+      </View>
+    </Pressable>
+  )
+}
+
+/** Either | Home | Away -- one connected bar, a solid pitch-green fill for the selected segment, light
+ * neutral otherwise (Section 10 of the spec). Never a fabricated fourth option. */
+function VenueSegmentedControl({ value, onChange }: { value: FindFixtureVenuePreference; onChange: (v: FindFixtureVenuePreference) => void }) {
+  const options: { value: FindFixtureVenuePreference; label: string }[] = [
+    { value: "either", label: "Either" },
+    { value: "home", label: "Home" },
+    { value: "away", label: "Away" },
+  ]
+  return (
+    <View accessibilityRole="radiogroup" accessibilityLabel="Home, away or either" style={{ flexDirection: "row", backgroundColor: "rgba(16,21,18,0.05)", borderRadius: radius.md, padding: 3, gap: 3 }}>
+      {options.map((opt) => {
+        const selected = opt.value === value
+        return (
+          <Pressable
+            key={opt.value}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: selected }}
+            accessibilityLabel={opt.label}
+            onPress={() => onChange(opt.value)}
+            style={{ flex: 1, minHeight: TOUCH_TARGET - 8, alignItems: "center", justifyContent: "center", borderRadius: radius.sm, backgroundColor: selected ? colour.pitch600 : "transparent" }}
+          >
+            <Text style={[type.smallMedium, { color: selected ? colour.onForest : colour.ink }]}>{opt.label}</Text>
+          </Pressable>
+        )
+      })}
     </View>
   )
 }
@@ -664,19 +841,6 @@ function DirectoryOnlyCard({ marker, viewerClubId }: { marker: ClubMapMarker; vi
   )
 }
 
-function QuickDateButton({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => ({ minHeight: 34, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: pressed ? colour.chalk : colour.surface, justifyContent: "center" })}
-    >
-      <Text style={[type.caption, { color: colour.ink }]}>{label}</Text>
-    </Pressable>
-  )
-}
-
 function ModeButton({ label, icon, active, onPress }: { label: string; icon: React.ReactNode; active: boolean; onPress: () => void }) {
   return (
     <Pressable
@@ -703,9 +867,11 @@ function ModeButton({ label, icon, active, onPress }: { label: string; icon: Rea
   )
 }
 
-function FindFixtureHeader({ title, subtitle, onBack, insets }: { title: string; subtitle?: string | null; onBack: () => void; insets: { top: number } }) {
+/** Deep forest header, transitioning naturally into the warm chalk workspace below (Section 1 of the
+ * spec) -- task-focused, no giant hero on this screen. */
+function FindFixtureHeader({ onBack, insets }: { onBack: () => void; insets: { top: number } }) {
   return (
-    <View style={{ paddingTop: insets.top + space.sm, paddingBottom: space.sm, paddingHorizontal: space.md, borderBottomWidth: 1, borderBottomColor: colour.line, flexDirection: "row", alignItems: "center", gap: space.xs }}>
+    <View style={{ paddingTop: insets.top + space.sm, paddingBottom: space.md, paddingHorizontal: space.md, backgroundColor: colour.forest950, flexDirection: "row", alignItems: "center" }}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Back to Clubhouse"
@@ -714,17 +880,10 @@ function FindFixtureHeader({ title, subtitle, onBack, insets }: { title: string;
         style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
       >
         <View style={{ transform: [{ rotate: "180deg" }] }}>
-          <ChevronRight size={22} color={colour.ink} />
+          <ChevronRight size={22} color={colour.onForest} />
         </View>
       </Pressable>
-      <View style={{ flex: 1 }}>
-        <Text style={[type.title, { color: colour.ink }]}>{title}</Text>
-        {subtitle && (
-          <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>
-            {subtitle}
-          </Text>
-        )}
-      </View>
+      <Text style={[type.heading, { color: colour.onForest, flex: 1, textAlign: "center", marginRight: TOUCH_TARGET }]}>Find a Fixture</Text>
     </View>
   )
 }

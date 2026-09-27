@@ -5,9 +5,12 @@ import {
   applyFindFixturePartnerFilter,
   buildFindFixtureCandidates,
   buildClubMarkerFeatureCollection,
+  canSearchFindFixtureCriteria,
+  dedupeFindFixtureDates,
   groupCandidateTeamsByClub,
   nextWeekdayDates,
   sortFindFixtureCandidates,
+  toggleSelection,
   type ClubMapMarker,
   type FindFixtureCandidate,
 } from "../../../packages/contracts/src/clubhouse"
@@ -224,4 +227,33 @@ test("nextWeekdayDates: capped at 6, whatever count is requested", () => {
 test("nextWeekdayDates: Sunday (isoWeekday 7) is computed correctly too, not just Saturday", () => {
   // 2026-10-07 is a Wednesday; the next Sunday is 2026-10-11.
   assert.deepEqual(nextWeekdayDates("2026-10-07", 7, 1), ["2026-10-11"])
+})
+
+// ---------------------------------------------------------------------------------------------
+// FF-1 (Find a Fixture Home, mock-up reconciliation): the shared search-session model's own pure
+// logic -- multi-team/multi-date selection, and the CTA's own validation rule.
+// ---------------------------------------------------------------------------------------------
+
+test("toggleSelection: adds a value not yet present, and removes it if it already is -- one team can be selected, then another, then the first deselected", () => {
+  let ids: string[] = []
+  ids = toggleSelection(ids, "team-1")
+  assert.deepEqual(ids, ["team-1"], "one team can be selected")
+  ids = toggleSelection(ids, "team-2")
+  assert.deepEqual(ids, ["team-1", "team-2"], "multiple teams can be selected")
+  ids = toggleSelection(ids, "team-1")
+  assert.deepEqual(ids, ["team-2"], "team deselection works, leaving the other selected team intact")
+})
+
+test("dedupeFindFixtureDates: sorted, deduplicated, and capped at 6 -- the exact bound find_fixture_candidate_availability enforces server-side", () => {
+  assert.deepEqual(dedupeFindFixtureDates(["2026-10-17", "2026-10-10", "2026-10-10"]), ["2026-10-10", "2026-10-17"], "multiple selected dates persist, deduplicated and sorted")
+  const many = ["2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09"]
+  assert.equal(dedupeFindFixtureDates(many).length, 6, "never more than 6 dates, whatever was selected")
+})
+
+test("canSearchFindFixtureCriteria: the CTA cannot proceed without at least one selected date AND at least one selected team", () => {
+  assert.equal(canSearchFindFixtureCriteria({ teamIds: [], dates: [] }), false, "neither a team nor a date selected")
+  assert.equal(canSearchFindFixtureCriteria({ teamIds: ["team-1"], dates: [] }), false, "the CTA cannot proceed without a date, even with a real team selected")
+  assert.equal(canSearchFindFixtureCriteria({ teamIds: [], dates: ["2026-10-10"] }), false, "the CTA cannot proceed without a team, even with a real date selected")
+  assert.equal(canSearchFindFixtureCriteria({ teamIds: ["team-1"], dates: ["2026-10-10"] }), true, "valid criteria (>=1 team, >=1 date) hands off correctly")
+  assert.equal(canSearchFindFixtureCriteria({ teamIds: ["team-1", "team-2"], dates: ["2026-10-10"] }), true, "multiple selected teams still hand off correctly")
 })
