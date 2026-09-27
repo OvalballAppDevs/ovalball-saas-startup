@@ -2,6 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 
 import {
+  applyFindFixtureNetworkFilter,
   applyFindFixturePartnerFilter,
   buildFindFixtureCandidates,
   buildFindFixtureMatches,
@@ -211,6 +212,59 @@ test("applyFindFixturePartnerFilter 'partners' keeps only ACTIVE partnerships, m
 test("applyFindFixturePartnerFilter 'all' is a no-op", () => {
   const candidates = [candidate({ partnershipStatus: "active" }), candidate({ partnershipStatus: "none" })]
   assert.equal(applyFindFixturePartnerFilter(candidates, "all").length, 2)
+})
+
+// ---------------------------------------------------------------------------------------------
+// applyFindFixtureNetworkFilter -- FF-3's four real network filter chips (visual-lock Job 1)
+// ---------------------------------------------------------------------------------------------
+
+function networkFixture() {
+  return {
+    actionable: [
+      candidate({ name: "Partner RFC", partnershipStatus: "active" }),
+      candidate({ name: "None RFC", partnershipStatus: "none" }),
+      candidate({ name: "Pending Out RFC", partnershipStatus: "pending_outgoing" }),
+      candidate({ name: "Pending In RFC", partnershipStatus: "pending_incoming" }),
+      candidate({ name: "Unknown RFC", partnershipStatus: "unknown" }),
+    ],
+    directoryOnly: [marker({ clubId: null, name: "Not On Ovalball RFC", networkState: "not_on_ovalball" })],
+  }
+}
+
+test("applyFindFixtureNetworkFilter 'all' keeps every actionable candidate AND every directory-only club -- the full legitimate population", () => {
+  const result = applyFindFixtureNetworkFilter(networkFixture(), "all")
+  assert.equal(result.actionable.length, 5)
+  assert.equal(result.directoryOnly.length, 1)
+})
+
+test("applyFindFixtureNetworkFilter 'partners' keeps only an ACTIVE partnership, and drops directory-only entirely", () => {
+  const result = applyFindFixtureNetworkFilter(networkFixture(), "partners")
+  assert.deepEqual(result.actionable.map((c) => c.name), ["Partner RFC"])
+  assert.equal(result.directoryOnly.length, 0)
+})
+
+test("applyFindFixtureNetworkFilter 'not_yet_partnered' keeps none/pending_outgoing/pending_incoming/unknown -- UNKNOWN is never silently dropped or treated as already partnered", () => {
+  const result = applyFindFixtureNetworkFilter(networkFixture(), "not_yet_partnered")
+  assert.deepEqual(
+    result.actionable.map((c) => c.name).sort(),
+    ["None RFC", "Pending In RFC", "Pending Out RFC", "Unknown RFC"].sort()
+  )
+  assert.ok(result.actionable.some((c) => c.partnershipStatus === "unknown"), "unknown partnership status survives this filter, never collapsed into 'none'")
+  assert.equal(result.directoryOnly.length, 0)
+})
+
+test("applyFindFixtureNetworkFilter 'not_on_ovalball' returns ONLY the existing directory-only population, never fabricating one from actionable candidates", () => {
+  const result = applyFindFixtureNetworkFilter(networkFixture(), "not_on_ovalball")
+  assert.equal(result.actionable.length, 0)
+  assert.deepEqual(result.directoryOnly.map((m) => m.name), ["Not On Ovalball RFC"])
+})
+
+test("applyFindFixtureNetworkFilter never mutates the arrays it was given", () => {
+  const fixture = networkFixture()
+  const before = { actionable: fixture.actionable.length, directoryOnly: fixture.directoryOnly.length }
+  applyFindFixtureNetworkFilter(fixture, "partners")
+  assert.equal(fixture.actionable.length, before.actionable)
+  assert.equal(fixture.directoryOnly.length, before.directoryOnly)
 })
 
 // ---------------------------------------------------------------------------------------------

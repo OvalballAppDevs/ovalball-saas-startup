@@ -4,16 +4,19 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import {
+  applyFindFixtureNetworkFilter,
   distanceMiles,
   findFixtureClubWeekLabel,
   findFixtureResultCountLabel,
   sortFindFixtureMatches,
   toSortSummary,
   type CandidateAvailabilityBatchRow,
+  type ClubMapMarker,
   type FindFixtureCandidateMatch,
   type FindFixtureClubAvailabilitySummary,
   type FindFixtureCriteria,
   type FindFixtureMatchResult,
+  type FindFixtureNetworkFilter,
   type FindFixtureResultSort,
   type GameWeekCommitmentRow,
 } from "@ovalball/contracts/clubhouse"
@@ -108,6 +111,17 @@ export default function FindFixtureResults() {
   const sortSummaries = useMemo(() => new Map([...summaries.entries()].map(([clubId, s]) => [clubId, toSortSummary(s)])), [summaries])
   const candidates = useMemo(() => sortFindFixtureMatches(matches.actionable, sort, origin, sortSummaries), [matches.actionable, sort, origin, sortSummaries])
 
+  // FF-3 NETWORK FILTER (visual-lock Job 1): the same real actionable/directoryOnly population FF-2
+  // already computed, never a second query. "Not on Ovalball" reuses `matches.directoryOnly` as-is --
+  // already same-rugby-code and distance-filtered, exactly like the actionable list beside it.
+  const [networkFilter, setNetworkFilter] = useState<FindFixtureNetworkFilter>("all")
+  const filtered = useMemo(
+    () => applyFindFixtureNetworkFilter({ actionable: candidates, directoryOnly: matches.directoryOnly }, networkFilter),
+    [candidates, matches.directoryOnly, networkFilter]
+  )
+  const directoryOnlySorted = useMemo(() => sortDirectoryOnlyByDistance(filtered.directoryOnly, origin), [filtered.directoryOnly, origin])
+  const totalVisible = filtered.actionable.length + directoryOnlySorted.length
+
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
       <View style={{ paddingTop: insets.top + space.sm, paddingBottom: space.md, paddingHorizontal: space.md, backgroundColor: colour.forest950, flexDirection: "row", alignItems: "center" }}>
@@ -127,7 +141,7 @@ export default function FindFixtureResults() {
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: space.md, paddingTop: space.md, paddingBottom: insets.bottom + space.xl, gap: space.sm }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: space.xs, paddingBottom: 2 }}>
-          <Text style={[type.smallMedium, { color: colour.ink }]}>{findFixtureResultCountLabel(candidates.length)} available</Text>
+          <Text style={[type.smallMedium, { color: colour.ink }]}>{findFixtureResultCountLabel(totalVisible)} available</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Sorted by ${SORTS.find((s) => s.value === sort)!.label}. Change sort order`}
@@ -139,12 +153,14 @@ export default function FindFixtureResults() {
           </Pressable>
         </View>
 
-        {candidates.length === 0 && (
+        <NetworkFilterRow value={networkFilter} onChange={setNetworkFilter} />
+
+        {totalVisible === 0 && (
           <View style={{ gap: space.md, marginTop: space.md }}>
             <ClubhouseEmptyState
               icon={<Search size={22} color={colour.forest800} strokeWidth={2} />}
               title="No matching clubs yet"
-              body="We couldn't find an Ovalball club matching these teams and dates."
+              body={networkFilter === "all" ? "We couldn't find an Ovalball club matching these teams and dates." : "No clubs match this filter for the current search."}
               action={{ label: "Edit Search", onPress: () => router.back() }}
             />
             <Pressable
@@ -159,7 +175,7 @@ export default function FindFixtureResults() {
           </View>
         )}
 
-        {candidates.map((candidate) => (
+        {filtered.actionable.map((candidate) => (
           <ResultCard
             key={candidate.directoryId}
             candidate={candidate}
@@ -177,13 +193,71 @@ export default function FindFixtureResults() {
                   ffTeamLabels: params.teamLabels ?? "[]",
                   ffAvailability: params.availability ?? "[]",
                   ffWeekRows: params.weekRows ?? "[]",
+                  ffTeamIds: JSON.stringify(criteria.teamIds),
+                  ffVenuePreference: criteria.venuePreference,
                 },
               } as never)
             }
           />
         ))}
+
+        {directoryOnlySorted.map((club) => (
+          <DirectoryOnlyResultCard key={club.directoryId} club={club} origin={origin} onPress={() => router.push({ pathname: "/clubhouse/club/[directoryId]", params: { directoryId: club.directoryId } } as never)} />
+        ))}
       </ScrollView>
     </View>
+  )
+}
+
+/** No compatibility/availability data exists for a directory-only club, so it is always ordered by the
+ * one factual thing that IS known about it -- distance -- never by the actionable list's own sort. */
+function sortDirectoryOnlyByDistance(clubs: readonly ClubMapMarker[], origin: { latitude: number | null; longitude: number | null } | null): ClubMapMarker[] {
+  return [...clubs].sort((a, b) => {
+    const da = origin && a.hasLocation ? distanceMiles(origin, a) : null
+    const db = origin && b.hasLocation ? distanceMiles(origin, b) : null
+    if (da === null && db === null) return a.name.localeCompare(b.name)
+    if (da === null) return 1
+    if (db === null) return -1
+    return da - db
+  })
+}
+
+const NETWORK_FILTERS: { value: FindFixtureNetworkFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "partners", label: "Partners" },
+  { value: "not_yet_partnered", label: "Not Yet Partnered" },
+  { value: "not_on_ovalball", label: "Not on Ovalball" },
+]
+
+/** FF-3's own compact chip row (visual-lock Job 1) -- never a full-screen filter panel, results update
+ * the instant a chip is pressed. */
+function NetworkFilterRow({ value, onChange }: { value: FindFixtureNetworkFilter; onChange: (next: FindFixtureNetworkFilter) => void }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: "row", gap: space.xs, paddingHorizontal: space.xs, paddingBottom: space.xs }}>
+      {NETWORK_FILTERS.map((f) => {
+        const on = value === f.value
+        return (
+          <Pressable
+            key={f.value}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={f.label}
+            onPress={() => onChange(f.value)}
+            style={{
+              minHeight: 34,
+              paddingHorizontal: space.md,
+              borderRadius: radius.pill,
+              justifyContent: "center",
+              backgroundColor: on ? colour.forest800 : colour.surface,
+              borderWidth: on ? 0 : 1,
+              borderColor: colour.lineStrong,
+            }}
+          >
+            <Text style={[type.caption, { color: on ? colour.onForest : colour.ink, fontFamily: on ? type.smallMedium.fontFamily : type.caption.fontFamily }]}>{f.label}</Text>
+          </Pressable>
+        )
+      })}
+    </ScrollView>
   )
 }
 
@@ -252,6 +326,9 @@ function ResultCard({
               {candidate.name}
             </Text>
             {candidate.partnershipStatus === "active" && <NetworkPill marker={candidate} />}
+            {candidate.partnershipStatus === "pending_incoming" && <StatusPill label="Wants to partner" tone="caution" />}
+            {candidate.partnershipStatus === "pending_outgoing" && <StatusPill label="Request sent" tone="neutral" />}
+            {candidate.partnershipStatus === "unknown" && <StatusPill label="Relationship unknown" tone="neutral" />}
           </View>
           <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>
             {miles !== null ? `${Math.round(miles)} miles away` : "Distance unavailable"} · {teamCountLabel}
@@ -267,6 +344,41 @@ function ResultCard({
         {extra > 0 && <StatusPill label={`+${extra} more`} tone="neutral" />}
         <View style={{ flex: 1 }} />
         <StatusPill label={pillLabel} tone={pillTone(summary)} />
+      </View>
+    </Pressable>
+  )
+}
+
+/**
+ * "NOT ON OVALBALL" (visual-lock Job 1): a genuinely distinct card, never a greyed-out copy of
+ * ResultCard -- no compatible-team chips (there is no canonical roster to compare against), no
+ * availability pill (nothing here is a scheduling claim), no fixture-request affordance at all.
+ * Tapping still opens the same converged club profile route, whose directory-only body already
+ * carries the real "Invite to Ovalball" action -- never a second one built here.
+ */
+function DirectoryOnlyResultCard({ club, origin, onPress }: { club: ClubMapMarker; origin: { latitude: number | null; longitude: number | null } | null; onPress: () => void }) {
+  const miles = origin && club.hasLocation ? distanceMiles(origin, club) : null
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${club.name}. Not on Ovalball yet.`}
+      onPress={onPress}
+      style={({ pressed }) => ({ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.sm, gap: 6, opacity: pressed ? 0.92 : 1 })}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+        <ClubCrest url={club.logoUrl} size={40} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
+            <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink, flexShrink: 1 }]}>
+              {club.name}
+            </Text>
+            <StatusPill label="Not on Ovalball" tone="neutral" />
+          </View>
+          <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>
+            {miles !== null ? `${Math.round(miles)} miles away` : "Distance unavailable"} · From the Club Directory
+          </Text>
+        </View>
+        <ChevronRight size={16} color={colour.inkSubtle} />
       </View>
     </Pressable>
   )

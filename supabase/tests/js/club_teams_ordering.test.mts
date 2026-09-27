@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 
-import { sortTeamsInRugbyAgeOrder } from "../../../packages/contracts/src/club/teams"
+import { sortTeamsInRugbyAgeOrder, summariseClubAgeGroups } from "../../../packages/contracts/src/club/teams"
 
 /**
  * FIND A FIXTURE FF-1.1: "rugby-natural age order" pinned directly, because a plain lexical/alphabetical
@@ -84,4 +84,39 @@ test("sortTeamsInRugbyAgeOrder: reproduces the reported UAT roster's shape end t
     "both senior sides occupy the first two places, ahead of every age grade"
   )
   assert.deepEqual(sorted.slice(2), ["Under 16 Boys", "Under 12 Boys", "Under 10 Mixed", "Under 8 Mixed", "Under 8 Mixed B", "Under 7 Mixed"], "age grades oldest-to-youngest, Mixed ahead of its own Mixed B")
+})
+
+// ---------------------------------------------------------------------------------------------
+// summariseClubAgeGroups -- the Public Club Profile's own age-range metric (visual-lock, Section 9)
+// ---------------------------------------------------------------------------------------------
+
+test("summariseClubAgeGroups: a full run from U7 to U16 reads 'U7 – U16'", () => {
+  const teams = [{ ageGroup: "U7" }, { ageGroup: "U8" }, { ageGroup: "U10" }, { ageGroup: "U12" }, { ageGroup: "U16" }]
+  assert.equal(summariseClubAgeGroups(teams), "U7 – U16")
+})
+
+test("summariseClubAgeGroups: exactly one age grade reads just that grade, not a degenerate range", () => {
+  assert.equal(summariseClubAgeGroups([{ ageGroup: "U16" }]), "U16")
+})
+
+test("summariseClubAgeGroups: a senior-only roster (no ageGroup at all) is null, never a fabricated range", () => {
+  assert.equal(summariseClubAgeGroups([{ ageGroup: null }, { ageGroup: null }]), null)
+})
+
+test("summariseClubAgeGroups: senior sides alongside one age grade still reads just that age grade -- senior rows never enter the range", () => {
+  assert.equal(summariseClubAgeGroups([{ ageGroup: null }, { ageGroup: null }, { ageGroup: "U16" }]), "U16")
+})
+
+test("summariseClubAgeGroups: unordered input gives the same answer as sorted input", () => {
+  const teams = [{ ageGroup: "U12" }, { ageGroup: "U7" }, { ageGroup: "U16" }, { ageGroup: "U10" }]
+  assert.equal(summariseClubAgeGroups(teams), "U7 – U16")
+})
+
+test("summariseClubAgeGroups: duplicate age grades (a Boys and a Girls side at the same age) don't widen the range", () => {
+  const teams = [{ ageGroup: "U12" }, { ageGroup: "U12" }, { ageGroup: "U14" }, { ageGroup: "U14" }]
+  assert.equal(summariseClubAgeGroups(teams), "U12 – U14")
+})
+
+test("summariseClubAgeGroups: an empty roster is null", () => {
+  assert.equal(summariseClubAgeGroups([]), null)
 })

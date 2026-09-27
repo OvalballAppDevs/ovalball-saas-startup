@@ -154,6 +154,29 @@ export function applyFindFixturePartnerFilter(candidates: readonly FindFixtureCa
   return applyClubhouseFilter([...candidates], filter, null) as FindFixtureCandidate[]
 }
 
+/**
+ * FF-3'S OWN NETWORK FILTER (visual-lock, Job 1): the four real distinctions the result list can make
+ * about a club, never a fabricated fifth. "Not Yet Partnered" is every on-Ovalball candidate that is
+ * NOT an active partner -- `none`, `pending_outgoing`, `pending_incoming` AND `unknown` all belong here,
+ * because all four are equally "not yet an active partnership"; the point of the filter is which clubs
+ * you could still go and partner with, not which ones happen to have a fully-resolved relationship row.
+ * The card itself is what must keep `unknown` visually distinct from `none` -- this filter only decides
+ * inclusion, never presentation. "Not on Ovalball" reuses the exact `directoryOnly` population FF-2/FF-3
+ * already computed (`buildFindFixtureMatches`'s own same-rugby-code, distance-filtered rows) -- never a
+ * second directory query invented for the filter chip.
+ */
+export type FindFixtureNetworkFilter = "all" | "partners" | "not_yet_partnered" | "not_on_ovalball"
+
+export function applyFindFixtureNetworkFilter<TCandidate extends { partnershipStatus: ClubMapMarker["partnershipStatus"] }, TDirectory>(
+  result: { actionable: readonly TCandidate[]; directoryOnly: readonly TDirectory[] },
+  filter: FindFixtureNetworkFilter
+): { actionable: TCandidate[]; directoryOnly: TDirectory[] } {
+  if (filter === "partners") return { actionable: result.actionable.filter((c) => c.partnershipStatus === "active"), directoryOnly: [] }
+  if (filter === "not_yet_partnered") return { actionable: result.actionable.filter((c) => c.partnershipStatus !== "active"), directoryOnly: [] }
+  if (filter === "not_on_ovalball") return { actionable: [], directoryOnly: [...result.directoryOnly] }
+  return { actionable: [...result.actionable], directoryOnly: [...result.directoryOnly] }
+}
+
 type CandidateTeamBatchRow = CandidateTeamRow & { my_team_id: string }
 
 /** A candidate carrying which of the caller's OWN selected teams are compatible with it -- the real
