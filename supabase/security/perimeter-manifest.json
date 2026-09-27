@@ -5213,6 +5213,14 @@
         ]
       },
       {
+        "signature": "find_fixture_candidate_game_week_batch(uuid[], date[])",
+        "category": "APPLICATION_RPC",
+        "note": "Find a Fixture game-week awareness: for every one of the caller's selected teams, every real fixture/competition-match commitment (never training/events/pending requests -- narrower sources than the exact-date function) any compatible PARTNER opposition team has anywhere in the Monday-Sunday game week(s) spanning the requested dates (a wider date range than the exact-date function). Same per-team authority check, checked individually, never widened. A companion to find_fixture_candidate_availability_batch, never a second availability engine.",
+        "consumers": [
+          "packages/contracts/src/clubhouse/find-fixture.ts"
+        ]
+      },
+      {
         "signature": "find_fixture_opportunities(uuid)",
         "category": "APPLICATION_RPC",
         "note": "Clubhouse Section 16 (20270560000000): the viewer's own team's live Looking for Opposition listings plus every other genuinely open, compatible one, one round trip. Re-derives compatibility/authority itself (SECURITY DEFINER bypasses RLS). Returns raw club_directory location facts for the OTHER club (never its venue); distance/partnership resolution stays client-side (resolveClubLocation/distanceMiles/resolvePartnershipStatus), never a second calculation here.",
@@ -8818,6 +8826,7 @@
       "fail_directory_verification_run(uuid, text)",
       "find_fixture_candidate_availability(uuid, date[])",
       "find_fixture_candidate_availability_batch(uuid[], date[])",
+      "find_fixture_candidate_game_week_batch(uuid[], date[])",
       "find_fixture_candidate_teams(uuid)",
       "find_fixture_candidate_teams_batch(uuid[])",
       "find_fixture_opportunities(uuid)",

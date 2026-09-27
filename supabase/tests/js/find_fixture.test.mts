@@ -9,9 +9,13 @@ import {
   canSearchFindFixtureCriteria,
   dedupeFindFixtureDates,
   findFixtureAvailabilitySummaryLabel,
+  findFixtureClubWeekLabel,
   findFixtureDateClause,
   findFixtureMatchingCopy,
   findFixtureResultCountLabel,
+  findFixtureWeekLabel,
+  gameWeekRange,
+  gameWeekRangesForDates,
   groupBatchCandidateTeamsByClub,
   groupCandidateTeamsByClub,
   matchedTeamCountLabel,
@@ -19,7 +23,10 @@ import {
   sortFindFixtureCandidates,
   sortFindFixtureMatches,
   summariseFindFixtureClubAvailability,
+  summariseFindFixtureClubWeek,
+  summariseFindFixtureTeamWeek,
   toggleSelection,
+  toSortSummary,
   type ClubMapMarker,
   type FindFixtureCandidate,
   type FindFixtureCandidateMatch,
@@ -392,8 +399,8 @@ test("sortFindFixtureMatches 'best_match': the club matching MORE of the caller'
   const far = candidateMatch({ clubId: "club-far", name: "Far Club", latitude: 54.5, longitude: -3.5, hasLocation: true, matchedTeamIds: ["my-1", "my-2"] })
   const origin = { latitude: 53.77, longitude: -2.7 }
   const summaries = new Map([
-    ["club-near", { matchedCount: 1, totalSelected: 2, noKnownClashCount: 1, busyCount: 0, tentativeCount: 0, unknownCount: 0 }],
-    ["club-far", { matchedCount: 2, totalSelected: 2, noKnownClashCount: 2, busyCount: 0, tentativeCount: 0, unknownCount: 0 }],
+    ["club-near", toSortSummary({ matchedCount: 1, noKnownClashCount: 1 })],
+    ["club-far", toSortSummary({ matchedCount: 2, noKnownClashCount: 2 })],
   ])
   const sorted = sortFindFixtureMatches([near, far], "best_match", origin, summaries)
   assert.deepEqual(sorted.map((c) => c.clubId), ["club-far", "club-near"])
@@ -403,8 +410,8 @@ test("sortFindFixtureMatches 'most_clear': ranked by clear-availability coverage
   const a = candidateMatch({ clubId: "club-a", name: "A" })
   const b = candidateMatch({ clubId: "club-b", name: "B" })
   const summaries = new Map([
-    ["club-a", { matchedCount: 1, totalSelected: 1, noKnownClashCount: 0, busyCount: 1, tentativeCount: 0, unknownCount: 0 }],
-    ["club-b", { matchedCount: 1, totalSelected: 1, noKnownClashCount: 1, busyCount: 0, tentativeCount: 0, unknownCount: 0 }],
+    ["club-a", toSortSummary({ matchedCount: 1, noKnownClashCount: 0 })],
+    ["club-b", toSortSummary({ matchedCount: 1, noKnownClashCount: 1 })],
   ])
   const sorted = sortFindFixtureMatches([a, b], "most_clear", null, summaries)
   assert.deepEqual(sorted.map((c) => c.clubId), ["club-b", "club-a"])
@@ -416,4 +423,91 @@ test("sortFindFixtureMatches 'nearest': delegates to the same distance rule ever
   const origin = { latitude: 53.77, longitude: -2.7 }
   const sorted = sortFindFixtureMatches([unknown, known], "nearest", origin, new Map())
   assert.deepEqual(sorted.map((c) => c.clubId), ["club-known", "club-unknown"])
+})
+
+// ---------------------------------------------------------------------------------------------
+// GAME WEEK (visual-lock Section A5-A13): Monday-Sunday boundaries, per-team and per-club week-aware
+// summaries. The canonical busy/cancelled/source-narrowing RULE lives entirely server-side and is
+// proven by supabase/tests/find_fixture_game_week.sql -- these assertions cover the arithmetic this
+// module adds on top: rolling a game-week row set into an honest per-team and per-club picture.
+// ---------------------------------------------------------------------------------------------
+
+test("gameWeekRange: a selected Sunday's game week is the PRECEDING Monday through that same Sunday -- never Sunday-to-Saturday", () => {
+  assert.deepEqual(gameWeekRange("2026-10-11"), { start: "2026-10-05", end: "2026-10-11" })
+})
+
+test("gameWeekRange: a selected Friday is in the SAME game week as the Sunday that follows it", () => {
+  const friday = gameWeekRange("2026-10-09")
+  const sunday = gameWeekRange("2026-10-11")
+  assert.deepEqual(friday, sunday)
+})
+
+test("gameWeekRange: a selected Monday's own game week starts on itself", () => {
+  assert.deepEqual(gameWeekRange("2026-10-05"), { start: "2026-10-05", end: "2026-10-11" })
+})
+
+test("gameWeekRangesForDates: two dates in the same week collapse to one range; two dates in different weeks give two, sorted", () => {
+  assert.equal(gameWeekRangesForDates(["2026-10-09", "2026-10-11"]).length, 1)
+  const ranges = gameWeekRangesForDates(["2026-10-11", "2026-10-05"])
+  assert.equal(ranges.length, 1)
+  const spanning = gameWeekRangesForDates(["2026-10-11", "2026-10-19"])
+  assert.equal(spanning.length, 2)
+  assert.ok(spanning[0]!.start < spanning[1]!.start)
+})
+
+test("summariseFindFixtureTeamWeek: a real commitment elsewhere in the week is surfaced, excluding the requested date itself", () => {
+  const weekRows = [
+    { my_team_id: "my-1", opponent_team_id: "opp-1", commitment_date: "2026-10-16" },
+    { my_team_id: "my-1", opponent_team_id: "opp-1", commitment_date: "2026-10-17" }, // the requested date -- excluded here, it is `dateState`'s own job
+  ]
+  const summary = summariseFindFixtureTeamWeek("no_known_clash", "2026-10-17", "my-1", "opp-1", weekRows)
+  assert.deepEqual(summary.otherWeekCommitments, ["2026-10-16"])
+})
+
+test("findFixtureWeekLabel: busy on the exact date wins outright; a clear exact date with a real week commitment reads 'Busy this week' with the raw date; otherwise falls through to the plain exact-date label", () => {
+  assert.deepEqual(findFixtureWeekLabel({ dateState: "busy", otherWeekCommitments: [] }), { primary: "Busy", detail: null })
+  assert.deepEqual(findFixtureWeekLabel({ dateState: "no_known_clash", otherWeekCommitments: ["2026-10-16"] }), { primary: "Busy this week", detail: "2026-10-16" })
+  assert.deepEqual(findFixtureWeekLabel({ dateState: "tentative", otherWeekCommitments: [] }), { primary: "Tentative", detail: null })
+  assert.deepEqual(findFixtureWeekLabel({ dateState: "unknown", otherWeekCommitments: [] }), { primary: "Availability unknown", detail: null })
+  assert.deepEqual(findFixtureWeekLabel({ dateState: "no_known_clash", otherWeekCommitments: [] }), { primary: "No known clash", detail: null })
+})
+
+test("summariseFindFixtureClubWeek: a matched team clear on the exact date but with a real commitment elsewhere in the week is NOT counted as clear", () => {
+  const c = candidateMatch({ partnershipStatus: "active", matchedTeamIds: ["my-1"], compatibleTeams: [{ teamId: "opp-1", displayName: "Under 16 Boys", ageGroup: "U16", gender: "MALE" }] })
+  const weekSummary = summariseFindFixtureClubWeek(c, 1, "2026-10-17", [], [{ my_team_id: "my-1", opponent_team_id: "opp-1", commitment_date: "2026-10-16" }])
+  assert.equal(weekSummary.noKnownClashCount, 1, "the raw exact-date count is unaffected")
+  assert.equal(weekSummary.weekBusyCount, 1, "but the week conflict is recorded separately")
+})
+
+test("findFixtureClubWeekLabel: all genuinely clear all week reads 'No known clash'; a real week commitment on an otherwise-clear team still counts as busy for the club pill", () => {
+  const allClear = summariseFindFixtureClubWeek(
+    candidateMatch({ partnershipStatus: "active", matchedTeamIds: ["my-1"], compatibleTeams: [{ teamId: "opp-1", displayName: "U16", ageGroup: "U16", gender: "MALE" }] }),
+    1,
+    "2026-10-17",
+    [],
+    []
+  )
+  assert.equal(findFixtureClubWeekLabel(allClear), "No known clash")
+
+  const weekConflict = summariseFindFixtureClubWeek(
+    candidateMatch({ partnershipStatus: "active", matchedTeamIds: ["my-1"], compatibleTeams: [{ teamId: "opp-1", displayName: "U16", ageGroup: "U16", gender: "MALE" }] }),
+    1,
+    "2026-10-17",
+    [],
+    [{ my_team_id: "my-1", opponent_team_id: "opp-1", commitment_date: "2026-10-16" }]
+  )
+  assert.equal(findFixtureClubWeekLabel(weekConflict), "1 busy")
+})
+
+test("findFixtureClubWeekLabel: a genuine split between a clear team and a busy team reads 'Mixed', matching Section A10's own third worked example", () => {
+  const c = candidateMatch({
+    partnershipStatus: "active",
+    matchedTeamIds: ["my-1", "my-2"],
+    compatibleTeams: [
+      { teamId: "opp-1", displayName: "Men's 1st", ageGroup: null, gender: "MALE" },
+      { teamId: "opp-2", displayName: "U16", ageGroup: "U16", gender: "MALE" },
+    ],
+  })
+  const summary = summariseFindFixtureClubWeek(c, 2, "2026-10-17", [{ my_team_id: "my-1", opponent_team_id: "opp-1", the_date: "2026-10-17", status: "busy" }], [])
+  assert.equal(findFixtureClubWeekLabel(summary), "Mixed")
 })

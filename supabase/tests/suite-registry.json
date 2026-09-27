@@ -575,6 +575,11 @@
       "owner": "Clubhouse programme",
       "reason": "Find a Fixture FF-1.1/FF-2 (20270562000000): find_fixture_candidate_teams_batch / find_fixture_candidate_availability_batch, the multi-team batched forms behind FF-1's multi-team selection. Proves per-team-pairing correctness (my_team_id threaded through every row, independent per selected team), no authority widening (a caller authorised on one named team but not another is refused for the WHOLE call, never a silent partial result), the active-partnership-only availability boundary is independent of the compatibility boundary (a compatible-but-unpartnered club appears in the teams search but never the availability search even when busy), busy/request_pending coarsening, and the minimal payload shape of both functions. Deterministic and self-seeding."
     },
+    "find_fixture_game_week": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Clubhouse programme",
+      "reason": "Find a Fixture game-week awareness (20270563000000): find_fixture_candidate_game_week_batch. Proves the Monday-Sunday boundary in both directions (a Friday inside the same week is surfaced, the preceding Sunday and following Monday are not, and selecting either the Monday or the Sunday of the same week finds the identical mid-week commitment), that a cancelled fixture never counts even inside the widened range, that training sessions are never surfaced (source narrowing -- only real fixtures/competition matches count), Union/League isolation, and the same no-authority-widening rule as every other batched Find a Fixture RPC. Deterministic and self-seeding."
+    },
     "fixture_age_eligibility": {
       "disposition": "SPECIAL_PURPOSE",
       "owner": "Fixture operations",

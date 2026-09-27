@@ -10,12 +10,14 @@ import {
   findFixtureDateClause,
   findFixtureMatchingCopy,
   readFindFixtureAvailabilityBatch,
+  readFindFixtureGameWeekBatch,
   readFindFixtureMatchesUnfiltered,
-  summariseFindFixtureClubAvailability,
+  summariseFindFixtureClubWeek,
   type CandidateAvailabilityBatchRow,
   type FindFixtureClubAvailabilitySummary,
   type FindFixtureCriteria,
   type FindFixtureMatchResult,
+  type GameWeekCommitmentRow,
 } from "@ovalball/contracts/clubhouse"
 
 import { supabase } from "../../../../src/auth/supabase"
@@ -44,12 +46,14 @@ import { colour, space, type, TOUCH_TARGET } from "../../../../src/design/tokens
  *
  * FOUR REAL STAGES, NOT A FABRICATED SEQUENCE: each one is genuine work this screen actually does, in
  * this order -- `readFindFixtureMatchesUnfiltered` (the batched compatibility RPC + club identity),
- * `readFindFixtureAvailabilityBatch` (the batched availability RPC), `applyFindFixtureDistanceFilter`
- * (a real synchronous filter step, deliberately split out of the compatibility read so "applying
- * distance preference" is its own true stage rather than a label over work that already happened), and
- * building the per-club availability summaries FF-3 needs (`summariseFindFixtureClubAvailability`,
- * genuine aggregation, not a pause). `withMinDuration` only paces the reveal of an already-true
- * completed state so four checkmarks don't flash past in one frame.
+ * `readFindFixtureAvailabilityBatch` + `readFindFixtureGameWeekBatch` together (the exact-date rule and
+ * the Monday-Sunday game-week rule are genuinely different questions, Section A5-A9, fetched in
+ * parallel under the same "Checking known availability" stage), `applyFindFixtureDistanceFilter` (a real
+ * synchronous filter step, deliberately split out of the compatibility read so "applying distance
+ * preference" is its own true stage rather than a label over work that already happened), and building
+ * the per-club week-aware availability summaries FF-3 needs (`summariseFindFixtureClubWeek`, genuine
+ * aggregation, not a pause). `withMinDuration` only paces the reveal of an already-true completed state
+ * so four checkmarks don't flash past in one frame.
  */
 
 type StageStatus = "pending" | "active" | "done"
@@ -107,7 +111,13 @@ export default function FindFixtureMatching() {
       if (!live) return
       setCompleted(1)
 
-      const availability: CandidateAvailabilityBatchRow[] = await withMinDuration(readFindFixtureAvailabilityBatch(supabase, criteria.teamIds, criteria.dates), 450)
+      // Both the exact-date rule and the game-week rule are genuinely independent reads (Section A7:
+      // never a second availability engine, but genuinely two different questions) -- fetched together
+      // so this one stage's checkmark corresponds to both.
+      const [availability, weekRows]: [CandidateAvailabilityBatchRow[], GameWeekCommitmentRow[]] = await withMinDuration(
+        Promise.all([readFindFixtureAvailabilityBatch(supabase, criteria.teamIds, criteria.dates), readFindFixtureGameWeekBatch(supabase, criteria.teamIds, criteria.dates)]),
+        450
+      )
       if (!live) return
       setCompleted(2)
 
@@ -115,16 +125,17 @@ export default function FindFixtureMatching() {
       if (!live) return
       setCompleted(3)
 
-      // GENUINE WORK, NOT A PAUSE: the real per-club availability aggregation FF-3 needs, built here
-      // (not in FF-3 itself) so this stage's checkmark corresponds to something this screen actually
-      // computed -- one summary per actionable club, joining `filtered` against `availability` for the
-      // first requested date via the same pinned, tested `summariseFindFixtureClubAvailability`.
+      // GENUINE WORK, NOT A PAUSE: the real per-club week-aware availability aggregation FF-3 needs,
+      // built here (not in FF-3 itself) so this stage's checkmark corresponds to something this screen
+      // actually computed -- one summary per actionable club, joining `filtered` against both
+      // `availability` and `weekRows` for the first requested date via the pinned, tested
+      // `summariseFindFixtureClubWeek`.
       const primaryDate = criteria.dates[0] ?? ""
-      const summaries: Record<string, FindFixtureClubAvailabilitySummary> = {}
+      const summaries: Record<string, FindFixtureClubAvailabilitySummary & { weekBusyCount: number }> = {}
       await withMinDuration(
         Promise.resolve().then(() => {
           for (const candidate of filtered.actionable) {
-            if (candidate.clubId) summaries[candidate.clubId] = summariseFindFixtureClubAvailability(candidate, criteria.teamIds.length, primaryDate, availability)
+            if (candidate.clubId) summaries[candidate.clubId] = summariseFindFixtureClubWeek(candidate, criteria.teamIds.length, primaryDate, availability, weekRows)
           }
         }),
         300
@@ -139,6 +150,8 @@ export default function FindFixtureMatching() {
           teamLabels: params.teamLabels ?? "[]",
           matches: JSON.stringify(filtered),
           summaries: JSON.stringify(summaries),
+          availability: JSON.stringify(availability),
+          weekRows: JSON.stringify(weekRows),
           origin: JSON.stringify(origin ? { latitude: origin.latitude, longitude: origin.longitude } : null),
           ...(params.opponentDirectoryId ? { opponentDirectoryId: params.opponentDirectoryId } : {}),
           ...(params.opponentClubId ? { opponentClubId: params.opponentClubId } : {}),

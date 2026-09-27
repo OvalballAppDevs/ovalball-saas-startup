@@ -1,8 +1,10 @@
 # Find a Fixture — UAT Matching World (expected-result oracle)
 
-Fixture: `supabase/seeds/local_uat_find_fixture_matching_world.sql`. Idempotent,
-additive, local-only — see that file's own header for the safety guard, the
-removal procedure, and why only three of the ten clubs are partners.
+Fixture: `supabase/seeds/local_uat_find_fixture_matching_world.sql`, plus
+`node scripts/seed-find-fixture-uat-crests.mjs` for the ten synthetic crests
+(Storage uploads have no raw-SQL path). Idempotent, additive, local-only —
+see that file's own header for the safety guard, the removal procedure, and
+why only three of the ten clubs are partners.
 
 This document is the oracle the fixture must stay consistent with. If the
 fixture changes, this table is re-verified against a fresh RPC run before it
@@ -58,6 +60,39 @@ original illustrative plan, per this fixture's own stated escape clause.
   (3/3-matched clubs first, ranked by clear-availability coverage, then distance; North and Park both 3/3-clear, North wins on distance; United is 3/3-matched but 0-clear/unknown, so it sorts after every club with real clear coverage; the 2/3-matched clubs are ordered by distance since none has any real clear signal; Valley (1/3) is last)
 - **Most Clear:** North → Park → West → South → East → Valley → Riverside → Athletic → United
   (ranked by clear-availability coverage alone, ignoring matched count; the five 0-clear clubs — East, Valley, Riverside, Athletic, United — fall back to distance, and Valley (1/3 matched but 0 known clear) lands ahead of Riverside/Athletic/United purely because it is nearer)
+
+## Game week (Monday–Sunday) — captured from a real run of `find_fixture_candidate_game_week_batch`
+
+TEST DATE 2026-10-17 is a **Saturday**; its own Monday-Sunday game week runs
+**Monday 2026-10-12 to Sunday 2026-10-18**.
+
+| Club | Team | Exact-date state (17th) | Same-week commitment | Club-level pill |
+|---|---|---|---|---|
+| UAT North | Women's 1st | no known clash | Fixture 2026-10-19 (**following Monday — a different week**, correctly excluded) | No known clash |
+| UAT South | Under 16 | busy (exact date) | — | Mixed |
+| UAT South | Women's 1st | tentative | — | Mixed |
+| UAT West | Men's 1st | no known clash | **Fixture 2026-10-16 (Friday, same week)** → "Busy this week", detail 2026-10-16 | Mixed |
+| UAT West | Women's 1st | tentative | — | Mixed |
+| UAT West | Under 16 | no known clash | — | Mixed |
+| UAT Park | Under 16 | no known clash | Fixture 2026-10-11 (**preceding Sunday — a different week**, correctly excluded) | No known clash |
+
+Both boundary cases (North's following Monday, Park's preceding Sunday) were
+seeded specifically to prove the range never leaks across the Monday/Sunday
+edge, and both were confirmed absent from the real RPC's output. UAT West is
+the one club with three genuinely different real states at once (a real
+same-week fixture, a real pending tentative request, and a genuinely clear
+team) — its club-level pill is "Mixed", exactly matching Section A10's own
+third worked example, and its per-team breakdown is:
+
+- Men's 1st Team → **Busy this week** (2026-10-16)
+- Women's 1st Team → **Tentative**
+- Under 16 Boys → **No known clash**
+
+Re-running all three sort orders with the week-aware summaries produced the
+identical club ordering as the exact-date-only run (Section "Sort orders"
+above) — South and West's `effectiveClearCount` both drop from their exact-
+date value, but neither changes rank relative to its neighbours in this
+particular nine-club set.
 
 ## What this proves, end to end
 

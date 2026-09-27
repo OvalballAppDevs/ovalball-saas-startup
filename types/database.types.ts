@@ -24310,6 +24310,14 @@ export type Database = {
           the_date: string
         }[]
       }
+      find_fixture_candidate_game_week_batch: {
+        Args: { p_dates: string[]; p_team_ids: string[] }
+        Returns: {
+          commitment_date: string
+          my_team_id: string
+          opponent_team_id: string
+        }[]
+      }
       find_fixture_candidate_teams: {
         Args: { p_team_id: string }
         Returns: {

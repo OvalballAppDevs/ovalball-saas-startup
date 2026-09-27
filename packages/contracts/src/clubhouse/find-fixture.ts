@@ -418,6 +418,137 @@ export function findFixtureAvailabilitySummaryLabel(summary: FindFixtureClubAvai
   return parts.join(" · ")
 }
 
+/**
+ * GAME WEEK (visual-lock Section A5/A6): rugby's own working week, Monday 00:00 through Sunday
+ * 23:59:59 -- never Sunday-to-Saturday. A team already committed on Friday is not truthfully "clear"
+ * just because the SPECIFIC requested Sunday has nothing on it; this is the range every same-week
+ * question below is asked against. `date_trunc('week', ...)` in Postgres already truncates to Monday,
+ * so the server side (`find_fixture_candidate_game_week_batch`) computes the identical range -- this is
+ * the client-side mirror, used only for display (e.g. deciding which of several requested dates a given
+ * commitment falls under), never a second authority for what the server already decided.
+ */
+export function gameWeekRange(dateIso: string): { start: string; end: string } {
+  const d = new Date(`${dateIso}T00:00:00Z`)
+  const isoWeekday = ((d.getUTCDay() + 6) % 7) + 1 // 1 = Monday .. 7 = Sunday
+  const monday = new Date(d)
+  monday.setUTCDate(d.getUTCDate() - (isoWeekday - 1))
+  const sunday = new Date(monday)
+  sunday.setUTCDate(monday.getUTCDate() + 6)
+  return { start: monday.toISOString().slice(0, 10), end: sunday.toISOString().slice(0, 10) }
+}
+
+/** The deduplicated set of game weeks spanned by a multi-date search, sorted -- a caller with dates
+ * that straddle two different weeks needs both ranges, never just the first date's. */
+export function gameWeekRangesForDates(dates: readonly string[]): { start: string; end: string }[] {
+  const byStart = new Map<string, { start: string; end: string }>()
+  for (const date of dates) {
+    const range = gameWeekRange(date)
+    byStart.set(range.start, range)
+  }
+  return [...byStart.values()].sort((a, b) => a.start.localeCompare(b.start))
+}
+
+export type GameWeekCommitmentRow = { my_team_id: string; opponent_team_id: string; commitment_date: string }
+
+/**
+ * PER-TEAM WEEK SUMMARY (Section A8): the exact requested date's own already-coarsened state, plus
+ * every OTHER real fixture/competition-match commitment the same opposition team has in the same
+ * Monday-Sunday game week (the requested date itself is excluded here -- that is what `dateState`
+ * already answers). Sourced ONLY from `find_fixture_candidate_game_week_batch`, which deliberately
+ * narrows its OWN sources to real fixtures/competition matches (Section A9: training, club events and
+ * pending requests are not "the team already has a game this week", and stay out of this signal
+ * entirely -- they already count toward `dateState` on the exact date, where that is the existing,
+ * unchanged rule).
+ */
+export interface FindFixtureTeamWeekSummary {
+  dateState: "no_known_clash" | "busy" | "tentative" | "unknown"
+  otherWeekCommitments: string[]
+}
+
+export function summariseFindFixtureTeamWeek(
+  dateState: FindFixtureTeamWeekSummary["dateState"],
+  requestedDate: string,
+  myTeamId: string,
+  opponentTeamId: string,
+  weekRows: readonly GameWeekCommitmentRow[]
+): FindFixtureTeamWeekSummary {
+  const otherWeekCommitments = weekRows
+    .filter((r) => r.my_team_id === myTeamId && r.opponent_team_id === opponentTeamId && r.commitment_date !== requestedDate)
+    .map((r) => r.commitment_date)
+    .sort()
+  return { dateState, otherWeekCommitments }
+}
+
+/** "Busy" (the exact date itself), "Busy this week" (a real commitment elsewhere in the same Monday-
+ * Sunday week, `detail` carrying that raw date for the UI to format), "Tentative", "Availability
+ * unknown", or "No known clash" -- never "Available", and a clear exact date is never presented as
+ * clear overall if the same team is already committed elsewhere that week. */
+export function findFixtureWeekLabel(summary: FindFixtureTeamWeekSummary): { primary: string; detail: string | null } {
+  if (summary.dateState === "busy") return { primary: "Busy", detail: null }
+  if (summary.otherWeekCommitments.length > 0) return { primary: "Busy this week", detail: summary.otherWeekCommitments[0]! }
+  if (summary.dateState === "tentative") return { primary: "Tentative", detail: null }
+  if (summary.dateState === "unknown") return { primary: "Availability unknown", detail: null }
+  return { primary: "No known clash", detail: null }
+}
+
+/**
+ * CLUB-LEVEL WEEK-AWARE SUMMARY (Section A10): the same per-club roll-up as
+ * `summariseFindFixtureClubAvailability`, extended with `weekBusyCount` -- among the matched teams that
+ * read `no_known_clash` on the exact requested date, how many still have a real commitment elsewhere in
+ * the same game week (and so are not truthfully "clear" overall, even though the one specific day is
+ * empty).
+ */
+export function summariseFindFixtureClubWeek(
+  candidate: Pick<FindFixtureCandidateMatch, "matchedTeamIds" | "partnershipStatus" | "compatibleTeams">,
+  totalSelected: number,
+  date: string,
+  availabilityRows: readonly CandidateAvailabilityBatchRow[],
+  weekRows: readonly GameWeekCommitmentRow[]
+): FindFixtureClubAvailabilitySummary & { weekBusyCount: number } {
+  const base = summariseFindFixtureClubAvailability(candidate, totalSelected, date, availabilityRows)
+  const opponentTeamIds = new Set(candidate.compatibleTeams.map((t) => t.teamId))
+  let weekBusyCount = 0
+  if (candidate.partnershipStatus === "active") {
+    for (const myTeamId of candidate.matchedTeamIds) {
+      const exactHit = availabilityRows.some((r) => r.my_team_id === myTeamId && r.the_date === date && opponentTeamIds.has(r.opponent_team_id))
+      if (exactHit) continue // already counted as busy/tentative on the exact date
+      const weekHit = weekRows.some((r) => r.my_team_id === myTeamId && opponentTeamIds.has(r.opponent_team_id) && r.commitment_date !== date)
+      if (weekHit) weekBusyCount += 1
+    }
+  }
+  return { ...base, weekBusyCount }
+}
+
+/** "No known clash" (every matched team genuinely clear all week), "N busy" (every matched team either
+ * busy on the exact date or elsewhere in the week), "Mixed" (a genuine split), or "Availability unknown"
+ * (every matched team is at a non-partner club). Matches Section A10's own three worked examples
+ * exactly. */
+export function findFixtureClubWeekLabel(summary: FindFixtureClubAvailabilitySummary & { weekBusyCount: number }): string {
+  if (summary.matchedCount === 0 || summary.unknownCount === summary.matchedCount) return "Availability unknown"
+  const effectiveBusy = summary.busyCount + summary.tentativeCount + summary.weekBusyCount
+  const effectiveClear = summary.matchedCount - effectiveBusy - summary.unknownCount
+  if (summary.unknownCount > 0 && (effectiveClear > 0 || effectiveBusy > 0)) return "Mixed"
+  if (effectiveClear === summary.matchedCount) return "No known clash"
+  if (effectiveBusy === summary.matchedCount) return effectiveBusy === 1 ? "1 busy" : `${effectiveBusy} busy`
+  return "Mixed"
+}
+
+/**
+ * THE GAME-WEEK READ: same per-team authority (checked individually, no widening) as every other
+ * batched Find a Fixture RPC, but its OWN, narrower busy-signal sources (real fixtures and competition
+ * matches only -- Section A9) over a WIDER date range (the full Monday-Sunday week(s) spanning the
+ * requested dates, not just the exact dates themselves). Never a second availability engine: the exact-
+ * date busy/tentative/no_known_clash rule is entirely unchanged and lives in
+ * `find_fixture_candidate_availability_batch`, called separately; this only adds "does this team have
+ * a game elsewhere in the same week".
+ */
+export async function readFindFixtureGameWeekBatch(supabase: Client, teamIds: readonly string[], dates: readonly string[]): Promise<GameWeekCommitmentRow[]> {
+  if (teamIds.length === 0 || dates.length === 0) return []
+  const { data, error } = await supabase.rpc("find_fixture_candidate_game_week_batch", { p_team_ids: [...teamIds], p_dates: [...dates] })
+  if (error) throw error
+  return data ?? []
+}
+
 export type FindFixtureResultSort = "nearest" | "best_match" | "most_clear"
 
 /**
@@ -426,11 +557,31 @@ export type FindFixtureResultSort = "nearest" | "best_match" | "most_clear"
  * teams matched first, then by clear-availability coverage, then distance; "most_clear" ranks by clear-
  * availability coverage alone. Never an opaque score -- every tier is a named, factual field.
  */
+/**
+ * The minimal shape `sortFindFixtureMatches` needs -- deliberately smaller than either availability
+ * summary type, so "most_clear"/"best_match" can rank on whichever richness level the caller has
+ * available (exact-date only, or the week-aware form) without the sort itself caring which. `effectiveClearCount`
+ * is EXACT-date no_known_clash minus any of those teams that turn out to have a real fixture/competition-
+ * match commitment elsewhere in the same Monday-Sunday game week (Section A13/A10) -- a team is never
+ * counted as "clear" for ranking purposes on the strength of one empty day alone if it is playing
+ * elsewhere that week.
+ */
+export interface FindFixtureSortSummary {
+  matchedCount: number
+  effectiveClearCount: number
+}
+
+/** `FindFixtureClubAvailabilitySummary` already IS this shape when there is no week data -- its own
+ * `noKnownClashCount` is exact-date-only clear, which is exactly `effectiveClearCount` in that case. */
+export function toSortSummary(summary: Pick<FindFixtureClubAvailabilitySummary, "matchedCount" | "noKnownClashCount">): FindFixtureSortSummary {
+  return { matchedCount: summary.matchedCount, effectiveClearCount: summary.noKnownClashCount }
+}
+
 export function sortFindFixtureMatches(
   candidates: readonly FindFixtureCandidateMatch[],
   sort: FindFixtureResultSort,
   origin: { latitude: number | null; longitude: number | null } | null,
-  summaries: ReadonlyMap<string, FindFixtureClubAvailabilitySummary>
+  summaries: ReadonlyMap<string, FindFixtureSortSummary>
 ): FindFixtureCandidateMatch[] {
   if (sort === "nearest") return sortFindFixtureCandidates(candidates, "nearest", origin as ClubMapMarker | null) as FindFixtureCandidateMatch[]
   const distanceTiebreak = (a: FindFixtureCandidateMatch, b: FindFixtureCandidateMatch): number => {
@@ -444,14 +595,14 @@ export function sortFindFixtureMatches(
   const sorted = [...candidates]
   if (sort === "most_clear") {
     return sorted.sort((a, b) => {
-      const diff = (summaries.get(b.clubId ?? "")?.noKnownClashCount ?? 0) - (summaries.get(a.clubId ?? "")?.noKnownClashCount ?? 0)
+      const diff = (summaries.get(b.clubId ?? "")?.effectiveClearCount ?? 0) - (summaries.get(a.clubId ?? "")?.effectiveClearCount ?? 0)
       return diff !== 0 ? diff : distanceTiebreak(a, b)
     })
   }
   return sorted.sort((a, b) => {
     const matchedDiff = (summaries.get(b.clubId ?? "")?.matchedCount ?? 0) - (summaries.get(a.clubId ?? "")?.matchedCount ?? 0)
     if (matchedDiff !== 0) return matchedDiff
-    const clearDiff = (summaries.get(b.clubId ?? "")?.noKnownClashCount ?? 0) - (summaries.get(a.clubId ?? "")?.noKnownClashCount ?? 0)
+    const clearDiff = (summaries.get(b.clubId ?? "")?.effectiveClearCount ?? 0) - (summaries.get(a.clubId ?? "")?.effectiveClearCount ?? 0)
     return clearDiff !== 0 ? clearDiff : distanceTiebreak(a, b)
   })
 }

@@ -46,6 +46,12 @@
 -- no existing row is edited. Building/removing this fixture never requires
 -- `supabase db reset` -- see the pinned local-database safety instruction.
 --
+-- SYNTHETIC CRESTS: run `node scripts/seed-find-fixture-uat-crests.mjs` once after this file (Storage
+-- uploads have no raw-SQL path, so that companion script is the one place they happen). Ten
+-- deliberately simple, unmistakably synthetic shield crests -- never a photograph, never modelled on
+-- any real club -- wired through the exact same `clubs.logo_storage_path` / `club-logos` bucket path a
+-- real club logo upload uses.
+--
 -- TO REMOVE THIS FIXTURE LATER: every row it creates is reachable by
 -- `club_directory.source = 'local_dev_seed' and normalized_key like
 -- 'ovalball-uat-%-rfc'` (excluding `ovalball-uat-rufc` itself, the pre-
@@ -67,15 +73,15 @@ declare
   v_viewer_club uuid;
   v_coach       uuid;
 
-  v_dir_a uuid; v_club_a uuid;
+  v_dir_a uuid; v_club_a uuid; v_team_a_womens uuid;
   v_dir_b uuid; v_club_b uuid; v_team_b_u16 uuid; v_team_b_womens uuid;
   v_dir_c uuid; v_club_c uuid;
-  v_dir_d uuid; v_club_d uuid; v_team_d_womens uuid;
+  v_dir_d uuid; v_club_d uuid; v_team_d_womens uuid; v_team_d_mens uuid;
   v_dir_e uuid; v_club_e uuid;
   v_dir_f uuid; v_club_f uuid;
   v_dir_g uuid; v_club_g uuid;
   v_dir_h uuid; v_club_h uuid;
-  v_dir_i uuid; v_club_i uuid;
+  v_dir_i uuid; v_club_i uuid; v_team_i_u16 uuid;
   v_dir_j uuid; v_club_j uuid;
 begin
   select c.id into v_viewer_club from public.clubs c join public.club_directory d on d.id = c.directory_id where d.normalized_key = 'ovalball-uat-rufc';
@@ -113,8 +119,10 @@ begin
     ('league_u16',       'league', 'youth',  'U16', 'boys', null);
 
   -- =====================================================================
-  -- UAT North RFC -- PARTNER, 3/3 compatible, no commitments -> 3/3 no known
-  -- clash. ~5 miles.
+  -- UAT North RFC -- PARTNER, 3/3 compatible, no commitments on TEST DATE ITSELF
+  -- -> 3/3 no known clash. Its Women's 1st DOES have a real fixture, but on
+  -- the FOLLOWING Monday -- a different Monday-Sunday game week entirely --
+  -- proving the game-week signal never leaks across the boundary. ~5 miles.
   -- =====================================================================
   insert into public.club_directory (name, town, county, postcode, rugby_code, country, nation, latitude, longitude, geocode_status, active, verification_status, source, normalized_key)
   select 'Ovalball UAT North RFC', 'Burnley', 'Lancashire', 'BB10 2AA', 'union', 'United Kingdom', 'England', 53.891894, -2.234962, 'success', true, 'local_dev_seed', 'local_dev_seed', 'ovalball-uat-north-rfc'
@@ -132,10 +140,19 @@ begin
   and not exists (select 1 from public.teams t where t.club_id = v_club_a and t.category = m.category
     and coalesce(t.age_group,'') = coalesce(m.age_group,'') and coalesce(t.gender,'') = coalesce(m.gender,'')
     and coalesce(t.squad_designation,'') = coalesce(m.squad_designation,''));
+  select t.id into v_team_a_womens from public.teams t where t.club_id = v_club_a and t.category = 'senior' and t.gender = 'womens';
 
   insert into public.club_partnerships (requesting_club_id, partner_club_id, status, requested_by)
   select v_viewer_club, v_club_a, 'active', v_coach
   where not exists (select 1 from public.club_partnerships where (requesting_club_id = v_viewer_club and partner_club_id = v_club_a) or (requesting_club_id = v_club_a and partner_club_id = v_viewer_club));
+
+  -- FOLLOWING MONDAY (2026-10-19), a different game week from TEST DATE (Saturday 2026-10-17, whose
+  -- own week runs Monday 2026-10-12 to Sunday 2026-10-18) -- must never be surfaced as a same-week
+  -- commitment, and must never affect North's own exact-date "no known clash" either.
+  insert into public.fixtures (owning_team_id, kickoff_date, status, home_away, raw_opposition_text)
+  select v_team_a_womens, date '2026-10-19', 'Booked', 'Away', 'Following week fixture'
+  where v_team_a_womens is not null
+    and not exists (select 1 from public.fixtures where owning_team_id = v_team_a_womens and kickoff_date = date '2026-10-19');
 
   -- =====================================================================
   -- UAT South RFC -- PARTNER, 3/3 compatible. A real Booked fixture for its
@@ -192,8 +209,12 @@ begin
   -- =====================================================================
   -- UAT West RFC -- PARTNER, 3/3 compatible. A pending fixture_request from
   -- UAT South's own Women's 1st (an unrelated third-party ask, not involving
-  -- the viewer) targets its Women's 1st on TEST DATE -> 2 clear + 1
-  -- tentative. ~25 miles.
+  -- the viewer) targets its Women's 1st on TEST DATE -> tentative. Its own
+  -- Men's 1st has a real fixture on the FRIDAY of the SAME game week as TEST
+  -- DATE (genuinely clear on the exact Saturday itself, but "busy this week"
+  -- -- the game-week signal this club exists to prove). Its U16 has no
+  -- commitment anywhere -> genuinely clear. One club, three different real
+  -- states -> "Mixed" at the club level. ~25 miles.
   -- =====================================================================
   insert into public.club_directory (name, town, county, postcode, rugby_code, country, nation, latitude, longitude, geocode_status, active, verification_status, source, normalized_key)
   select 'Ovalball UAT West RFC', 'Burnley', 'Lancashire', 'BB10 2AD', 'union', 'United Kingdom', 'England', 54.181794, -2.234962, 'success', true, 'local_dev_seed', 'local_dev_seed', 'ovalball-uat-west-rfc'
@@ -212,6 +233,15 @@ begin
     and coalesce(t.age_group,'') = coalesce(m.age_group,'') and coalesce(t.gender,'') = coalesce(m.gender,'')
     and coalesce(t.squad_designation,'') = coalesce(m.squad_designation,''));
   select t.id into v_team_d_womens from public.teams t where t.club_id = v_club_d and t.category = 'senior' and t.gender = 'womens';
+  select t.id into v_team_d_mens from public.teams t where t.club_id = v_club_d and t.category = 'senior' and t.gender = 'mens';
+
+  -- FRIDAY of the SAME Monday-Sunday week as TEST DATE (2026-10-16; TEST DATE Saturday 2026-10-17's own
+  -- week runs Monday 2026-10-12 to Sunday 2026-10-18) -- genuinely clear on the exact requested Saturday,
+  -- but a real commitment elsewhere in the same game week.
+  insert into public.fixtures (owning_team_id, kickoff_date, status, home_away, raw_opposition_text)
+  select v_team_d_mens, date '2026-10-16', 'Booked', 'Home', 'Friday night fixture, same game week as the requested Saturday'
+  where v_team_d_mens is not null
+    and not exists (select 1 from public.fixtures where owning_team_id = v_team_d_mens and kickoff_date = date '2026-10-16');
 
   insert into public.club_partnerships (requesting_club_id, partner_club_id, status, requested_by)
   select v_viewer_club, v_club_d, 'active', v_coach
@@ -321,10 +351,13 @@ begin
     and coalesce(t.squad_designation,'') = coalesce(m.squad_designation,''));
 
   -- =====================================================================
-  -- UAT Park RFC -- PARTNER, 3/3 compatible, no commitments -> 3/3 no known
-  -- clash, but the FAR partner (~70 miles) -- proves Best Match/Most Clear
-  -- can rank it ahead of a nearer, less-clear club even though Nearest does
-  -- not.
+  -- UAT Park RFC -- PARTNER, 3/3 compatible, no commitments in the SAME game
+  -- week as TEST DATE -> 3/3 no known clash. Its U16 does have a real
+  -- fixture, but on the PRECEDING Sunday (2026-10-11 -- the last day of the
+  -- week BEFORE TEST DATE's own week), proving a different-week commitment
+  -- never leaks in from the other direction either. Also the FAR partner
+  -- (~70 miles) -- proves Best Match/Most Clear can rank it ahead of a
+  -- nearer, less-clear club even though Nearest does not.
   -- =====================================================================
   insert into public.club_directory (name, town, county, postcode, rugby_code, country, nation, latitude, longitude, geocode_status, active, verification_status, source, normalized_key)
   select 'Ovalball UAT Park RFC', 'Burnley', 'Lancashire', 'BB10 2AJ', 'union', 'United Kingdom', 'England', 54.833894, -2.234962, 'success', true, 'local_dev_seed', 'local_dev_seed', 'ovalball-uat-park-rfc'
@@ -342,10 +375,18 @@ begin
   and not exists (select 1 from public.teams t where t.club_id = v_club_i and t.category = m.category
     and coalesce(t.age_group,'') = coalesce(m.age_group,'') and coalesce(t.gender,'') = coalesce(m.gender,'')
     and coalesce(t.squad_designation,'') = coalesce(m.squad_designation,''));
+  select t.id into v_team_i_u16 from public.teams t where t.club_id = v_club_i and t.category = 'youth' and t.age_group = 'U16';
 
   insert into public.club_partnerships (requesting_club_id, partner_club_id, status, requested_by)
   select v_viewer_club, v_club_i, 'active', v_coach
   where not exists (select 1 from public.club_partnerships where (requesting_club_id = v_viewer_club and partner_club_id = v_club_i) or (requesting_club_id = v_club_i and partner_club_id = v_viewer_club));
+
+  -- PRECEDING SUNDAY (2026-10-11), the last day of the game week BEFORE TEST DATE's own week -- must
+  -- never be surfaced as a same-week commitment.
+  insert into public.fixtures (owning_team_id, kickoff_date, status, home_away, raw_opposition_text)
+  select v_team_i_u16, date '2026-10-11', 'Booked', 'Away', 'Preceding week fixture'
+  where v_team_i_u16 is not null
+    and not exists (select 1 from public.fixtures where owning_team_id = v_team_i_u16 and kickoff_date = date '2026-10-11');
 
   -- =====================================================================
   -- UAT United RFC -- NON-PARTNER, 3/3 compatible, unknown availability
