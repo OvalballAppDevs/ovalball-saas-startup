@@ -16,6 +16,7 @@ import {
   findFixtureResultCountLabel,
   findFixtureWeekLabel,
   gameWeekRange,
+  withinGameWeek,
   gameWeekRangesForDates,
   groupBatchCandidateTeamsByClub,
   groupCandidateTeamsByClub,
@@ -499,6 +500,32 @@ test("gameWeekRange: a selected Friday is in the SAME game week as the Sunday th
 
 test("gameWeekRange: a selected Monday's own game week starts on itself", () => {
   assert.deepEqual(gameWeekRange("2026-10-05"), { start: "2026-10-05", end: "2026-10-11" })
+})
+
+// The TEST DATE this whole UAT world is built around: Saturday 2026-10-17, whose own game week runs
+// Monday 2026-10-12 through Sunday 2026-10-18.
+test("withinGameWeek: the day before the week's own Monday is OUTSIDE", () => {
+  assert.equal(withinGameWeek("2026-10-11", "2026-10-17"), false)
+})
+
+test("withinGameWeek: the week's own Monday is INSIDE", () => {
+  assert.equal(withinGameWeek("2026-10-12", "2026-10-17"), true)
+})
+
+test("withinGameWeek: a Friday inside the week is INSIDE", () => {
+  assert.equal(withinGameWeek("2026-10-16", "2026-10-17"), true)
+})
+
+test("withinGameWeek: the requested Saturday itself is INSIDE", () => {
+  assert.equal(withinGameWeek("2026-10-17", "2026-10-17"), true)
+})
+
+test("withinGameWeek: the week's own Sunday is INSIDE", () => {
+  assert.equal(withinGameWeek("2026-10-18", "2026-10-17"), true)
+})
+
+test("withinGameWeek: the FOLLOWING Monday is OUTSIDE again -- never leaks into the next week", () => {
+  assert.equal(withinGameWeek("2026-10-19", "2026-10-17"), false)
 })
 
 test("gameWeekRangesForDates: two dates in the same week collapse to one range; two dates in different weeks give two, sorted", () => {

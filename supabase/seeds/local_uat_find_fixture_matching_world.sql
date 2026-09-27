@@ -73,7 +73,8 @@ declare
   v_viewer_club uuid;
   v_coach       uuid;
 
-  v_dir_a uuid; v_club_a uuid; v_team_a_womens uuid;
+  v_dir_a uuid; v_club_a uuid; v_team_a_womens uuid; v_team_a_u16 uuid;
+  v_viewer_team_u16 uuid;
   v_dir_b uuid; v_club_b uuid; v_team_b_u16 uuid; v_team_b_womens uuid;
   v_dir_c uuid; v_club_c uuid;
   v_dir_d uuid; v_club_d uuid; v_team_d_womens uuid; v_team_d_mens uuid;
@@ -90,6 +91,7 @@ begin
     return;
   end if;
   select u.id into v_coach from auth.users u where u.email = 'uat.coach@ovalball.test';
+  select t.id into v_viewer_team_u16 from public.teams t where t.club_id = v_viewer_club and t.category = 'youth' and t.age_group = 'U16';
 
   -- Being CLUB_ADMIN does not, on its own, carry fixture.request.create/.fixture.create at a named
   -- team (confirmed directly against this exact persona while proving this fixture) -- that authority
@@ -141,6 +143,19 @@ begin
     and coalesce(t.age_group,'') = coalesce(m.age_group,'') and coalesce(t.gender,'') = coalesce(m.gender,'')
     and coalesce(t.squad_designation,'') = coalesce(m.squad_designation,''));
   select t.id into v_team_a_womens from public.teams t where t.club_id = v_club_a and t.category = 'senior' and t.gender = 'womens';
+  select t.id into v_team_a_u16 from public.teams t where t.club_id = v_club_a and t.category = 'youth' and t.age_group = 'U16';
+
+  -- OPERATIONAL TABS PASS: an interactive UAT review session ended North's own partnership by pressing
+  -- the profile's own (real, canonical) "End Partnership" control -- exactly the kind of genuine state
+  -- change this persistent review world is supposed to survive, but it silently broke every OTHER
+  -- already-documented fact in FIND_FIXTURE_UAT_WORLD.md that assumes North IS an active partner (its
+  -- "3/3 no known clash" entry, its Women's/U16 game-week detail, etc.) -- canonical availability truly
+  -- does read as UNKNOWN for a non-partner (`summariseFindFixtureClubAvailability`'s own rule), so North
+  -- has to stay partnered for those facts to keep being true. Restored here rather than re-inserted, so
+  -- a genuine future revoke by a real reviewer is still respected by everything else in this file.
+  update public.club_partnerships set status = 'active'
+  where ((requesting_club_id = v_viewer_club and partner_club_id = v_club_a) or (requesting_club_id = v_club_a and partner_club_id = v_viewer_club))
+    and status <> 'active';
 
   -- PUBLIC CLUB PROFILE VISUAL-LOCK (Section 21/9): North's own real roster gets a full mini-to-youth
   -- age-graded spread purely so the profile's "Teams"/"Age Groups" metrics have something genuine to
@@ -164,6 +179,37 @@ begin
   select v_team_a_womens, date '2026-10-19', 'Booked', 'Away', 'Following week fixture'
   where v_team_a_womens is not null
     and not exists (select 1 from public.fixtures where owning_team_id = v_team_a_womens and kickoff_date = date '2026-10-19');
+
+  -- OPERATIONAL AVAILABILITY TAB PROOF (Section M): a REAL booked fixture on the Friday INSIDE the test
+  -- week (2026-10-16, within Mon 2026-10-12 - Sun 2026-10-18) -- distinct from the following-Monday
+  -- fixture above, which exists specifically to prove the OPPOSITE boundary. Women's 1st therefore
+  -- shows a genuine "Fixture booked this week" state with real, truthful detail (home fixture, 19:30).
+  insert into public.fixtures (owning_team_id, kickoff_date, kickoff_time, status, home_away, raw_opposition_text)
+  select v_team_a_womens, date '2026-10-16', time '19:30', 'Booked', 'Home', 'Ovalball UAT Athletic RFC'
+  where v_team_a_womens is not null
+    and not exists (select 1 from public.fixtures where owning_team_id = v_team_a_womens and kickoff_date = date '2026-10-16');
+
+  -- OPERATIONAL AVAILABILITY TAB PROOF (Section M): a REAL pending fixture request between the
+  -- viewer's own Under 16 Boys and North's Under 16 Boys, proposed for TEST DATE itself, still 'sent' --
+  -- so the Availability tab has a genuine "Request pending" state to show (never a fabricated one) and
+  -- must not offer a second, duplicate Request action for this exact pairing.
+  insert into public.fixture_request_groups (requesting_club_id, opponent_club_id, raw_opponent_text, proposed_date, created_by)
+  select v_viewer_club, v_club_a, 'Ovalball UAT North RFC', date '2026-10-17', v_coach
+  where v_viewer_team_u16 is not null and v_team_a_u16 is not null
+    and not exists (
+      select 1 from public.fixture_requests fr
+      where fr.requesting_team_id = v_viewer_team_u16 and fr.target_team_id = v_team_a_u16 and fr.status in ('sent', 'counter_proposed')
+    );
+
+  insert into public.fixture_requests (group_id, requesting_team_id, target_team_id, venue_preference, status, created_by)
+  select g.id, v_viewer_team_u16, v_team_a_u16, 'either', 'sent', v_coach
+  from public.fixture_request_groups g
+  where g.requesting_club_id = v_viewer_club and g.opponent_club_id = v_club_a and g.proposed_date = date '2026-10-17'
+    and v_viewer_team_u16 is not null and v_team_a_u16 is not null
+    and not exists (
+      select 1 from public.fixture_requests fr
+      where fr.requesting_team_id = v_viewer_team_u16 and fr.target_team_id = v_team_a_u16 and fr.status in ('sent', 'counter_proposed')
+    );
 
   -- =====================================================================
   -- UAT South RFC -- PARTNER, 3/3 compatible. A real Booked fixture for its
@@ -423,6 +469,25 @@ begin
     and coalesce(t.squad_designation,'') = coalesce(m.squad_designation,''));
 
   drop table if exists tmp_ff_team_key_map;
+
+  -- OPERATIONAL PARTNERSHIP TAB PROOF (Section M): a real, deterministic spread of every partnership
+  -- state, so the profile's Partnership tab can be physically reviewed against all of them without
+  -- disturbing the already-documented FF-3 availability oracle. North/South/West/Park stay exactly as
+  -- FIND_FIXTURE_UAT_WORLD.md already documents them (active partners, real availability signal);
+  -- Riverside and Athletic are already documented there as NON-PARTNERS with unknown availability --
+  -- "not yet partnered" (pending, in either direction) is still "not active" for that computation, so
+  -- giving them a real pending row here changes nothing about their own documented FF-3 result. Valley
+  -- is left with no partnership row at all, which is the real, honest "none" state -- never fabricated
+  -- by inserting a row that says so.
+  insert into public.club_partnerships (requesting_club_id, partner_club_id, status, requested_by)
+  select v_viewer_club, v_club_f, 'pending', v_coach
+  where v_club_f is not null
+    and not exists (select 1 from public.club_partnerships where (requesting_club_id = v_viewer_club and partner_club_id = v_club_f) or (requesting_club_id = v_club_f and partner_club_id = v_viewer_club));
+
+  insert into public.club_partnerships (requesting_club_id, partner_club_id, status, requested_by)
+  select v_club_h, v_viewer_club, 'pending', v_coach
+  where v_club_h is not null
+    and not exists (select 1 from public.club_partnerships where (requesting_club_id = v_viewer_club and partner_club_id = v_club_h) or (requesting_club_id = v_club_h and partner_club_id = v_viewer_club));
 
   raise notice 'Find a Fixture UAT matching world: 10 synthetic clubs ready around Ovalball UAT RUFC for TEST DATE 2026-10-17.';
 end $$;

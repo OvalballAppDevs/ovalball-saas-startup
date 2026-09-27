@@ -460,6 +460,16 @@ export function gameWeekRange(dateIso: string): { start: string; end: string } {
   return { start: monday.toISOString().slice(0, 10), end: sunday.toISOString().slice(0, 10) }
 }
 
+/** Whether `candidateDate` falls inside the Monday-Sunday game week that CONTAINS `referenceDate` --
+ * the boundary check the Public Club Profile's Availability tab needs (Section N): a commitment the
+ * day before the week's own Monday is OUTSIDE, the week's own Monday through Sunday are all INSIDE, and
+ * the following Monday is OUTSIDE again. Plain ISO-string comparison is safe here because `YYYY-MM-DD`
+ * sorts identically to chronological order. */
+export function withinGameWeek(candidateDate: string, referenceDate: string): boolean {
+  const { start, end } = gameWeekRange(referenceDate)
+  return candidateDate >= start && candidateDate <= end
+}
+
 /** The deduplicated set of game weeks spanned by a multi-date search, sorted -- a caller with dates
  * that straddle two different weeks needs both ranges, never just the first date's. */
 export function gameWeekRangesForDates(dates: readonly string[]): { start: string; end: string }[] {

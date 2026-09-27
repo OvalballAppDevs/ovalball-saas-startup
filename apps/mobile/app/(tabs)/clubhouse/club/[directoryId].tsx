@@ -9,6 +9,7 @@ import {
   distanceMiles,
   findDistanceOrigin,
   findFixtureWeekLabel,
+  gameWeekRange,
   inviteClubToOvalball,
   otherWeekCommitmentsForOpponent,
   readClubDetail,
@@ -24,6 +25,7 @@ import {
   type GameWeekCommitmentRow,
 } from "@ovalball/contracts/clubhouse"
 import { readClubTeams, sortTeamsInRugbyAgeOrder, summariseClubAgeGroups, type ClubTeam } from "@ovalball/contracts/club/teams"
+import { readClubFixtureRequests, type ClubFixtureRequest } from "@ovalball/contracts/club/requests"
 
 import { supabase } from "../../../../src/auth/supabase"
 import { useSession } from "../../../../src/auth/session"
@@ -31,11 +33,13 @@ import { useAppContexts } from "../../../../src/context/contexts"
 import { startClubConversation } from "../../../../src/messages/club-conversations"
 import { CLAIMABLE_ROLES, submitClubClaim, type ClaimableRole } from "../../../../src/clubhouse/claims"
 import { ChoiceField, Field, TextField } from "../../../../src/components/form"
+import { BottomSheet } from "../../../../src/components/bottom-sheet"
 import { Button, CardSkeleton, ErrorState, StatusPill } from "../../../../src/components/ui"
 import { CalendarDays, ChevronRight, Globe, MapPin, Share2, Users } from "../../../../src/components/icons"
 import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../../src/design/tokens"
 import { webUrl } from "../../../../src/config/environment"
 import { ClubCrest, ClubMetricRow } from "../../../../src/clubhouse/components"
+import { createFixtureRequest } from "../../../../src/agenda/mutations"
 
 /**
  * THE RICH CLUB PROFILE (mock-up reconciliation pass -- Screen 4/5 of the supplied visual specification
@@ -103,10 +107,20 @@ export default function ClubProfile() {
   const [error, setError] = useState<string | null>(null)
   const [detail, setDetail] = useState<ClubDetail | null>(null)
   const [clubTeams, setClubTeams] = useState<ClubTeam[] | null>(null)
+  const [viewerTeams, setViewerTeams] = useState<ClubTeam[] | null>(null)
+  const [clubFixtureRequests, setClubFixtureRequests] = useState<{ incoming: ClubFixtureRequest[]; outgoing: ClubFixtureRequest[] } | null>(null)
   const [busy, setBusy] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [messageDraft, setMessageDraft] = useState<string | null>(null)
   const [sendingMessage, setSendingMessage] = useState(false)
+  const [messageSentFor, setMessageSentFor] = useState<string | null>(null)
+
+  function loadMarkers() {
+    void readClubhouseMarkers(supabase, viewerClubId, viewerTeamId)
+      .then((rows) => setMarkers(rows))
+      .catch(() => setError("Couldn't load this club. Check your connection and try again."))
+  }
 
   useEffect(() => {
     let live = true
@@ -149,19 +163,92 @@ export default function ClubProfile() {
     }
   }, [marker?.clubId])
 
+  // THE VIEWER'S OWN ROSTER + EXISTING REQUESTS AGAINST THIS CLUB (Section I/M): `readClubFixtureRequests`
+  // is the SAME canonical read the Club/Team Requests screens already use, scoped here to the viewer's
+  // own teams and then filtered client-side to this specific opponent -- never a second request domain.
+  function loadFixtureRequests() {
+    if (!viewerClubId) return
+    void readClubTeams(supabase, viewerClubId).then((d) => {
+      const teams = d.teams.filter((t) => t.active)
+      setViewerTeams(teams)
+      void readClubFixtureRequests(supabase, teams.map((t) => ({ id: t.id, name: t.displayName }))).then(setClubFixtureRequests)
+    })
+  }
+
+  useEffect(() => {
+    setViewerTeams(null)
+    setClubFixtureRequests(null)
+    loadFixtureRequests()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `loadFixtureRequests` closes over `viewerClubId`, already a dependency here.
+  }, [viewerClubId])
+
   const isOtherClub = !!marker && marker.clubId !== null && !marker.isOwnClub
   const hasTeams = !!clubTeams && clubTeams.length > 0
   const hasHistory = isOtherClub && !!detail && (detail.fixturesTogetherThisSeason !== null || detail.fixturesTogetherAllTime !== null || !!detail.firstMetDate)
   const hasPartnershipContent =
     isOtherClub && !!detail && !!marker && (detail.actions.canPartner || detail.actions.canCancelOutgoingPartnerRequest || detail.actions.canRespondPartnerRequest || detail.actions.canRevokePartnership || marker.partnershipStatus !== "none")
 
-  async function act(run: () => Promise<{ ok: boolean; error?: string }>) {
+  async function act(run: () => Promise<{ ok: boolean; error?: string; message?: string }>) {
     setBusy(true)
     setFeedback(null)
+    setSuccessMessage(null)
     const result = await run()
     if (!result.ok) setFeedback(result.error ?? "That didn't work. Try again.")
-    else loadDetail()
+    else {
+      loadDetail()
+      loadMarkers()
+      if (result.message) setSuccessMessage(result.message)
+    }
     setBusy(false)
+  }
+
+  // MESSAGE THIS CLUB (owner correction, Section C): the composer is a SHEET, not inline content inside
+  // Overview, and a successful send DISMISSES it and shows a real acknowledgement naming the club --
+  // never silently leaves the composer sitting there with no sign anything happened. `sendingMessage`
+  // itself is the in-flight guard, since Button already disables its own press while `busy`.
+  async function sendMessage() {
+    if (!viewerClubId || !marker?.clubId || messageDraft === null || sendingMessage) return
+    setSendingMessage(true)
+    setFeedback(null)
+    const result = await startClubConversation(supabase, viewerClubId, marker.clubId, messageDraft.trim())
+    setSendingMessage(false)
+    if (!result.ok || !result.conversationId) {
+      setFeedback(result.error ?? "That didn't work. Try again.")
+      return
+    }
+    setMessageDraft(null)
+    setMessageSentFor(marker.name)
+  }
+
+  const [requestingTeamId, setRequestingTeamId] = useState<string | null>(null)
+
+  /** ONE TEAM PER CANONICAL REQUEST (Section L): `createFixtureRequest` is mobile's own existing,
+   * unmodified, single-team insert path (Section 8) -- never a new batched/grouped mutation invented for
+   * this row. Selecting several compatible teams' rows means calling it once per pairing, each getting
+   * its own real, independently trackable request. */
+  async function requestFixturesForTeam(myTeamId: string, opponentTeamId: string) {
+    if (!viewerClubId || !marker?.clubId || !findFixtureContext || requestingTeamId) return
+    setRequestingTeamId(myTeamId)
+    setFeedback(null)
+    const result = await createFixtureRequest(supabase, {
+      requestingClubId: viewerClubId,
+      requestingTeamId: myTeamId,
+      targetTeamId: opponentTeamId,
+      opponentClubId: marker.clubId,
+      opponentDirectoryId: marker.directoryId,
+      rawOpponentText: marker.name,
+      proposedDate: findFixtureContext.date,
+      preferredKickoffTime: null,
+      venuePreference: findFixtureContext.venuePreference,
+      note: null,
+    })
+    setRequestingTeamId(null)
+    if (!result.ok) {
+      setFeedback(result.message)
+      return
+    }
+    setSuccessMessage(`Fixture request sent to ${marker.name}.`)
+    loadFixtureRequests()
   }
 
   return (
@@ -217,24 +304,52 @@ export default function ClubProfile() {
               isOtherClub={isOtherClub}
               busy={busy}
               feedback={feedback}
-              messageDraft={messageDraft}
-              sendingMessage={sendingMessage}
-              onSetMessageDraft={setMessageDraft}
-              onSendMessage={async () => {
-                if (!viewerClubId || !marker.clubId || messageDraft === null) return
-                setSendingMessage(true)
-                setFeedback(null)
-                const result = await startClubConversation(supabase, viewerClubId, marker.clubId, messageDraft.trim())
-                setSendingMessage(false)
-                if (!result.ok || !result.conversationId) {
-                  setFeedback(result.error ?? "That didn't work. Try again.")
-                  return
-                }
-                router.push({ pathname: "/messages/[kind]/[id]", params: { kind: "club", id: result.conversationId } } as never)
-              }}
+              successMessage={successMessage}
               onAct={act}
+              viewerTeams={viewerTeams}
+              existingRequests={clubFixtureRequests}
+              requestingTeamId={requestingTeamId}
+              onRequestFixtures={requestFixturesForTeam}
+              onOpenRequestFixtures={() =>
+                router.push({
+                  pathname: "/fixtures/new",
+                  params: {
+                    opponentDirectoryId: marker.directoryId,
+                    opponentClubId: marker.clubId ?? "",
+                    date: findFixtureContext?.date ?? "",
+                    teamId: findFixtureContext?.teamIds[0] ?? "",
+                    targetTeamId: findFixtureContext?.compatibleTeams[0]?.teamId ?? "",
+                    venuePreference: findFixtureContext?.venuePreference ?? "either",
+                  },
+                } as never)
+              }
+              onRequestPartnership={() =>
+                void act(async () => {
+                  if (!viewerClubId || !userId || !marker.clubId) return { ok: false, error: "You don't have fixture authority at a club." }
+                  const result = await requestPartnership(supabase, viewerClubId, marker.clubId, userId)
+                  return { ...result, message: result.ok ? `Partnership request sent to ${marker.name}.` : undefined }
+                })
+              }
             />
           </ScrollView>
+
+          <BottomSheet visible={messageDraft !== null} onClose={() => setMessageDraft(null)} title="Message This Club">
+            <TextInput
+              accessibilityLabel="First message"
+              value={messageDraft ?? ""}
+              onChangeText={(v) => setMessageDraft(v)}
+              placeholder="Write your message…"
+              placeholderTextColor={colour.inkSubtle}
+              multiline
+              style={{ minHeight: 88, paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.chalk, color: colour.ink, textAlignVertical: "top" }}
+            />
+            {feedback && <Text style={[type.caption, { color: colour.warning }]}>{feedback}</Text>}
+            <Button label="Send" busy={sendingMessage} disabled={!messageDraft?.trim()} onPress={sendMessage} />
+          </BottomSheet>
+
+          <BottomSheet visible={!!messageSentFor} onClose={() => setMessageSentFor(null)} title="Message Sent" cancelLabel="Done">
+            <Text style={[type.small, { color: colour.ink }]}>{`You've sent ${messageSentFor} a message.`}</Text>
+          </BottomSheet>
           {/* THE BOTTOM ACTION BAR (visual-lock Job 2, Section 15): two buttons when this profile was
               reached from an FF-3 result card (a contextual secondary action plus the primary "Request
               Fixtures" CTA) -- NEVER a third button, and Request Fixtures never routes back into Find a
@@ -306,6 +421,24 @@ function candidateTeamWeekLabel(teamId: string, findFixtureContext: FindFixtureP
   const dateState = exact ? (exact.status === "busy" ? "busy" : "tentative") : partnershipStatus === "active" ? "no_known_clash" : "unknown"
   const otherWeekCommitments = otherWeekCommitmentsForOpponent(teamId, findFixtureContext.date, findFixtureContext.weekRows)
   return findFixtureWeekLabel({ dateState, otherWeekCommitments })
+}
+
+/** WHICH OF THE VIEWER'S OWN TEAMS PLAYS THIS OPPONENT (Section G): real rugby-natural matching --
+ * same age grade and gender for a youth side, same gender alone for a senior side (both sides' own
+ * `ageGroup` is null there) -- never a guess, the exact rule the server's own compatibility check
+ * already applies. Returns null only if the viewer's roster hasn't loaded yet. */
+function pairViewerTeam(opponent: CompatibleTeam, viewerTeams: ClubTeam[] | null): ClubTeam | null {
+  if (!viewerTeams) return null
+  if (opponent.ageGroup) return viewerTeams.find((t) => t.ageGroup === opponent.ageGroup && t.gender === opponent.gender) ?? null
+  return viewerTeams.find((t) => t.category === "senior" && t.gender === opponent.gender) ?? null
+}
+
+/** A REAL, ALREADY-OUTSTANDING fixture request for this exact team against this exact club (Section I)
+ * -- checked before ever offering a second Request action, which the canonical duplicate-request guard
+ * would refuse anyway. `sent`/`counter_proposed` are the two "still live, waiting on somebody" states. */
+function existingRequestFor(viewerTeamId: string, clubName: string, requests: { incoming: ClubFixtureRequest[]; outgoing: ClubFixtureRequest[] } | null): ClubFixtureRequest | null {
+  if (!requests) return null
+  return [...requests.outgoing, ...requests.incoming].find((r) => r.ourTeamId === viewerTeamId && r.otherClub === clubName && (r.status === "sent" || r.status === "counter_proposed")) ?? null
 }
 
 function buildHeroMetrics({
@@ -627,11 +760,14 @@ function OnOvalballBody({
   isOtherClub,
   busy,
   feedback,
-  messageDraft,
-  sendingMessage,
-  onSetMessageDraft,
-  onSendMessage,
+  successMessage,
   onAct,
+  viewerTeams,
+  existingRequests,
+  requestingTeamId,
+  onRequestFixtures,
+  onOpenRequestFixtures,
+  onRequestPartnership,
 }: {
   marker: ClubMapMarker
   detail: ClubDetail | null
@@ -643,11 +779,14 @@ function OnOvalballBody({
   isOtherClub: boolean
   busy: boolean
   feedback: string | null
-  messageDraft: string | null
-  sendingMessage: boolean
-  onSetMessageDraft: (updater: (d: string | null) => string | null) => void
-  onSendMessage: () => void
-  onAct: (run: () => Promise<{ ok: boolean; error?: string }>) => void
+  successMessage: string | null
+  onAct: (run: () => Promise<{ ok: boolean; error?: string; message?: string }>) => void
+  viewerTeams: ClubTeam[] | null
+  existingRequests: { incoming: ClubFixtureRequest[]; outgoing: ClubFixtureRequest[] } | null
+  requestingTeamId: string | null
+  onRequestFixtures: (myTeamId: string, opponentTeamId: string) => void
+  onOpenRequestFixtures: () => void
+  onRequestPartnership: () => void
 }) {
   const [tab, setTab] = useState<TabKey>(() => (findFixtureContext ? "availability" : "overview"))
   const visibleTabs = TABS.filter(
@@ -668,23 +807,8 @@ function OnOvalballBody({
 
   return (
     <View style={{ paddingHorizontal: GUTTER, paddingTop: space.sm, gap: space.sm }}>
-      {messageDraft !== null && (
-        <ProfileCard>
-          <SectionHeader label="Message This Club" />
-          <TextInput
-            accessibilityLabel="First message"
-            value={messageDraft}
-            onChangeText={(v) => onSetMessageDraft(() => v)}
-            placeholder="Write your message…"
-            placeholderTextColor={colour.inkSubtle}
-            multiline
-            style={{ minHeight: 88, paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.chalk, color: colour.ink, textAlignVertical: "top" }}
-          />
-          <Button label="Send" busy={sendingMessage} disabled={!messageDraft.trim()} onPress={onSendMessage} />
-        </ProfileCard>
-      )}
-
       {feedback && <Text style={[type.caption, { color: colour.warning }]}>{feedback}</Text>}
+      {successMessage && <Text style={[type.caption, { color: colour.forest800 }]}>{successMessage}</Text>}
 
       {/* A FLAT, FULL-WIDTH TAB ROW (owner correction, Section 11): no surrounding capsule, no
           selected-tab pill -- four equal segments, a bright green underline on the selected one, and a
@@ -755,8 +879,13 @@ function OnOvalballBody({
         </View>
       )}
 
+      {/* AVAILABILITY, OPERATIONAL (owner correction, Section F-J): the Monday-Sunday game week named
+          up front, one card per real compatible pairing (our team vs their team), a truthful week
+          status -- never "Available", only ever "No known clash" -- an existing pending request shown
+          instead of a second Request action where one is already outstanding, and the same canonical
+          Request Fixtures CTA the bottom bar offers, also reachable from inside this tab's own content. */}
       {tab === "availability" && (
-        <ProfileCard>
+        <View style={{ gap: space.sm }}>
           <SectionHeader label="Availability" />
           {!findFixtureContext && (
             <Text style={[type.small, { color: colour.inkMuted }]}>Choose dates in Find a Fixture to check this club's known availability.</Text>
@@ -764,55 +893,99 @@ function OnOvalballBody({
           {findFixtureContext && (
             <>
               <Text style={[type.small, { color: colour.inkMuted }]}>
-                Your search: {findFixtureContext.teamLabels.length > 0 ? findFixtureContext.teamLabels.join(", ") : "your selected teams"} on {longDateLabel(findFixtureContext.date)}.
+                Game week: {longDateLabel(gameWeekRange(findFixtureContext.date).start)} – {longDateLabel(gameWeekRange(findFixtureContext.date).end)}
               </Text>
-              <View style={{ gap: space.sm }}>
-                {findFixtureContext.compatibleTeams.map((t) => {
-                  const label = candidateTeamWeekLabel(t.teamId, findFixtureContext, marker.partnershipStatus)
+              <Text style={[type.caption, { color: colour.inkSubtle }]}>
+                {findFixtureContext.compatibleTeams.length} compatible {findFixtureContext.compatibleTeams.length === 1 ? "team" : "teams"}
+              </Text>
+              <View style={{ gap: space.sm, marginTop: space.xs }}>
+                {findFixtureContext.compatibleTeams.map((opponentTeam) => {
+                  const ourTeam = pairViewerTeam(opponentTeam, viewerTeams)
+                  const existing = ourTeam ? existingRequestFor(ourTeam.id, marker.name, existingRequests) : null
+                  const label = candidateTeamWeekLabel(opponentTeam.teamId, findFixtureContext, marker.partnershipStatus)
+                  const positive = label.primary === "No known clash"
+                  const neutral = label.primary === "Availability unknown"
                   return (
-                    <View key={t.teamId} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
-                      <Text numberOfLines={1} style={[type.small, { color: colour.ink, flex: 1 }]}>
-                        {t.displayName}
-                      </Text>
-                      <View style={{ alignItems: "flex-end" }}>
-                        <StatusPill label={label.primary} tone={label.primary === "No known clash" ? "positive" : label.primary === "Availability unknown" ? "neutral" : "caution"} />
-                        {label.detail && <Text style={[type.caption, { color: colour.inkSubtle, marginTop: 2 }]}>{longDateLabel(label.detail)}</Text>}
+                    <View key={opponentTeam.teamId} style={{ borderWidth: 1, borderColor: colour.line, borderRadius: radius.md, padding: space.md, gap: space.xs }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>
+                          {ourTeam ? ourTeam.displayName : "Your team"}
+                        </Text>
+                        <Text style={[type.caption, { color: colour.inkSubtle }]}>vs</Text>
+                        <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink, flex: 1, textAlign: "right" }]}>
+                          {opponentTeam.displayName}
+                        </Text>
                       </View>
+                      <Text style={[type.caption, { color: colour.inkSubtle }]}>{longDateLabel(findFixtureContext.date)}</Text>
+                      {existing ? (
+                        <StatusPill label={existing.direction === "incoming" ? "Request received" : "Request pending"} tone="caution" />
+                      ) : (
+                        <>
+                          <StatusPill label={label.primary === "Busy this week" ? "Fixture booked this week" : label.primary} tone={positive ? "positive" : neutral ? "neutral" : "caution"} />
+                          {label.detail && <Text style={[type.caption, { color: colour.inkSubtle }]}>{longDateLabel(label.detail)}</Text>}
+                        </>
+                      )}
+                      {!existing && ourTeam && detail.actions.canFindFixture && (
+                        <Button
+                          variant="secondary"
+                          label="Request Fixture"
+                          busy={requestingTeamId === ourTeam.id}
+                          onPress={() => onRequestFixtures(ourTeam.id, opponentTeam.teamId)}
+                        />
+                      )}
                     </View>
                   )
                 })}
                 {findFixtureContext.compatibleTeams.length === 0 && <Text style={[type.small, { color: colour.inkMuted }]}>No compatible teams to check availability for.</Text>}
               </View>
+              {detail.actions.canFindFixture && <Button label="Request Fixtures" style={{ backgroundColor: colour.pitch600, borderColor: colour.pitch600 }} onPress={onOpenRequestFixtures} />}
             </>
           )}
-        </ProfileCard>
+        </View>
       )}
 
       {/* PARTNERSHIP, CONSOLIDATED (visual-lock Job 2, Section 14): every canonical relationship state
           -- Partner / Pending outgoing / Pending incoming / Not yet partnered -- plus, when the two
           clubs have a real shared fixture history, that history too (moved here from the old separate
           "Fixtures" tab, which this profile no longer has). */}
+      {/* PARTNERSHIP, OPERATIONAL (owner correction, Section D/E): every canonical relationship state
+          genuinely acted on here, not just described -- Request Partnership for `none`, and an explicit
+          `unknown` state that never collapses into `none` and never offers a CTA it cannot honour. */}
       {tab === "partnership" && (hasPartnershipContent || hasHistory) && (
         <ProfileCard>
           <SectionHeader label="Partnership" />
           {marker.partnershipStatus === "pending_outgoing" && (
             <>
-              <StatusPill label="Request sent" tone="neutral" />
+              <Text style={[type.small, { color: colour.inkMuted }]}>Waiting for {marker.name} to respond.</Text>
               {detail.actions.canCancelOutgoingPartnerRequest && marker.partnershipId && (
-                <Button variant="quiet" label="Cancel Partner Request" busy={busy} onPress={() => onAct(() => revokePartnership(supabase, marker.partnershipId as string))} />
+                <Button
+                  variant="quiet"
+                  label="Withdraw Request"
+                  busy={busy}
+                  onPress={() => onAct(async () => ({ ...(await revokePartnership(supabase, marker.partnershipId as string)), message: "Partnership request withdrawn." }))}
+                />
               )}
             </>
           )}
           {marker.partnershipStatus === "pending_incoming" && (
             <>
-              <Text style={[type.small, { color: colour.inkMuted }]}>{marker.name} wants to partner with your club.</Text>
+              <Text style={[type.small, { color: colour.inkMuted }]}>{marker.name} would like to partner with your club.</Text>
               {detail.actions.canRespondPartnerRequest && marker.partnershipId && (
                 <View style={{ flexDirection: "row", gap: space.sm }}>
                   <View style={{ flex: 1 }}>
-                    <Button variant="secondary" label="Decline" busy={busy} onPress={() => onAct(() => respondToPartnership(supabase, marker.partnershipId as string, false))} />
+                    <Button
+                      variant="secondary"
+                      label="Decline"
+                      busy={busy}
+                      onPress={() => onAct(async () => ({ ...(await respondToPartnership(supabase, marker.partnershipId as string, false)), message: undefined }))}
+                    />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Button label="Accept" busy={busy} onPress={() => onAct(() => respondToPartnership(supabase, marker.partnershipId as string, true))} />
+                    <Button
+                      label="Accept Partnership"
+                      busy={busy}
+                      onPress={() => onAct(async () => ({ ...(await respondToPartnership(supabase, marker.partnershipId as string, true)), message: `You are now partnered with ${marker.name}.` }))}
+                    />
                   </View>
                 </View>
               )}
@@ -820,15 +993,23 @@ function OnOvalballBody({
           )}
           {marker.partnershipStatus === "active" && (
             <>
-              <StatusPill label="Partner" tone="positive" />
+              <Text style={[type.smallMedium, { color: colour.ink }]}>Partner Club</Text>
+              <Text style={[type.small, { color: colour.inkMuted }]}>Your clubs are connected on the Ovalball Rugby Network.</Text>
               {detail.actions.canRevokePartnership && marker.partnershipId && (
-                <Button variant="quiet" label="End Partnership" busy={busy} onPress={() => onAct(() => revokePartnership(supabase, marker.partnershipId as string))} />
+                <Button variant="quiet" label="End Partnership" busy={busy} onPress={() => onAct(async () => ({ ...(await revokePartnership(supabase, marker.partnershipId as string)), message: undefined }))} />
               )}
             </>
           )}
           {marker.partnershipStatus === "none" && (
-            <Text style={[type.small, { color: colour.inkMuted }]}>Partnering shares calendars and opens direct messaging between the two clubs -- use Make Partnership below.</Text>
+            <>
+              <Text style={[type.smallMedium, { color: colour.ink }]}>Not partnered yet</Text>
+              <Text style={[type.small, { color: colour.inkMuted }]}>Partner clubs can quickly find each other and coordinate future fixtures.</Text>
+              {detail.actions.canPartner && <Button label="Request Partnership" busy={busy} onPress={onRequestPartnership} />}
+            </>
           )}
+          {/* UNKNOWN IS NEVER SHOWN AS NONE (Section D, critical): no CTA is offered here, because this
+              viewer's own authority context cannot even confirm what the real relationship is. */}
+          {marker.partnershipStatus === "unknown" && <Text style={[type.small, { color: colour.inkMuted }]}>Partnership status unavailable.</Text>}
           {hasHistory && (
             <View style={{ marginTop: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: colour.line, gap: space.xs }}>
               <SectionHeader label="Fixture History" />
