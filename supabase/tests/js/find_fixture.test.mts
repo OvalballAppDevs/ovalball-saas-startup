@@ -20,6 +20,7 @@ import {
   groupCandidateTeamsByClub,
   matchedTeamCountLabel,
   nextWeekdayDates,
+  otherWeekCommitmentsForOpponent,
   sortFindFixtureCandidates,
   sortFindFixtureMatches,
   summariseFindFixtureClubAvailability,
@@ -510,4 +511,13 @@ test("findFixtureClubWeekLabel: a genuine split between a clear team and a busy 
   })
   const summary = summariseFindFixtureClubWeek(c, 2, "2026-10-17", [{ my_team_id: "my-1", opponent_team_id: "opp-1", the_date: "2026-10-17", status: "busy" }], [])
   assert.equal(findFixtureClubWeekLabel(summary), "Mixed")
+})
+
+test("otherWeekCommitmentsForOpponent: the Public Club Profile's Availability tab asks the same question regardless of which of the viewer's own teams matched -- matched by opponent team alone, sorted, excluding the requested date itself", () => {
+  const weekRows = [
+    { my_team_id: "my-1", opponent_team_id: "opp-1", commitment_date: "2026-10-17" }, // the requested date -- excluded
+    { my_team_id: "my-2", opponent_team_id: "opp-1", commitment_date: "2026-10-16" }, // a DIFFERENT viewer team, same opponent -- still counts
+    { my_team_id: "my-1", opponent_team_id: "opp-2", commitment_date: "2026-10-15" }, // a different opponent -- never counts for opp-1
+  ]
+  assert.deepEqual(otherWeekCommitmentsForOpponent("opp-1", "2026-10-17", weekRows), ["2026-10-16"])
 })

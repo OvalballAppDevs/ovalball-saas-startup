@@ -208,6 +208,54 @@ export async function removeClubCrest(supabase: Client, clubId: string): Promise
   return { ok: true }
 }
 
+/**
+ * COVER PHOTO AUTHORITY REUSES `canEditClubProfile` FROM `@ovalball/contracts/club/profile` -- the
+ * cover is presentation content on the SAME public profile bio/website already belong to, so it is
+ * gated by the exact same, already-existing `club.profile.edit` check that screen already imports.
+ * Never `club.logo.manage` (the crest is the club's protected brand identity, genuinely different from
+ * an editable hero photo), and never a second copy of the same capability check under a new name.
+ */
+
+/**
+ * THE PUBLIC PROFILE'S COVER PHOTO -- never the crest, never club identity, never required. Same
+ * upload-then-link-then-delete-old order as `replaceClubCrest`, same authority question
+ * (`club.profile.edit`, asked by `club_covers_insert_club_admin` at write time).
+ */
+export async function replaceClubCover(supabase: Client, clubId: string, file: PickedFile): Promise<ImageResult> {
+  const invalid = checkFile(file)
+  if (invalid) return { ok: false, message: invalid }
+
+  const bytes = await readFileBytes(file.uri)
+  if (!bytes) return { ok: false, message: "That picture couldn't be read. Try choosing it again." }
+
+  const { data: existing } = await supabase.from("clubs").select("cover_storage_path").eq("id", clubId).maybeSingle()
+  const path = `${clubId}/cover-${Date.now()}.${EXTENSION[file.mimeType]}`
+
+  const { error: uploadError } = await supabase.storage.from("club-covers").upload(path, bytes, { contentType: file.mimeType, upsert: false })
+  if (uploadError) return fail(uploadError, "this club's cover photo")
+
+  const { data: linked, error: linkError } = await supabase.from("clubs").update({ cover_storage_path: path }).eq("id", clubId).select("id")
+  if (linkError || !linked?.length) {
+    await supabase.storage.from("club-covers").remove([path])
+    return fail(linkError ?? { message: "permission denied" }, "this club's cover photo")
+  }
+
+  if (existing?.cover_storage_path && existing.cover_storage_path !== path) {
+    await supabase.storage.from("club-covers").remove([existing.cover_storage_path])
+  }
+  return { ok: true }
+}
+
+/** Removing the cover photo leaves the profile with no photo at all (the deliberate forest-gradient
+ * fallback `ProfileHero` already renders) -- there is no directory-level fallback the way a crest has one. */
+export async function removeClubCover(supabase: Client, clubId: string): Promise<ImageResult> {
+  const { data: existing } = await supabase.from("clubs").select("cover_storage_path").eq("id", clubId).maybeSingle()
+  const { data: cleared, error } = await supabase.from("clubs").update({ cover_storage_path: null }).eq("id", clubId).select("id")
+  if (error || !cleared?.length) return fail(error ?? { message: "permission denied" }, "this club's cover photo")
+  if (existing?.cover_storage_path) await supabase.storage.from("club-covers").remove([existing.cover_storage_path])
+  return { ok: true }
+}
+
 function fail(error: unknown, subject: string): ImageResult {
   const problem = friendly(error, subject)
   logDetail("identity image", problem)

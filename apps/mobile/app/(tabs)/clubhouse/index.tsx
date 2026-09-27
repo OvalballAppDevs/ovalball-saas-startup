@@ -11,7 +11,8 @@ import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import { AppHeader } from "../../../src/components/app-header"
 import { ContextSheet } from "../../../src/components/context-sheet"
-import { CardSkeleton } from "../../../src/components/ui"
+import { Button, CardSkeleton } from "../../../src/components/ui"
+import { ClubCrest } from "../../../src/components/identity"
 import { editorial } from "../../../src/components/home/editorial"
 import { resolveIntent } from "../../../src/links/intents"
 import { narrowIntentForContext, routeForIntent } from "../../../src/links/destinations"
@@ -53,7 +54,8 @@ const ACTIVITY_LIMIT = 5
 export default function ClubhouseHome() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { active } = useAppContexts()
+  const { active, club } = useAppContexts()
+  const clubContext = active?.kind === "club"
   const [sheetOpen, setSheetOpen] = useState(false)
   const [activity, setActivity] = useState<FeedNotification[] | null>(null)
   const [activityError, setActivityError] = useState(false)
@@ -122,6 +124,25 @@ export default function ClubhouseHome() {
             onPress={() => router.push({ pathname: "/clubhouse/map", params: { mode: "search" } } as never)}
           />
         </View>
+
+        {/* Section B7: club-context only -- editing a club's own public profile is a club-wide identity
+            change, never a team-context capability. Discoverable here, deliberately quiet next to the
+            primary Find a Fixture / Partner Clubs actions above, never competing with them. */}
+        {clubContext && (
+          <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.md, gap: space.sm }}>
+            <Text style={[type.caption, { color: colour.inkMuted }]}>Your Public Profile</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+              <ClubCrest clubName={club.name} url={club.crestUrl} size={40} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
+                  {club.name ?? "Your club"}
+                </Text>
+                <Text style={[type.caption, { color: colour.inkMuted }]}>Complete or edit what other clubs see</Text>
+              </View>
+            </View>
+            <Button label="Edit Public Profile" variant="secondary" onPress={() => router.push("/admin/club-profile" as never)} />
+          </View>
+        )}
 
         <ReferralPromoCard onPress={() => router.push("/clubhouse/refer" as never)} />
 

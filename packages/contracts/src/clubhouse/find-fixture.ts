@@ -479,6 +479,19 @@ export function summariseFindFixtureTeamWeek(
   return { dateState, otherWeekCommitments }
 }
 
+/**
+ * THE SAME QUESTION FOR THE PUBLIC CLUB PROFILE'S OWN GENERIC Availability tab (Part B, Section B4):
+ * "does THIS opposition team have a real commitment elsewhere in the week", asked without pinning it to
+ * one specific one of the viewer's own teams -- that screen shows every one of a club's compatible
+ * teams at once, not a single viewer-team-scoped search result row.
+ */
+export function otherWeekCommitmentsForOpponent(opponentTeamId: string, requestedDate: string, weekRows: readonly GameWeekCommitmentRow[]): string[] {
+  return weekRows
+    .filter((r) => r.opponent_team_id === opponentTeamId && r.commitment_date !== requestedDate)
+    .map((r) => r.commitment_date)
+    .sort()
+}
+
 /** "Busy" (the exact date itself), "Busy this week" (a real commitment elsewhere in the same Monday-
  * Sunday week, `detail` carrying that raw date for the UI to format), "Tentative", "Availability
  * unknown", or "No known clash" -- never "Available", and a clear exact date is never presented as

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "../database"
-import { clubLogoUrlFromPath, resolveClubLogoPathFrom } from "../club-logo"
+import { clubCoverUrlFromPath, clubLogoUrlFromPath, resolveClubLogoPathFrom } from "../club-logo"
 import type { ClubMapMarker } from "./map-read-model"
 
 type Client = SupabaseClient<Database>
@@ -44,6 +44,8 @@ export interface ClubDetail {
   website: string | null
   /** The activated club's own entered description (`clubs.bio`) -- only ever real, club-written text, never generated. Null for a directory-only club (it has no `clubs` row to hold one) or an activated club that has not written one. */
   bio: string | null
+  /** Public profile hero image (`clubs.cover_storage_path`) -- optional, presentation-only, never the crest. Null for a directory-only club or an activated club that has not uploaded one. */
+  coverUrl: string | null
   /** Only ever populated for an ON-OVALBALL club, with a viewer team context. Never fabricated, never name-matched -- the same canonical compatible_opponent_teams RPC Find a Fixture already uses. */
   compatibleTeams: CompatibleTeam[] | null
   /** Fixtures already played/scheduled between the viewer's club and this one this season. Only for an on-Ovalball club. */
@@ -179,6 +181,7 @@ export async function readClubDetail(
     slug: marker.slug,
     website: about.website,
     bio: about.bio,
+    coverUrl: about.coverUrl,
     compatibleTeams,
     fixturesTogetherThisSeason: networkHistory.thisSeason,
     fixturesTogetherAllTime: networkHistory.allTime,
@@ -197,11 +200,11 @@ export function resolveClubWebsite(directory: { website: string | null }, club: 
   return club?.website || directory.website || null
 }
 
-async function readClubAbout(supabase: Client, directoryId: string): Promise<{ website: string | null; bio: string | null }> {
-  const { data, error } = await supabase.from("club_directory").select("website, clubs(website, bio)").eq("id", directoryId).maybeSingle()
-  if (error || !data) return { website: null, bio: null }
-  const row = data as unknown as { website: string | null; clubs: { website: string | null; bio: string | null } | null }
-  return { website: resolveClubWebsite({ website: row.website }, row.clubs), bio: row.clubs?.bio || null }
+async function readClubAbout(supabase: Client, directoryId: string): Promise<{ website: string | null; bio: string | null; coverUrl: string | null }> {
+  const { data, error } = await supabase.from("club_directory").select("website, clubs(website, bio, cover_storage_path)").eq("id", directoryId).maybeSingle()
+  if (error || !data) return { website: null, bio: null, coverUrl: null }
+  const row = data as unknown as { website: string | null; clubs: { website: string | null; bio: string | null; cover_storage_path: string | null } | null }
+  return { website: resolveClubWebsite({ website: row.website }, row.clubs), bio: row.clubs?.bio || null, coverUrl: clubCoverUrlFromPath(supabase, row.clubs?.cover_storage_path ?? null) }
 }
 
 /**

@@ -9506,6 +9506,10 @@
         "public": true,
         "reason": "Club crests on public pages and emails."
       },
+      "club-covers": {
+        "public": true,
+        "reason": "Public Clubhouse profile hero images."
+      },
       "club-news-media": {
         "public": true,
         "reason": "Article hero images for anonymous readers and link previews. Known limitation: an image attached to a draft article is reachable by its unguessable UUID URL (handoff); tighten in a later content/security slice."

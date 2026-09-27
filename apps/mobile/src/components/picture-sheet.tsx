@@ -28,10 +28,14 @@ import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../design/
 export interface PictureAction {
   /** What is being changed, in the words the person will read: "your picture", "the club crest". */
   subject: string
-  /** Called with the prepared, square, resized image. Resolves to an error sentence, or null on success. */
+  /** Called with the prepared, resized image. Resolves to an error sentence, or null on success. */
   onReplace: (file: PickedFile) => Promise<string | null>
   /** Offered only when there is an uploaded picture to remove. Same contract. */
   onRemove?: (() => Promise<string | null>) | null
+  /** Crop framing for this subject -- omitted (the default) means the square identity crop every
+   * existing caller (an avatar, a crest) already relies on. A wide profile cover photo passes an
+   * explicit ratio, e.g. `[16, 9]`, instead. */
+  aspect?: [number, number]
 }
 
 export function PictureSheet({ action, onClose }: { action: PictureAction | null; onClose: () => void }) {
@@ -125,13 +129,13 @@ export function PictureSheet({ action, onClose }: { action: PictureAction | null
           label="Take Photo"
           icon={<Camera size={19} color={colour.forest800} />}
           disabled={busy}
-          onPress={() => void run(() => takePhoto({ square: true }))}
+          onPress={() => void run(() => takePhoto(action.aspect ? { aspect: action.aspect } : { square: true }))}
         />
         <Row
           label="Choose Photo"
           icon={<ImageIcon size={19} color={colour.forest800} />}
           disabled={busy}
-          onPress={() => void run(() => choosePhoto({ square: true }))}
+          onPress={() => void run(() => choosePhoto(action.aspect ? { aspect: action.aspect } : { square: true }))}
         />
         {action.onRemove && (
           <Row label={`Remove ${action.subject}`} icon={<X size={19} color={colour.danger} />} tone="danger" disabled={busy} onPress={() => void remove()} />

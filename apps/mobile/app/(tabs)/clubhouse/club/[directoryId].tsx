@@ -2,19 +2,24 @@ import { useEffect, useMemo, useState } from "react"
 import { Linking, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { Image } from "expo-image"
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 
 import {
   distanceMiles,
   findDistanceOrigin,
+  findFixtureWeekLabel,
   inviteClubToOvalball,
+  otherWeekCommitmentsForOpponent,
   readClubDetail,
   readClubhouseMarkers,
   requestPartnership,
   respondToPartnership,
   revokePartnership,
+  type CandidateAvailabilityBatchRow,
   type ClubDetail,
   type ClubMapMarker,
+  type GameWeekCommitmentRow,
 } from "@ovalball/contracts/clubhouse"
 import { readClubTeams, type ClubTeam } from "@ovalball/contracts/club/teams"
 
@@ -51,7 +56,30 @@ import { ageRangeLabel, ClubCrest, ClubMetricRow, NetworkPill } from "../../../.
 export default function ClubProfile() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { directoryId } = useLocalSearchParams<{ directoryId: string }>()
+  const { directoryId, ffDate, ffTeamLabels, ffAvailability, ffWeekRows } = useLocalSearchParams<{
+    directoryId: string
+    ffDate?: string
+    ffTeamLabels?: string
+    ffAvailability?: string
+    ffWeekRows?: string
+  }>()
+
+  // FIND A FIXTURE SEARCH CONTEXT (Section B4): present only when this profile was opened from an FF-3
+  // result card -- never fabricated when the club was reached any other way (Clubhouse map, a fixture,
+  // a search). Reuses the EXACT rows FF-2 already computed; nothing here re-derives availability.
+  const findFixtureContext = useMemo(() => {
+    if (!ffDate) return null
+    try {
+      return {
+        date: ffDate,
+        teamLabels: ffTeamLabels ? (JSON.parse(ffTeamLabels) as string[]) : [],
+        availability: ffAvailability ? (JSON.parse(ffAvailability) as CandidateAvailabilityBatchRow[]) : [],
+        weekRows: ffWeekRows ? (JSON.parse(ffWeekRows) as GameWeekCommitmentRow[]) : [],
+      }
+    } catch {
+      return null
+    }
+  }, [ffDate, ffTeamLabels, ffAvailability, ffWeekRows])
   const { userId } = useSession()
   const { active } = useAppContexts()
   const viewerClubId = active?.clubId ?? (active?.kind === "club" ? active.id : null)
@@ -158,6 +186,7 @@ export default function ClubProfile() {
             <ProfileHero
               marker={marker}
               origin={origin}
+              coverUrl={detail?.coverUrl}
               metrics={buildHeroMetrics({ clubTeams, isOtherClub, detail })}
             />
             <OnOvalballBody
@@ -167,6 +196,7 @@ export default function ClubProfile() {
               hasTeams={hasTeams}
               hasHistory={hasHistory}
               hasPartnershipContent={hasPartnershipContent}
+              findFixtureContext={findFixtureContext}
               isOtherClub={isOtherClub}
               busy={busy}
               feedback={feedback}
@@ -263,22 +293,26 @@ function ProfileBackHeader({ title, onBack, insets }: { title: string; onBack: (
 }
 
 /**
- * CREST-FORWARD, NEVER INVENTED PHOTOGRAPHY: no per-club photo exists for ~1,400 directory rows, so the
- * hero is the same forest-gradient identity treatment `ClubhouseHero` already uses on Clubhouse Home --
- * a real ground, not a stock image standing in for a club Ovalball has never photographed -- with the
- * club's own crest as the one piece of real imagery, and a metric row (mock-up reconciliation) directly
- * underneath carrying whatever is genuinely known -- never rendered at all when nothing is.
+ * CREST-FORWARD, NEVER INVENTED PHOTOGRAPHY: for the ~1,400 directory rows with no cover photo of their
+ * own (and no `clubs` row at all), the hero is the same forest-gradient identity treatment
+ * `ClubhouseHero` already uses on Clubhouse Home -- a real ground, not a stock image standing in for a
+ * club Ovalball has never photographed. A club that HAS uploaded its own real cover photo
+ * (`clubs.cover_storage_path`, Part B's own new canonical field) gets it here, full-bleed, with a
+ * darker gradient for legibility -- never a substitute for the crest, which stays the one piece of
+ * imagery every club gets regardless. A metric row (mock-up reconciliation) sits directly underneath,
+ * carrying whatever is genuinely known -- never rendered at all when nothing is.
  */
-function ProfileHero({ marker, origin, metrics }: { marker: ClubMapMarker; origin: ClubMapMarker | null; metrics: { value: string; label: string }[] }) {
+function ProfileHero({ marker, origin, metrics, coverUrl }: { marker: ClubMapMarker; origin: ClubMapMarker | null; metrics: { value: string; label: string }[]; coverUrl?: string | null }) {
   const miles = origin && marker.hasLocation && !marker.isOwnClub ? distanceMiles(origin, marker) : null
   return (
     <View>
       <View style={{ backgroundColor: colour.forest900, paddingTop: space.lg, paddingBottom: metrics.length > 0 ? space.xxl : space.lg, paddingHorizontal: space.lg, overflow: "hidden" }}>
+        {coverUrl && <Image source={{ uri: coverUrl }} accessible={false} contentFit="cover" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />}
         <Svg style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} width="100%" height="100%">
           <Defs>
             <LinearGradient id="clubProfileHeroShade" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor={colour.forest950} stopOpacity="0.15" />
-              <Stop offset="1" stopColor={colour.forest950} stopOpacity="0.55" />
+              <Stop offset="0" stopColor={colour.forest950} stopOpacity={coverUrl ? "0.35" : "0.15"} />
+              <Stop offset="1" stopColor={colour.forest950} stopOpacity={coverUrl ? "0.8" : "0.55"} />
             </LinearGradient>
           </Defs>
           <Rect x="0" y="0" width="100%" height="100%" fill="url(#clubProfileHeroShade)" />
@@ -312,6 +346,12 @@ function ProfileHero({ marker, origin, metrics }: { marker: ClubMapMarker; origi
       )}
     </View>
   )
+}
+
+/** "Sat 26 Sep 2026" -- rugby-friendly, never a raw ISO string. */
+function longDateLabel(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`)
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
 }
 
 /** "Mar 2024" -- a real recorded fixture date, never a guess. */
@@ -364,21 +404,32 @@ function ProfileActionBar({ children, insetsBottom }: { children: React.ReactNod
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "teams", label: "Teams" },
+  { key: "availability", label: "Availability" },
   { key: "history", label: "Fixtures" },
   { key: "partnership", label: "Partnership" },
 ] as const
 type TabKey = (typeof TABS)[number]["key"]
 
+export interface FindFixtureProfileContext {
+  date: string
+  teamLabels: string[]
+  availability: CandidateAvailabilityBatchRow[]
+  weekRows: GameWeekCommitmentRow[]
+}
+
 /**
- * ON-OVALBALL BODY: Overview / Teams / Fixtures / Partnership, a tab never renders when its content
- * would be empty -- Teams is hidden with no active sides on file, Fixtures is hidden for the viewer's
- * own club (a club has no fixture history against itself) and for any opposition club with no shared
- * history yet, Partnership is hidden for the viewer's own club and for any club where nothing
- * partnership-shaped is true yet.
+ * ON-OVALBALL BODY: Overview / Teams / Availability / Fixtures / Partnership, a tab never renders when
+ * its content would be empty -- Teams is hidden with no active sides on file, Availability is hidden
+ * unless this profile was opened from an FF-3 result card (never fabricated otherwise), Fixtures is
+ * hidden for the viewer's own club (a club has no fixture history against itself) and for any
+ * opposition club with no shared history yet, Partnership is hidden for the viewer's own club and for
+ * any club where nothing partnership-shaped is true yet.
  *
  * TEAMS IS THE CLUB'S OWN REAL ROSTER (`readClubTeams`, `teams_select` RLS: any signed-in viewer may
  * read any club's ACTIVE teams -- age grade, rugby code, category, never a player), not the narrower
- * `compatible_opponent_teams` list `ClubDetail.compatibleTeams` carries.
+ * `compatible_opponent_teams` list `ClubDetail.compatibleTeams` carries. AVAILABILITY reuses that same
+ * narrower list (the teams FF-3 itself found compatible) joined against the exact rows FF-2 already
+ * computed -- never a second availability calculation.
  */
 function OnOvalballBody({
   marker,
@@ -387,6 +438,7 @@ function OnOvalballBody({
   hasTeams,
   hasHistory,
   hasPartnershipContent,
+  findFixtureContext,
   isOtherClub,
   busy,
   feedback,
@@ -402,6 +454,7 @@ function OnOvalballBody({
   hasTeams: boolean
   hasHistory: boolean
   hasPartnershipContent: boolean
+  findFixtureContext: FindFixtureProfileContext | null
   isOtherClub: boolean
   busy: boolean
   feedback: string | null
@@ -411,9 +464,14 @@ function OnOvalballBody({
   onSendMessage: () => void
   onAct: (run: () => Promise<{ ok: boolean; error?: string }>) => void
 }) {
-  const [tab, setTab] = useState<TabKey>("overview")
+  const [tab, setTab] = useState<TabKey>(() => (findFixtureContext ? "availability" : "overview"))
   const visibleTabs = TABS.filter(
-    (t) => t.key === "overview" || (t.key === "teams" && hasTeams) || (t.key === "history" && hasHistory) || (t.key === "partnership" && hasPartnershipContent)
+    (t) =>
+      t.key === "overview" ||
+      (t.key === "teams" && hasTeams) ||
+      (t.key === "availability" && isOtherClub) ||
+      (t.key === "history" && hasHistory) ||
+      (t.key === "partnership" && hasPartnershipContent)
   )
 
   if (!detail) {
@@ -516,6 +574,42 @@ function OnOvalballBody({
           <View style={{ gap: space.xs }}>
             {clubTeams?.map((t) => <TeamRow key={t.id} team={t} />)}
           </View>
+        </ProfileCard>
+      )}
+
+      {tab === "availability" && (
+        <ProfileCard>
+          <SectionHeader label="Availability" />
+          {!findFixtureContext && (
+            <Text style={[type.small, { color: colour.inkMuted }]}>Choose dates in Find a Fixture to check this club's known availability.</Text>
+          )}
+          {findFixtureContext && (
+            <>
+              <Text style={[type.small, { color: colour.inkMuted }]}>
+                Your search: {findFixtureContext.teamLabels.length > 0 ? findFixtureContext.teamLabels.join(", ") : "your selected teams"} on {longDateLabel(findFixtureContext.date)}.
+              </Text>
+              <View style={{ gap: space.sm }}>
+                {(detail?.compatibleTeams ?? []).map((t) => {
+                  const exact = findFixtureContext.availability.find((r) => r.opponent_team_id === t.teamId && r.the_date === findFixtureContext.date)
+                  const dateState = exact ? (exact.status === "busy" ? "busy" : "tentative") : marker.partnershipStatus === "active" ? "no_known_clash" : "unknown"
+                  const otherWeekCommitments = otherWeekCommitmentsForOpponent(t.teamId, findFixtureContext.date, findFixtureContext.weekRows)
+                  const label = findFixtureWeekLabel({ dateState, otherWeekCommitments })
+                  return (
+                    <View key={t.teamId} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
+                      <Text numberOfLines={1} style={[type.small, { color: colour.ink, flex: 1 }]}>
+                        {t.displayName}
+                      </Text>
+                      <View style={{ alignItems: "flex-end" }}>
+                        <StatusPill label={label.primary} tone={label.primary === "No known clash" ? "positive" : label.primary === "Availability unknown" ? "neutral" : "caution"} />
+                        {label.detail && <Text style={[type.caption, { color: colour.inkSubtle, marginTop: 2 }]}>{longDateLabel(label.detail)}</Text>}
+                      </View>
+                    </View>
+                  )
+                })}
+                {(detail?.compatibleTeams ?? []).length === 0 && <Text style={[type.small, { color: colour.inkMuted }]}>No compatible teams to check availability for.</Text>}
+              </View>
+            </>
+          )}
         </ProfileCard>
       )}
 

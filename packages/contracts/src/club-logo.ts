@@ -60,3 +60,13 @@ export function resolveClubLogoUrl(
 export function clubLogoUrlFromPath(supabase: SupabaseClient<Database>, path: string | null): string | null {
   return path ? supabase.storage.from("club-logos").getPublicUrl(path).data.publicUrl : null
 }
+
+/**
+ * THE PUBLIC PROFILE COVER PHOTO -- a separate, optional, presentation-only field
+ * (`clubs.cover_storage_path`), never the crest and never club identity. There is no directory-level
+ * fallback the way a logo has one: a directory-only (never-activated) club has no `clubs` row at all,
+ * and never had a cover concept to fall back to.
+ */
+export function clubCoverUrlFromPath(supabase: SupabaseClient<Database>, path: string | null): string | null {
+  return path ? supabase.storage.from("club-covers").getPublicUrl(path).data.publicUrl : null
+}

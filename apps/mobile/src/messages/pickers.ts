@@ -60,10 +60,16 @@ export type PickResult =
  */
 export interface PickOptions {
   square?: boolean
+  /** An explicit crop aspect ratio (e.g. `[16, 9]` for a wide profile cover photo) -- for the one shape
+   * that is neither the square identity case nor the fully-uncropped attachment case. Ignored when
+   * `square` is also set. */
+  aspect?: [number, number]
 }
 
 function framing(options?: PickOptions) {
-  return options?.square ? ({ allowsEditing: true, aspect: [1, 1] as [number, number] }) : ({ allowsEditing: false })
+  if (options?.square) return { allowsEditing: true, aspect: [1, 1] as [number, number] }
+  if (options?.aspect) return { allowsEditing: true, aspect: options.aspect }
+  return { allowsEditing: false }
 }
 
 export async function takePhoto(options?: PickOptions): Promise<PickResult> {

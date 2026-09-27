@@ -5006,6 +5006,7 @@ export type Database = {
           bio: string | null
           created_at: string
           created_by: string | null
+          cover_storage_path: string | null
           deactivated_at: string | null
           deactivated_by: string | null
           deactivation_reason: string | null
@@ -5035,6 +5036,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           created_by?: string | null
+          cover_storage_path?: string | null
           deactivated_at?: string | null
           deactivated_by?: string | null
           deactivation_reason?: string | null
@@ -5064,6 +5066,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           created_by?: string | null
+          cover_storage_path?: string | null
           deactivated_at?: string | null
           deactivated_by?: string | null
           deactivation_reason?: string | null

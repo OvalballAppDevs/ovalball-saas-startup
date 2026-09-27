@@ -168,7 +168,18 @@ export default function FindFixtureResults() {
             date={primaryDate}
             availabilityRows={availabilityRows}
             weekRows={weekRows}
-            onPress={() => router.push({ pathname: "/clubhouse/club/[directoryId]", params: { directoryId: candidate.directoryId } } as never)}
+            onPress={() =>
+              router.push({
+                pathname: "/clubhouse/club/[directoryId]",
+                params: {
+                  directoryId: candidate.directoryId,
+                  ffDate: primaryDate,
+                  ffTeamLabels: params.teamLabels ?? "[]",
+                  ffAvailability: params.availability ?? "[]",
+                  ffWeekRows: params.weekRows ?? "[]",
+                },
+              } as never)
+            }
           />
         ))}
       </ScrollView>

@@ -22,6 +22,14 @@
 // Wires through the SAME canonical path a real club logo upload uses
 // (app/(app)/club/actions.ts's uploadClubLogo): `club-logos` bucket, `${clubId}/logo-...png`,
 // `clubs.logo_storage_path` -- never a special FF-3-only crest lookup.
+//
+// ALSO ENRICHES UAT NORTH'S PUBLIC PROFILE (visual-lock Part B, Section B12): one rich synthetic club
+// to prove the Public Club Profile design, never a real directory club given invented content. Cover
+// photo reuses the already-approved bundled editorial asset `rugby-general.jpg` (never a new/generated
+// image); bio is plain text that says outright it is a synthetic test fixture; no website is set --
+// Section B12's own instruction is "only if a safe local/test URL convention exists," and inventing a
+// domain, even a `.test` one, risks looking like a real address, so this leaves it genuinely empty
+// rather than guess. IDEMPOTENT the same way: re-running sets the identical values every time.
 // =====================================================================================================
 import { createClient } from "@supabase/supabase-js"
 import { readFileSync } from "node:fs"
@@ -86,3 +94,34 @@ if (failures > 0) {
   process.exit(1)
 }
 console.log("All ten Find a Fixture UAT crests are in place.")
+
+// ---------------------------------------------------------------------------------------------
+// UAT North's own public profile (cover photo + bio) -- see the file header for why only one
+// synthetic club is enriched this way, and why no website is set.
+// ---------------------------------------------------------------------------------------------
+const { data: north } = await supabase
+  .from("clubs")
+  .select("id, club_directory!inner(normalized_key)")
+  .eq("club_directory.normalized_key", "ovalball-uat-north-rfc")
+  .maybeSingle()
+
+if (!north) {
+  console.error("SKIP (UAT North not seeded yet): ovalball-uat-north-rfc")
+} else {
+  const coverPath = `${north.id}/cover-uat-seed.jpg`
+  const coverFile = readFileSync(path.join(REPO, "apps/mobile/assets/editorial/rugby-general.jpg"))
+  const { error: coverUploadErr } = await supabase.storage.from("club-covers").upload(coverPath, coverFile, { contentType: "image/jpeg", upsert: true })
+  if (coverUploadErr) {
+    console.error("COVER UPLOAD FAILED: ovalball-uat-north-rfc", coverUploadErr.message)
+  } else {
+    const { error: profileErr } = await supabase
+      .from("clubs")
+      .update({
+        cover_storage_path: coverPath,
+        bio: "This is a synthetic Ovalball UAT club, seeded to test Find a Fixture and the public Clubhouse profile. It is not a real rugby club.",
+      })
+      .eq("id", north.id)
+    if (profileErr) console.error("PROFILE UPDATE FAILED: ovalball-uat-north-rfc", profileErr.message)
+    else console.log("OK: ovalball-uat-north-rfc profile enriched (cover photo + bio)")
+  }
+}

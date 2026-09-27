@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Pressable, Switch, Text, TextInput, View } from "react-native"
 import { useFocusEffect } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { Image } from "expo-image"
+import { useRouter } from "expo-router"
 import {
   CLUB_CONTACT_ROLE_LABEL,
   CLUB_CONTACT_ROLES,
@@ -23,6 +25,9 @@ import {
 import { AdminScreen } from "../../../src/admin/screen"
 import { useAdminCentreAccess } from "../../../src/admin/access"
 import { supabase } from "../../../src/auth/supabase"
+import { ClubCrest } from "../../../src/components/identity"
+import { removeClubCover, replaceClubCover } from "../../../src/identity/images"
+import { PictureSheet, type PictureAction } from "../../../src/components/picture-sheet"
 import { CircleAlert, Plus } from "../../../src/components/icons"
 import { Button, Card, CardSkeleton, ErrorState, StatusPill } from "../../../src/components/ui"
 import { friendly, logDetail, type FriendlyError } from "../../../src/errors/translate"
@@ -49,9 +54,11 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/t
  */
 export default function ClubProfileScreen() {
   const insets = useSafeAreaInsets()
+  const router = useRouter()
   const { clubId, refresh: refreshAccess } = useAdminCentreAccess()
 
   const [profile, setProfile] = useState<ClubProfile | null>(null)
+  const [coverPicture, setCoverPicture] = useState<PictureAction | null>(null)
   const [draft, setDraft] = useState<ClubProfileFields>(EMPTY_CLUB_PROFILE_FIELDS)
   const [dirty, setDirty] = useState(false)
   const [canEdit, setCanEdit] = useState(false)
@@ -175,6 +182,7 @@ export default function ClubProfileScreen() {
     ) : null
 
   return (
+    <>
     <AdminScreen section="Club Profile" onRefresh={() => void load()} refreshing={false} footer={footer}>
       {loading && !profile && (
         <View style={{ gap: space.md }}>
@@ -203,6 +211,63 @@ export default function ClubProfileScreen() {
             </View>
           )}
 
+          <View style={{ gap: space.sm }}>
+            <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]}>
+              Public Profile Cover
+            </Text>
+            <Card style={{ gap: 0, overflow: "hidden", padding: 0 }}>
+              <View style={{ height: 140, backgroundColor: colour.forest900 }}>
+                {profile.coverUrl && <Image source={{ uri: profile.coverUrl }} accessible={false} contentFit="cover" style={{ width: "100%", height: "100%" }} />}
+              </View>
+              <View style={{ padding: space.md, gap: space.sm }}>
+                <Text style={[type.caption, { color: colour.inkMuted }]}>{profile.coverUrl ? "Shown at the top of your public Clubhouse profile." : "No cover photo yet. The forest background stands in until you add one."}</Text>
+                {canEdit ? (
+                  <Button
+                    label={profile.coverUrl ? "Change Cover Photo" : "Add Cover Photo"}
+                    variant="secondary"
+                    onPress={() =>
+                      setCoverPicture({
+                        subject: "the cover photo",
+                        aspect: [16, 9],
+                        onReplace: async (file) => {
+                          if (!clubId) return "You don't have fixture authority at a club."
+                          const result = await replaceClubCover(supabase, clubId, file)
+                          if (!result.ok) return result.message
+                          await load()
+                          return null
+                        },
+                        onRemove: profile.coverUrl
+                          ? async () => {
+                              if (!clubId) return "You don't have fixture authority at a club."
+                              const result = await removeClubCover(supabase, clubId)
+                              if (!result.ok) return result.message
+                              await load()
+                              return null
+                            }
+                          : null,
+                      })
+                    }
+                  />
+                ) : (
+                  <Text style={[type.caption, { color: colour.inkMuted }]}>Changing the cover photo needs the Club Profile permission.</Text>
+                )}
+              </View>
+            </Card>
+          </View>
+
+          <View style={{ gap: space.sm }}>
+            <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]}>
+              Club Crest
+            </Text>
+            <Card style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+              <ClubCrest clubName={profile.clubName} url={profile.logoUrl} size={56} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[type.small, { color: colour.inkMuted }]}>The crest is the club's identity, shown everywhere Ovalball names this club -- changed from Branding, not here.</Text>
+              </View>
+              <Button label="Branding" variant="quiet" onPress={() => router.push("/admin/branding" as never)} />
+            </Card>
+          </View>
+
           <Card style={{ gap: space.lg }}>
             <Field label="About the Club" value={draft.bio} onChange={(v) => edit({ bio: v })} editable={canEdit} multiline placeholder="A short introduction shown on your club's public page." />
             <Field label="Website" value={draft.website} onChange={(v) => edit({ website: v })} editable={canEdit} keyboard="url" placeholder="https://" />
@@ -229,6 +294,8 @@ export default function ClubProfileScreen() {
         </>
       )}
     </AdminScreen>
+    <PictureSheet action={coverPicture} onClose={() => setCoverPicture(null)} />
+    </>
   )
 }
 

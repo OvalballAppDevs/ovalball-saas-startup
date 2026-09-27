@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "../database"
+import { clubCoverUrlFromPath, resolveClubLogoUrl } from "../club-logo"
 
 type Client = SupabaseClient<Database>
 
@@ -54,6 +55,12 @@ export interface ClubProfile extends ClubProfileFields {
   contacts: ClubContact[]
   /** When the row was last changed, by any client -- what a screen re-reads against. */
   updatedAt: string | null
+  /** DISPLAY ONLY here: the crest is edited from Branding (`clubs.logo_storage_path`), never duplicated
+   * as a second mutation path on this screen. */
+  logoUrl: string | null
+  /** Public profile hero image (`clubs.cover_storage_path`) -- editable HERE, alongside bio/website,
+   * because it is presentation content on this same profile, not identity. */
+  coverUrl: string | null
 }
 
 export const EMPTY_CLUB_PROFILE_FIELDS: ClubProfileFields = { bio: "", website: "", facebookUrl: "", addressDisplay: "" }
@@ -61,7 +68,11 @@ export const EMPTY_CLUB_PROFILE_FIELDS: ClubProfileFields = { bio: "", website: 
 /** The club's profile as the tables hold it now. Null when the club is not readable by this person. */
 export async function readClubProfile(supabase: Client, clubId: string): Promise<ClubProfile | null> {
   const [{ data: club, error }, { data: contacts }] = await Promise.all([
-    supabase.from("clubs").select("id, bio, website, facebook_url, address_display, updated_at, club_directory(name, town)").eq("id", clubId).maybeSingle(),
+    supabase
+      .from("clubs")
+      .select("id, bio, website, facebook_url, address_display, updated_at, logo_storage_path, cover_storage_path, club_directory(name, town, logo_storage_path)")
+      .eq("id", clubId)
+      .maybeSingle(),
     supabase.from("club_contacts").select("id, role, name, phone, email, is_public").eq("club_id", clubId).order("created_at"),
   ])
   if (error) throw error
@@ -75,6 +86,8 @@ export async function readClubProfile(supabase: Client, clubId: string): Promise
     facebookUrl: club.facebook_url ?? "",
     addressDisplay: club.address_display ?? "",
     updatedAt: club.updated_at ?? null,
+    logoUrl: resolveClubLogoUrl(supabase, club),
+    coverUrl: clubCoverUrlFromPath(supabase, club.cover_storage_path),
     contacts: (contacts ?? []).map((c) => ({
       id: c.id,
       role: c.role as ClubContactRole,
