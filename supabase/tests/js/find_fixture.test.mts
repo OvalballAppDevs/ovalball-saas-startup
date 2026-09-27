@@ -8,16 +8,21 @@ import {
   buildClubMarkerFeatureCollection,
   canSearchFindFixtureCriteria,
   dedupeFindFixtureDates,
+  findFixtureAvailabilitySummaryLabel,
   findFixtureDateClause,
   findFixtureMatchingCopy,
+  findFixtureResultCountLabel,
   groupBatchCandidateTeamsByClub,
   groupCandidateTeamsByClub,
   matchedTeamCountLabel,
   nextWeekdayDates,
   sortFindFixtureCandidates,
+  sortFindFixtureMatches,
+  summariseFindFixtureClubAvailability,
   toggleSelection,
   type ClubMapMarker,
   type FindFixtureCandidate,
+  type FindFixtureCandidateMatch,
 } from "../../../packages/contracts/src/clubhouse"
 
 /**
@@ -323,4 +328,92 @@ test("findFixtureMatchingCopy: one selected team is named directly; several are 
     findFixtureMatchingCopy(3, null, "across 2 possible dates"),
     "We're finding clubs with compatible teams for your 3 selected teams across 2 possible dates."
   )
+})
+
+// ---------------------------------------------------------------------------------------------
+// FF-3 visual-lock pass: result-count grammar, per-club availability aggregation, and the three named
+// sort modes. The canonical busy/request_pending/absent-means-no-known-clash RULE lives entirely
+// server-side (Section 7); these assertions cover the arithmetic this screen adds on top -- rolling
+// per-(my_team_id, date) rows up into one honest per-club summary, and never upgrading a coarsened
+// no_known_clash into a confirmed "Available".
+// ---------------------------------------------------------------------------------------------
+
+function candidateMatch(overrides: Partial<FindFixtureCandidateMatch> = {}): FindFixtureCandidateMatch {
+  return { ...candidate(), matchedTeamIds: ["my-1"], ...overrides }
+}
+
+test("findFixtureResultCountLabel: 0/1/N grammar", () => {
+  assert.equal(findFixtureResultCountLabel(0), "0 clubs")
+  assert.equal(findFixtureResultCountLabel(1), "1 club")
+  assert.equal(findFixtureResultCountLabel(12), "12 clubs")
+})
+
+test("summariseFindFixtureClubAvailability: a matched team with NO availability row for the date reads no_known_clash, never a fabricated status", () => {
+  const c = candidateMatch({ partnershipStatus: "active", matchedTeamIds: ["my-1"] })
+  const summary = summariseFindFixtureClubAvailability(c, 3, "2026-10-10", [])
+  assert.deepEqual(summary, { matchedCount: 1, totalSelected: 3, noKnownClashCount: 1, busyCount: 0, tentativeCount: 0, unknownCount: 0 })
+})
+
+test("summariseFindFixtureClubAvailability: busy remains busy, request_pending remains tentative, per matched team", () => {
+  const c = candidateMatch({ partnershipStatus: "active", matchedTeamIds: ["my-1", "my-2"] })
+  const summary = summariseFindFixtureClubAvailability(c, 2, "2026-10-10", [
+    { my_team_id: "my-1", opponent_team_id: "team-1", the_date: "2026-10-10", status: "busy" },
+    { my_team_id: "my-2", opponent_team_id: "team-1", the_date: "2026-10-10", status: "request_pending" },
+  ])
+  assert.equal(summary.busyCount, 1)
+  assert.equal(summary.tentativeCount, 1)
+  assert.equal(summary.noKnownClashCount, 0)
+})
+
+test("summariseFindFixtureClubAvailability: a non-partner club is UNKNOWN on every matched team, even if a (hypothetical) row would say busy -- it is never even consulted", () => {
+  const c = candidateMatch({ partnershipStatus: "none", matchedTeamIds: ["my-1"] })
+  const summary = summariseFindFixtureClubAvailability(c, 1, "2026-10-10", [{ my_team_id: "my-1", opponent_team_id: "team-1", the_date: "2026-10-10", status: "busy" }])
+  assert.deepEqual(summary, { matchedCount: 1, totalSelected: 1, noKnownClashCount: 0, busyCount: 0, tentativeCount: 0, unknownCount: 1 })
+})
+
+test("findFixtureAvailabilitySummaryLabel: all clear reads 'N/N no known clash', never the bare word 'Available'", () => {
+  const label = findFixtureAvailabilitySummaryLabel({ matchedCount: 3, totalSelected: 3, noKnownClashCount: 3, busyCount: 0, tentativeCount: 0, unknownCount: 0 })
+  assert.equal(label, "3/3 no known clash")
+  assert.ok(!label.includes("Available"), "a coarsened no_known_clash must never be presented as a confirmed 'Available'")
+})
+
+test("findFixtureAvailabilitySummaryLabel: all busy reads 'Busy'; a non-partner club reads 'Availability unknown'", () => {
+  assert.equal(findFixtureAvailabilitySummaryLabel({ matchedCount: 2, totalSelected: 2, noKnownClashCount: 0, busyCount: 2, tentativeCount: 0, unknownCount: 0 }), "Busy")
+  assert.equal(findFixtureAvailabilitySummaryLabel({ matchedCount: 2, totalSelected: 2, noKnownClashCount: 0, busyCount: 0, tentativeCount: 0, unknownCount: 2 }), "Availability unknown")
+})
+
+test("findFixtureAvailabilitySummaryLabel: mixed coverage is described honestly, part by part", () => {
+  const label = findFixtureAvailabilitySummaryLabel({ matchedCount: 3, totalSelected: 3, noKnownClashCount: 2, busyCount: 1, tentativeCount: 0, unknownCount: 0 })
+  assert.equal(label, "2 clear · 1 busy")
+})
+
+test("sortFindFixtureMatches 'best_match': the club matching MORE of the caller's selected teams sorts first, ahead of a nearer club with fewer matches", () => {
+  const near = candidateMatch({ clubId: "club-near", name: "Near Club", latitude: 53.7, longitude: -2.7, hasLocation: true, matchedTeamIds: ["my-1"] })
+  const far = candidateMatch({ clubId: "club-far", name: "Far Club", latitude: 54.5, longitude: -3.5, hasLocation: true, matchedTeamIds: ["my-1", "my-2"] })
+  const origin = { latitude: 53.77, longitude: -2.7 }
+  const summaries = new Map([
+    ["club-near", { matchedCount: 1, totalSelected: 2, noKnownClashCount: 1, busyCount: 0, tentativeCount: 0, unknownCount: 0 }],
+    ["club-far", { matchedCount: 2, totalSelected: 2, noKnownClashCount: 2, busyCount: 0, tentativeCount: 0, unknownCount: 0 }],
+  ])
+  const sorted = sortFindFixtureMatches([near, far], "best_match", origin, summaries)
+  assert.deepEqual(sorted.map((c) => c.clubId), ["club-far", "club-near"])
+})
+
+test("sortFindFixtureMatches 'most_clear': ranked by clear-availability coverage alone", () => {
+  const a = candidateMatch({ clubId: "club-a", name: "A" })
+  const b = candidateMatch({ clubId: "club-b", name: "B" })
+  const summaries = new Map([
+    ["club-a", { matchedCount: 1, totalSelected: 1, noKnownClashCount: 0, busyCount: 1, tentativeCount: 0, unknownCount: 0 }],
+    ["club-b", { matchedCount: 1, totalSelected: 1, noKnownClashCount: 1, busyCount: 0, tentativeCount: 0, unknownCount: 0 }],
+  ])
+  const sorted = sortFindFixtureMatches([a, b], "most_clear", null, summaries)
+  assert.deepEqual(sorted.map((c) => c.clubId), ["club-b", "club-a"])
+})
+
+test("sortFindFixtureMatches 'nearest': delegates to the same distance rule every other Clubhouse sort uses -- unknown distance always sorts last", () => {
+  const known = candidateMatch({ clubId: "club-known", name: "Known", latitude: 53.8, longitude: -2.8, hasLocation: true })
+  const unknown = candidateMatch({ clubId: "club-unknown", name: "Unknown", hasLocation: false, latitude: null, longitude: null })
+  const origin = { latitude: 53.77, longitude: -2.7 }
+  const sorted = sortFindFixtureMatches([unknown, known], "nearest", origin, new Map())
+  assert.deepEqual(sorted.map((c) => c.clubId), ["club-known", "club-unknown"])
 })

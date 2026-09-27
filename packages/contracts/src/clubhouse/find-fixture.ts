@@ -230,29 +230,52 @@ export function matchedTeamCountLabel(candidate: Pick<FindFixtureCandidateMatch,
  * function, so "a compatible club with no known location never vanishes from an ANY-distance search"
  * holds here exactly as it already does for the map.
  */
-export async function readFindFixtureMatches(
+export async function readFindFixtureMatchesUnfiltered(
   supabase: Client,
-  criteria: Pick<FindFixtureCriteria, "teamIds" | "teamRugbyCode" | "distance">,
+  criteria: Pick<FindFixtureCriteria, "teamIds" | "teamRugbyCode">,
   viewerClubId: string | null,
   viewerTeamId: string | null
-): Promise<FindFixtureMatchResult> {
-  if (criteria.teamIds.length === 0) return { actionable: [], directoryOnly: [] }
+): Promise<{ result: FindFixtureMatchResult; origin: ClubMapMarker | null }> {
+  if (criteria.teamIds.length === 0) return { result: { actionable: [], directoryOnly: [] }, origin: null }
   const [markers, candidateRowsResult] = await Promise.all([
     readClubhouseMarkers(supabase, viewerClubId, viewerTeamId),
     supabase.rpc("find_fixture_candidate_teams_batch", { p_team_ids: criteria.teamIds }),
   ])
   if (candidateRowsResult.error) throw candidateRowsResult.error
 
-  const { actionable, directoryOnly } = buildFindFixtureMatches(markers, candidateRowsResult.data ?? [], criteria.teamRugbyCode, criteria.teamIds)
-  const origin = findDistanceOrigin(markers)
+  return { result: buildFindFixtureMatches(markers, candidateRowsResult.data ?? [], criteria.teamRugbyCode, criteria.teamIds), origin: findDistanceOrigin(markers) }
+}
 
+/** The distance-filter step split out on its own (FF-2's own "Applying distance preference" stage is
+ * genuine work, not a fabricated pause) -- same factual-origin-only rule as every other Clubhouse
+ * distance filter, never a personal-GPS fallback. */
+export function applyFindFixtureDistanceFilter(result: FindFixtureMatchResult, distance: ClubhouseDistanceFilter, origin: ClubMapMarker | null): FindFixtureMatchResult {
   return {
-    actionable: applyClubhouseDistanceFilter(actionable as ClubMapMarker[], criteria.distance, origin) as FindFixtureCandidateMatch[],
-    directoryOnly: applyClubhouseDistanceFilter(directoryOnly, criteria.distance, origin),
+    actionable: applyClubhouseDistanceFilter(result.actionable as ClubMapMarker[], distance, origin) as FindFixtureCandidateMatch[],
+    directoryOnly: applyClubhouseDistanceFilter(result.directoryOnly, distance, origin),
   }
 }
 
-type CandidateAvailabilityBatchRow = { my_team_id: string; opponent_team_id: string; the_date: string; status: string }
+/**
+ * THE ONE I/O ENTRY POINT, GENUINELY MULTI-TEAM (FF-1.1): exactly two round trips regardless of network
+ * size OR how many teams are selected -- the existing marker population (`readClubhouseMarkers`) and the
+ * batched multi-team compatibility RPC (`find_fixture_candidate_teams_batch`), never one call per
+ * candidate club and never one call per selected team. Thin wrapper over
+ * `readFindFixtureMatchesUnfiltered` + `applyFindFixtureDistanceFilter` -- FF-2's own progress screen
+ * calls those two directly so its "checking compatibility" and "applying distance preference" stages
+ * correspond to real, separate work; every other caller wants both steps done in one call.
+ */
+export async function readFindFixtureMatches(
+  supabase: Client,
+  criteria: Pick<FindFixtureCriteria, "teamIds" | "teamRugbyCode" | "distance">,
+  viewerClubId: string | null,
+  viewerTeamId: string | null
+): Promise<FindFixtureMatchResult> {
+  const { result, origin } = await readFindFixtureMatchesUnfiltered(supabase, criteria, viewerClubId, viewerTeamId)
+  return applyFindFixtureDistanceFilter(result, criteria.distance, origin)
+}
+
+export type CandidateAvailabilityBatchRow = { my_team_id: string; opponent_team_id: string; the_date: string; status: string }
 
 /**
  * THE MULTI-TEAM AVAILABILITY READ: same partners-only, busy/request_pending-coarsened boundary as
@@ -334,4 +357,101 @@ export function findFixtureMatchingCopy(teamCount: number, singleTeamLabel: stri
  * all-dates match is possible. */
 export function findFixtureDateClause(dateCount: number, firstDateLabel: string): string {
   return dateCount <= 1 ? `on ${firstDateLabel}` : `across ${dateCount} possible dates`
+}
+
+/** "0 clubs" / "1 club" / "N clubs" -- plain result-count grammar, pinned so it is never re-typed
+ * inconsistently across FF-3's header and its empty state. */
+export function findFixtureResultCountLabel(count: number): string {
+  return `${count} ${count === 1 ? "club" : "clubs"}`
+}
+
+/**
+ * FF-3's own per-club availability coverage (Section 21/22 of the visual-lock spec): for ONE requested
+ * date, how many of a candidate's `matchedTeamIds` are genuinely clear versus busy versus tentative
+ * versus unknown. The club-level `partnershipStatus` gates the whole club at once (the same rule
+ * `buildFindFixtureAvailability` already applies per candidate) -- a non-partner club is UNKNOWN on
+ * every matched team, never consulted row-by-row. A matched team with no row for this date reads
+ * `no_known_clash` -- the server's own "absence means no clash" contract, never a fabricated status.
+ * Never claims a coarsened `no_known_clash` is confirmed "Available".
+ */
+export interface FindFixtureClubAvailabilitySummary {
+  matchedCount: number
+  totalSelected: number
+  noKnownClashCount: number
+  busyCount: number
+  tentativeCount: number
+  unknownCount: number
+}
+
+export function summariseFindFixtureClubAvailability(
+  candidate: Pick<FindFixtureCandidateMatch, "matchedTeamIds" | "partnershipStatus" | "compatibleTeams">,
+  totalSelected: number,
+  date: string,
+  availabilityRows: readonly CandidateAvailabilityBatchRow[]
+): FindFixtureClubAvailabilitySummary {
+  const opponentTeamIds = new Set(candidate.compatibleTeams.map((t) => t.teamId))
+  const summary: FindFixtureClubAvailabilitySummary = { matchedCount: candidate.matchedTeamIds.length, totalSelected, noKnownClashCount: 0, busyCount: 0, tentativeCount: 0, unknownCount: 0 }
+  for (const myTeamId of candidate.matchedTeamIds) {
+    if (candidate.partnershipStatus !== "active") {
+      summary.unknownCount += 1
+      continue
+    }
+    const hit = availabilityRows.find((r) => r.my_team_id === myTeamId && r.the_date === date && opponentTeamIds.has(r.opponent_team_id))
+    if (!hit || hit.status === "no_known_clash") summary.noKnownClashCount += 1
+    else if (hit.status === "busy") summary.busyCount += 1
+    else summary.tentativeCount += 1
+  }
+  return summary
+}
+
+/** "3/3 no known clash", "2 clear · 1 busy", "Availability unknown" -- factual coverage, never a
+ * confirmed "Available" claim the server's own coarsened data cannot back. */
+export function findFixtureAvailabilitySummaryLabel(summary: FindFixtureClubAvailabilitySummary): string {
+  if (summary.matchedCount === 0 || summary.unknownCount === summary.matchedCount) return "Availability unknown"
+  if (summary.noKnownClashCount === summary.matchedCount) return `${summary.matchedCount}/${summary.matchedCount} no known clash`
+  if (summary.busyCount === summary.matchedCount) return "Busy"
+  const parts: string[] = []
+  if (summary.noKnownClashCount) parts.push(`${summary.noKnownClashCount} clear`)
+  if (summary.busyCount) parts.push(`${summary.busyCount} busy`)
+  if (summary.tentativeCount) parts.push(`${summary.tentativeCount} tentative`)
+  if (summary.unknownCount) parts.push(`${summary.unknownCount} unknown`)
+  return parts.join(" · ")
+}
+
+export type FindFixtureResultSort = "nearest" | "best_match" | "most_clear"
+
+/**
+ * FF-3's own three sort modes (Section 23): "nearest" reuses `sortFindFixtureCandidates` unchanged
+ * (never a second distance-ordering rule); "best_match" ranks by how many of the caller's own selected
+ * teams matched first, then by clear-availability coverage, then distance; "most_clear" ranks by clear-
+ * availability coverage alone. Never an opaque score -- every tier is a named, factual field.
+ */
+export function sortFindFixtureMatches(
+  candidates: readonly FindFixtureCandidateMatch[],
+  sort: FindFixtureResultSort,
+  origin: { latitude: number | null; longitude: number | null } | null,
+  summaries: ReadonlyMap<string, FindFixtureClubAvailabilitySummary>
+): FindFixtureCandidateMatch[] {
+  if (sort === "nearest") return sortFindFixtureCandidates(candidates, "nearest", origin as ClubMapMarker | null) as FindFixtureCandidateMatch[]
+  const distanceTiebreak = (a: FindFixtureCandidateMatch, b: FindFixtureCandidateMatch): number => {
+    const da = origin ? distanceMiles(origin, a) : null
+    const db = origin ? distanceMiles(origin, b) : null
+    if (da === null && db === null) return a.name.localeCompare(b.name)
+    if (da === null) return 1
+    if (db === null) return -1
+    return da - db
+  }
+  const sorted = [...candidates]
+  if (sort === "most_clear") {
+    return sorted.sort((a, b) => {
+      const diff = (summaries.get(b.clubId ?? "")?.noKnownClashCount ?? 0) - (summaries.get(a.clubId ?? "")?.noKnownClashCount ?? 0)
+      return diff !== 0 ? diff : distanceTiebreak(a, b)
+    })
+  }
+  return sorted.sort((a, b) => {
+    const matchedDiff = (summaries.get(b.clubId ?? "")?.matchedCount ?? 0) - (summaries.get(a.clubId ?? "")?.matchedCount ?? 0)
+    if (matchedDiff !== 0) return matchedDiff
+    const clearDiff = (summaries.get(b.clubId ?? "")?.noKnownClashCount ?? 0) - (summaries.get(a.clubId ?? "")?.noKnownClashCount ?? 0)
+    return clearDiff !== 0 ? clearDiff : distanceTiebreak(a, b)
+  })
 }

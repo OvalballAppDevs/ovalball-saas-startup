@@ -5,41 +5,53 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Image } from "expo-image"
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 
-import { findFixtureDateClause, findFixtureMatchingCopy, readFindFixtureAvailabilityBatch, readFindFixtureMatches, type FindFixtureCriteria } from "@ovalball/contracts/clubhouse"
+import {
+  applyFindFixtureDistanceFilter,
+  findFixtureDateClause,
+  findFixtureMatchingCopy,
+  readFindFixtureAvailabilityBatch,
+  readFindFixtureMatchesUnfiltered,
+  summariseFindFixtureClubAvailability,
+  type CandidateAvailabilityBatchRow,
+  type FindFixtureClubAvailabilitySummary,
+  type FindFixtureCriteria,
+  type FindFixtureMatchResult,
+} from "@ovalball/contracts/clubhouse"
 
 import { supabase } from "../../../../src/auth/supabase"
 import { useAppContexts } from "../../../../src/context/contexts"
 import { ErrorState } from "../../../../src/components/ui"
 import { editorial } from "../../../../src/components/home/editorial"
 import { Check, ChevronRight } from "../../../../src/components/icons"
-import { colour, radius, space, type, TOUCH_TARGET } from "../../../../src/design/tokens"
+import { colour, space, type, TOUCH_TARGET } from "../../../../src/design/tokens"
 
 /**
- * FF-2 -- SMART MATCHING (the "Finding Compatible Clubs" screen).
+ * FF-2 -- SMART MATCHING ("Finding Compatible Clubs"), visual-lock pass.
  *
- * A DEDICATED, SEPARATE ROUTE (FF-1.1 correction): FF-1 never renders results inline any more --
- * pressing its CTA navigates here, criteria serialised in the route params (the same
- * `FindFixtureCriteria` search-session model, never a second store). This screen's whole job is to run
- * the real multi-team read, show genuine progress while it does, then hand the result on to FF-3.
+ * ONE CONTINUOUS CINEMATIC SURFACE (the owner's own correction against the first pass, which read as
+ * header + a separate floating photo card): the whole screen is the same deep-forest background: header,
+ * then a compact progress block, then the pitch photograph bleeding edge-to-edge with NO card boundary
+ * and NO rounded top corners of its own -- the gradient over the photograph is what makes it read as a
+ * continuation of the forest above it, not a new surface.
  *
- * REAL PROGRESS, NOT A FAKED SEQUENCE (Section N of the spec): each stage corresponds to one real
- * network call this screen actually makes -- `find_fixture_candidate_teams_batch` (via
- * `readFindFixtureMatches`), then `find_fixture_candidate_availability_batch`, then the client-side
- * aggregation into the match payload FF-3 needs. `withMinDuration` only paces the reveal of an already-
- * true completed state so three checkmarks don't flash past in one frame -- it never adds fake work or
- * a fake stage that doesn't correspond to something this screen is genuinely doing.
+ * IMAGERY: `editorial.news.general` -- audited again this pass. `heroTraining` (used in the previous
+ * pass) has tackle bags, cones and folded bibs filling its lower third, which is exactly the clutter the
+ * owner's own screenshot comparison flagged. `news.general` is a clean, empty pitch: posts, pitch
+ * markings, a tree-line horizon, no equipment, no people -- the closest bundled asset to the approved
+ * mockup's "pitch, posts, open rugby ground, horizon/trees" description. Still bundled, still reviewed,
+ * still never downloaded or generated for this pass.
  *
- * IMAGERY: `editorial.heroTraining` -- the bundled, reviewed, dusk/floodlit photograph identified for
- * this screen and confirmed to exist on disk; never a newly generated or downloaded image.
+ * FOUR REAL STAGES, NOT A FABRICATED SEQUENCE: each one is genuine work this screen actually does, in
+ * this order -- `readFindFixtureMatchesUnfiltered` (the batched compatibility RPC + club identity),
+ * `readFindFixtureAvailabilityBatch` (the batched availability RPC), `applyFindFixtureDistanceFilter`
+ * (a real synchronous filter step, deliberately split out of the compatibility read so "applying
+ * distance preference" is its own true stage rather than a label over work that already happened), and
+ * building the per-club availability summaries FF-3 needs (`summariseFindFixtureClubAvailability`,
+ * genuine aggregation, not a pause). `withMinDuration` only paces the reveal of an already-true
+ * completed state so four checkmarks don't flash past in one frame.
  */
 
 type StageStatus = "pending" | "active" | "done"
-
-const STAGES: { key: string; label: string }[] = [
-  { key: "compatibility", label: "Checking team compatibility" },
-  { key: "availability", label: "Checking known availability" },
-  { key: "prepare", label: "Preparing your matches" },
-]
 
 async function withMinDuration<T>(work: Promise<T>, ms: number): Promise<T> {
   const [result] = await Promise.all([work, new Promise((resolve) => setTimeout(resolve, ms))])
@@ -77,30 +89,56 @@ export default function FindFixtureMatching() {
   const [completed, setCompleted] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
+  const STAGES: { key: string; label: string; count?: string }[] = [
+    { key: "compatibility", label: "Checking team compatibility", count: `${criteria.teamIds.length}/${criteria.teamIds.length}` },
+    { key: "availability", label: "Checking known availability" },
+    { key: "distance", label: "Applying distance preference" },
+    { key: "prepare", label: "Preparing your matches" },
+  ]
+
   useEffect(() => {
     let live = true
     setError(null)
     setCompleted(0)
 
     async function run() {
-      const matches = await withMinDuration(readFindFixtureMatches(supabase, criteria, viewerClubId, contextTeamId), 500)
+      const { result: unfiltered, origin } = await withMinDuration(readFindFixtureMatchesUnfiltered(supabase, criteria, viewerClubId, contextTeamId), 450)
       if (!live) return
       setCompleted(1)
 
-      const availability = await withMinDuration(readFindFixtureAvailabilityBatch(supabase, criteria.teamIds, criteria.dates), 500)
+      const availability: CandidateAvailabilityBatchRow[] = await withMinDuration(readFindFixtureAvailabilityBatch(supabase, criteria.teamIds, criteria.dates), 450)
       if (!live) return
       setCompleted(2)
 
-      await withMinDuration(Promise.resolve(), 400)
+      const filtered: FindFixtureMatchResult = await withMinDuration(Promise.resolve(applyFindFixtureDistanceFilter(unfiltered, criteria.distance, origin)), 350)
       if (!live) return
       setCompleted(3)
+
+      // GENUINE WORK, NOT A PAUSE: the real per-club availability aggregation FF-3 needs, built here
+      // (not in FF-3 itself) so this stage's checkmark corresponds to something this screen actually
+      // computed -- one summary per actionable club, joining `filtered` against `availability` for the
+      // first requested date via the same pinned, tested `summariseFindFixtureClubAvailability`.
+      const primaryDate = criteria.dates[0] ?? ""
+      const summaries: Record<string, FindFixtureClubAvailabilitySummary> = {}
+      await withMinDuration(
+        Promise.resolve().then(() => {
+          for (const candidate of filtered.actionable) {
+            if (candidate.clubId) summaries[candidate.clubId] = summariseFindFixtureClubAvailability(candidate, criteria.teamIds.length, primaryDate, availability)
+          }
+        }),
+        300
+      )
+      if (!live) return
+      setCompleted(4)
 
       router.replace({
         pathname: "/clubhouse/find-fixture/results",
         params: {
           criteria: params.criteria,
-          matches: JSON.stringify(matches),
-          availability: JSON.stringify(availability),
+          teamLabels: params.teamLabels ?? "[]",
+          matches: JSON.stringify(filtered),
+          summaries: JSON.stringify(summaries),
+          origin: JSON.stringify(origin ? { latitude: origin.latitude, longitude: origin.longitude } : null),
           ...(params.opponentDirectoryId ? { opponentDirectoryId: params.opponentDirectoryId } : {}),
           ...(params.opponentClubId ? { opponentClubId: params.opponentClubId } : {}),
         },
@@ -121,7 +159,7 @@ export default function FindFixtureMatching() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.forest950 }}>
-      <View style={{ paddingTop: insets.top + space.sm, paddingBottom: space.md, paddingHorizontal: space.md, flexDirection: "row", alignItems: "center" }}>
+      <View style={{ paddingTop: insets.top + space.sm, paddingBottom: space.sm, paddingHorizontal: space.md, flexDirection: "row", alignItems: "center" }}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Back to Find a Fixture"
@@ -142,30 +180,31 @@ export default function FindFixtureMatching() {
         </View>
       ) : (
         <>
-          <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, gap: space.md }}>
+          <View style={{ paddingHorizontal: space.lg, paddingTop: space.xs, paddingBottom: space.sm, gap: 10 }}>
             {STAGES.map((stage, index) => {
               const status: StageStatus = index < completed ? "done" : index === completed ? "active" : "pending"
-              return <StageRow key={stage.key} label={stage.label} status={status} isLast={index === STAGES.length - 1} />
+              return <StageRow key={stage.key} label={stage.label} count={status === "done" ? stage.count : undefined} status={status} isLast={index === STAGES.length - 1} />
             })}
           </View>
 
-          <View style={{ flex: 1, marginTop: space.lg, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden", backgroundColor: colour.forest900 }}>
-            {editorial.heroTraining && (
-              <Image source={editorial.heroTraining} accessible={false} contentFit="cover" contentPosition="center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
+          <View style={{ flex: 1, overflow: "hidden", backgroundColor: colour.forest950 }}>
+            {editorial.news.general && (
+              <Image source={editorial.news.general} accessible={false} contentFit="cover" contentPosition="center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
             )}
             <Svg style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} width="100%" height="100%">
               <Defs>
                 <LinearGradient id="findFixtureMatchingShade" x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0" stopColor={colour.forest950} stopOpacity="0.15" />
-                  <Stop offset="0.55" stopColor={colour.forest950} stopOpacity="0.55" />
-                  <Stop offset="1" stopColor={colour.forest950} stopOpacity="0.94" />
+                  <Stop offset="0" stopColor={colour.forest950} stopOpacity="0.92" />
+                  <Stop offset="0.2" stopColor={colour.forest950} stopOpacity="0.45" />
+                  <Stop offset="0.55" stopColor={colour.forest950} stopOpacity="0.4" />
+                  <Stop offset="1" stopColor={colour.forest950} stopOpacity="0.95" />
                 </LinearGradient>
               </Defs>
               <Rect x="0" y="0" width="100%" height="100%" fill="url(#findFixtureMatchingShade)" />
             </Svg>
-            <View style={{ flex: 1, padding: space.lg, paddingBottom: insets.bottom + space.xl, justifyContent: "flex-end", gap: space.xs }}>
-              <Text style={[type.display, { color: colour.onForest, fontSize: 24, lineHeight: 30 }]}>Looking for the best matches</Text>
-              <Text style={[type.small, { color: colour.onForestMuted }]}>{copy}</Text>
+            <View style={{ flex: 1, paddingHorizontal: space.xl, paddingBottom: insets.bottom + space.lg, justifyContent: "flex-end", alignItems: "center", gap: space.xs }}>
+              <Text style={[type.display, { color: colour.onForest, fontSize: 22, lineHeight: 27, textAlign: "center", textTransform: "uppercase", letterSpacing: 0.5 }]}>Looking for the best matches</Text>
+              <Text style={[type.small, { color: colour.onForestMuted, textAlign: "center", maxWidth: 320 }]}>{copy}</Text>
             </View>
           </View>
         </>
@@ -174,15 +213,15 @@ export default function FindFixtureMatching() {
   )
 }
 
-function StageRow({ label, status, isLast }: { label: string; status: StageStatus; isLast: boolean }) {
+function StageRow({ label, count, status, isLast }: { label: string; count?: string; status: StageStatus; isLast: boolean }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.md }}>
+    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.sm }}>
       <View style={{ alignItems: "center" }}>
         <View
           style={{
-            width: 26,
-            height: 26,
-            borderRadius: 13,
+            width: 22,
+            height: 22,
+            borderRadius: 11,
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: status === "pending" ? "rgba(255,255,255,0.08)" : colour.pitch600,
@@ -190,12 +229,18 @@ function StageRow({ label, status, isLast }: { label: string; status: StageStatu
             borderColor: "rgba(255,255,255,0.24)",
           }}
         >
-          {status === "done" && <Check size={16} color={colour.onForest} strokeWidth={2.8} />}
-          {status === "active" && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colour.onForest }} />}
+          {status === "done" && <Check size={13} color={colour.onForest} strokeWidth={3} />}
+          {status === "active" && <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colour.onForest }} />}
         </View>
-        {!isLast && <View style={{ width: 1, flex: 1, minHeight: 16, backgroundColor: "rgba(255,255,255,0.16)", marginTop: 2 }} />}
+        {!isLast && <View style={{ width: 1, flex: 1, minHeight: 10, backgroundColor: "rgba(255,255,255,0.16)", marginTop: 2 }} />}
       </View>
-      <Text style={[type.smallMedium, { color: status === "pending" ? colour.onForestMuted : colour.onForest, paddingTop: 3 }]}>{label}{status === "active" ? "…" : ""}</Text>
+      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 1, paddingBottom: 6 }}>
+        <Text style={[type.small, { color: status === "pending" ? colour.onForestMuted : colour.onForest }]}>
+          {label}
+          {status === "active" ? "…" : ""}
+        </Text>
+        {count && <Text style={[type.caption, { color: colour.onForestMuted }]}>{count}</Text>}
+      </View>
     </View>
   )
 }
