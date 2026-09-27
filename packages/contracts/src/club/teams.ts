@@ -150,6 +150,15 @@ export function summariseClubAgeGroups(teams: readonly Pick<ClubTeam, "ageGroup"
   return min === max ? `U${min}` : `U${min} – U${max}`
 }
 
+/** "Senior Men"/"Senior Women"/"Age Grade" -- Find a Fixture's own category vocabulary (visual-lock Job
+ * 2, Section 13), never a redundant "Union"/"League" repeated on every row of a club whose entire
+ * roster plays one code (Union/League isolation already means it always does). */
+export function teamCategoryVocabulary(team: Pick<ClubTeam, "category" | "gender">): string {
+  if (team.category === "senior") return team.gender === "womens" ? "Senior Women" : team.gender === "mens" ? "Senior Men" : "Senior"
+  if (team.category === "colts") return "Colts"
+  return "Age Grade"
+}
+
 export interface ClubTeamSummary {
   teamCount: number
   /** "U7 – U18", or null when the club runs no age-graded (senior-only, or no team at all) sides. */
