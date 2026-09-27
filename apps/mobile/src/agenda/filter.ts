@@ -34,13 +34,21 @@ export interface AgendaFilter {
   oppositionId: string | null
   clubId: string | null
   homeAway: "all" | "Home" | "Away"
+  /** The canonical `fixtures.game_type` value itself, or null for "any type" (owner correction pass, Section 13). */
+  gameType: string | null
   includeTraining: boolean
   /**
-   * Show fixtures that are not going ahead. ON by default, matching the
-   * website's `AgendaFilterState.includeCancelled` -- a cancelled match is the
-   * reason somebody does NOT drive to a ground on a Sunday morning, so hiding it
-   * by default would be the app deciding they no longer need to know. Switching
-   * it off is for looking down a season at what is actually being played.
+   * Show fixtures that are not going ahead. ON by default for a participant, matching the website's
+   * `AgendaFilterState.includeCancelled` -- a cancelled match is the reason somebody does NOT drive to
+   * a ground on a Sunday morning, so hiding it by default would be the app deciding they no longer need
+   * to know. Switching it off is for looking down a season at what is actually being played.
+   *
+   * A CLUB/TEAM STAFF AGENDA DEFAULTS THIS OFF instead (owner correction pass, Section 12): a Fixture
+   * Secretary scanning the season for what is actually being played is the common case there, and a
+   * cancelled match clutters that scan the way it never clutters a parent's "am I driving anywhere" one.
+   * `NO_FILTER` itself stays `true` (Calendar and a participant's own Fixtures both still want it),
+   * and the Fixtures screen applies the narrower default once, itself, for a staff context only -- see
+   * `apps/mobile/app/(tabs)/fixtures/index.tsx`.
    */
   includeCancelled: boolean
 }
@@ -51,31 +59,41 @@ export const NO_FILTER: AgendaFilter = {
   oppositionId: null,
   clubId: null,
   homeAway: "all",
+  gameType: null,
   includeTraining: true,
   includeCancelled: true,
 }
 
-export function isFiltered(filter: AgendaFilter): boolean {
+/**
+ * "IS ANYTHING NARROWED", measured against a BASELINE rather than always the bare `NO_FILTER`. The
+ * Fixtures screen's own staff default (cancelled hidden) is not something a person chose, so it must
+ * never light up the Filter button's badge as if they had -- only a departure from whatever this
+ * screen's own starting point is counts as an active filter. Every existing caller that never passes
+ * a baseline keeps comparing against `NO_FILTER` exactly as before.
+ */
+export function isFiltered(filter: AgendaFilter, baseline: AgendaFilter = NO_FILTER): boolean {
   return (
-    filter.playerId !== null ||
-    filter.teamId !== null ||
-    filter.oppositionId !== null ||
-    filter.clubId !== null ||
-    filter.homeAway !== "all" ||
-    !filter.includeTraining ||
-    !filter.includeCancelled
+    filter.playerId !== baseline.playerId ||
+    filter.teamId !== baseline.teamId ||
+    filter.oppositionId !== baseline.oppositionId ||
+    filter.clubId !== baseline.clubId ||
+    filter.homeAway !== baseline.homeAway ||
+    filter.gameType !== baseline.gameType ||
+    filter.includeTraining !== baseline.includeTraining ||
+    filter.includeCancelled !== baseline.includeCancelled
   )
 }
 
-export function countActive(filter: AgendaFilter): number {
+export function countActive(filter: AgendaFilter, baseline: AgendaFilter = NO_FILTER): number {
   return [
-    filter.playerId !== null,
-    filter.teamId !== null,
-    filter.oppositionId !== null,
-    filter.clubId !== null,
-    filter.homeAway !== "all",
-    !filter.includeTraining,
-    !filter.includeCancelled,
+    filter.playerId !== baseline.playerId,
+    filter.teamId !== baseline.teamId,
+    filter.oppositionId !== baseline.oppositionId,
+    filter.clubId !== baseline.clubId,
+    filter.homeAway !== baseline.homeAway,
+    filter.gameType !== baseline.gameType,
+    filter.includeTraining !== baseline.includeTraining,
+    filter.includeCancelled !== baseline.includeCancelled,
   ].filter(Boolean).length
 }
 
@@ -104,6 +122,9 @@ export function applyFilter(items: AgendaItem[], filter: AgendaFilter): AgendaIt
     }
     if (filter.homeAway !== "all") {
       if (item.kind !== "fixture" || item.homeAway !== filter.homeAway) return false
+    }
+    if (filter.gameType) {
+      if (item.kind !== "fixture" || item.gameType !== filter.gameType) return false
     }
     return true
   })

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { Animated, Easing, Modal, Pressable, ScrollView, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { AgendaItem } from "@ovalball/contracts"
-import { clubOptions, oppositionOptions, teamOptions } from "@ovalball/contracts"
+import { clubOptions, gameTypeOptions, oppositionOptions, teamOptions } from "@ovalball/contracts"
 
 import { NO_FILTER, countActive, isFiltered, type AgendaFilter } from "../agenda/filter"
 import { Check, ChevronDown, CircleAlert, Users, X } from "./icons"
@@ -34,6 +34,7 @@ export function AgendaFilterSheet({
   filter,
   showTraining,
   familyScope = false,
+  baseline = NO_FILTER,
   onChange,
   onClose,
 }: {
@@ -43,6 +44,12 @@ export function AgendaFilterSheet({
   filter: AgendaFilter
   /** False on Fixtures, which never shows training, so the toggle would be a control over nothing. */
   showTraining: boolean
+  /**
+   * WHAT "CLEAR" RETURNS TO. Ordinarily `NO_FILTER`, but the Fixtures screen's own staff default hides
+   * cancelled fixtures without the person having chosen that -- Clear must put them back at THAT
+   * starting point, not silently turn cancelled fixtures back on as a side effect of clearing.
+   */
+  baseline?: AgendaFilter
   /**
    * TRUE FOR A PARENT/GUARDIAN OR A PLAYER.
    *
@@ -79,6 +86,7 @@ export function AgendaFilterSheet({
   const teams = teamOptions(items)
   const oppositions = oppositionOptions(items)
   const clubs = clubOptions(items)
+  const gameTypes = gameTypeOptions(items)
   const hasFixtures = items.some((item) => item.kind === "fixture")
 
   return (
@@ -118,11 +126,11 @@ export function AgendaFilterSheet({
           <Text accessibilityRole="header" style={[type.heading, { color: colour.ink, flex: 1 }]}>
             Filter
           </Text>
-          {isFiltered(filter) && (
+          {isFiltered(filter, baseline) && (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Clear all filters"
-              onPress={() => onChange(NO_FILTER)}
+              onPress={() => onChange(baseline)}
               hitSlop={8}
               style={({ pressed }) => ({ minHeight: TOUCH_TARGET, justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
             >
@@ -209,6 +217,18 @@ export function AgendaFilterSheet({
             </Group>
           )}
 
+          {/* THE CANONICAL MATCH-TYPE TAXONOMY (owner correction pass, Section 13), never a hardcoded
+              guess -- only the types genuinely present in the authorised rows are offered. */}
+          {gameTypes.length > 1 && (
+            <Group title="Fixture Type">
+              <Chips
+                options={[{ id: null, name: "All" }, ...gameTypes]}
+                value={filter.gameType}
+                onPick={(gameType) => onChange({ ...filter, gameType })}
+              />
+            </Group>
+          )}
+
           {/* WHAT TO INCLUDE. Two tick boxes rather than two more chip rows: each is a yes/no about a
               whole category, and a pair of pills reading "Training / No training" would be asking the
               same question twice. */}
@@ -222,11 +242,11 @@ export function AgendaFilterSheet({
                 onToggle={() => onChange({ ...filter, includeTraining: !filter.includeTraining })}
               />
             )}
-            {/* CANCELLED FIXTURES ARE ON BY DEFAULT. A called-off match is the reason somebody does
-                NOT drive to a ground on a Sunday morning, so hiding it by default would be the app
-                deciding they no longer need to know. Switching it off is for looking down a season at
-                what is actually being played. Either way a cancelled fixture keeps its struck-through
-                name and its badge, so it never reads as a live one. */}
+            {/* THE DEFAULT ITSELF IS DECIDED BY THE SCREEN, NOT HERE (owner correction pass, Section 12):
+                a participant's default is ON (a called-off match is the reason somebody does NOT drive
+                to a ground on a Sunday morning), a staff Fixtures agenda's default is OFF (season
+                scanning). Either way a cancelled fixture keeps its struck-through name and its badge
+                when shown, so it never reads as a live one. */}
             <Toggle
               label="Cancelled Fixtures"
               hint="Matches that are not going ahead"

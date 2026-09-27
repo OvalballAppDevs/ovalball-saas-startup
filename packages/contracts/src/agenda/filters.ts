@@ -307,3 +307,16 @@ export function clubOptions(items: AgendaItem[]): { id: string; name: string }[]
   }
   return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
 }
+
+/**
+ * Match types actually present in the authorised rows (owner correction pass, Section 13) -- the
+ * canonical stored value itself, exactly as `matchTypeLabel` reads it, never a second vocabulary. A
+ * fixture with nothing recorded contributes no option: "unset" is not a match type to filter by.
+ */
+export function gameTypeOptions(items: AgendaItem[]): { id: string; name: string }[] {
+  const seen = new Set<string>()
+  for (const item of items) {
+    if (item.kind === "fixture" && item.gameType) seen.add(item.gameType)
+  }
+  return Array.from(seen, (gameType) => ({ id: gameType, name: gameType })).sort((a, b) => a.name.localeCompare(b.name))
+}

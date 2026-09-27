@@ -35,6 +35,18 @@ export interface StatusTone {
   struck: boolean
 }
 
+/**
+ * WIN, LOSS OR DRAW -- the canonical wording (matches the website's own `FixtureResultPanel`).
+ * `AgendaItem.result` is already normalised to the viewer's own side (`ourScore`/`theirScore`), so no
+ * home/away conversion is needed here at all.
+ */
+export function resultOutcome(result: AgendaItem["result"]): { label: "Win" | "Loss" | "Draw"; tone: "positive" | "negative" | "neutral" } | null {
+  if (!result) return null
+  if (result.ourScore > result.theirScore) return { label: "Win", tone: "positive" }
+  if (result.ourScore < result.theirScore) return { label: "Loss", tone: "negative" }
+  return { label: "Draw", tone: "neutral" }
+}
+
 export function statusTone(status: string | null): StatusTone | null {
   switch (status) {
     case "Booked":

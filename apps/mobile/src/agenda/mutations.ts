@@ -206,6 +206,23 @@ export async function cancelFixture(supabase: Client, fixtureId: string, reason:
   return error ? failed(error, "You can't cancel this fixture.") : { ok: true }
 }
 
+/**
+ * RECORDING A RESULT (owner correction pass, Section 21) -- the SAME `submit_fixture_result` the
+ * website's fixture-thread result panel calls, the real authorisation/state-machine boundary
+ * (participant check, kickoff-passed check, and for a match against another Ovalball club, the
+ * dispute/amendment negotiation that RPC itself runs). This is deliberately only the FIRST step of
+ * that negotiation -- submitting a score -- never a second, mobile-only result model. The RPC takes
+ * home/away scores, not "our/their": `homeAway` here is the fixture's own already-known orientation,
+ * used only to convert the two inputs this screen actually asks for (our score, their score) into the
+ * shape the database wants, exactly the reverse of how `AgendaItem.result` was normalised on the way in.
+ */
+export async function submitFixtureResult(supabase: Client, fixtureId: string, homeAway: "Home" | "Away", ourScore: number, theirScore: number): Promise<MutationResult> {
+  const homeScore = homeAway === "Home" ? ourScore : theirScore
+  const awayScore = homeAway === "Home" ? theirScore : ourScore
+  const { error } = await supabase.rpc("submit_fixture_result", { p_fixture_id: fixtureId, p_home_score: homeScore, p_away_score: awayScore })
+  return error ? failed(error, "You can't record a result for this fixture.") : { ok: true }
+}
+
 export interface NewFixtureRequest {
   requestingClubId: string
   requestingTeamId: string

@@ -105,6 +105,8 @@ export function routeForIntent(intent: LinkIntent): Route | null {
     // THE PARTICIPANT ADDRESS. Cannot render administration at all.
     case "MATCH_CENTRE":
       return { pathname: "/fixtures/[fixtureId]/match-centre", params: { fixtureId: intent.fixtureId } }
+    case "ADD_RESULT":
+      return { pathname: "/fixtures/[fixtureId]/add-result", params: { fixtureId: intent.fixtureId } }
     case "TRAINING":
       return { pathname: "/calendar/training/[sessionId]", params: { sessionId: intent.sessionId } }
     case "CALENDAR":

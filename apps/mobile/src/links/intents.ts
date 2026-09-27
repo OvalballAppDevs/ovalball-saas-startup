@@ -64,6 +64,14 @@ export type LinkIntent =
   | { kind: "FIXTURE"; fixtureId: string }
   /** The Match Centre for one fixture. A foundation route today; the same address when M6 fills it. */
   | { kind: "MATCH_CENTRE"; fixtureId: string }
+  /**
+   * ADD RESULT (owner correction pass, Section 21) -- a mobile-only shortcut from a past fixture row
+   * straight to `submit_fixture_result`'s entry screen. There is no external URL for this: it is never
+   * produced by `resolveIntent`, only built directly by the Fixtures screen, exactly the way the app
+   * builds `FIXTURE`/`MATCH_CENTRE` intents for its own in-app taps. It lives in this one table anyway,
+   * rather than a hand-built path, for the same reason every other fixture destination does.
+   */
+  | { kind: "ADD_RESULT"; fixtureId: string }
   /** Open the calendar, optionally anchored on a day a notification was about. */
   | { kind: "CALENDAR"; date: string | null }
   /**
