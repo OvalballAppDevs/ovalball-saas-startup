@@ -977,7 +977,7 @@ function OnOvalballBody({
                       variant="secondary"
                       label="Decline"
                       busy={busy}
-                      onPress={() => onAct(async () => ({ ...(await respondToPartnership(supabase, marker.partnershipId as string, false)), message: undefined }))}
+                      onPress={() => onAct(async () => ({ ...(await respondToPartnership(supabase, marker.partnershipId as string, false)), message: `Partnership request from ${marker.name} declined.` }))}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -996,7 +996,7 @@ function OnOvalballBody({
               <Text style={[type.smallMedium, { color: colour.ink }]}>Partner Club</Text>
               <Text style={[type.small, { color: colour.inkMuted }]}>Your clubs are connected on the Ovalball Rugby Network.</Text>
               {detail.actions.canRevokePartnership && marker.partnershipId && (
-                <Button variant="quiet" label="End Partnership" busy={busy} onPress={() => onAct(async () => ({ ...(await revokePartnership(supabase, marker.partnershipId as string)), message: undefined }))} />
+                <Button variant="quiet" label="End Partnership" busy={busy} onPress={() => onAct(async () => ({ ...(await revokePartnership(supabase, marker.partnershipId as string)), message: `Partnership with ${marker.name} ended.` }))} />
               )}
             </>
           )}
