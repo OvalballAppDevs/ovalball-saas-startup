@@ -34,7 +34,7 @@ export async function readClubFixtureRequests(
     rows.flatMap((r) => {
       const teamId = ours(r)
       if (!teamId) return []
-      return [{ ...projectRequest(r, teamId), ourTeamId: teamId, ourTeam: name.get(teamId) ?? "Our side" }]
+      return [{ ...projectRequest(r, teamId, supabase), ourTeamId: teamId, ourTeam: name.get(teamId) ?? "Our side" }]
     })
   return {
     incoming: project((incoming ?? []) as unknown as RequestRow[], (r) => r.target_team_id),

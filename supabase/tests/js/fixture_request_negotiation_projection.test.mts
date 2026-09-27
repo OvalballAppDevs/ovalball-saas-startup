@@ -1,7 +1,14 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { projectRequest, type RequestRow } from "../../../packages/contracts/src/team/requests"
+
+/**
+ * These fixture rows never carry a real `requester`/`target` (both null), so `projectRequest` never
+ * reaches into `resolveClubLogoUrl` -- a fake client is enough to satisfy the signature.
+ */
+const FAKE_CLIENT = {} as unknown as SupabaseClient
 
 /**
  * CA-M11.5 UI ASSEMBLY (Section 9): `projectRequest`'s `canNegotiate`/`isMyTurn` fields are the CLIENT
@@ -32,6 +39,8 @@ function row(overrides: Partial<RequestRow>): RequestRow {
     countered_venue_preference: null,
     counter_note: null,
     last_proposed_by_team_id: null,
+    group_id: "group-1",
+    resulting_fixture_id: null,
     requester: null,
     target: null,
     fixture_request_groups: { proposed_date: "2026-03-01", raw_opponent_text: "Opponent", game_type: "League" },
@@ -41,42 +50,42 @@ function row(overrides: Partial<RequestRow>): RequestRow {
 
 test("a freshly sent request: the target team's turn, the requester's is not", () => {
   const r = row({})
-  assert.equal(projectRequest(r, TEAM_B).isMyTurn, true)
-  assert.equal(projectRequest(r, TEAM_A).isMyTurn, false)
+  assert.equal(projectRequest(r, TEAM_B, FAKE_CLIENT).isMyTurn, true)
+  assert.equal(projectRequest(r, TEAM_A, FAKE_CLIENT).isMyTurn, false)
 })
 
 test("after the target counters, the turn flips back to the original requester", () => {
   const r = row({ status: "counter_proposed", last_proposed_by_team_id: TEAM_B })
-  assert.equal(projectRequest(r, TEAM_A).isMyTurn, true)
-  assert.equal(projectRequest(r, TEAM_B).isMyTurn, false)
+  assert.equal(projectRequest(r, TEAM_A, FAKE_CLIENT).isMyTurn, true)
+  assert.equal(projectRequest(r, TEAM_B, FAKE_CLIENT).isMyTurn, false)
 })
 
 test("after the requester counters back, the turn returns to the target", () => {
   const r = row({ status: "counter_proposed", last_proposed_by_team_id: TEAM_A })
-  assert.equal(projectRequest(r, TEAM_A).isMyTurn, false)
-  assert.equal(projectRequest(r, TEAM_B).isMyTurn, true)
+  assert.equal(projectRequest(r, TEAM_A, FAKE_CLIENT).isMyTurn, false)
+  assert.equal(projectRequest(r, TEAM_B, FAKE_CLIENT).isMyTurn, true)
 })
 
 test("neither side's turn once resolved -- accepted, declined and cancelled are not open for negotiation", () => {
   for (const status of ["accepted", "declined", "cancelled", "expired"] as const) {
     const r = row({ status })
-    assert.equal(projectRequest(r, TEAM_A).isMyTurn, false)
-    assert.equal(projectRequest(r, TEAM_B).isMyTurn, false)
+    assert.equal(projectRequest(r, TEAM_A, FAKE_CLIENT).isMyTurn, false)
+    assert.equal(projectRequest(r, TEAM_B, FAKE_CLIENT).isMyTurn, false)
   }
 })
 
 test("canNegotiate is false for a scheduling-group target (no real target_team_id)", () => {
   const r = row({ target_team_id: null })
-  assert.equal(projectRequest(r, TEAM_A).canNegotiate, false)
+  assert.equal(projectRequest(r, TEAM_A, FAKE_CLIENT).canNegotiate, false)
 })
 
 test("canNegotiate is false for a request confirming an existing fixture -- counter_fixture_request's own scope boundary", () => {
   const r = row({ existing_fixture_id: "fixture-1" })
-  assert.equal(projectRequest(r, TEAM_A).canNegotiate, false)
+  assert.equal(projectRequest(r, TEAM_A, FAKE_CLIENT).canNegotiate, false)
 })
 
 test("canNegotiate is true for an ordinary open team-to-team negotiation", () => {
   const r = row({})
-  assert.equal(projectRequest(r, TEAM_A).canNegotiate, true)
-  assert.equal(projectRequest(r, TEAM_B).canNegotiate, true)
+  assert.equal(projectRequest(r, TEAM_A, FAKE_CLIENT).canNegotiate, true)
+  assert.equal(projectRequest(r, TEAM_B, FAKE_CLIENT).canNegotiate, true)
 })

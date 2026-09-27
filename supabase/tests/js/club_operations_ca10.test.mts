@@ -52,10 +52,12 @@ test("club events are read as their own shape and never as a fixture", () => {
   assert.doesNotMatch(load, /club_events/, "the fixture agenda still does not pretend an event is a fixture")
 })
 
-test("the Fixture Control Centre and the desk tools are a hand-off from the club context and never appear in a team context", () => {
+test("the Fixture Control Centre and the desk tools are a hand-off from Club Home, never duplicated onto the mobile Fixtures screen or a team context", () => {
+  // OWNER CORRECTION PASS (Section 2): the Fixtures tab's own Fixture Control Centre card was itself the
+  // thing the owner rejected, not merely its styling -- mobile Fixtures now carries no entry point to it
+  // at all. Club Home's own hand-off (a different screen) is untouched and still the one legitimate route.
   const fixtures = code(join(MOBILE, "app/(tabs)/fixtures/index.tsx"))
-  assert.match(fixtures, /active\?\.kind === "club" && clubAuthority && anyDeskFixtureTool\(clubAuthority\)/)
-  assert.match(fixtures, /\/fixtures\/management/)
+  assert.doesNotMatch(fixtures, /anyDeskFixtureTool|Fixture Control Centre|\/fixtures\/management/, "the Fixtures tab must not reintroduce this hand-off card")
   const home = code(join(MOBILE, "src/club/home.tsx"))
   assert.match(home, /anyDeskFixtureTool\(data\.overview\.authority\)/)
   for (const f of walk(join(MOBILE, "src/team")).concat(walk(join(MOBILE, "app/(tabs)/team")))) {
@@ -95,11 +97,16 @@ test("entering a team from the club is explicit and only where the person holds 
   assert.doesNotMatch(team, /loadRegister|AvailabilityRegister|readTeamFixtureRequests|issueTeamJoinCode/, "no Team workspace duplicated inside the club view")
 })
 
-test("club requests use the team's two operations across every side, and the club's More holds no admin junk", () => {
+test("club requests use the shared My Requests view across every side, negotiation lives on the Fixture Request detail screen, and the club's More holds no admin junk", () => {
+  // OWNER CORRECTION PASS (Sections 4-16): Accept/Suggest Changes/Decline/Withdraw moved off the list
+  // screen and onto the ONE Fixture Request detail screen a card opens into -- never duplicated inline.
   const requests = code(join(MOBILE, "app/(tabs)/club/requests.tsx"))
-  assert.match(requests, /acceptFixtureRequest\(supabase, r\.id\)/)
-  assert.match(requests, /declineFixtureRequest\(supabase, r\.id/)
-  assert.match(requests, /canRespond && r\.status === "sent" && r\.direction === "incoming"/)
+  assert.match(requests, /MyRequestsView/, "the club inbox uses the one shared list/tab component")
+  assert.doesNotMatch(requests, /acceptFixtureRequest|declineFixtureRequest\(supabase, r\.id/, "accept/decline no longer live inline on the list screen")
+  const detail = code(join(MOBILE, "app/(tabs)/fixtures/request/[groupId].tsx"))
+  assert.match(detail, /acceptFixtureRequest\(supabase, requestId\)/)
+  assert.match(detail, /declineFixtureRequest\(supabase, requestId, session\?\.user\.id/)
+  assert.match(detail, /withdrawFixtureRequest\(supabase, id, session\?\.user\.id/)
   const more = code(join(MOBILE, "app/(tabs)/more.tsx"))
   assert.match(more, /\{inClub && \(/)
   assert.match(more, /router\.push\("\/club\/teams" as never\)/)
@@ -143,4 +150,15 @@ test("no safeguarding, finance or family internals on any club screen", () => {
     const src = code(f)
     assert.doesNotMatch(src, /dispensation|safeguarding_|guardian_link|date_of_birth|gocardless|membership_obligations/, `${f} reaches for something a club screen must not`)
   }
+})
+
+test("clearing a Withdrawn request card is a per-viewer preference, never a write to the real request", () => {
+  // Follow-up owner correction: swipe-to-clear only ever applies to a group that has genuinely
+  // reached 'withdrawn', is stored client-side (AsyncStorage), and never touches Supabase -- a cleared
+  // card must reappear correctly if the store is ever lost, never silently corrupt the real row.
+  const view = code(join(MOBILE, "src/requests/my-requests-view.tsx"))
+  assert.match(view, /enabled=\{group\.aggregateStatus === "withdrawn"\}/, "swipe-to-clear is offered only for a genuinely withdrawn group")
+  const store = code(join(MOBILE, "src/requests/dismissed-groups.ts"))
+  assert.match(store, /AsyncStorage/, "the dismissal is a local view preference")
+  assert.doesNotMatch(store, /supabase|\.from\(|\.rpc\(/i, "clearing a card never writes to the canonical request")
 })

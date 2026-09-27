@@ -2,7 +2,6 @@ import { Pressable, ScrollView, Text, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { useAppContexts } from "../../../src/context/contexts"
 import { Button } from "../../../src/components/ui"
 import { ClubCrest } from "../../../src/clubhouse/components"
 import { Bell, Check, ChevronRight } from "../../../src/components/icons"
@@ -20,7 +19,6 @@ import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../s
  */
 export default function RequestSent() {
   const router = useRouter()
-  const { active } = useAppContexts()
 
   const params = useLocalSearchParams<{
     clubName: string
@@ -29,6 +27,7 @@ export default function RequestSent() {
     clubLogoUrl?: string
     date: string
     items?: string
+    groupId?: string
   }>()
 
   const items: { requestId: string; myTeamLabel: string; myTeamCategory: string; opponentTeamLabel: string; venue: "Home" | "Away" | "Either" }[] = (() => {
@@ -101,7 +100,9 @@ export default function RequestSent() {
             <Button
               label="View Request"
               style={{ backgroundColor: colour.pitch600, borderColor: colour.pitch600 }}
-              onPress={() => router.replace({ pathname: active?.kind === "team" ? "/team/requests" : "/club/requests" } as never)}
+              // ROUTES TO THE EXACT GROUP JUST CREATED (Section 21), never a generic list -- the group id
+              // the server itself returned when this batch was created.
+              onPress={() => router.replace({ pathname: "/fixtures/request/[groupId]", params: { groupId: params.groupId ?? "" } } as never)}
             />
             <Button label="Find More Clubs" variant="secondary" onPress={() => router.replace({ pathname: "/clubhouse/find-fixture" } as never)} />
           </View>

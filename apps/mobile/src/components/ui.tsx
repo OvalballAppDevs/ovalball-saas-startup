@@ -32,7 +32,7 @@ export function Button({
 }: {
   label: string
   onPress: () => void
-  variant?: "primary" | "secondary" | "quiet"
+  variant?: "primary" | "secondary" | "quiet" | "danger"
   busy?: boolean
   disabled?: boolean
   style?: StyleProp<ViewStyle>
@@ -43,6 +43,8 @@ export function Button({
     primary: { bg: colour.forest800, fg: colour.onForest, border: colour.forest800 },
     secondary: { bg: colour.surface, fg: colour.ink, border: colour.lineStrong },
     quiet: { bg: "transparent", fg: colour.forest800, border: "transparent" },
+    // Restrained, not alarming: an outlined pink/red surface (Decline), never a solid destructive fill.
+    danger: { bg: colour.dangerSurface, fg: colour.danger, border: colour.dangerSurface },
   }
   const shade = palette[variant]
   return (
@@ -121,10 +123,11 @@ export function SectionHeading({ children, action }: { children: string; action?
 }
 
 /** A status word with a tint behind it — never the tint alone, so colour is not the only signal. */
-export function StatusPill({ label, tone = "neutral" }: { label: string; tone?: "positive" | "caution" | "neutral" }) {
+export function StatusPill({ label, tone = "neutral" }: { label: string; tone?: "positive" | "caution" | "negative" | "neutral" }) {
   const tones = {
     positive: { bg: colour.successSurface, fg: colour.forest800 },
     caution: { bg: colour.warningSurface, fg: colour.warning },
+    negative: { bg: colour.dangerSurface, fg: colour.danger },
     neutral: { bg: "rgba(16,21,18,0.05)", fg: colour.inkMuted },
   }
   const shade = tones[tone]

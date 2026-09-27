@@ -2,20 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { isFamilyFacingContext, memberFor, pendingScheduleItemsForTeam, type AgendaItem, type PendingScheduleItem } from "@ovalball/contracts"
+import { isFamilyFacingContext, memberFor, type AgendaItem } from "@ovalball/contracts"
 import { collapseFamilyEvents, groupFamilyEventsByDay } from "@ovalball/contracts/family/events"
 import { needsAttendanceResponse } from "@ovalball/contracts"
 import { readClubFixtureRequests, type ClubFixtureRequest } from "@ovalball/contracts/club/requests"
-import { readTeamFixtureRequests } from "@ovalball/contracts/team/requests"
+import { readTeamFixtureRequests, type TeamFixtureRequest } from "@ovalball/contracts/team/requests"
+import { buildFixtureRequestGroupSummaries, countFixtureRequestGroupsRequiringAction } from "@ovalball/contracts/team/request-groups"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import { readAgenda, todayIso } from "../../../src/agenda/load"
 import { anyManagement, loadFixtureAuthority, type FixtureAuthority } from "../../../src/agenda/authority"
 import { readClubTeams } from "@ovalball/contracts/club/teams"
-import { anyDeskFixtureTool, readClubAuthority, type ClubAuthority } from "@ovalball/contracts/club/overview"
-import * as Linking from "expo-linking"
-import { webUrl } from "../../../src/config/environment"
 import { groupByDay, relativeDate, restOfDate } from "../../../src/agenda/presentation"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { AppHeader } from "../../../src/components/app-header"
@@ -180,84 +178,37 @@ export default function Fixtures() {
   )
   const canAdd = authority?.create ?? false
   const canRequest = authority?.requestCreate ?? false
-  // THE REQUESTS WAITING ON THIS TEAM (CA-M7): a row above the list in a team context, for somebody
-  // the server says may answer. Counted from the same RLS-scoped rows the requests screen reads.
-  const [waitingRequests, setWaitingRequests] = useState<number>(0)
-  const [clubAuthority, setClubAuthority] = useState<ClubAuthority | null>(null)
+  // THE FIXTURE REQUESTS BADGE (owner correction pass, Sections 3/18): a REAL count of request GROUPS
+  // genuinely requiring this viewer's attention -- the same truthful `requiresAction` the My Requests
+  // screen itself uses, never a raw historical count of every "sent" row and never a notification's
+  // read/unread state. Accepted, declined, withdrawn and expired groups never contribute.
+  const [requestsBadge, setRequestsBadge] = useState(0)
   useEffect(() => {
     let live = true
-    setWaitingRequests(0)
-    setClubAuthority(null)
-    if (!authority?.requestRespond) return
-    if (active?.kind === "team" && active.id) {
-      void supabase
-        .from("fixture_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("target_team_id", active.id)
-        .eq("status", "sent")
-        .then(({ count }) => {
-          if (live) setWaitingRequests(count ?? 0)
-        })
-    }
-    // A CLUB'S REQUESTS (CA-M10): every side's, counted from the same RLS-scoped rows the requests
-    // screen reads; and the desk tools offered as a hand-off only where the club-scope probe says yes.
-    if (active?.kind === "club" && (active.clubId ?? active.id)) {
-      const clubId = (active.clubId ?? active.id) as string
-      void (async () => {
-        const d = await readClubTeams(supabase, clubId)
-        const ids = d.teams.filter((t) => t.active).map((t) => t.id)
-        if (!ids.length) return
-        const { count } = await supabase.from("fixture_requests").select("id", { count: "exact", head: true }).in("target_team_id", ids).eq("status", "sent")
-        if (live) setWaitingRequests(count ?? 0)
-      })().catch(() => undefined)
-      void readClubAuthority(supabase, clubId)
-        .then((a) => {
-          if (live) setClubAuthority(a)
-        })
-        .catch(() => undefined)
-    }
-    return () => {
-      live = false
-    }
-  }, [active, authority])
-
-  // PENDING FIXTURE REQUESTS, IN THE SCHEDULE TOO (owner correction pass, Sections 7/9/13): the SAME
-  // canonical `readTeamFixtureRequests`/`readClubFixtureRequests` reads the existing Requests screen
-  // already uses, projected through the ONE shared `pendingScheduleItemsForTeam` (contracts) rather than
-  // a second, screen-local shape. Never shown for "past" -- a pending request is inherently forward-
-  // looking scheduling intent, not something that "happened."
-  const [pendingItems, setPendingItems] = useState<PendingScheduleItem[]>([])
-  useEffect(() => {
-    let live = true
-    setPendingItems([])
-    if (direction !== "upcoming") return
-    async function loadPending() {
+    setRequestsBadge(0)
+    if (!authority?.requestRespond && !authority?.requestCreate) return
+    async function loadBadge() {
       if (active?.kind === "team" && active.id) {
         const { incoming, outgoing } = await readTeamFixtureRequests(supabase, active.id)
-        const us = { directoryId: null, clubName: "", teamName: active.label, compactName: null, rugbyCode: null, crestUrl: null, kit: null }
-        if (live) setPendingItems(pendingScheduleItemsForTeam([...incoming, ...outgoing], active.id, us))
+        const groups = buildFixtureRequestGroupSummaries<TeamFixtureRequest>([...incoming, ...outgoing])
+        if (live) setRequestsBadge(countFixtureRequestGroupsRequiringAction(groups))
         return
       }
       if (active?.kind === "club" && (active.clubId ?? active.id)) {
         const clubId = (active.clubId ?? active.id) as string
         const d = await readClubTeams(supabase, clubId)
-        const teams = d.teams.filter((t) => t.active)
-        if (!teams.length) return
-        const requests = await readClubFixtureRequests(supabase, teams.map((t) => ({ id: t.id, name: t.displayName })))
-        const all: ClubFixtureRequest[] = [...requests.incoming, ...requests.outgoing]
-        const byTeam = new Map<string, ClubFixtureRequest[]>()
-        for (const r of all) byTeam.set(r.ourTeamId, [...(byTeam.get(r.ourTeamId) ?? []), r])
-        const items = teams.flatMap((t) =>
-          pendingScheduleItemsForTeam(byTeam.get(t.id) ?? [], t.id, { directoryId: null, clubName: "", teamName: t.displayName, compactName: null, rugbyCode: t.rugbyCode, crestUrl: null, kit: null })
-        )
-        if (live) setPendingItems(items)
+        const ids = d.teams.filter((t) => t.active).map((t) => ({ id: t.id, name: t.displayName }))
+        if (!ids.length) return
+        const requests = await readClubFixtureRequests(supabase, ids)
+        const groups = buildFixtureRequestGroupSummaries<ClubFixtureRequest>([...requests.incoming, ...requests.outgoing])
+        if (live) setRequestsBadge(countFixtureRequestGroupsRequiringAction(groups))
       }
     }
-    void loadPending().catch(() => undefined)
+    void loadBadge().catch(() => undefined)
     return () => {
       live = false
     }
-  }, [active, direction])
+  }, [active, authority])
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
@@ -322,72 +273,38 @@ export default function Fixtures() {
           </View>
         )}
 
+        {/* FIXTURE REQUESTS IS AN INBOX ENTRY POINT, NOT A FEED (owner correction pass, Sections 1-3/19):
+            a negotiation inbox lives behind this one row with a real notification-style count, exactly
+            the way Ovalball's other badges work -- never a second projection of pending requests spilled
+            into this agenda. */}
         {(active?.kind === "team" || active?.kind === "club") && (authority?.requestRespond || authority?.requestCreate) && direction === "upcoming" && (
           <View style={{ paddingHorizontal: space.lg }}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={waitingRequests > 0 ? `${waitingRequests} fixture ${waitingRequests === 1 ? "request is" : "requests are"} waiting for your answer. Opens Fixture Requests.` : "Fixture Requests"}
+              accessibilityLabel={requestsBadge > 0 ? `Fixture Requests. ${requestsBadge} ${requestsBadge === 1 ? "request needs" : "requests need"} your attention.` : "Fixture Requests"}
               onPress={() => router.push((active.kind === "club" ? "/club/requests" : "/team/requests") as never)}
-              style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 4, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: waitingRequests > 0 ? colour.warning : colour.line, backgroundColor: waitingRequests > 0 ? colour.warningSurface : colour.surface, opacity: pressed ? 0.92 : 1 })}
-            >
-              <Megaphone size={17} color={waitingRequests > 0 ? colour.warning : colour.forest800} strokeWidth={2} />
-              <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>
-                {waitingRequests > 0 ? `${waitingRequests} fixture ${waitingRequests === 1 ? "request" : "requests"} waiting for your answer` : "Fixture Requests"}
-              </Text>
-              <ChevronRight size={17} color={colour.inkSubtle} />
-            </Pressable>
-          </View>
-        )}
-
-        {/* THE DESK TOOLS ARE DESK TOOLS (CA-M10): season planning, imports, bulk edits and the Competition
-            Creator stay on the website, offered from the club context only where the club-scope probe
-            says this person holds them. Never from a team context; never rebuilt smaller here. */}
-        {active?.kind === "club" && clubAuthority && anyDeskFixtureTool(clubAuthority) && direction === "upcoming" && (
-          <View style={{ paddingHorizontal: space.lg }}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Fixture Control Centre. Season planning, imports and bulk changes. Opens the Ovalball website"
-              onPress={() => void Linking.openURL(`${webUrl}/fixtures/management`)}
               style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 4, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, opacity: pressed ? 0.92 : 1 })}
             >
-              <SlidersHorizontal size={17} color={colour.forest800} strokeWidth={2} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[type.smallMedium, { color: colour.ink }]}>Fixture Control Centre</Text>
-                <Text style={[type.caption, { color: colour.inkMuted }]}>Season planning, imports and bulk changes — on the website</Text>
-              </View>
+              <Megaphone size={17} color={colour.forest800} strokeWidth={2} />
+              <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>Fixture Requests</Text>
+              {requestsBadge > 0 && (
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  style={{ minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, backgroundColor: colour.pitch600, alignItems: "center", justifyContent: "center" }}
+                >
+                  <Text style={[type.caption, { color: colour.onForest, fontSize: 12 }]}>{requestsBadge > 9 ? "9+" : requestsBadge}</Text>
+                </View>
+              )}
               <ChevronRight size={17} color={colour.inkSubtle} />
             </Pressable>
           </View>
         )}
 
-        {/* PENDING FIXTURE REQUESTS (owner correction pass, Section 9): visually resembles a fixture row
-            enough to be understood as "concerns a match," but a restrained amber treatment and its own
-            Pending label keep it distinct from a booked fixture -- never a confirmed venue/pitch shown
-            for a match nobody has agreed on yet. Tapping opens the real request/negotiation surface,
-            never Match Centre for a Fixture that does not exist. */}
-        {pendingItems.length > 0 && (
-          <View style={{ paddingHorizontal: space.lg, gap: space.xs }}>
-            <Text style={[type.overline, { color: colour.warning }]}>PENDING</Text>
-            <View style={{ backgroundColor: colour.warningSurface, borderRadius: radius.md, borderWidth: 1, borderColor: "rgba(138,90,0,0.25)" }}>
-              {pendingItems.map((p, i) => (
-                <Pressable
-                  key={p.key}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Pending fixture request. ${p.them.clubName}${p.them.teamName ? `, ${p.them.teamName}` : ""}. ${p.status}.`}
-                  onPress={() => router.push((active?.kind === "club" ? "/club/requests" : "/team/requests") as never)}
-                  style={({ pressed }) => ({ padding: space.md, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: "rgba(138,90,0,0.2)", opacity: pressed ? 0.85 : 1 })}
-                >
-                  <Text style={[type.caption, { color: colour.inkSubtle }]}>{p.date ? new Date(`${p.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "Date TBD"}</Text>
-                  <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
-                    {p.them.clubName}
-                    {p.them.teamName ? ` · ${p.them.teamName}` : ""}
-                  </Text>
-                  <Text style={[type.caption, { color: colour.warning }]}>{p.status}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        )}
+        {/* THE DESK TOOLS ARE DESK TOOLS (CA-M10, owner correction pass Section 2): season planning,
+            imports, bulk edits and the Competition Creator stay a web-only job. Mobile Fixtures no longer
+            carries a "Fixture Control Centre" card pointing at them at all -- the previous hand-off card
+            was itself the thing the owner rejected, not just its styling. */}
 
         {!!next && (
           <View style={{ paddingHorizontal: space.lg }}>

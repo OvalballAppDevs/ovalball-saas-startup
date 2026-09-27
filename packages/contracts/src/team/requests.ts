@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "../database"
+import { resolveClubLogoUrl } from "../club-logo"
 import { loadStaffPlayers } from "./players"
 
 type Client = SupabaseClient<Database>
@@ -48,10 +49,21 @@ export interface TeamFixtureRequest {
   counteredKickoffTime: string | null
   counteredVenuePreference: "home" | "away" | "either" | null
   counterNote: string | null
+  /** The group this request was sent as part of (owner correction pass, Section 17) -- several requests
+   * sharing one `groupId` were sent/received together and belong on ONE inbox card, never N unrelated
+   * ones. Real canonical identity, never invented. */
+  groupId: string
+  /** Set only once this exact request has been accepted and converged into a real Fixture -- the
+   * "Confirmed" tab links to this, never a second, duplicate fixture record. */
+  resultingFixtureId: string | null
+  /** The other side's real crest, resolved through the one canonical club-logo rule -- never a
+   * fabricated per-team logo (teams have no crest of their own; only a club does). Null where the other
+   * side has no team resolved at all yet (an as-yet-unnamed target). */
+  otherClubCrestUrl: string | null
 }
 
 export const REQUEST_FIELDS =
-  "id, status, venue_preference, preferred_kickoff_time, note, created_at, decided_at, updated_at, requesting_team_id, target_team_id, existing_fixture_id, countered_date, countered_kickoff_time, countered_venue_preference, counter_note, last_proposed_by_team_id, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(club_directory(name))), target:teams!fixture_requests_target_team_id_fkey(display_name, clubs(club_directory(name))), fixture_request_groups(proposed_date, raw_opponent_text, game_type)"
+  "id, status, venue_preference, preferred_kickoff_time, note, created_at, decided_at, updated_at, requesting_team_id, target_team_id, existing_fixture_id, countered_date, countered_kickoff_time, countered_venue_preference, counter_note, last_proposed_by_team_id, group_id, resulting_fixture_id, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(id, logo_storage_path, club_directory(name, logo_storage_path))), target:teams!fixture_requests_target_team_id_fkey(display_name, clubs(id, logo_storage_path, club_directory(name, logo_storage_path))), fixture_request_groups(proposed_date, raw_opponent_text, game_type)"
 
 export type RequestRow = {
   id: string
@@ -70,12 +82,14 @@ export type RequestRow = {
   countered_venue_preference: string | null
   counter_note: string | null
   last_proposed_by_team_id: string | null
-  requester: { display_name: string | null; clubs: { club_directory: { name: string | null } | null } | null } | null
-  target: { display_name: string | null; clubs: { club_directory: { name: string | null } | null } | null } | null
+  group_id: string
+  resulting_fixture_id: string | null
+  requester: { display_name: string | null; clubs: { logo_storage_path: string | null; club_directory: { name: string | null; logo_storage_path: string | null } | null } | null } | null
+  target: { display_name: string | null; clubs: { logo_storage_path: string | null; club_directory: { name: string | null; logo_storage_path: string | null } | null } | null } | null
   fixture_request_groups: { proposed_date: string | null; raw_opponent_text: string | null; game_type: string | null } | null
 }
 
-export function projectRequest(r: RequestRow, teamId: string): TeamFixtureRequest {
+export function projectRequest(r: RequestRow, teamId: string, supabase: Client): TeamFixtureRequest {
   const incoming = r.target_team_id === teamId
   const other = incoming ? r.requester : r.target
   const canNegotiate = r.requesting_team_id !== null && r.target_team_id !== null && r.existing_fixture_id === null
@@ -102,6 +116,9 @@ export function projectRequest(r: RequestRow, teamId: string): TeamFixtureReques
     counteredKickoffTime: r.countered_kickoff_time,
     counteredVenuePreference: (r.countered_venue_preference as TeamFixtureRequest["counteredVenuePreference"]) ?? null,
     counterNote: r.counter_note,
+    groupId: r.group_id,
+    resultingFixtureId: r.resulting_fixture_id,
+    otherClubCrestUrl: other?.clubs ? resolveClubLogoUrl(supabase, other.clubs) : null,
   }
 }
 
@@ -118,9 +135,33 @@ export async function readTeamFixtureRequests(supabase: Client, teamId: string):
   if (e1) throw e1
   if (e2) throw e2
   return {
-    incoming: ((incoming ?? []) as unknown as RequestRow[]).map((r) => projectRequest(r, teamId)),
-    outgoing: ((outgoing ?? []) as unknown as RequestRow[]).map((r) => projectRequest(r, teamId)),
+    incoming: ((incoming ?? []) as unknown as RequestRow[]).map((r) => projectRequest(r, teamId, supabase)),
+    outgoing: ((outgoing ?? []) as unknown as RequestRow[]).map((r) => projectRequest(r, teamId, supabase)),
   }
+}
+
+export interface FixtureRequestGroupRow extends TeamFixtureRequest {
+  ourTeamId: string
+  ourTeam: string
+}
+
+/**
+ * ONE GROUP, READ DIRECTLY (the Fixture Request detail screen): every child request sharing `groupId`
+ * that `fixture_requests_select_scoped` lets this viewer see -- a single team's own pairing in team
+ * context, or every one of a club's teams' pairings in club context. `viewerTeams` decides which side of
+ * each row is "ours" for direction/turn purposes, exactly the way `readClubFixtureRequests` already
+ * does for its own reads; a row naming none of the viewer's teams cannot occur, since RLS itself would
+ * never have returned it.
+ */
+export async function readFixtureRequestGroupDetail(supabase: Client, groupId: string, viewerTeams: { id: string; name: string }[]): Promise<FixtureRequestGroupRow[]> {
+  const ids = new Set(viewerTeams.map((t) => t.id))
+  const name = new Map(viewerTeams.map((t) => [t.id, t.name]))
+  const { data, error } = await supabase.from("fixture_requests").select(REQUEST_FIELDS).eq("group_id", groupId).order("created_at", { ascending: true })
+  if (error) throw error
+  return ((data ?? []) as unknown as RequestRow[]).map((r) => {
+    const ourTeamId = r.target_team_id && ids.has(r.target_team_id) ? r.target_team_id : r.requesting_team_id && ids.has(r.requesting_team_id) ? r.requesting_team_id : (r.target_team_id ?? r.requesting_team_id ?? "")
+    return { ...projectRequest(r, ourTeamId, supabase), ourTeamId, ourTeam: name.get(ourTeamId) ?? "Our side" }
+  })
 }
 
 /** `accept_fixture_request` re-checks `fixture.request.respond` for the responding side itself. */
@@ -132,17 +173,39 @@ export async function acceptFixtureRequest(supabase: Client, requestId: string):
 /**
  * Declining is a plain status update the `fixture_requests_update_scoped` policy already covers -- either
  * side may decline or withdraw. No atomic multi-table write is needed the way acceptance requires.
+ * Open to a live counter-proposal too, not just a fresh 'sent' request -- a standing suggestion is still
+ * something the responding side may say no to outright, rather than being forced to counter again.
  */
 export async function declineFixtureRequest(supabase: Client, requestId: string, userId: string): Promise<void> {
   const { data, error } = await supabase
     .from("fixture_requests")
     .update({ status: "declined", decided_by: userId, decided_at: new Date().toISOString() })
     .eq("id", requestId)
-    .eq("status", "sent")
+    .in("status", ["sent", "counter_proposed"])
     .select("id")
   if (error) throw error
   // A policy that filters rather than errors leaves the row untouched; say so rather than reporting a decline that did not happen.
   if (!data || data.length === 0) throw Object.assign(new Error("You can't answer this request."), { code: "42501" })
+}
+
+/**
+ * Withdrawing OUR OWN request (owner correction pass): the requesting side may pull an unresolved
+ * request at any time -- while it is still freshly 'sent' or while a counter-proposal is standing --
+ * without waiting for the other club to act first. This is deliberately `status: 'cancelled'`, never
+ * `'declined'`: the enum already carries both meanings distinctly (a recipient who says no left this
+ * declined; a requester who changes their mind withdrew it), and conflating the two would tell the other
+ * club they were refused when in fact nobody on their side ever answered. The same
+ * `fixture_requests_update_scoped` policy covers this write from the requesting club's side.
+ */
+export async function withdrawFixtureRequest(supabase: Client, requestId: string, userId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from("fixture_requests")
+    .update({ status: "cancelled", decided_by: userId, decided_at: new Date().toISOString() })
+    .eq("id", requestId)
+    .in("status", ["sent", "counter_proposed"])
+    .select("id")
+  if (error) throw error
+  if (!data || data.length === 0) throw Object.assign(new Error("You can't withdraw this request."), { code: "42501" })
 }
 
 /**

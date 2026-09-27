@@ -133,6 +133,7 @@ export default function RequestFixturesComposer() {
         clubLogoUrl: params.clubLogoUrl ?? "",
         date: params.date,
         items: JSON.stringify(sentItems),
+        groupId: result.groupId,
       },
     } as never)
   }
