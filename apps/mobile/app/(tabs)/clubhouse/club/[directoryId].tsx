@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { Children, useEffect, useMemo, useState } from "react"
 import { Linking, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -19,6 +19,7 @@ import {
   type CandidateAvailabilityBatchRow,
   type ClubDetail,
   type ClubMapMarker,
+  type CompatibleTeam,
   type FindFixtureVenuePreference,
   type GameWeekCommitmentRow,
 } from "@ovalball/contracts/clubhouse"
@@ -57,7 +58,7 @@ import { ClubCrest, ClubMetricRow } from "../../../../src/clubhouse/components"
 export default function ClubProfile() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { directoryId, ffDate, ffTeamLabels, ffAvailability, ffWeekRows, ffTeamIds, ffVenuePreference } = useLocalSearchParams<{
+  const { directoryId, ffDate, ffTeamLabels, ffAvailability, ffWeekRows, ffTeamIds, ffVenuePreference, ffCompatibleTeams } = useLocalSearchParams<{
     directoryId: string
     ffDate?: string
     ffTeamLabels?: string
@@ -65,6 +66,7 @@ export default function ClubProfile() {
     ffWeekRows?: string
     ffTeamIds?: string
     ffVenuePreference?: FindFixtureVenuePreference
+    ffCompatibleTeams?: string
   }>()
 
   // FIND A FIXTURE SEARCH CONTEXT (Section B4, extended for the Request Fixtures handoff): present only
@@ -72,6 +74,10 @@ export default function ClubProfile() {
   // any other way (Clubhouse map, a fixture, a search). Reuses the EXACT rows FF-2 already computed;
   // nothing here re-derives availability. `teamIds`/`venuePreference` travel through untouched from FF-1's
   // own criteria so Request Fixtures can hand them to the composer -- never re-derived or guessed here.
+  // `compatibleTeams` is THIS candidate's own opposition-team list, exactly as FF-3 already computed it --
+  // never `detail.compatibleTeams` when this context exists, because that field answers a DIFFERENT
+  // question (compatibility for the viewer's currently active app context, not for the actual search that
+  // brought the viewer to this profile), and conflating the two was producing a false "0/0" here.
   const findFixtureContext = useMemo(() => {
     if (!ffDate) return null
     try {
@@ -82,11 +88,12 @@ export default function ClubProfile() {
         weekRows: ffWeekRows ? (JSON.parse(ffWeekRows) as GameWeekCommitmentRow[]) : [],
         teamIds: ffTeamIds ? (JSON.parse(ffTeamIds) as string[]) : [],
         venuePreference: (ffVenuePreference as FindFixtureVenuePreference | undefined) ?? "either",
+        compatibleTeams: ffCompatibleTeams ? (JSON.parse(ffCompatibleTeams) as CompatibleTeam[]) : [],
       }
     } catch {
       return null
     }
-  }, [ffDate, ffTeamLabels, ffAvailability, ffWeekRows, ffTeamIds, ffVenuePreference])
+  }, [ffDate, ffTeamLabels, ffAvailability, ffWeekRows, ffTeamIds, ffVenuePreference, ffCompatibleTeams])
   const { userId } = useSession()
   const { active } = useAppContexts()
   const viewerClubId = active?.clubId ?? (active?.kind === "club" ? active.id : null)
@@ -192,10 +199,10 @@ export default function ClubProfile() {
           <ScrollView contentContainerStyle={{ paddingBottom: space.xxl }} showsVerticalScrollIndicator={false}>
             <ProfileHeroBlock marker={marker} origin={origin} coverUrl={detail?.coverUrl} />
             {(() => {
-              const metrics = buildHeroMetrics({ clubTeams, detail, findFixtureContext, marker })
+              const metrics = buildHeroMetrics({ clubTeams, findFixtureContext, marker })
               return metrics.length > 0 ? (
-                <View style={{ paddingHorizontal: space.lg, paddingBottom: space.sm }}>
-                  <ClubMetricRow metrics={metrics} />
+                <View style={{ paddingHorizontal: GUTTER, paddingTop: space.sm }}>
+                  <ClubMetricRow metrics={metrics} variant="flat" />
                 </View>
               ) : null
             })()}
@@ -250,7 +257,7 @@ export default function ClubProfile() {
                             opponentClubId: marker.clubId ?? "",
                             date: findFixtureContext.date,
                             teamId: findFixtureContext.teamIds[0] ?? "",
-                            targetTeamId: detail.compatibleTeams?.[0]?.teamId ?? "",
+                            targetTeamId: findFixtureContext.compatibleTeams[0]?.teamId ?? detail.compatibleTeams?.[0]?.teamId ?? "",
                             venuePreference: findFixtureContext.venuePreference,
                           },
                         } as never)
@@ -303,12 +310,10 @@ function candidateTeamWeekLabel(teamId: string, findFixtureContext: FindFixtureP
 
 function buildHeroMetrics({
   clubTeams,
-  detail,
   findFixtureContext,
   marker,
 }: {
   clubTeams: ClubTeam[] | null
-  detail: ClubDetail | null
   findFixtureContext: FindFixtureProfileContext | null
   marker: ClubMapMarker
 }): { value: string; label: string; icon?: React.ReactNode }[] {
@@ -320,8 +325,11 @@ function buildHeroMetrics({
   }
   // THE SEARCH-CONTEXT METRIC (visual-lock Job 2, Section 8): only rendered when this profile was
   // opened from an FF-3 result card -- never fabricated on a generic visit with no search behind it.
-  if (findFixtureContext && detail) {
-    const compatible = detail.compatibleTeams ?? []
+  // `compatibleTeams` here is FF-3's OWN candidate data (see `FindFixtureProfileContext`), never
+  // `detail.compatibleTeams` -- that field answered a different, narrower question and was the actual
+  // cause of a false "0/0" here.
+  if (findFixtureContext) {
+    const compatible = findFixtureContext.compatibleTeams
     const clear = compatible.filter((t) => candidateTeamWeekLabel(t.teamId, findFixtureContext, marker.partnershipStatus).primary === "No known clash").length
     metrics.push({ value: `${clear}/${compatible.length}`, label: "Teams Available", icon: <Users size={16} color={colour.inkMuted} /> })
   }
@@ -361,6 +369,10 @@ function ProfileBackHeader({ onBack, insets }: { onBack: () => void; insets: { t
   )
 }
 
+/** ONE page-level horizontal margin (owner correction, Section 17): every section below -- crest,
+ * identity row, metrics, tab bar, body, bottom actions -- anchors to this SAME gutter, never its own
+ * separately-chosen inset. */
+const GUTTER = space.xl
 const CREST_SIZE = 96
 const CREST_OVERLAP = CREST_SIZE / 2
 
@@ -378,7 +390,7 @@ const CREST_OVERLAP = CREST_SIZE / 2
  * fallback. The club name is anchored to the bottom of the cover in large bold white text, never
  * repeated in the header above.
  */
-const COVER_HEIGHT = 240
+const COVER_HEIGHT = 208
 
 /**
  * THE COVER PHOTO on its own -- clipped to rounded top corners, no crest inside it. The crest is
@@ -409,11 +421,11 @@ function ProfileCoverPhoto({ marker, coverUrl }: { marker: ClubMapMarker; coverU
         </Defs>
         <Rect x="0" y="0" width="100%" height="100%" fill="url(#clubProfileCoverShade)" />
       </Svg>
-      <View style={{ position: "absolute", left: space.lg + CREST_SIZE + space.md, right: space.lg, bottom: space.md }}>
+      <View style={{ position: "absolute", left: GUTTER + CREST_SIZE + 16, right: GUTTER, bottom: 20 }}>
         {/* Bold Inter, never the condensed display face -- that face's own glyphs read as all-caps,
             which the reference's club name never does. A club's real name is a proper noun, not a
             section heading, so it keeps its ordinary mixed-case form here. */}
-        <Text numberOfLines={2} accessibilityRole="header" style={{ fontFamily: type.title.fontFamily, fontSize: 22, lineHeight: 26, color: colour.onForest }}>
+        <Text numberOfLines={2} accessibilityRole="header" style={{ fontFamily: type.title.fontFamily, fontSize: 26, lineHeight: 30, color: colour.onForest }}>
           {marker.name}
         </Text>
       </View>
@@ -439,7 +451,7 @@ function ProfileHeroBlock({ marker, origin, coverUrl }: { marker: ClubMapMarker;
       <View
         style={{
           position: "absolute",
-          left: space.lg,
+          left: GUTTER,
           top: COVER_HEIGHT - CREST_OVERLAP,
           width: CREST_SIZE,
           height: CREST_SIZE,
@@ -457,24 +469,31 @@ function ProfileHeroBlock({ marker, origin, coverUrl }: { marker: ClubMapMarker;
 }
 
 /**
- * THE IDENTITY SECTION (visual-lock Job 2, Section 7): on plain white, directly below the cover -- the
- * two badges the reference shows, `[On Ovalball] [Partner]`, only when each is canonically true, plus
- * whichever real pending/unknown partnership state genuinely applies (never invented for the reference,
- * but never silently dropped either -- a club with a pending or unknown relationship still gets a
- * truthful pill here, matching the same rule FF-3's own result cards keep). Then "Town, County · N miles
- * away" on the same white background. `paddingTop` clears the crest's own overlap into this section, so
- * the crest floats above this text rather than colliding with it.
+ * THE IDENTITY SECTION (visual-lock Job 2, Section 4-7, owner corrections): on plain white, directly
+ * below the cover -- the two badges the reference shows, `[On Ovalball] [Partner]`, only when each is
+ * canonically true, plus whichever real pending/unknown partnership state genuinely applies (never
+ * invented for the reference, but never silently dropped either -- a club with a pending or unknown
+ * relationship still gets a truthful pill here, matching the same rule FF-3's own result cards keep).
+ * Then "Town, County · N miles away" immediately beneath, on the same white background.
+ *
+ * LEFT-ALIGNED, indented to `crest right + 16pt` -- the SAME horizontal anchor the club name uses in
+ * the cover above, so the crest and this row read as one composed unit rather than two separately
+ * stacked components. `paddingTop` is minimal: this row sits BESIDE the crest, not below it, so it
+ * doesn't need to wait for the crest's own overlap to clear vertically.
+ *
+ * "Approximate location" is deliberately NOT a status badge here (owner correction): it is metadata
+ * about the location's own precision, not a network/relationship fact, and competed visually with
+ * "On Ovalball" when treated as a sibling pill. It is omitted from this compact identity row entirely.
  */
 function ProfileIdentitySection({ marker, origin }: { marker: ClubMapMarker; origin: ClubMapMarker | null }) {
   const miles = origin && marker.hasLocation && !marker.isOwnClub ? distanceMiles(origin, marker) : null
   return (
-    <View style={{ backgroundColor: colour.chalk, paddingTop: CREST_OVERLAP + space.sm, paddingHorizontal: space.lg, paddingBottom: space.sm, gap: space.xs, alignItems: "center" }}>
+    <View style={{ backgroundColor: colour.chalk, paddingTop: space.xs, paddingLeft: GUTTER + CREST_SIZE + 16, paddingRight: GUTTER, paddingBottom: space.sm, gap: space.xs }}>
       {/* "On Ovalball" and "Partner" are the two named badges from the reference, each with its OWN
           distinct colour (green identity vs. red/pink relationship) rather than sharing one generic
           "positive" tone -- StatusPill's shared tones stay untouched for every other screen; these two
-          are deliberately bespoke to this identity row. Centred on the page (owner correction), not
-          left-aligned under the crest column. */}
-      <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap", alignItems: "center", justifyContent: "center" }}>
+          are deliberately bespoke to this identity row. */}
+      <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap", alignItems: "center" }}>
         {marker.networkState === "on_ovalball" && (
           <View style={{ backgroundColor: "rgba(50,166,101,0.18)", borderRadius: radius.pill, paddingHorizontal: space.md, paddingVertical: 4 }}>
             <Text style={[type.smallMedium, { color: colour.forest950 }]}>On Ovalball</Text>
@@ -489,9 +508,8 @@ function ProfileIdentitySection({ marker, origin }: { marker: ClubMapMarker; ori
         {marker.partnershipStatus === "pending_outgoing" && <StatusPill label="Request sent" tone="neutral" />}
         {marker.partnershipStatus === "unknown" && <StatusPill label="Relationship unknown" tone="neutral" />}
         {marker.networkState === "not_on_ovalball" && <StatusPill label="Not on Ovalball" tone="caution" />}
-        {marker.locationPrecision === "postcode" && <StatusPill label="Approximate location" tone="neutral" />}
       </View>
-      <Text numberOfLines={1} style={[type.small, { color: colour.inkMuted, textAlign: "center" }]}>
+      <Text numberOfLines={1} style={[type.small, { color: colour.inkMuted }]}>
         {[marker.town, marker.county].filter(Boolean).join(", ") || (marker.hasLocation ? "" : "Location not yet known")}
         {miles !== null ? ` · ${Math.round(miles)} miles away` : ""}
       </Text>
@@ -531,19 +549,25 @@ function ProfileCard({ children }: { children: React.ReactNode }) {
 /** THE BOTTOM ACTION BAR (mock-up reconciliation): a deliberate action area, not buttons loose in the
  * scrolling content -- a sibling of the ScrollView, so it stays put while the profile scrolls under it. */
 function ProfileActionBar({ children, insetsBottom }: { children: React.ReactNode; insetsBottom: number }) {
+  // FIXED DEFECT (owner correction, Section 14): the caller passes its conditional buttons wrapped in a
+  // `<>...</>` fragment, which is ONE React element, not an array -- `[children].flat()` never actually
+  // flattened it, so every button ended up sharing a SINGLE flex:1 wrapper and stacked vertically inside
+  // it (a plain View's default flexDirection is "column"). `Children.toArray` recurses into fragments
+  // properly, giving each button its OWN flex:1 sibling in this row.
   return (
     <View
       style={{
         flexDirection: "row",
-        gap: space.sm,
-        padding: space.md,
-        paddingBottom: insetsBottom > 0 ? insetsBottom : space.md,
+        gap: 12,
+        paddingHorizontal: GUTTER,
+        paddingTop: 10,
+        paddingBottom: insetsBottom > 0 ? insetsBottom : 10,
         backgroundColor: colour.surface,
         borderTopWidth: 1,
         borderTopColor: colour.line,
       }}
     >
-      {[children].flat().map((child, i) => (
+      {Children.toArray(children).map((child, i) => (
         <View key={i} style={{ flex: 1 }}>
           {child}
         </View>
@@ -572,6 +596,10 @@ export interface FindFixtureProfileContext {
    * untouched so Request Fixtures can hand the composer a real starting team, never a guess. */
   teamIds: string[]
   venuePreference: FindFixtureVenuePreference
+  /** THIS candidate's own opposition-team list, exactly as FF-3 already computed it -- the answer to
+   * "which of this specific club's teams are compatible with the search," never re-derived from the
+   * viewer's currently active app context, which is a different, narrower question. */
+  compatibleTeams: CompatibleTeam[]
 }
 
 /**
@@ -639,7 +667,7 @@ function OnOvalballBody({
   }
 
   return (
-    <View style={{ padding: space.lg, gap: space.lg }}>
+    <View style={{ paddingHorizontal: GUTTER, paddingTop: space.sm, gap: space.sm }}>
       {messageDraft !== null && (
         <ProfileCard>
           <SectionHeader label="Message This Club" />
@@ -658,12 +686,11 @@ function OnOvalballBody({
 
       {feedback && <Text style={[type.caption, { color: colour.warning }]}>{feedback}</Text>}
 
-      {/* A FULL-WIDTH SEGMENTED CONTROL, not a left-aligned underline row: each tab claims an equal
-          share of the page width, the active segment gets a solid forest pill rather than a thin
-          underline, and every segment reports real press feedback -- a more deliberate, interactive
-          treatment than a quiet text-only row. */}
+      {/* A FLAT, FULL-WIDTH TAB ROW (owner correction, Section 11): no surrounding capsule, no
+          selected-tab pill -- four equal segments, a bright green underline on the selected one, and a
+          single subtle divider beneath the whole row. Content starts immediately after it. */}
       {visibleTabs.length > 1 && (
-        <View style={{ flexDirection: "row", backgroundColor: colour.chalk, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, padding: 4, gap: 4 }}>
+        <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colour.line }}>
           {visibleTabs.map((t) => {
             const on = tab === t.key
             return (
@@ -674,15 +701,14 @@ function OnOvalballBody({
                 onPress={() => setTab(t.key)}
                 style={({ pressed }) => ({
                   flex: 1,
-                  minHeight: 38,
+                  paddingVertical: 14,
                   alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: radius.sm,
-                  backgroundColor: on ? colour.forest800 : "transparent",
-                  opacity: pressed ? 0.8 : 1,
+                  borderBottomWidth: 2,
+                  borderBottomColor: on ? colour.pitch600 : "transparent",
+                  opacity: pressed ? 0.7 : 1,
                 })}
               >
-                <Text numberOfLines={1} style={[type.smallMedium, { color: on ? colour.onForest : colour.inkMuted }]}>
+                <Text numberOfLines={1} style={[type.smallMedium, { color: on ? colour.forest900 : colour.inkMuted }]}>
                   {t.label}
                 </Text>
               </Pressable>
@@ -691,13 +717,18 @@ function OnOvalballBody({
         </View>
       )}
 
-      {/* OVERVIEW, FLATTENED (visual-lock Job 2, Section 12): plain About text on white, plus a bordered
-          "Visit Website" row -- no floating cards. Club Details (rugby code/location) already lives in
-          the identity section above the tabs; Network Relationship's own content already lives in
-          Partnership, so neither is repeated here a second time. */}
+      {/* OVERVIEW, FLATTENED (visual-lock Job 2, Section 12-13): "About" heading, plain bio text on
+          white, plus a bordered "Visit Website" row -- no floating cards. Club Details (rugby
+          code/location) already lives in the identity section above the tabs; Network Relationship's
+          own content already lives in Partnership, so neither is repeated here a second time. */}
       {tab === "overview" && (
-        <View style={{ gap: space.md }}>
-          {detail.bio && <Text style={[type.small, { color: colour.ink }]}>{detail.bio}</Text>}
+        <View style={{ gap: space.sm }}>
+          {detail.bio && (
+            <>
+              <SectionHeader label="About" />
+              <Text style={[type.small, { color: colour.ink }]}>{detail.bio}</Text>
+            </>
+          )}
           {detail.website && (
             <Pressable
               accessibilityRole="link"
@@ -715,13 +746,13 @@ function OnOvalballBody({
         </View>
       )}
 
+      {/* TEAMS, FLAT (owner correction, Section 12): a heading and dense divided rows, never a second
+          huge rounded card -- the flat tab row above it already draws the section's own boundary. */}
       {tab === "teams" && hasTeams && (
-        <ProfileCard>
+        <View style={{ gap: space.xs }}>
           <SectionHeader label="Teams" />
-          <View style={{ gap: space.xs }}>
-            {clubTeams && sortTeamsInRugbyAgeOrder(clubTeams).map((t) => <TeamRow key={t.id} team={t} />)}
-          </View>
-        </ProfileCard>
+          {clubTeams && sortTeamsInRugbyAgeOrder(clubTeams).map((t) => <TeamRow key={t.id} team={t} />)}
+        </View>
       )}
 
       {tab === "availability" && (
@@ -736,7 +767,7 @@ function OnOvalballBody({
                 Your search: {findFixtureContext.teamLabels.length > 0 ? findFixtureContext.teamLabels.join(", ") : "your selected teams"} on {longDateLabel(findFixtureContext.date)}.
               </Text>
               <View style={{ gap: space.sm }}>
-                {(detail?.compatibleTeams ?? []).map((t) => {
+                {findFixtureContext.compatibleTeams.map((t) => {
                   const label = candidateTeamWeekLabel(t.teamId, findFixtureContext, marker.partnershipStatus)
                   return (
                     <View key={t.teamId} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
@@ -750,7 +781,7 @@ function OnOvalballBody({
                     </View>
                   )
                 })}
-                {(detail?.compatibleTeams ?? []).length === 0 && <Text style={[type.small, { color: colour.inkMuted }]}>No compatible teams to check availability for.</Text>}
+                {findFixtureContext.compatibleTeams.length === 0 && <Text style={[type.small, { color: colour.inkMuted }]}>No compatible teams to check availability for.</Text>}
               </View>
             </>
           )}

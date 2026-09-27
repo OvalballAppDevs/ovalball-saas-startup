@@ -142,6 +142,17 @@ begin
     and coalesce(t.squad_designation,'') = coalesce(m.squad_designation,''));
   select t.id into v_team_a_womens from public.teams t where t.club_id = v_club_a and t.category = 'senior' and t.gender = 'womens';
 
+  -- PUBLIC CLUB PROFILE VISUAL-LOCK (Section 21/9): North's own real roster gets a full mini-to-youth
+  -- age-graded spread purely so the profile's "Teams"/"Age Groups" metrics have something genuine to
+  -- show ("9 Teams", "U7 - U18") -- never fabricated, always the club's own real active teams. NONE of
+  -- these match the viewer's own three selected search teams (Men's 1st, Women's 1st, Under 16 Boys),
+  -- so the Find a Fixture 3-team compatibility oracle's own determinism for North is untouched: adding a
+  -- U7/U8/U10/U12/U14/U18 side never changes which of the viewer's teams find a compatible opponent here.
+  insert into public.teams (club_id, rugby_code, category, age_group, gender, squad_designation, active)
+  select v_club_a, 'union', 'youth', x.age_group, x.gender, null, true
+  from (values ('U7', 'mixed'), ('U8', 'mixed'), ('U10', 'mixed'), ('U12', 'boys'), ('U14', 'boys'), ('U18', 'boys')) as x(age_group, gender)
+  where not exists (select 1 from public.teams t where t.club_id = v_club_a and t.category = 'youth' and t.age_group = x.age_group and coalesce(t.gender,'') = coalesce(x.gender,''));
+
   insert into public.club_partnerships (requesting_club_id, partner_club_id, status, requested_by)
   select v_viewer_club, v_club_a, 'active', v_coach
   where not exists (select 1 from public.club_partnerships where (requesting_club_id = v_viewer_club and partner_club_id = v_club_a) or (requesting_club_id = v_club_a and partner_club_id = v_viewer_club));

@@ -130,26 +130,23 @@ export function sortTeamsInRugbyAgeOrder<T extends Pick<ClubTeam, "category" | "
 
 /**
  * THE CLUB PROFILE'S OWN AGE-RANGE METRIC (Public Club Profile visual-lock, Section 9): "U7 – U16" for
- * a club running only age-graded sides from U7 through U16, "U16" for a club with exactly one age
- * grade and no senior side, "U7 – Adult" for a club that runs both age-graded AND senior sides (senior
- * is always the older end of any real range, so it replaces the top of the range rather than being
- * ignored), "Adult" alone for a senior-only club, and `null` -- never a fabricated range -- only for a
- * club with no active teams at all, so the caller can omit the metric entirely rather than print a
- * meaningless label. Derived from each team's own canonical `category`/`ageGroup` fields, never
- * inferred from a display name; duplicate/repeated age grades and unordered input are both handled the
- * same way, since only the min/max matter.
+ * a club running U7 through U16, "U16" for a club with exactly one age grade, and `null` -- never a
+ * fabricated range -- for a senior-only club or one with no active teams at all, so the caller can omit
+ * the metric entirely rather than print a meaningless label. "Age Groups" means AGE-GRADE teams only
+ * (owner correction): a senior side affects the club's own team COUNT, never this range -- it is
+ * neither included as an "Adult" endpoint nor allowed to widen or narrow the age-graded span. Derived
+ * from each team's own canonical `ageGroup` field, never inferred from a display name; duplicate/
+ * repeated age grades and unordered input are both handled the same way, since only the min/max matter.
  */
-export function summariseClubAgeGroups(teams: readonly Pick<ClubTeam, "ageGroup" | "category">[]): string | null {
+export function summariseClubAgeGroups(teams: readonly Pick<ClubTeam, "ageGroup">[]): string | null {
   const ages = teams
     .map((t) => t.ageGroup)
     .filter((a): a is string => !!a)
     .map((a) => parseInt(a.replace(/[^0-9]/g, ""), 10))
     .filter((n) => !isNaN(n))
-  const hasSenior = teams.some((t) => t.category === "senior")
-  if (ages.length === 0) return hasSenior ? "Adult" : null
+  if (ages.length === 0) return null
   const min = Math.min(...ages)
   const max = Math.max(...ages)
-  if (hasSenior) return `U${min} – Adult`
   return min === max ? `U${min}` : `U${min} – U${max}`
 }
 
@@ -171,16 +168,16 @@ export interface ClubTeamSummary {
 export async function readClubTeamSummaries(supabase: Client, clubIds: string[]): Promise<Map<string, ClubTeamSummary>> {
   const result = new Map<string, ClubTeamSummary>()
   if (clubIds.length === 0) return result
-  const { data, error } = await supabase.from("teams").select("club_id, age_group, category").in("club_id", clubIds).eq("active", true)
+  const { data, error } = await supabase.from("teams").select("club_id, age_group").in("club_id", clubIds).eq("active", true)
   if (error || !data) return result
-  const rowsByClub = new Map<string, { age_group: string | null; category: string }[]>()
+  const rowsByClub = new Map<string, { age_group: string | null }[]>()
   for (const row of data) {
     const list = rowsByClub.get(row.club_id) ?? []
     list.push(row)
     rowsByClub.set(row.club_id, list)
   }
   for (const [clubId, rows] of rowsByClub) {
-    const label = summariseClubAgeGroups(rows.map((r) => ({ ageGroup: r.age_group, category: r.category as ClubTeam["category"] })))
+    const label = summariseClubAgeGroups(rows.map((r) => ({ ageGroup: r.age_group })))
     result.set(clubId, { teamCount: rows.length, ageRangeLabel: label })
   }
   return result

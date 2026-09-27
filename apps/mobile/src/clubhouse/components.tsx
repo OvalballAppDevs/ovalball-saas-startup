@@ -39,14 +39,21 @@ export function ClubhouseEmptyState({ icon, title, body, action }: { icon: React
  * placed alone on an otherwise near-empty screen. `ClubMetric` never renders a fabricated number; the
  * caller only ever passes metrics it already knows are real.
  */
-export function ClubMetricRow({ metrics }: { metrics: { value: string; label: string; icon?: ReactNode }[] }) {
+export function ClubMetricRow({ metrics, variant = "card" }: { metrics: { value: string; label: string; icon?: ReactNode }[]; variant?: "card" | "flat" }) {
   if (metrics.length === 0) return null
+  const flat = variant === "flat"
   return (
-    <View style={{ flexDirection: "row", backgroundColor: colour.surface, borderRadius: radius.lg, ...elevation.card }}>
+    <View
+      style={
+        flat
+          ? { flexDirection: "row", backgroundColor: colour.chalk, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colour.line }
+          : { flexDirection: "row", backgroundColor: colour.surface, borderRadius: radius.lg, ...elevation.card }
+      }
+    >
       {metrics.map((m, i) => (
-        <View key={m.label} style={{ flex: 1, alignItems: "center", paddingVertical: space.md, borderLeftWidth: i === 0 ? 0 : 1, borderLeftColor: colour.line }}>
+        <View key={m.label} style={{ flex: 1, alignItems: "center", paddingVertical: flat ? space.sm : space.md, borderLeftWidth: i === 0 ? 0 : 1, borderLeftColor: colour.line }}>
           {m.icon && <View style={{ marginBottom: 2 }}>{m.icon}</View>}
-          <Text style={[type.title, { color: colour.ink }]}>{m.value}</Text>
+          <Text style={[type.title, { color: colour.ink, fontSize: flat ? 20 : type.title.fontSize }]}>{m.value}</Text>
           <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted, textAlign: "center" }]}>
             {m.label}
           </Text>

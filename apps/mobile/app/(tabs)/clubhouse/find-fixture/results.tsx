@@ -195,6 +195,12 @@ export default function FindFixtureResults() {
                   ffWeekRows: params.weekRows ?? "[]",
                   ffTeamIds: JSON.stringify(criteria.teamIds),
                   ffVenuePreference: criteria.venuePreference,
+                  // THE SEARCH-CONTEXT HANDOFF (owner correction: "0/0 Teams Available" was a real bug,
+                  // not just a visual one) -- FF-3 already knows exactly which of THIS candidate's own
+                  // teams are compatible with the viewer's search; forwarding it here means the profile
+                  // never has to re-derive it from the viewer's currently ACTIVE app context (a
+                  // different, narrower question that was silently producing 0/0).
+                  ffCompatibleTeams: JSON.stringify(candidate.compatibleTeams),
                 },
               } as never)
             }
