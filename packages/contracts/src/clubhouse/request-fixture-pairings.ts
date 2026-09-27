@@ -111,3 +111,28 @@ export function buildRequestFixturePairings<TTeam extends ViewerTeamLike, TReque
     return [{ ...base, status, detail: status === "busy" ? "Fixture booked this week" : null }]
   })
 }
+
+export interface RequestSentSummaryItem {
+  requestId: string
+  myTeamId: string
+  myTeamLabel: string
+  myTeamCategory: string
+  opponentTeamLabel: string
+}
+
+/**
+ * THE REQUEST SENT SCREEN'S OWN CONFIRMATION LIST (owner correction, Section 2/19-10): built ONLY from
+ * the server's OWN returned `{id, requestingTeamId}` rows, matched back to the client's own selected
+ * pairings purely for display labels -- a pairing the server did NOT confirm creating a request for is
+ * never included, however it was presented in the composer beforehand. Since the underlying
+ * `fixture_requests` insert is one Postgres statement (all rows or none), the realistic outcomes are
+ * "every selected pairing" or "none at all" -- this function is what makes that true regardless: it can
+ * never silently show more than the server actually created.
+ */
+export function buildSentRequestSummary(selectedPairings: readonly Pick<RequestFixturePairing, "myTeamId" | "myTeamLabel" | "myTeamCategory" | "opponentTeamLabel">[], serverRequests: readonly { id: string; requestingTeamId: string }[]): RequestSentSummaryItem[] {
+  return serverRequests.flatMap((r): RequestSentSummaryItem[] => {
+    const p = selectedPairings.find((sp) => sp.myTeamId === r.requestingTeamId)
+    if (!p) return []
+    return [{ requestId: r.id, myTeamId: p.myTeamId, myTeamLabel: p.myTeamLabel, myTeamCategory: p.myTeamCategory, opponentTeamLabel: p.opponentTeamLabel }]
+  })
+}

@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router"
+import { Tabs, usePathname } from "expo-router"
 import { Text, View, type ColorValue } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
@@ -27,6 +27,21 @@ export default function TabsLayout() {
   const { active } = useAppContexts()
   const visible = projectTabs({ kind: active?.kind ?? null })
   const shown = new Set(visible.map((t) => t.key))
+  const pathname = usePathname()
+  const onFocusedConfirmationScreen = pathname === "/fixtures/request-fixtures" || pathname === "/fixtures/request-sent"
+
+  // NAMED, NOT INLINE, because one nested screen (Request Fixtures' own Request Sent confirmation,
+  // below) needs to explicitly restore this exact style -- `options.tabBarStyle` is not deep-merged
+  // with `screenOptions.tabBarStyle`, so setting it to `undefined` for "every other screen" would
+  // silently blank the bar everywhere else instead of falling back to this default.
+  const defaultTabBarStyle = {
+    backgroundColor: colour.forest950,
+    borderTopColor: "rgba(255,255,255,0.08)",
+    borderTopWidth: 1,
+    height: 58 + insets.bottom,
+    paddingTop: 6,
+    paddingBottom: insets.bottom > 0 ? insets.bottom : 6,
+  }
 
   return (
     <Tabs
@@ -48,14 +63,7 @@ export default function TabsLayout() {
         // The home indicator's height is ADDED rather than absorbed, so the labels clear it on a
         // notched iPhone and the bar stays short on a phone with a button.
         tabBarShowLabel: false,
-        tabBarStyle: {
-          backgroundColor: colour.forest950,
-          borderTopColor: "rgba(255,255,255,0.08)",
-          borderTopWidth: 1,
-          height: 58 + insets.bottom,
-          paddingTop: 6,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 6,
-        },
+        tabBarStyle: defaultTabBarStyle,
         tabBarItemStyle: { paddingVertical: 0, minHeight: 46 },
         // Immediate. A tab is a place, not a journey, and animating between places makes a phone feel
         // slower than the website it is meant to beat.
@@ -76,6 +84,13 @@ export default function TabsLayout() {
             // `href: null` removes the cell from the bar while leaving the route addressable, which is
             // what keeps a deep link to a hidden destination working.
             href: shown.has(key) ? undefined : null,
+            // THE ONE DELIBERATE EXCEPTION: Request Fixtures and its own Request Sent confirmation are a
+            // focused, modal-feeling flow (owner correction, Section 20's own supplied mockup shows no
+            // tab bar at all), not "a place inside Fixtures" the way the agenda or a fixture's own detail
+            // page is -- so the bar hides for exactly those two nested screens and only those two,
+            // leaving every other screen already nested under this tab (Add Fixture, a fixture's own
+            // detail) with its existing, already-accepted persistent-bar behaviour untouched.
+            tabBarStyle: key === "fixtures" && onFocusedConfirmationScreen ? { display: "none" } : defaultTabBarStyle,
             tabBarIcon: ({ color, focused }) => (
               <TabCell
                 tab={key}

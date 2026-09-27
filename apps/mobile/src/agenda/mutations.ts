@@ -228,9 +228,12 @@ export interface NewFixtureRequest {
  * ASKING ANOTHER CLUB FOR A FIXTURE.
  *
  * A group plus one request per team, which is the canonical shape: each team stays independently
- * trackable and answerable rather than one record standing in for a batch. Mobile asks for one team,
- * because a phone is not where somebody arranges six sides at once -- that is the Planner, and the
- * Planner is club-scoped and stays on the web.
+ * trackable and answerable rather than one record standing in for a batch. This single-team form
+ * remains the ordinary mobile path -- a phone is not where somebody arranges six sides at once, that is
+ * the Planner, and the Planner is club-scoped and stays on the web. `createFixtureRequestBatch` below
+ * is the one deliberate, narrow exception: the Public Club Profile's own Request Fixtures composer,
+ * reached specifically from an already-computed Find a Fixture compatible-team list, never a general
+ * multi-team arranging tool.
  *
  * COMPATIBILITY IS NOT CHECKED HERE and must not be. `compatible_opponent_teams` decides which sides
  * may be offered, and the fixture-request trigger refuses an incompatible pair at insert time. Anything
@@ -271,6 +274,80 @@ export async function createFixtureRequest(supabase: Client, request: NewFixture
   // would mean a second authority decision made by a client that has just been refused one.
   if (error) return failed(error, "That fixture request couldn't be sent.")
   return { ok: true, id: group.id }
+}
+
+export interface NewFixtureRequestBatch {
+  requestingClubId: string
+  opponentClubId: string | null
+  opponentDirectoryId: string | null
+  rawOpponentText: string
+  proposedDate: string
+  note: string | null
+  gameType?: string | null
+  teams: { requestingTeamId: string; targetTeamId: string | null; venuePreference: "home" | "away" | "either"; preferredKickoffTime: string | null }[]
+}
+
+export type FixtureRequestBatchResult =
+  | { ok: true; groupId: string; requests: { id: string; requestingTeamId: string }[] }
+  | { ok: false; message: string }
+
+/**
+ * ASKING ANOTHER CLUB FOR SEVERAL TEAMS AT ONCE (Request Fixtures composer, owner correction pass) --
+ * ONE `fixture_request_groups` row and ONE multi-row `fixture_requests` insert, mirroring the WEB
+ * composer's own already-established createFixtureRequest server action exactly (app/(app)/fixtures/
+ * new/actions.ts), never a second, mobile-only batch shape. Each team still stays independently
+ * trackable/answerable after this -- the group is only ever "sent together," never a merged lifecycle;
+ * accepting, declining or countering one team's request never touches another's.
+ *
+ * The `fixture_requests` insert is a single statement: Postgres either inserts every row or none, so
+ * there is no genuine "some teams sent, some didn't" outcome to reconcile here -- if it fails, nothing
+ * was created for any team (the caller sees one real error, never a false partial-success summary).
+ * Returns each created request's own id alongside which team it belongs to, so a caller (the Request
+ * Sent screen) can build its confirmation from the ACTUAL rows the server created, never from the
+ * client's own optimistic form state.
+ */
+export async function createFixtureRequestBatch(supabase: Client, batch: NewFixtureRequestBatch): Promise<FixtureRequestBatchResult> {
+  if (batch.teams.length === 0) return { ok: false, message: "Select at least one team." }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, message: "Still signing you in. Try again in a moment." }
+
+  const { data: group, error: groupError } = await supabase
+    .from("fixture_request_groups")
+    .insert({
+      requesting_club_id: batch.requestingClubId,
+      opponent_directory_id: batch.opponentDirectoryId,
+      opponent_club_id: batch.opponentClubId,
+      raw_opponent_text: batch.rawOpponentText,
+      proposed_date: batch.proposedDate,
+      notes: batch.note,
+      game_type: batch.gameType ?? null,
+      created_by: user.id,
+    })
+    .select("id")
+    .single()
+  if (groupError || !group) return { ok: false, message: groupError?.message ?? "You can't request a fixture for this club." }
+
+  const { data: requests, error: requestsError } = await supabase
+    .from("fixture_requests")
+    .insert(
+      batch.teams.map((t) => ({
+        group_id: group.id,
+        requesting_team_id: t.requestingTeamId,
+        target_team_id: t.targetTeamId,
+        venue_preference: t.venuePreference,
+        preferred_kickoff_time: t.preferredKickoffTime,
+        note: batch.note,
+        status: "sent" as const,
+        created_by: user.id,
+      }))
+    )
+    .select("id, requesting_team_id")
+  // SAME RULE AS THE SINGLE-TEAM FORM ABOVE: the group is left behind on failure, deliberately and
+  // visibly, never deleted by a client that has just been refused authority over it.
+  if (requestsError || !requests) return { ok: false, message: requestsError?.message ?? "That fixture request couldn't be sent." }
+  return { ok: true, groupId: group.id, requests: requests.map((r) => ({ id: r.id, requestingTeamId: r.requesting_team_id as string })) }
 }
 
 /**

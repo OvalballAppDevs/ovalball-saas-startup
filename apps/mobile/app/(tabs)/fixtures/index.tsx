@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { isFamilyFacingContext, memberFor, type AgendaItem } from "@ovalball/contracts"
+import { isFamilyFacingContext, memberFor, pendingScheduleItemsForTeam, type AgendaItem, type PendingScheduleItem } from "@ovalball/contracts"
 import { collapseFamilyEvents, groupFamilyEventsByDay } from "@ovalball/contracts/family/events"
 import { needsAttendanceResponse } from "@ovalball/contracts"
+import { readClubFixtureRequests, type ClubFixtureRequest } from "@ovalball/contracts/club/requests"
+import { readTeamFixtureRequests } from "@ovalball/contracts/team/requests"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
@@ -219,6 +221,44 @@ export default function Fixtures() {
     }
   }, [active, authority])
 
+  // PENDING FIXTURE REQUESTS, IN THE SCHEDULE TOO (owner correction pass, Sections 7/9/13): the SAME
+  // canonical `readTeamFixtureRequests`/`readClubFixtureRequests` reads the existing Requests screen
+  // already uses, projected through the ONE shared `pendingScheduleItemsForTeam` (contracts) rather than
+  // a second, screen-local shape. Never shown for "past" -- a pending request is inherently forward-
+  // looking scheduling intent, not something that "happened."
+  const [pendingItems, setPendingItems] = useState<PendingScheduleItem[]>([])
+  useEffect(() => {
+    let live = true
+    setPendingItems([])
+    if (direction !== "upcoming") return
+    async function loadPending() {
+      if (active?.kind === "team" && active.id) {
+        const { incoming, outgoing } = await readTeamFixtureRequests(supabase, active.id)
+        const us = { directoryId: null, clubName: "", teamName: active.label, compactName: null, rugbyCode: null, crestUrl: null, kit: null }
+        if (live) setPendingItems(pendingScheduleItemsForTeam([...incoming, ...outgoing], active.id, us))
+        return
+      }
+      if (active?.kind === "club" && (active.clubId ?? active.id)) {
+        const clubId = (active.clubId ?? active.id) as string
+        const d = await readClubTeams(supabase, clubId)
+        const teams = d.teams.filter((t) => t.active)
+        if (!teams.length) return
+        const requests = await readClubFixtureRequests(supabase, teams.map((t) => ({ id: t.id, name: t.displayName })))
+        const all: ClubFixtureRequest[] = [...requests.incoming, ...requests.outgoing]
+        const byTeam = new Map<string, ClubFixtureRequest[]>()
+        for (const r of all) byTeam.set(r.ourTeamId, [...(byTeam.get(r.ourTeamId) ?? []), r])
+        const items = teams.flatMap((t) =>
+          pendingScheduleItemsForTeam(byTeam.get(t.id) ?? [], t.id, { directoryId: null, clubName: "", teamName: t.displayName, compactName: null, rugbyCode: t.rugbyCode, crestUrl: null, kit: null })
+        )
+        if (live) setPendingItems(items)
+      }
+    }
+    void loadPending().catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [active, direction])
+
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
       <AppHeader onOpenContexts={() => setSheetOpen(true)} />
@@ -317,6 +357,35 @@ export default function Fixtures() {
               </View>
               <ChevronRight size={17} color={colour.inkSubtle} />
             </Pressable>
+          </View>
+        )}
+
+        {/* PENDING FIXTURE REQUESTS (owner correction pass, Section 9): visually resembles a fixture row
+            enough to be understood as "concerns a match," but a restrained amber treatment and its own
+            Pending label keep it distinct from a booked fixture -- never a confirmed venue/pitch shown
+            for a match nobody has agreed on yet. Tapping opens the real request/negotiation surface,
+            never Match Centre for a Fixture that does not exist. */}
+        {pendingItems.length > 0 && (
+          <View style={{ paddingHorizontal: space.lg, gap: space.xs }}>
+            <Text style={[type.overline, { color: colour.warning }]}>PENDING</Text>
+            <View style={{ backgroundColor: colour.warningSurface, borderRadius: radius.md, borderWidth: 1, borderColor: "rgba(138,90,0,0.25)" }}>
+              {pendingItems.map((p, i) => (
+                <Pressable
+                  key={p.key}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Pending fixture request. ${p.them.clubName}${p.them.teamName ? `, ${p.them.teamName}` : ""}. ${p.status}.`}
+                  onPress={() => router.push((active?.kind === "club" ? "/club/requests" : "/team/requests") as never)}
+                  style={({ pressed }) => ({ padding: space.md, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: "rgba(138,90,0,0.2)", opacity: pressed ? 0.85 : 1 })}
+                >
+                  <Text style={[type.caption, { color: colour.inkSubtle }]}>{p.date ? new Date(`${p.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "Date TBD"}</Text>
+                  <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
+                    {p.them.clubName}
+                    {p.them.teamName ? ` · ${p.them.teamName}` : ""}
+                  </Text>
+                  <Text style={[type.caption, { color: colour.warning }]}>{p.status}</Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
         )}
 

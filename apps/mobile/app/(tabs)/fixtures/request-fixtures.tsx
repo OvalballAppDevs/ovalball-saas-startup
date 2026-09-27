@@ -3,11 +3,11 @@ import { Pressable, ScrollView, Text, TextInput, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import type { RequestFixturePairing } from "@ovalball/contracts/clubhouse"
+import { buildSentRequestSummary, type RequestFixturePairing } from "@ovalball/contracts/clubhouse"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
-import { createFixtureRequest } from "../../../src/agenda/mutations"
+import { createFixtureRequestBatch } from "../../../src/agenda/mutations"
 import { ChoiceField } from "../../../src/components/form"
 import { Button } from "../../../src/components/ui"
 import { ClubCrest } from "../../../src/clubhouse/components"
@@ -73,7 +73,6 @@ export default function RequestFixturesComposer() {
   const [message, setMessage] = useState("")
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [sentCount, setSentCount] = useState<number | null>(null)
 
   function toggle(teamId: string, disabled: boolean) {
     if (disabled) return
@@ -85,50 +84,57 @@ export default function RequestFixturesComposer() {
     })
   }
 
-  /** ONE createFixtureRequest CALL PER SELECTED PAIRING (Section L, unchanged): never a new batched
-   * mutation -- each selected team gets its own real, independently trackable request, sent as one
-   * confirmed user action. */
+  /** ONE createFixtureRequestBatch CALL (owner correction, Section 1 audit finding): the web composer's
+   * own established createFixtureRequest server action already creates ONE fixture_request_groups row
+   * plus one fixture_requests row per team in a single multi-row insert -- the real canonical batch
+   * mechanism this module previously reinvented as N separate single-team calls (N separate groups).
+   * Mirrors that exact shape instead. The requests insert is one Postgres statement, so it is either
+   * every selected team or none -- there is no genuine partial-success outcome to reconcile. */
   async function send() {
     if (!viewerClubId || selected.size === 0 || sending) return
     setSending(true)
     setError(null)
-    let sentOk = 0
-    for (const p of pairings) {
-      if (!selected.has(p.myTeamId)) continue
-      const venue = venueByTeam[p.myTeamId] ?? defaultVenue
-      const result = await createFixtureRequest(supabase, {
-        requestingClubId: viewerClubId,
+    const selectedPairings = pairings.filter((p) => selected.has(p.myTeamId))
+    const result = await createFixtureRequestBatch(supabase, {
+      requestingClubId: viewerClubId,
+      opponentClubId: params.opponentClubId || null,
+      opponentDirectoryId: params.opponentDirectoryId || null,
+      rawOpponentText: params.clubName,
+      proposedDate: params.date,
+      note: message.trim() || null,
+      teams: selectedPairings.map((p) => ({
         requestingTeamId: p.myTeamId,
         targetTeamId: p.opponentTeamId,
-        opponentClubId: params.opponentClubId || null,
-        opponentDirectoryId: params.opponentDirectoryId || null,
-        rawOpponentText: params.clubName,
-        proposedDate: params.date,
+        venuePreference: (venueByTeam[p.myTeamId] ?? defaultVenue) === "Home" ? "home" : (venueByTeam[p.myTeamId] ?? defaultVenue) === "Away" ? "away" : "either",
         preferredKickoffTime: null,
-        venuePreference: venue === "Home" ? "home" : venue === "Away" ? "away" : "either",
-        note: message.trim() || null,
-      })
-      if (result.ok) sentOk += 1
-    }
+      })),
+    })
     setSending(false)
-    if (sentOk === 0) {
-      setError("None of the selected requests could be sent. Try again.")
+    if (!result.ok) {
+      setError(result.message)
       return
     }
-    setSentCount(sentOk)
-  }
-
-  if (sentCount !== null) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-        <RequestFixturesHeader onBack={() => router.back()} />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space.xl, gap: space.md }}>
-          <Text style={[type.title, { color: colour.ink, textAlign: "center" }]}>{sentCount === 1 ? "Fixture request sent" : `${sentCount} fixture requests sent`}</Text>
-          <Text style={[type.small, { color: colour.inkMuted, textAlign: "center" }]}>{params.clubName} will be notified and can respond to each request.</Text>
-          <Button label="Done" onPress={() => router.back()} />
-        </View>
-      </View>
-    )
+    // THE REQUEST SENT SCREEN IS DRIVEN BY THE SERVER'S OWN RETURNED ROWS (Section 2/19-10), never by
+    // the client's own selection state -- `buildSentRequestSummary` (contracts, permanently tested)
+    // matches `result.requests` -- exactly which teams the insert actually created -- back to their own
+    // pairing's display labels; a pairing the server did not confirm is never included regardless of
+    // what the composer showed beforehand. `venue` is zipped in afterwards by team id: it is not
+    // something the server echoes back, but it is exactly what THIS same request was submitted with, so
+    // carrying it forward here is not "reconstructing from optimistic state" in the sense Section 2 warns
+    // against -- it never overrides what the server actually created, only labels it.
+    const summary = buildSentRequestSummary(selectedPairings, result.requests)
+    const sentItems = summary.map((s) => ({ ...s, venue: venueByTeam[s.myTeamId] ?? defaultVenue }))
+    router.replace({
+      pathname: "/fixtures/request-sent",
+      params: {
+        clubName: params.clubName,
+        clubTown: params.clubTown ?? "",
+        clubCounty: params.clubCounty ?? "",
+        clubLogoUrl: params.clubLogoUrl ?? "",
+        date: params.date,
+        items: JSON.stringify(sentItems),
+      },
+    } as never)
   }
 
   return (

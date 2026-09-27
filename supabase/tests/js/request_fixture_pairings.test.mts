@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 
 import {
   buildRequestFixturePairings,
+  buildSentRequestSummary,
   candidateWeekStatusLabel,
   existingFixtureRequestFor,
   pairViewerTeamForOpponent,
@@ -119,4 +120,28 @@ test("buildRequestFixturePairings: an opponent with no genuinely paired viewer t
 test("candidateWeekStatusLabel: an exact-date busy row wins outright, matching the shared game-week rule find-fixture.ts already pins", () => {
   const label = candidateWeekStatusLabel("opp-mens", { date: "2026-10-17", availability: [{ my_team_id: "my-mens", opponent_team_id: "opp-mens", the_date: "2026-10-17", status: "busy" }], weekRows: [] }, "active")
   assert.equal(label.primary, "Busy")
+})
+
+test("buildSentRequestSummary: 19-10 -- the confirmation summary contains ONLY the requests the server actually returned, never every originally-selected pairing", () => {
+  const selectedPairings = [
+    { myTeamId: "my-mens", myTeamLabel: "Men's 1st Team", myTeamCategory: "Senior Men", opponentTeamId: "opp-mens", opponentTeamLabel: "Men's 1st" },
+    { myTeamId: "my-womens", myTeamLabel: "Women's 1st Team", myTeamCategory: "Senior Women", opponentTeamId: "opp-womens", opponentTeamLabel: "Women's 1st" },
+    { myTeamId: "my-u16", myTeamLabel: "Under 16 Boys", myTeamCategory: "Age Grade", opponentTeamId: "opp-u16", opponentTeamLabel: "Under 16 Boys" },
+  ]
+  // Only two of the three actually landed as server rows -- a genuine partial-batch scenario, however
+  // rare (the real insert is one statement, but the summary must still be truthful if it ever happened).
+  const serverRequests = [
+    { id: "req-1", requestingTeamId: "my-mens" },
+    { id: "req-2", requestingTeamId: "my-u16" },
+  ]
+  const summary = buildSentRequestSummary(selectedPairings, serverRequests)
+  assert.equal(summary.length, 2, "never the three originally selected -- only what the server confirmed")
+  assert.deepEqual(
+    summary.map((s) => s.myTeamLabel),
+    ["Men's 1st Team", "Under 16 Boys"]
+  )
+})
+
+test("buildSentRequestSummary: an empty server result yields an empty summary, never a fabricated one", () => {
+  assert.deepEqual(buildSentRequestSummary([{ myTeamId: "my-mens", myTeamLabel: "Men's 1st Team", myTeamCategory: "Senior Men", opponentTeamLabel: "Men's 1st" }], []), [])
 })
