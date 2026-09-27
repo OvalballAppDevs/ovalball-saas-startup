@@ -152,13 +152,22 @@ test("no safeguarding, finance or family internals on any club screen", () => {
   }
 })
 
-test("clearing a Withdrawn request card is a per-viewer preference, never a write to the real request", () => {
-  // Follow-up owner correction: swipe-to-clear only ever applies to a group that has genuinely
-  // reached 'withdrawn', is stored client-side (AsyncStorage), and never touches Supabase -- a cleared
-  // card must reappear correctly if the store is ever lost, never silently corrupt the real row.
+test("clearing a finished request card is a per-viewer preference, never a write to the real request", () => {
+  // Follow-up owner correction: swipe-to-clear applies to any group that has genuinely FINISHED
+  // (isClearableGroupStatus), is stored client-side (AsyncStorage), and never touches Supabase -- a
+  // cleared card must reappear correctly if the store is ever lost, never silently corrupt the real row.
   const view = code(join(MOBILE, "src/requests/my-requests-view.tsx"))
-  assert.match(view, /enabled=\{group\.aggregateStatus === "withdrawn"\}/, "swipe-to-clear is offered only for a genuinely withdrawn group")
+  assert.match(view, /enabled=\{isClearableGroupStatus\(group\.aggregateStatus\)\}/, "swipe-to-clear is offered only where the shared eligibility rule says a group has finished")
   const store = code(join(MOBILE, "src/requests/dismissed-groups.ts"))
   assert.match(store, /AsyncStorage/, "the dismissal is a local view preference")
   assert.doesNotMatch(store, /supabase|\.from\(|\.rpc\(/i, "clearing a card never writes to the canonical request")
+})
+
+test("Partnerships only offers Accept/Decline on a genuinely incoming request, never on an already-active partner or a request we sent", () => {
+  // Bug found on physical review: My Partners and Sent both carry a real partnershipId too, so
+  // Accept/Decline rendered on every row regardless of status -- an active partner should only ever
+  // see End Partnership, never a stale Accept/Decline pair.
+  const screen = code(join(MOBILE, "app/(tabs)/clubhouse/partnerships.tsx"))
+  assert.match(screen, /onAccept=\{marker\.partnershipId && marker\.partnershipStatus === "pending_incoming"/)
+  assert.match(screen, /onDecline=\{marker\.partnershipId && marker\.partnershipStatus === "pending_incoming"/)
 })

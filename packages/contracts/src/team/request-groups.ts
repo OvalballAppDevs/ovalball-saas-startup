@@ -106,6 +106,17 @@ export function countFixtureRequestGroupsRequiringAction(groups: FixtureRequestG
   return groups.filter((g) => g.requiresAction).length
 }
 
+/**
+ * SWIPE TO CLEAR A CARD (owner correction pass, follow-up): once a group has genuinely FINISHED --
+ * confirmed, declined, withdrawn or expired -- there is nothing further to do about it, and the viewer
+ * may clear it from their own list. `pending`, `under_discussion` and `partially_confirmed` are never
+ * clearable: each still has a leg that is open or still needs an answer, so hiding it would bury real
+ * outstanding work rather than tidy up settled history.
+ */
+export function isClearableGroupStatus(status: FixtureRequestGroupAggregateStatus): boolean {
+  return status === "confirmed" || status === "declined" || status === "withdrawn" || status === "expired"
+}
+
 export function fixtureRequestGroupStatusLabel(group: Pick<FixtureRequestGroupSummary, "aggregateStatus" | "requiresAction" | "direction">): {
   label: string
   tone: "positive" | "caution" | "negative" | "neutral"

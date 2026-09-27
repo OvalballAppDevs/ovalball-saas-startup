@@ -1,11 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
 /**
- * CLEARING A WITHDRAWN CARD FROM MY REQUESTS is a view preference, not a change to canonical data --
- * exactly the reasoning the selected-context store already documents for the same reason. Withdrawing a
- * request writes `status: 'cancelled'` on the real row, which stays there for ever (audit, the other
- * club's own view, history); "clear" only stops THIS viewer's list showing that card again, remembered
- * per device, never synced, never mistaken for a second copy of the request record.
+ * CLEARING A FINISHED CARD FROM MY REQUESTS is a view preference, not a change to canonical data --
+ * exactly the reasoning the selected-context store already documents for the same reason. Whatever
+ * finished it (accepted, declined, withdrawn, expired) already wrote its real, permanent status on the
+ * row -- audit, the other club's own view and history all still see it; "clear" only stops THIS
+ * viewer's own list showing the card again, remembered per device, never synced, never mistaken for a
+ * second copy of the request record.
  */
 const KEY = "ovalball.dismissedFixtureRequestGroups"
 

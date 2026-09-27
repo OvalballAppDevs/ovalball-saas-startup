@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native"
 import { Gesture, GestureDetector } from "react-native-gesture-handler"
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated"
 
-import { fixtureRequestGroupStatusLabel, relativeTimeAgo, type FixtureRequestGroupSummary } from "@ovalball/contracts/team/request-groups"
+import { fixtureRequestGroupStatusLabel, isClearableGroupStatus, relativeTimeAgo, type FixtureRequestGroupSummary } from "@ovalball/contracts/team/request-groups"
 import type { TeamFixtureRequest } from "@ovalball/contracts/team/requests"
 
 import { ClubCrest } from "../components/identity"
@@ -58,7 +58,7 @@ export function MyRequestsView<T extends TeamFixtureRequest>({
     void readDismissedGroupIds().then(setDismissed)
   }, [])
 
-  const visibleGroups = useMemo(() => (groups ?? []).filter((g) => !(g.aggregateStatus === "withdrawn" && dismissed.has(g.groupId))), [groups, dismissed])
+  const visibleGroups = useMemo(() => (groups ?? []).filter((g) => !(isClearableGroupStatus(g.aggregateStatus) && dismissed.has(g.groupId))), [groups, dismissed])
 
   const byTab = useMemo(() => {
     const result: Record<MyRequestsTab, FixtureRequestGroupSummary<T>[]> = { sent: [], received: [], confirmed: [] }
@@ -101,7 +101,7 @@ export function MyRequestsView<T extends TeamFixtureRequest>({
       {groups && shown.length > 0 && (
         <View style={{ gap: space.md }}>
           {shown.map((group) => (
-            <SwipeToClear key={group.groupId} enabled={group.aggregateStatus === "withdrawn"} onClear={() => void clear(group.groupId)}>
+            <SwipeToClear key={group.groupId} enabled={isClearableGroupStatus(group.aggregateStatus)} onClear={() => void clear(group.groupId)}>
               <RequestGroupCard
                 group={group}
                 onOpen={() => onOpenGroup(group)}
@@ -257,10 +257,11 @@ function RequestGroupCard<T extends TeamFixtureRequest>({
 const CLEAR_WIDTH = 88
 
 /**
- * SWIPE TO CLEAR A WITHDRAWN CARD. Enabled only for a group whose aggregate status is genuinely
- * `withdrawn` -- an accepted, declined, pending or under-discussion card is never dismissable this way,
- * since only a withdrawal was ever the clutter being asked about. Clearing removes the card from THIS
- * viewer's list; it never touches the real, permanent `fixture_requests` row underneath.
+ * SWIPE TO CLEAR A FINISHED CARD. Enabled only where `isClearableGroupStatus` says the group has
+ * genuinely finished (Confirmed, Declined, Withdrawn, Expired) -- a Pending, Under Discussion or
+ * Partially Confirmed card is never dismissable this way, since it still has real outstanding work.
+ * Clearing removes the card from THIS viewer's list; it never touches the real, permanent
+ * `fixture_requests` row underneath.
  */
 function SwipeToClear({ enabled, onClear, children }: { enabled: boolean; onClear: () => void; children: React.ReactNode }) {
   const tx = useSharedValue(0)

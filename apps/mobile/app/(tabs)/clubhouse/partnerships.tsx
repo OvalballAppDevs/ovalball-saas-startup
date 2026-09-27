@@ -132,8 +132,12 @@ export default function Partnerships() {
               teamSummary={marker.clubId ? teamSummaryByClubId.get(marker.clubId) : undefined}
               busy={busyId === marker.partnershipId}
               onView={() => router.push({ pathname: "/clubhouse/club/[directoryId]", params: { directoryId: marker.directoryId } } as never)}
-              onAccept={marker.partnershipId ? () => void act(marker.partnershipId as string, () => respondToPartnership(supabase, marker.partnershipId as string, true)) : undefined}
-              onDecline={marker.partnershipId ? () => void act(marker.partnershipId as string, () => respondToPartnership(supabase, marker.partnershipId as string, false)) : undefined}
+              // ACCEPT/DECLINE ARE ONLY EVER A RESPONSE TO AN INCOMING REQUEST -- an already-active
+              // partnership and a request WE sent both carry a real partnershipId too, but there is
+              // nothing to accept or decline about either of them (bug: these used to render regardless
+              // of status, so "My Partners" showed Accept/Decline on a club that already IS a partner).
+              onAccept={marker.partnershipId && marker.partnershipStatus === "pending_incoming" ? () => void act(marker.partnershipId as string, () => respondToPartnership(supabase, marker.partnershipId as string, true)) : undefined}
+              onDecline={marker.partnershipId && marker.partnershipStatus === "pending_incoming" ? () => void act(marker.partnershipId as string, () => respondToPartnership(supabase, marker.partnershipId as string, false)) : undefined}
               onCancelOrEnd={marker.partnershipId ? () => void act(marker.partnershipId as string, () => revokePartnership(supabase, marker.partnershipId as string)) : undefined}
               cancelLabel={tab === "outgoing" ? "Cancel Request" : "End Partnership"}
             />

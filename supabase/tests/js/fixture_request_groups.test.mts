@@ -5,6 +5,7 @@ import {
   buildFixtureRequestGroupSummaries,
   countFixtureRequestGroupsRequiringAction,
   fixtureRequestGroupStatusLabel,
+  isClearableGroupStatus,
   relativeTimeAgo,
 } from "../../../packages/contracts/src/team/request-groups"
 import type { TeamFixtureRequest } from "../../../packages/contracts/src/team/requests"
@@ -148,6 +149,16 @@ test("fixtureRequestGroupStatusLabel: a pending group awaiting our own answer re
   assert.equal(fixtureRequestGroupStatusLabel({ aggregateStatus: "pending", requiresAction: true, direction: "received" }).label, "Response required")
   assert.equal(fixtureRequestGroupStatusLabel({ aggregateStatus: "pending", requiresAction: false, direction: "sent" }).label, "Pending")
   assert.equal(fixtureRequestGroupStatusLabel({ aggregateStatus: "declined", requiresAction: false, direction: "sent" }).tone, "negative")
+})
+
+test("isClearableGroupStatus: a genuinely finished group (Confirmed, Declined, Withdrawn, Expired) is clearable; anything with real outstanding work is not", () => {
+  assert.equal(isClearableGroupStatus("confirmed"), true)
+  assert.equal(isClearableGroupStatus("declined"), true)
+  assert.equal(isClearableGroupStatus("withdrawn"), true)
+  assert.equal(isClearableGroupStatus("expired"), true)
+  assert.equal(isClearableGroupStatus("pending"), false)
+  assert.equal(isClearableGroupStatus("under_discussion"), false)
+  assert.equal(isClearableGroupStatus("partially_confirmed"), false, "a leg is still open -- never clearable merely because another leg was accepted")
 })
 
 test("relativeTimeAgo: never a fabricated time -- always derived from the real timestamp against 'now'", () => {
