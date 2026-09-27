@@ -9,8 +9,18 @@
 //
 //   node scripts/seed-find-fixture-uat-crests.mjs
 //
-// IDEMPOTENT: `upsert: true` on the storage object, and the `clubs.logo_storage_path` update is the
-// same value every run -- re-running this script changes nothing that is already correct.
+// IDEMPOTENT, AND CACHE-SAFE: the storage path for every image here is suffixed with a short hash of
+// the FILE'S OWN BYTES, not a fixed name and not a run timestamp. A fixed name (this script's own
+// earlier design) is idempotent but never invalidates a client's image cache when the asset's content
+// changes -- `getPublicUrl` returns the same URL for the same path, and `expo-image`/RN's HTTP cache
+// then keeps serving the OLD bytes forever under that URL, exactly the failure that made a freshly
+// reseeded cover photo never actually appear on a real device. A content hash is deterministic (same
+// file -> same path -> genuinely idempotent, no accumulating duplicate objects across re-runs) AND
+// automatically produces a NEW path whenever the asset's own bytes change -- the same cache-busting
+// convention `apps/mobile/src/identity/images.ts` already uses for a live replace (there via
+// `Date.now()`, which a seed script cannot use without breaking idempotency; a content hash gets both
+// properties at once). Whatever old, differently-hashed objects a previous run of this script left
+// behind are simply orphaned, not deleted -- harmless local dev storage bytes.
 //
 // THE TEN CRESTS ARE DELIBERATELY SYNTHETIC: simple flat-colour shield shapes with a one-letter initial
 // and a basic heraldic pattern (stripe/quarters/hoop/chevron/etc), generated as SVG and rasterised with
@@ -35,12 +45,18 @@
 // re-running sets the identical values every time.
 // =====================================================================================================
 import { createClient } from "@supabase/supabase-js"
+import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const CREST_DIR = path.join(REPO, "supabase/seeds/assets/find-fixture-uat-crests")
+
+/** First 12 hex chars of a SHA-256 of the file's own bytes -- see the file header for why. */
+function contentHash(buffer) {
+  return createHash("sha256").update(buffer).digest("hex").slice(0, 12)
+}
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321"
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -75,8 +91,8 @@ for (const [key, normalizedKey] of CLUBS) {
     failures += 1
     continue
   }
-  const storagePath = `${club.id}/logo-uat-seed.png`
   const file = readFileSync(path.join(CREST_DIR, `${key}.png`))
+  const storagePath = `${club.id}/logo-uat-seed-${contentHash(file)}.png`
   const { error: uploadErr } = await supabase.storage.from("club-logos").upload(storagePath, file, { contentType: "image/png", upsert: true })
   if (uploadErr) {
     console.error(`UPLOAD FAILED: ${normalizedKey}`, uploadErr.message)
@@ -111,8 +127,8 @@ const { data: north } = await supabase
 if (!north) {
   console.error("SKIP (UAT North not seeded yet): ovalball-uat-north-rfc")
 } else {
-  const coverPath = `${north.id}/cover-uat-seed.jpg`
   const coverFile = readFileSync(path.join(REPO, "supabase/seeds/assets/find-fixture-uat-north/cover.jpg"))
+  const coverPath = `${north.id}/cover-uat-seed-${contentHash(coverFile)}.jpg`
   const { error: coverUploadErr } = await supabase.storage.from("club-covers").upload(coverPath, coverFile, { contentType: "image/jpeg", upsert: true })
   if (coverUploadErr) {
     console.error("COVER UPLOAD FAILED: ovalball-uat-north-rfc", coverUploadErr.message)
