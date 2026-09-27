@@ -25,7 +25,7 @@
 //
 // ALSO ENRICHES UAT NORTH'S PUBLIC PROFILE (visual-lock Part B, Section B12): one rich synthetic club
 // to prove the Public Club Profile design, never a real directory club given invented content. The
-// cover photo (supabase/seeds/assets/find-fixture-uat-north/cover.png) is a Higgsfield-generated
+// cover photo (supabase/seeds/assets/find-fixture-uat-north/cover.jpg) is a Higgsfield-generated
 // synthetic clubhouse photo -- never assigned to a real club, never carrying any baked-in text/logo,
 // generated specifically to match the supplied visual-lock reference's bright daytime cover, per the
 // project's own established generated-asset workflow. Bio is plain text that says outright it is a
@@ -111,9 +111,9 @@ const { data: north } = await supabase
 if (!north) {
   console.error("SKIP (UAT North not seeded yet): ovalball-uat-north-rfc")
 } else {
-  const coverPath = `${north.id}/cover-uat-seed.png`
-  const coverFile = readFileSync(path.join(REPO, "supabase/seeds/assets/find-fixture-uat-north/cover.png"))
-  const { error: coverUploadErr } = await supabase.storage.from("club-covers").upload(coverPath, coverFile, { contentType: "image/png", upsert: true })
+  const coverPath = `${north.id}/cover-uat-seed.jpg`
+  const coverFile = readFileSync(path.join(REPO, "supabase/seeds/assets/find-fixture-uat-north/cover.jpg"))
+  const { error: coverUploadErr } = await supabase.storage.from("club-covers").upload(coverPath, coverFile, { contentType: "image/jpeg", upsert: true })
   if (coverUploadErr) {
     console.error("COVER UPLOAD FAILED: ovalball-uat-north-rfc", coverUploadErr.message)
   } else {
