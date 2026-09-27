@@ -90,30 +90,44 @@ test("sortTeamsInRugbyAgeOrder: reproduces the reported UAT roster's shape end t
 // summariseClubAgeGroups -- the Public Club Profile's own age-range metric (visual-lock, Section 9)
 // ---------------------------------------------------------------------------------------------
 
+type AgeGroupInput = { ageGroup: string | null; category: "senior" | "youth" | "colts" }
+function ageTeam(ageGroup: string | null, category: "senior" | "youth" | "colts" = "youth"): AgeGroupInput {
+  return { ageGroup, category }
+}
+
 test("summariseClubAgeGroups: a full run from U7 to U16 reads 'U7 – U16'", () => {
-  const teams = [{ ageGroup: "U7" }, { ageGroup: "U8" }, { ageGroup: "U10" }, { ageGroup: "U12" }, { ageGroup: "U16" }]
+  const teams = [ageTeam("U7"), ageTeam("U8"), ageTeam("U10"), ageTeam("U12"), ageTeam("U16")]
   assert.equal(summariseClubAgeGroups(teams), "U7 – U16")
 })
 
 test("summariseClubAgeGroups: exactly one age grade reads just that grade, not a degenerate range", () => {
-  assert.equal(summariseClubAgeGroups([{ ageGroup: "U16" }]), "U16")
+  assert.equal(summariseClubAgeGroups([ageTeam("U16")]), "U16")
 })
 
-test("summariseClubAgeGroups: a senior-only roster (no ageGroup at all) is null, never a fabricated range", () => {
-  assert.equal(summariseClubAgeGroups([{ ageGroup: null }, { ageGroup: null }]), null)
+test("summariseClubAgeGroups: a senior-only roster reads 'Adult', never a fabricated age range", () => {
+  assert.equal(summariseClubAgeGroups([ageTeam(null, "senior"), ageTeam(null, "senior")]), "Adult")
 })
 
-test("summariseClubAgeGroups: senior sides alongside one age grade still reads just that age grade -- senior rows never enter the range", () => {
-  assert.equal(summariseClubAgeGroups([{ ageGroup: null }, { ageGroup: null }, { ageGroup: "U16" }]), "U16")
+test("summariseClubAgeGroups: senior sides alongside one age grade reads 'U16 – Adult' -- senior is the top of the range, never dropped", () => {
+  assert.equal(summariseClubAgeGroups([ageTeam(null, "senior"), ageTeam(null, "senior"), ageTeam("U16")]), "U16 – Adult")
+})
+
+test("summariseClubAgeGroups: a full junior-to-senior roster reads 'U7 – Adult', matching the owner's own worked example", () => {
+  const teams = [ageTeam("U7"), ageTeam("U8"), ageTeam("U10"), ageTeam("U12"), ageTeam("U14"), ageTeam("U16"), ageTeam("U18"), ageTeam(null, "senior"), ageTeam(null, "senior")]
+  assert.equal(summariseClubAgeGroups(teams), "U7 – Adult")
+})
+
+test("summariseClubAgeGroups: a club with no active teams at all is null", () => {
+  assert.equal(summariseClubAgeGroups([]), null)
 })
 
 test("summariseClubAgeGroups: unordered input gives the same answer as sorted input", () => {
-  const teams = [{ ageGroup: "U12" }, { ageGroup: "U7" }, { ageGroup: "U16" }, { ageGroup: "U10" }]
+  const teams = [ageTeam("U12"), ageTeam("U7"), ageTeam("U16"), ageTeam("U10")]
   assert.equal(summariseClubAgeGroups(teams), "U7 – U16")
 })
 
 test("summariseClubAgeGroups: duplicate age grades (a Boys and a Girls side at the same age) don't widen the range", () => {
-  const teams = [{ ageGroup: "U12" }, { ageGroup: "U12" }, { ageGroup: "U14" }, { ageGroup: "U14" }]
+  const teams = [ageTeam("U12"), ageTeam("U12"), ageTeam("U14"), ageTeam("U14")]
   assert.equal(summariseClubAgeGroups(teams), "U12 – U14")
 })
 

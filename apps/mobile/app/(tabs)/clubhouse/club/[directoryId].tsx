@@ -382,36 +382,42 @@ const CREST_OVERLAP = CREST_SIZE / 2
  */
 function ProfileCoverHero({ marker, coverUrl }: { marker: ClubMapMarker; coverUrl?: string | null }) {
   return (
-    <View style={{ height: 240, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, overflow: "hidden", backgroundColor: colour.forest900 }}>
-      {coverUrl ? (
-        <Image source={{ uri: coverUrl }} accessible={false} contentFit="cover" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
-      ) : (
+    // NOT overflow:hidden at this level (fixed defect: the crest was being clipped to only its top
+    // half). Only the cover PHOTO itself needs clipping for its rounded top corners -- the crest is a
+    // SIBLING positioned below it, free to overlap into the white section beneath without being cut by
+    // the photo's own clip boundary.
+    <View style={{ position: "relative" }}>
+      <View style={{ height: 240, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, overflow: "hidden", backgroundColor: colour.forest900 }}>
+        {coverUrl ? (
+          <Image source={{ uri: coverUrl }} accessible={false} contentFit="cover" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
+        ) : (
+          <Svg style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} width="100%" height="100%">
+            <Defs>
+              <LinearGradient id="clubProfileNoPhotoGround" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={colour.forest800} stopOpacity="1" />
+                <Stop offset="1" stopColor={colour.forest950} stopOpacity="1" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#clubProfileNoPhotoGround)" />
+          </Svg>
+        )}
         <Svg style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} width="100%" height="100%">
           <Defs>
-            <LinearGradient id="clubProfileNoPhotoGround" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={colour.forest800} stopOpacity="1" />
-              <Stop offset="1" stopColor={colour.forest950} stopOpacity="1" />
+            <LinearGradient id="clubProfileCoverShade" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0.45" stopColor={colour.forest950} stopOpacity="0" />
+              <Stop offset="1" stopColor={colour.forest950} stopOpacity="0.8" />
             </LinearGradient>
           </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#clubProfileNoPhotoGround)" />
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#clubProfileCoverShade)" />
         </Svg>
-      )}
-      <Svg style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} width="100%" height="100%">
-        <Defs>
-          <LinearGradient id="clubProfileCoverShade" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0.45" stopColor={colour.forest950} stopOpacity="0" />
-            <Stop offset="1" stopColor={colour.forest950} stopOpacity="0.8" />
-          </LinearGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#clubProfileCoverShade)" />
-      </Svg>
-      <View style={{ position: "absolute", left: space.lg + CREST_SIZE + space.md, right: space.lg, bottom: space.md }}>
-        {/* Bold Inter, never the condensed display face -- that face's own glyphs read as all-caps,
-            which the reference's club name never does. A club's real name is a proper noun, not a
-            section heading, so it keeps its ordinary mixed-case form here. */}
-        <Text numberOfLines={2} accessibilityRole="header" style={{ fontFamily: type.title.fontFamily, fontSize: 22, lineHeight: 26, color: colour.onForest }}>
-          {marker.name}
-        </Text>
+        <View style={{ position: "absolute", left: space.lg + CREST_SIZE + space.md, right: space.lg, bottom: space.md }}>
+          {/* Bold Inter, never the condensed display face -- that face's own glyphs read as all-caps,
+              which the reference's club name never does. A club's real name is a proper noun, not a
+              section heading, so it keeps its ordinary mixed-case form here. */}
+          <Text numberOfLines={2} accessibilityRole="header" style={{ fontFamily: type.title.fontFamily, fontSize: 22, lineHeight: 26, color: colour.onForest }}>
+            {marker.name}
+          </Text>
+        </View>
       </View>
       <View
         style={{
@@ -446,9 +452,21 @@ function ProfileIdentitySection({ marker, origin }: { marker: ClubMapMarker; ori
   const miles = origin && marker.hasLocation && !marker.isOwnClub ? distanceMiles(origin, marker) : null
   return (
     <View style={{ backgroundColor: colour.chalk, paddingTop: CREST_OVERLAP + space.sm, paddingHorizontal: space.lg, paddingBottom: space.sm, gap: space.xs }}>
-      <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
-        {marker.networkState === "on_ovalball" && <StatusPill label="On Ovalball" tone="positive" />}
-        {marker.partnershipStatus === "active" && <StatusPill label="Partner" tone="positive" />}
+      {/* "On Ovalball" and "Partner" are the two named badges from the reference, each with its OWN
+          distinct colour (green identity vs. red/pink relationship) rather than sharing one generic
+          "positive" tone -- StatusPill's shared tones stay untouched for every other screen; these two
+          are deliberately bespoke to this identity row. */}
+      <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap", alignItems: "center" }}>
+        {marker.networkState === "on_ovalball" && (
+          <View style={{ backgroundColor: "rgba(50,166,101,0.18)", borderRadius: radius.pill, paddingHorizontal: space.md, paddingVertical: 4 }}>
+            <Text style={[type.smallMedium, { color: colour.forest950 }]}>On Ovalball</Text>
+          </View>
+        )}
+        {marker.partnershipStatus === "active" && (
+          <View style={{ backgroundColor: colour.dangerSurface, borderRadius: radius.pill, paddingHorizontal: space.md, paddingVertical: 4 }}>
+            <Text style={[type.smallMedium, { color: colour.danger }]}>Partner</Text>
+          </View>
+        )}
         {marker.partnershipStatus === "pending_incoming" && <StatusPill label="Wants to partner" tone="caution" />}
         {marker.partnershipStatus === "pending_outgoing" && <StatusPill label="Request sent" tone="neutral" />}
         {marker.partnershipStatus === "unknown" && <StatusPill label="Relationship unknown" tone="neutral" />}
@@ -622,8 +640,12 @@ function OnOvalballBody({
 
       {feedback && <Text style={[type.caption, { color: colour.warning }]}>{feedback}</Text>}
 
+      {/* A FULL-WIDTH SEGMENTED CONTROL, not a left-aligned underline row: each tab claims an equal
+          share of the page width, the active segment gets a solid forest pill rather than a thin
+          underline, and every segment reports real press feedback -- a more deliberate, interactive
+          treatment than a quiet text-only row. */}
       {visibleTabs.length > 1 && (
-        <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colour.line }}>
+        <View style={{ flexDirection: "row", backgroundColor: colour.chalk, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, padding: 4, gap: 4 }}>
           {visibleTabs.map((t) => {
             const on = tab === t.key
             return (
@@ -632,9 +654,19 @@ function OnOvalballBody({
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
                 onPress={() => setTab(t.key)}
-                style={{ paddingVertical: space.sm, marginRight: space.lg, borderBottomWidth: 2, borderBottomColor: on ? colour.forest800 : "transparent" }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  minHeight: 38,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: radius.sm,
+                  backgroundColor: on ? colour.forest800 : "transparent",
+                  opacity: pressed ? 0.8 : 1,
+                })}
               >
-                <Text style={[on ? type.smallMedium : type.small, { color: on ? colour.forest800 : colour.inkMuted }]}>{t.label}</Text>
+                <Text numberOfLines={1} style={[type.smallMedium, { color: on ? colour.onForest : colour.inkMuted }]}>
+                  {t.label}
+                </Text>
               </Pressable>
             )
           })}
