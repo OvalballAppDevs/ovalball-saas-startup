@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Pressable, Text, View } from "react-native"
+import { Animated, Pressable, Text, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Image } from "expo-image"
@@ -34,12 +34,13 @@ import { colour, space, type, TOUCH_TARGET } from "../../../../src/design/tokens
  * and NO rounded top corners of its own -- the gradient over the photograph is what makes it read as a
  * continuation of the forest above it, not a new surface.
  *
- * IMAGERY: `editorial.news.general` -- audited again this pass. `heroTraining` (used in the previous
- * pass) has tackle bags, cones and folded bibs filling its lower third, which is exactly the clutter the
- * owner's own screenshot comparison flagged. `news.general` is a clean, empty pitch: posts, pitch
- * markings, a tree-line horizon, no equipment, no people -- the closest bundled asset to the approved
- * mockup's "pitch, posts, open rugby ground, horizon/trees" description. Still bundled, still reviewed,
- * still never downloaded or generated for this pass.
+ * IMAGERY: a calm four-image rotation of the bundled, reviewed editorial photographs identified during
+ * this programme's own asset audit -- `heroTraining`, `news.general`, `news.matchday`, `news.training`
+ * (`news.community` excluded: it is already Clubhouse Home's own hero, and reusing it here would make
+ * two different big moments look like the same photograph). Still bundled, still never downloaded or
+ * generated for this pass. `ImageRotation` below crossfades between them independently of the real
+ * matching work -- it never delays, skips ahead of, or waits for navigation; when matching genuinely
+ * finishes, this screen unmounts immediately wherever the rotation happens to be.
  *
  * FOUR REAL STAGES, NOT A FABRICATED SEQUENCE: each one is genuine work this screen actually does, in
  * this order -- `readFindFixtureMatchesUnfiltered` (the batched compatibility RPC + club identity),
@@ -188,9 +189,7 @@ export default function FindFixtureMatching() {
           </View>
 
           <View style={{ flex: 1, overflow: "hidden", backgroundColor: colour.forest950 }}>
-            {editorial.news.general && (
-              <Image source={editorial.news.general} accessible={false} contentFit="cover" contentPosition="center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
-            )}
+            <ImageRotation />
             <Svg style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} width="100%" height="100%">
               <Defs>
                 <LinearGradient id="findFixtureMatchingShade" x1="0" y1="0" x2="0" y2="1">
@@ -209,6 +208,46 @@ export default function FindFixtureMatching() {
           </View>
         </>
       )}
+    </View>
+  )
+}
+
+const ROTATION_IMAGES = [editorial.heroTraining, editorial.news.general, editorial.news.matchday, editorial.news.training].filter((source) => source !== null)
+const ROTATION_INTERVAL_MS = 2000
+const ROTATION_FADE_MS = 550
+
+/**
+ * A CALM, DECORATIVE CROSSFADE -- entirely independent of the real matching work above it. Every image
+ * gets the identical full-bleed cover treatment (no layout shift between them); all four are bundled
+ * (`require`d, not fetched), so there is never a network wait or a blank flash. This component has no
+ * awareness of matching progress and is never awaited by it -- when the real work finishes, the screen
+ * unmounts (and this interval is cleared) wherever the rotation happens to be, never delayed to let a
+ * fourth image "have its turn".
+ */
+function ImageRotation() {
+  const opacities = useRef(ROTATION_IMAGES.map((_, i) => new Animated.Value(i === 0 ? 1 : 0))).current
+  const indexRef = useRef(0)
+
+  useEffect(() => {
+    if (ROTATION_IMAGES.length <= 1) return
+    const interval = setInterval(() => {
+      const previous = indexRef.current
+      const next = (previous + 1) % ROTATION_IMAGES.length
+      indexRef.current = next
+      Animated.timing(opacities[previous]!, { toValue: 0, duration: ROTATION_FADE_MS, useNativeDriver: true }).start()
+      Animated.timing(opacities[next]!, { toValue: 1, duration: ROTATION_FADE_MS, useNativeDriver: true }).start()
+    }, ROTATION_INTERVAL_MS)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- opacities is a stable ref array, created once
+  }, [])
+
+  return (
+    <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+      {ROTATION_IMAGES.map((source, i) => (
+        <Animated.View key={i} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: opacities[i] }}>
+          <Image source={source} accessible={false} contentFit="cover" contentPosition="center" style={{ flex: 1 }} />
+        </Animated.View>
+      ))}
     </View>
   )
 }
