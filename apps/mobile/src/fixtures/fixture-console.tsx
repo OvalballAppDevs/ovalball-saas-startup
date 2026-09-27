@@ -4,6 +4,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 
 import { useBackToSurface } from "../links/back"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { matchTypeLabel } from "@ovalball/contracts/fixtures/game-type"
 
 import { supabase } from "../auth/supabase"
 import { useAppContexts } from "../context/contexts"
@@ -305,6 +306,11 @@ export function FixtureConsole() {
 
           {/* WHEN ------------------------------------------------------------------ */}
           <Group title="When">
+            {/* READ-ONLY (owner correction pass, Section 27): the canonical fixtures.game_type, never
+                hardcoded to "League Fixture" because that happened to be the reference screenshot.
+                Nothing here edits it -- match type is not a field this console currently exposes for
+                change, and adding a write path is a separate decision from simply showing the truth. */}
+            {!!matchTypeLabel(fixture.gameType) && <Row label="Type" value={matchTypeLabel(fixture.gameType)!} />}
             <Row
               label="Date"
               value={`${relativeDate(fixture.date, today)}${relativeDate(fixture.date, today) === exactDate(fixture.date) ? "" : ` · ${shortDate(fixture.date)}`}`}
