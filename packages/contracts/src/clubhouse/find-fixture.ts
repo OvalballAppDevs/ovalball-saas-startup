@@ -41,11 +41,11 @@ export type FindFixtureVenuePreference = "home" | "away" | "either"
  *
  * `teamIds` (plural, FF-1's own major conceptual improvement over the previous single `teamId`): 1+ of
  * the viewer's own real, active teams, exactly the set `readClubTeams`/team-context authority already
- * exposes -- never a wider set. NOT YET MULTI-TEAM MATCHED: `find_fixture_candidate_teams` and every
- * read below still query ONE team at a time; true "N of these M teams are compatible with this club,
- * with per-team availability" matching is FF-2/FF-3's own stated work (the next stage in this
- * programme), not built here. `readFindFixtureCandidates` uses `teamIds[0]` as the representative query
- * team -- a deliberate, stated limitation, never a silently faked multi-team result.
+ * exposes -- never a wider set. GENUINELY MULTI-TEAM MATCHED (FF-1.1): `readFindFixtureMatches` calls
+ * `find_fixture_candidate_teams_batch` -- one round trip answering compatibility for EVERY selected team
+ * at once, never `teamIds[0]` standing in for the rest. Each actionable candidate carries its own
+ * `matchedTeamIds`, the real "N of these M teams are compatible with this club" count -- never an opaque
+ * score, always the actual subset of the caller's own selected teams.
  *
  * `dates` is Section 7's own multi-date search -- 1 to 6 candidate dates, the bound
  * `find_fixture_candidate_availability` itself enforces server-side. `venuePreference` travels through
@@ -154,35 +154,121 @@ export function applyFindFixturePartnerFilter(candidates: readonly FindFixtureCa
   return applyClubhouseFilter([...candidates], filter, null) as FindFixtureCandidate[]
 }
 
+type CandidateTeamBatchRow = CandidateTeamRow & { my_team_id: string }
+
+/** A candidate carrying which of the caller's OWN selected teams are compatible with it -- the real
+ * "N/M teams matched" concept, never an opaque score. `matchedTeamIds` is always a subset of the
+ * criteria's own `teamIds`, in the same order they were selected. */
+export type FindFixtureCandidateMatch = FindFixtureCandidate & { matchedTeamIds: string[] }
+
+export interface FindFixtureMatchResult {
+  actionable: FindFixtureCandidateMatch[]
+  directoryOnly: ClubMapMarker[]
+}
+
 /**
- * THE ONE I/O ENTRY POINT. Exactly two round trips regardless of network size: the existing marker
- * population (`readClubhouseMarkers`, already used by the map/list/profile) and the batched
- * compatibility RPC -- never one call per candidate club. Distance-filters both result lists with the
- * SAME factual origin (the viewer's own club, if it has a real location) via the unchanged Section 2
+ * THE MULTI-TEAM PROJECTION: groups the batched RPC's rows by club (deduplicating the opposition team
+ * list across every selected team via the same `mapCompatibleTeams` four-field shape), while separately
+ * tracking, per club, WHICH of the caller's selected teams (`my_team_id`) found at least one compatible
+ * opposition team there.
+ */
+export function groupBatchCandidateTeamsByClub(rows: readonly CandidateTeamBatchRow[]): Map<string, { compatibleTeams: CompatibleTeam[]; matchedTeamIds: Set<string> }> {
+  const rawByClub = new Map<string, CandidateTeamBatchRow[]>()
+  for (const row of rows) {
+    const group = rawByClub.get(row.club_id)
+    if (group) group.push(row)
+    else rawByClub.set(row.club_id, [row])
+  }
+  const result = new Map<string, { compatibleTeams: CompatibleTeam[]; matchedTeamIds: Set<string> }>()
+  for (const [clubId, group] of rawByClub) {
+    const uniqueTeams = new Map<string, CandidateTeamBatchRow>()
+    for (const row of group) if (!uniqueTeams.has(row.team_id)) uniqueTeams.set(row.team_id, row)
+    result.set(clubId, { compatibleTeams: mapCompatibleTeams([...uniqueTeams.values()]), matchedTeamIds: new Set(group.map((row) => row.my_team_id)) })
+  }
+  return result
+}
+
+/**
+ * THE PURE DECISION, MULTI-TEAM FORM: same actionable/directory-only split as `buildFindFixtureCandidates`,
+ * plus each actionable candidate's real `matchedTeamIds` -- the subset of `selectedTeamIds` (order
+ * preserved) that found a>=1 compatible opposition team at that club.
+ */
+export function buildFindFixtureMatches(
+  markers: readonly ClubMapMarker[],
+  candidateRows: readonly CandidateTeamBatchRow[],
+  teamRugbyCode: string | null,
+  selectedTeamIds: readonly string[]
+): FindFixtureMatchResult {
+  const byClub = groupBatchCandidateTeamsByClub(candidateRows)
+  const actionable: FindFixtureCandidateMatch[] = []
+  for (const marker of markers) {
+    if (marker.isOwnClub || !marker.clubId) continue
+    const group = byClub.get(marker.clubId)
+    if (group && group.compatibleTeams.length > 0) {
+      actionable.push({ ...marker, compatibleTeams: group.compatibleTeams, matchedTeamIds: selectedTeamIds.filter((id) => group.matchedTeamIds.has(id)) })
+    }
+  }
+  const directoryOnly = teamRugbyCode
+    ? markers.filter((m) => !m.isOwnClub && m.networkState === "not_on_ovalball" && m.rugbyCode === teamRugbyCode)
+    : []
+  return { actionable, directoryOnly }
+}
+
+/** "3/3 matched", "2/3 matched" -- the exact factual phrasing FF-2/FF-3 need, computed once here rather
+ * than re-derived per screen. Never implies only full matches are returned: a 2/3 candidate is still a
+ * real, actionable result, just named honestly. */
+export function matchedTeamCountLabel(candidate: Pick<FindFixtureCandidateMatch, "matchedTeamIds">, totalSelected: number): string {
+  return `${candidate.matchedTeamIds.length}/${totalSelected} matched`
+}
+
+/**
+ * THE ONE I/O ENTRY POINT, GENUINELY MULTI-TEAM (FF-1.1): exactly two round trips regardless of network
+ * size OR how many teams are selected -- the existing marker population (`readClubhouseMarkers`) and the
+ * batched multi-team compatibility RPC (`find_fixture_candidate_teams_batch`), never one call per
+ * candidate club and never one call per selected team. Distance-filters both result lists with the SAME
+ * factual origin (the viewer's own club, if it has a real location) via the unchanged Section 2
  * function, so "a compatible club with no known location never vanishes from an ANY-distance search"
  * holds here exactly as it already does for the map.
  */
-export async function readFindFixtureCandidates(
+export async function readFindFixtureMatches(
   supabase: Client,
   criteria: Pick<FindFixtureCriteria, "teamIds" | "teamRugbyCode" | "distance">,
   viewerClubId: string | null,
   viewerTeamId: string | null
-): Promise<FindFixtureResult> {
-  const primaryTeamId = criteria.teamIds[0]
-  if (!primaryTeamId) return { actionable: [], directoryOnly: [] }
+): Promise<FindFixtureMatchResult> {
+  if (criteria.teamIds.length === 0) return { actionable: [], directoryOnly: [] }
   const [markers, candidateRowsResult] = await Promise.all([
     readClubhouseMarkers(supabase, viewerClubId, viewerTeamId),
-    supabase.rpc("find_fixture_candidate_teams", { p_team_id: primaryTeamId }),
+    supabase.rpc("find_fixture_candidate_teams_batch", { p_team_ids: criteria.teamIds }),
   ])
   if (candidateRowsResult.error) throw candidateRowsResult.error
 
-  const { actionable, directoryOnly } = buildFindFixtureCandidates(markers, candidateRowsResult.data ?? [], criteria.teamRugbyCode)
+  const { actionable, directoryOnly } = buildFindFixtureMatches(markers, candidateRowsResult.data ?? [], criteria.teamRugbyCode, criteria.teamIds)
   const origin = findDistanceOrigin(markers)
 
   return {
-    actionable: applyClubhouseDistanceFilter(actionable as ClubMapMarker[], criteria.distance, origin) as FindFixtureCandidate[],
+    actionable: applyClubhouseDistanceFilter(actionable as ClubMapMarker[], criteria.distance, origin) as FindFixtureCandidateMatch[],
     directoryOnly: applyClubhouseDistanceFilter(directoryOnly, criteria.distance, origin),
   }
+}
+
+type CandidateAvailabilityBatchRow = { my_team_id: string; opponent_team_id: string; the_date: string; status: string }
+
+/**
+ * THE MULTI-TEAM AVAILABILITY READ: same partners-only, busy/request_pending-coarsened boundary as
+ * Section 7's `find_fixture_candidate_availability`, batched across every selected team in one round
+ * trip. Callers combine this with `buildFindFixtureAvailability` per `my_team_id` slice when FF-3 needs
+ * per-matchup detail; this function's own job stops at the honest, minimal row set the server returns.
+ */
+export async function readFindFixtureAvailabilityBatch(
+  supabase: Client,
+  teamIds: readonly string[],
+  dates: readonly string[]
+): Promise<CandidateAvailabilityBatchRow[]> {
+  if (teamIds.length === 0 || dates.length === 0) return []
+  const { data, error } = await supabase.rpc("find_fixture_candidate_availability_batch", { p_team_ids: [...teamIds], p_dates: [...dates] })
+  if (error) throw error
+  return data ?? []
 }
 
 /**
@@ -229,4 +315,23 @@ export function toggleSelection<T>(current: readonly T[], value: T): T[] {
  */
 export function canSearchFindFixtureCriteria(criteria: Pick<FindFixtureCriteria, "teamIds" | "dates">): boolean {
   return criteria.teamIds.length > 0 && criteria.dates.length > 0
+}
+
+/**
+ * FF-2's own dynamic copy (Section O/P of the FF-1.1/FF-2 spec): truthful, never implying only clubs
+ * compatible with EVERY selected team will be returned. A single selected team names it directly; more
+ * than one is described honestly as "your N selected teams" -- the batched read model still returns a
+ * club that matches only SOME of them, so the copy never claims otherwise. Date formatting itself stays
+ * in the UI layer (this only decides the "on X" vs "across N possible dates" branch, so it is testable
+ * without a locale-dependent date formatter).
+ */
+export function findFixtureMatchingCopy(teamCount: number, singleTeamLabel: string | null, dateClause: string): string {
+  if (teamCount <= 1) return `We're finding clubs with compatible opposition for ${singleTeamLabel ?? "your selected team"} ${dateClause}.`
+  return `We're finding clubs with compatible teams for your ${teamCount} selected teams ${dateClause}.`
+}
+
+/** "on Sat 26 Sep 2026" for one date, "across N possible dates" for several -- never implies only an
+ * all-dates match is possible. */
+export function findFixtureDateClause(dateCount: number, firstDateLabel: string): string {
+  return dateCount <= 1 ? `on ${firstDateLabel}` : `across ${dateCount} possible dates`
 }

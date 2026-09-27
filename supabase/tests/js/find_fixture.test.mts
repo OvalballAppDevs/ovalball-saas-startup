@@ -4,10 +4,15 @@ import assert from "node:assert/strict"
 import {
   applyFindFixturePartnerFilter,
   buildFindFixtureCandidates,
+  buildFindFixtureMatches,
   buildClubMarkerFeatureCollection,
   canSearchFindFixtureCriteria,
   dedupeFindFixtureDates,
+  findFixtureDateClause,
+  findFixtureMatchingCopy,
+  groupBatchCandidateTeamsByClub,
   groupCandidateTeamsByClub,
+  matchedTeamCountLabel,
   nextWeekdayDates,
   sortFindFixtureCandidates,
   toggleSelection,
@@ -256,4 +261,66 @@ test("canSearchFindFixtureCriteria: the CTA cannot proceed without at least one 
   assert.equal(canSearchFindFixtureCriteria({ teamIds: [], dates: ["2026-10-10"] }), false, "the CTA cannot proceed without a team, even with a real date selected")
   assert.equal(canSearchFindFixtureCriteria({ teamIds: ["team-1"], dates: ["2026-10-10"] }), true, "valid criteria (>=1 team, >=1 date) hands off correctly")
   assert.equal(canSearchFindFixtureCriteria({ teamIds: ["team-1", "team-2"], dates: ["2026-10-10"] }), true, "multiple selected teams still hand off correctly")
+})
+
+// ---------------------------------------------------------------------------------------------
+// FF-1.1/FF-2: the real multi-team batched read model's own client-side arithmetic. The canonical
+// compatibility/authority/no-widening rule for the batched RPCs themselves lives entirely server-side
+// and is proven by `supabase/tests/find_fixture_candidates_batch.sql` -- these assertions cover the
+// grouping and aggregation this module adds on top: per-club "N/M teams matched", never a per-team
+// duplicate, and never a fabricated match for a team that found nothing.
+// ---------------------------------------------------------------------------------------------
+
+type BatchRow = { my_team_id: string; team_id: string; club_id: string; display_name: string; age_group: string | null; gender: string | null }
+
+test("groupBatchCandidateTeamsByClub: one club with two of the caller's selected teams matched gets both teams recorded, deduplicated compatible-team list", () => {
+  const rows: BatchRow[] = [
+    { my_team_id: "my-u12", team_id: "opp-u12", club_id: "club-a", display_name: "Under 12 Boys", age_group: "U12", gender: "MALE" },
+    { my_team_id: "my-u16", team_id: "opp-u16", club_id: "club-a", display_name: "Under 16 Boys", age_group: "U16", gender: "MALE" },
+  ]
+  const grouped = groupBatchCandidateTeamsByClub(rows)
+  const clubA = grouped.get("club-a")!
+  assert.equal(clubA.compatibleTeams.length, 2, "both compatible opposition teams are present, not collapsed into one")
+  assert.deepEqual([...clubA.matchedTeamIds].sort(), ["my-u12", "my-u16"], "both of the caller's own selected teams are recorded as matched at this club")
+})
+
+test("groupBatchCandidateTeamsByClub: a club matched by only ONE of the caller's selected teams records only that one, never the unmatched team", () => {
+  const rows: BatchRow[] = [{ my_team_id: "my-u12", team_id: "opp-u12", club_id: "club-a", display_name: "Under 12 Boys", age_group: "U12", gender: "MALE" }]
+  const grouped = groupBatchCandidateTeamsByClub(rows)
+  assert.deepEqual([...grouped.get("club-a")!.matchedTeamIds], ["my-u12"], "only the team that actually matched is recorded -- never the other selected team the RPC never returned a row for")
+})
+
+test("buildFindFixtureMatches: matchedTeamIds preserves the caller's own selection order, and 'N/M matched' is the real subset, not a count invented from row totals", () => {
+  const markers = [marker({ clubId: "club-a", isOwnClub: false })]
+  const rows: BatchRow[] = [
+    { my_team_id: "my-u16", team_id: "opp-u16", club_id: "club-a", display_name: "Under 16 Boys", age_group: "U16", gender: "MALE" },
+    { my_team_id: "my-u12", team_id: "opp-u12", club_id: "club-a", display_name: "Under 12 Boys", age_group: "U12", gender: "MALE" },
+  ]
+  const result = buildFindFixtureMatches(markers, rows, "union", ["my-u12", "my-u16", "my-u10"])
+  const clubA = result.actionable[0]!
+  assert.deepEqual(clubA.matchedTeamIds, ["my-u12", "my-u16"], "matched teams are in the CALLER's own selection order, not the RPC's row order, and never include the unmatched my-u10")
+  assert.equal(matchedTeamCountLabel(clubA, 3), "2/3 matched", "the real matched-count label, computed from the actual subset")
+})
+
+test("buildFindFixtureMatches: the searching club is always excluded, even from the batched multi-team form", () => {
+  const markers = [marker({ clubId: "own-club", isOwnClub: true })]
+  const rows: BatchRow[] = [{ my_team_id: "my-u12", team_id: "opp-u12", club_id: "own-club", display_name: "Under 12 Boys", age_group: "U12", gender: "MALE" }]
+  const result = buildFindFixtureMatches(markers, rows, "union", ["my-u12"])
+  assert.equal(result.actionable.length, 0)
+})
+
+test("findFixtureDateClause: one date names it directly, several are described as 'across N possible dates' -- never implying only an all-dates match is possible", () => {
+  assert.equal(findFixtureDateClause(1, "Sat 26 Sep 2026"), "on Sat 26 Sep 2026")
+  assert.equal(findFixtureDateClause(3, ""), "across 3 possible dates")
+})
+
+test("findFixtureMatchingCopy: one selected team is named directly; several are described as 'your N selected teams', never claiming only full matches will be returned", () => {
+  assert.equal(
+    findFixtureMatchingCopy(1, "Men's 1st Team", "on Sat 26 Sep 2026"),
+    "We're finding clubs with compatible opposition for Men's 1st Team on Sat 26 Sep 2026."
+  )
+  assert.equal(
+    findFixtureMatchingCopy(3, null, "across 2 possible dates"),
+    "We're finding clubs with compatible teams for your 3 selected teams across 2 possible dates."
+  )
 })

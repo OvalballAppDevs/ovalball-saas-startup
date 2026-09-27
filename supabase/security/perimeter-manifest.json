@@ -5205,6 +5205,14 @@
         ]
       },
       {
+        "signature": "find_fixture_candidate_availability_batch(uuid[], date[])",
+        "category": "APPLICATION_RPC",
+        "note": "Find a Fixture FF-1/FF-2: the multi-team batched form of find_fixture_candidate_availability -- one round trip answers availability across every compatible PARTNER club for EVERY one of the caller's selected teams (up to 20), up to 6 dates. Same per-team authority check (checked individually per team, never widened) and same active-partnership-only boundary. Coarse rows only (my_team_id, opponent_team_id, the_date, status) -- absence of a row means no known clash, never returned as a status value.",
+        "consumers": [
+          "packages/contracts/src/clubhouse/find-fixture.ts"
+        ]
+      },
+      {
         "signature": "find_fixture_opportunities(uuid)",
         "category": "APPLICATION_RPC",
         "note": "Clubhouse Section 16 (20270560000000): the viewer's own team's live Looking for Opposition listings plus every other genuinely open, compatible one, one round trip. Re-derives compatibility/authority itself (SECURITY DEFINER bypasses RLS). Returns raw club_directory location facts for the OTHER club (never its venue); distance/partnership resolution stays client-side (resolveClubLocation/distanceMiles/resolvePartnershipStatus), never a second calculation here.",
@@ -5216,6 +5224,14 @@
         "signature": "find_fixture_candidate_teams(uuid)",
         "category": "APPLICATION_RPC",
         "note": "Clubhouse Programme Section 6: the batched form of compatible_opponent_teams -- every compatible opposition team across the whole network for one team in a single call. Same authority (team-scoped fixture.request.create/.fixture.create) and the same internal.identities_can_play_fixture rule, kept textually parallel to compatible_opponent_teams deliberately. Minimal projection: team_id, club_id, display_name, age_group, gender -- no roster, no calendar, no fixture history.",
+        "consumers": [
+          "packages/contracts/src/clubhouse/find-fixture.ts"
+        ]
+      },
+      {
+        "signature": "find_fixture_candidate_teams_batch(uuid[])",
+        "category": "APPLICATION_RPC",
+        "note": "Find a Fixture FF-1/FF-2: the multi-team batched form of find_fixture_candidate_teams -- every compatible opposition team across the whole network, for EVERY one of the caller's selected teams (up to 20), in a single call, never one RPC per selected team. Same per-team authority check (checked individually, never widened) and same internal.identities_can_play_fixture rule. Minimal projection: my_team_id, team_id, club_id, display_name, age_group, gender -- no roster, no calendar, no fixture history.",
         "consumers": [
           "packages/contracts/src/clubhouse/find-fixture.ts"
         ]
@@ -8801,7 +8817,9 @@
       "extend_club_trial(uuid, integer, text)",
       "fail_directory_verification_run(uuid, text)",
       "find_fixture_candidate_availability(uuid, date[])",
+      "find_fixture_candidate_availability_batch(uuid[], date[])",
       "find_fixture_candidate_teams(uuid)",
+      "find_fixture_candidate_teams_batch(uuid[])",
       "find_fixture_opportunities(uuid)",
       "fixture_availability_summary(uuid[])",
       "fixture_communication_counts(uuid)",

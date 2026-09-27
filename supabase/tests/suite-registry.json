@@ -570,6 +570,11 @@
       "owner": "Clubhouse programme",
       "reason": "Clubhouse Programme Section 6 (20270557000000): find_fixture_candidate_teams, the batched compatible-opposition search behind Find a Fixture. Proves the same internal.identities_can_play_fixture rule compatible_opponent_teams already enforces governs the batched form too -- rugby code and age-fixture-band compatibility, Union/League isolation, own-club exclusion, folded-team exclusion -- plus authority (refused with no fixture authority at all, refused on a crafted cross-club call naming another club's team) and a minimal five-column payload. Deterministic and self-seeding."
     },
+    "find_fixture_candidates_batch": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Clubhouse programme",
+      "reason": "Find a Fixture FF-1.1/FF-2 (20270562000000): find_fixture_candidate_teams_batch / find_fixture_candidate_availability_batch, the multi-team batched forms behind FF-1's multi-team selection. Proves per-team-pairing correctness (my_team_id threaded through every row, independent per selected team), no authority widening (a caller authorised on one named team but not another is refused for the WHOLE call, never a silent partial result), the active-partnership-only availability boundary is independent of the compatibility boundary (a compatible-but-unpartnered club appears in the teams search but never the availability search even when busy), busy/request_pending coarsening, and the minimal payload shape of both functions. Deterministic and self-seeding."
+    },
     "fixture_age_eligibility": {
       "disposition": "SPECIAL_PURPOSE",
       "owner": "Fixture operations",

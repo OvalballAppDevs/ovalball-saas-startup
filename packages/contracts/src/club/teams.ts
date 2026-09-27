@@ -101,6 +101,33 @@ export async function readClubTeams(supabase: Client, clubId: string): Promise<C
   return { rugbyCode, teams, groups, folded: teams.filter((t) => !t.active) }
 }
 
+/**
+ * FIND A FIXTURE FF-1.1's own "rugby-natural age order" (never lexical/alphabetical: a plain string sort
+ * puts "Under 10" before "Under 16" before "Under 7", which is wrong on every axis a rugby person reads
+ * a team list by). Derived ENTIRELY from each team's own canonical `category`/`ageGroup` -- never a
+ * hardcoded team name -- so it holds for any club's real roster, not just the one this was written
+ * against: Senior sides first, then Colts, then every age grade oldest-to-youngest (U18 down to U6).
+ * Two teams at the same rank (two senior sides, or two teams at the same age grade, such as a Mixed and
+ * a Mixed B) fall back to their own team name -- a real, deterministic, always-available tie-break, per
+ * the rugby standard for the phrase itself is silent on which same-age side comes first.
+ */
+const TEAM_ORDER_CATEGORY_RANK: Record<ClubTeam["category"], number> = { senior: 0, colts: 1, youth: 2 }
+
+function teamOrderAgeRank(ageGroup: string | null): number {
+  const digits = ageGroup?.match(/\d+/)?.[0]
+  return digits ? -parseInt(digits, 10) : 0
+}
+
+export function sortTeamsInRugbyAgeOrder<T extends Pick<ClubTeam, "category" | "ageGroup" | "displayName">>(teams: readonly T[]): T[] {
+  return [...teams].sort((a, b) => {
+    const categoryDiff = TEAM_ORDER_CATEGORY_RANK[a.category] - TEAM_ORDER_CATEGORY_RANK[b.category]
+    if (categoryDiff !== 0) return categoryDiff
+    const ageDiff = teamOrderAgeRank(a.ageGroup) - teamOrderAgeRank(b.ageGroup)
+    if (ageDiff !== 0) return ageDiff
+    return a.displayName.localeCompare(b.displayName)
+  })
+}
+
 export interface ClubTeamSummary {
   teamCount: number
   /** "U7 – U18", or null when the club runs no age-graded (senior-only, or no team at all) sides. */

@@ -24301,6 +24301,15 @@ export type Database = {
           the_date: string
         }[]
       }
+      find_fixture_candidate_availability_batch: {
+        Args: { p_dates: string[]; p_team_ids: string[] }
+        Returns: {
+          my_team_id: string
+          opponent_team_id: string
+          status: string
+          the_date: string
+        }[]
+      }
       find_fixture_candidate_teams: {
         Args: { p_team_id: string }
         Returns: {
@@ -24308,6 +24317,17 @@ export type Database = {
           club_id: string
           display_name: string
           gender: string
+          team_id: string
+        }[]
+      }
+      find_fixture_candidate_teams_batch: {
+        Args: { p_team_ids: string[] }
+        Returns: {
+          age_group: string
+          club_id: string
+          display_name: string
+          gender: string
+          my_team_id: string
           team_id: string
         }[]
       }
