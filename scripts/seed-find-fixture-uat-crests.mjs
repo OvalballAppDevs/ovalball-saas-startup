@@ -24,12 +24,15 @@
 // `clubs.logo_storage_path` -- never a special FF-3-only crest lookup.
 //
 // ALSO ENRICHES UAT NORTH'S PUBLIC PROFILE (visual-lock Part B, Section B12): one rich synthetic club
-// to prove the Public Club Profile design, never a real directory club given invented content. Cover
-// photo reuses the already-approved bundled editorial asset `rugby-general.jpg` (never a new/generated
-// image); bio is plain text that says outright it is a synthetic test fixture; no website is set --
-// Section B12's own instruction is "only if a safe local/test URL convention exists," and inventing a
-// domain, even a `.test` one, risks looking like a real address, so this leaves it genuinely empty
-// rather than guess. IDEMPOTENT the same way: re-running sets the identical values every time.
+// to prove the Public Club Profile design, never a real directory club given invented content. The
+// cover photo (supabase/seeds/assets/find-fixture-uat-north/cover.png) is a Higgsfield-generated
+// synthetic clubhouse photo -- never assigned to a real club, never carrying any baked-in text/logo,
+// generated specifically to match the supplied visual-lock reference's bright daytime cover, per the
+// project's own established generated-asset workflow. Bio is plain text that says outright it is a
+// synthetic test fixture; no website is set -- Section B12's own instruction is "only if a safe
+// local/test URL convention exists," and inventing a domain, even a `.test` one, risks looking like a
+// real address, so this leaves it genuinely empty rather than guess. IDEMPOTENT the same way:
+// re-running sets the identical values every time.
 // =====================================================================================================
 import { createClient } from "@supabase/supabase-js"
 import { readFileSync } from "node:fs"
@@ -108,9 +111,9 @@ const { data: north } = await supabase
 if (!north) {
   console.error("SKIP (UAT North not seeded yet): ovalball-uat-north-rfc")
 } else {
-  const coverPath = `${north.id}/cover-uat-seed.jpg`
-  const coverFile = readFileSync(path.join(REPO, "apps/mobile/assets/editorial/rugby-general.jpg"))
-  const { error: coverUploadErr } = await supabase.storage.from("club-covers").upload(coverPath, coverFile, { contentType: "image/jpeg", upsert: true })
+  const coverPath = `${north.id}/cover-uat-seed.png`
+  const coverFile = readFileSync(path.join(REPO, "supabase/seeds/assets/find-fixture-uat-north/cover.png"))
+  const { error: coverUploadErr } = await supabase.storage.from("club-covers").upload(coverPath, coverFile, { contentType: "image/png", upsert: true })
   if (coverUploadErr) {
     console.error("COVER UPLOAD FAILED: ovalball-uat-north-rfc", coverUploadErr.message)
   } else {

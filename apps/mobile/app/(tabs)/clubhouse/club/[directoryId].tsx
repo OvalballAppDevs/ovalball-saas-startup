@@ -31,7 +31,7 @@ import { startClubConversation } from "../../../../src/messages/club-conversatio
 import { CLAIMABLE_ROLES, submitClubClaim, type ClaimableRole } from "../../../../src/clubhouse/claims"
 import { ChoiceField, Field, TextField } from "../../../../src/components/form"
 import { Button, CardSkeleton, ErrorState, StatusPill } from "../../../../src/components/ui"
-import { ChevronRight, Globe, MapPin, Share2, Users } from "../../../../src/components/icons"
+import { CalendarDays, ChevronRight, Globe, MapPin, Share2, Users } from "../../../../src/components/icons"
 import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../../src/design/tokens"
 import { webUrl } from "../../../../src/config/environment"
 import { ClubCrest, ClubMetricRow } from "../../../../src/clubhouse/components"
@@ -313,19 +313,19 @@ function buildHeroMetrics({
   detail: ClubDetail | null
   findFixtureContext: FindFixtureProfileContext | null
   marker: ClubMapMarker
-}): { value: string; label: string }[] {
-  const metrics: { value: string; label: string }[] = []
+}): { value: string; label: string; icon?: React.ReactNode }[] {
+  const metrics: { value: string; label: string; icon?: React.ReactNode }[] = []
   if (clubTeams && clubTeams.length > 0) {
-    metrics.push({ value: String(clubTeams.length), label: clubTeams.length === 1 ? "Team" : "Teams" })
+    metrics.push({ value: String(clubTeams.length), label: clubTeams.length === 1 ? "Team" : "Teams", icon: <Users size={16} color={colour.inkMuted} /> })
     const ages = summariseClubAgeGroups(clubTeams)
-    if (ages) metrics.push({ value: ages, label: "Age Groups" })
+    if (ages) metrics.push({ value: ages, label: "Age Groups", icon: <CalendarDays size={16} color={colour.inkMuted} /> })
   }
   // THE SEARCH-CONTEXT METRIC (visual-lock Job 2, Section 8): only rendered when this profile was
   // opened from an FF-3 result card -- never fabricated on a generic visit with no search behind it.
   if (findFixtureContext && detail) {
     const compatible = detail.compatibleTeams ?? []
     const clear = compatible.filter((t) => candidateTeamWeekLabel(t.teamId, findFixtureContext, marker.partnershipStatus).primary === "No known clash").length
-    metrics.push({ value: `${clear}/${compatible.length}`, label: "Clear For Your Search" })
+    metrics.push({ value: `${clear}/${compatible.length}`, label: "Teams Available", icon: <Users size={16} color={colour.inkMuted} /> })
   }
   return metrics
 }
@@ -406,7 +406,10 @@ function ProfileCoverHero({ marker, coverUrl }: { marker: ClubMapMarker; coverUr
         <Rect x="0" y="0" width="100%" height="100%" fill="url(#clubProfileCoverShade)" />
       </Svg>
       <View style={{ position: "absolute", left: space.lg + CREST_SIZE + space.md, right: space.lg, bottom: space.md }}>
-        <Text numberOfLines={2} accessibilityRole="header" style={[type.display, { color: colour.onForest, fontSize: 24, lineHeight: 28 }]}>
+        {/* Bold Inter, never the condensed display face -- that face's own glyphs read as all-caps,
+            which the reference's club name never does. A club's real name is a proper noun, not a
+            section heading, so it keeps its ordinary mixed-case form here. */}
+        <Text numberOfLines={2} accessibilityRole="header" style={{ fontFamily: type.title.fontFamily, fontSize: 22, lineHeight: 26, color: colour.onForest }}>
           {marker.name}
         </Text>
       </View>
@@ -454,7 +457,7 @@ function ProfileIdentitySection({ marker, origin }: { marker: ClubMapMarker; ori
       </View>
       <Text numberOfLines={1} style={[type.small, { color: colour.inkMuted }]}>
         {[marker.town, marker.county].filter(Boolean).join(", ") || (marker.hasLocation ? "" : "Location not yet known")}
-        {miles !== null ? ` · ${Math.round(miles)} mi away` : ""}
+        {miles !== null ? ` · ${Math.round(miles)} miles away` : ""}
       </Text>
     </View>
   )
