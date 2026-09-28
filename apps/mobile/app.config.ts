@@ -38,6 +38,12 @@ const config: ExpoConfig = {
   name: identity.name,
   slug: "ovalball",
   version: "0.1.0",
+  // A DISTINCT HOME-SCREEN ICON FOR THE DEV BUILD ONLY (owner request, physical review). Never the
+  // real Ovalball brand mark -- this exists so the development app is visually unmistakable from the
+  // real one when both sit on the same device, exactly the reasoning "one binary identity per
+  // environment" above already states. staging/production are untouched: no `icon` override here
+  // means they keep whatever they already resolve to.
+  ...(ENVIRONMENT === "development" ? { icon: "./assets/icons/icon-dev.png" } : {}),
   // PORTRAIT ONLY, on the phone. Ovalball on a touchline is a one-handed, upright product; a landscape
   // layout for it is a design job nobody has done, and rotating into an untested one is worse than not
   // rotating. Tablets are a separate decision and a separate pass.
