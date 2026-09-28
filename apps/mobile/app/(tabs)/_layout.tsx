@@ -130,6 +130,7 @@ const ALL: { key: TabKey; title: string }[] = [
   { key: "family", title: "Family" },
   { key: "profile", title: "Profile" },
   { key: "club", title: "Club" },
+  { key: "teams", title: "Teams" },
   { key: "security", title: "Security" },
   // EVERY ROUTE GROUP UNDER THE TAB FOLDER MUST BE DECLARED HERE, hidden or not. An undeclared group is
   // auto-registered by the router with the library's "missing icon" glyph -- which is exactly the two

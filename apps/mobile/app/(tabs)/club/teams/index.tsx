@@ -75,7 +75,7 @@ export default function ClubTeams() {
                 key={row.team.id}
                 accessibilityRole="button"
                 accessibilityLabel={`${row.team.displayName}. ${row.players} players, ${row.staff} staff. ${row.nextFixture ? `Next: ${relativeDate(row.nextFixture.date, today)} v ${row.nextFixture.them?.clubName ?? "TBC"}` : "No fixture scheduled"}`}
-                onPress={() => router.push({ pathname: "/club/teams/[teamId]", params: { teamId: row.team.id } } as never)}
+                onPress={() => router.push({ pathname: "/teams/[teamId]", params: { teamId: row.team.id } } as never)}
                 style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 16, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md, paddingHorizontal: space.lg, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: colour.line, backgroundColor: pressed ? colour.chalk : "transparent" })}
               >
                 <View style={{ flex: 1, minWidth: 0, gap: 2 }}>

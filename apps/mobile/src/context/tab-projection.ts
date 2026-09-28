@@ -41,6 +41,8 @@ export type TabKey =
   | "profile"
   /** Reached from Home and More in a club context (CA-M10): Teams, a team from the club's side, Fixture Requests. A route group, never a cell. */
   | "club"
+  /** The one canonical Team Profile route (Team Profiles + Club Admin Home): reached from Club Admin Home, the club Teams list, Fixtures and Clubhouse's cross-club Club Profile alike. A route group, never a cell. */
+  | "teams"
   | "security"
   | "news"
   | "announcements"

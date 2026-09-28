@@ -1043,9 +1043,21 @@ function OnOvalballBody({
 
 /** "Under 12 Boys · Rugby Union" -- a real team row, never a bare pill hiding the roster behind a count. */
 
+/**
+ * TAPS THROUGH TO THE CANONICAL TEAM PROFILE (owner brief: Team Profiles + Club Admin Home), the same
+ * route the club's own Teams list and Club Admin Home use. Cross-club: the Team Profile screen decides
+ * for itself, from this viewer's own capability read, how much beyond identity it may show -- this row
+ * never carries or assumes any authority of its own.
+ */
 function TeamRow({ team }: { team: ClubTeam }) {
+  const router = useRouter()
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: TOUCH_TARGET, paddingVertical: space.xs, borderTopWidth: 1, borderTopColor: colour.line }}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${team.fullLabel}. ${teamCategoryVocabulary(team)}`}
+      onPress={() => router.push({ pathname: "/teams/[teamId]", params: { teamId: team.id } } as never)}
+      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: TOUCH_TARGET, paddingVertical: space.xs, borderTopWidth: 1, borderTopColor: colour.line, backgroundColor: pressed ? colour.chalk : "transparent" })}
+    >
       <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colour.mint100, alignItems: "center", justifyContent: "center" }}>
         <Text style={[type.caption, { color: colour.forest800, fontFamily: type.smallMedium.fontFamily }]}>{team.ageGroup ?? (team.gender === "womens" ? "W" : team.gender === "mens" ? "M" : "•")}</Text>
       </View>
@@ -1053,7 +1065,7 @@ function TeamRow({ team }: { team: ClubTeam }) {
         {team.fullLabel}
       </Text>
       <Text style={[type.caption, { color: colour.inkSubtle }]}>{teamCategoryVocabulary(team)}</Text>
-    </View>
+    </Pressable>
   )
 }
 

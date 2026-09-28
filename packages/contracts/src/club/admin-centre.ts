@@ -39,6 +39,9 @@ export const ADMIN_CENTRE_SECTIONS: AdminCentreSection[] = [
   { key: "safeguarding", label: "Safeguarding Officer", caption: "Who the club's safeguarding contact is", capability: "safeguarding.officer.nominate", native: true, webPath: "/club/settings/safeguarding" },
   { key: "rollover", label: "Season Handover", caption: "Moving every side up at the end of the season", capability: "team.handover.prepare", native: true, webPath: "/club/rollover" },
   { key: "subscriptions", label: "Subscriptions & Payments", caption: "What members pay and how", capability: "finance.subscription.configure", native: true, webPath: "/club/settings/subscriptions" },
+  { key: "fixture-planner", label: "Season Planner", caption: "Plan a side's fixtures for the season on the spreadsheet-style planner", capability: "fixture.planner.use", native: false, webPath: "/fixtures/planner" },
+  { key: "fixture-import", label: "Import Fixtures", caption: "Upload or paste a season's fixtures and publish them after review", capability: "fixture.import.run", native: false, webPath: "/fixtures/import" },
+  { key: "competition-creator", label: "Competition Creator", caption: "Start a new competition and its fixture schedule", capability: "competition.creator.use", native: false, webPath: "/fixtures/competitions/new" },
 ]
 
 export interface AdminCentreAccess {

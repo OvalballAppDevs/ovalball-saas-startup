@@ -28117,6 +28117,13 @@ export type Database = {
           status: string
         }[]
       }
+      team_people_counts: {
+        Args: { p_team_id: string }
+        Returns: {
+          players: number | null
+          staff: number | null
+        }[]
+      }
       team_playing_group_recipient_context: {
         Args: { p_team_id: string }
         Returns: {

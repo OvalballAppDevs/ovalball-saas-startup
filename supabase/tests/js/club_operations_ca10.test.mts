@@ -52,14 +52,21 @@ test("club events are read as their own shape and never as a fixture", () => {
   assert.doesNotMatch(load, /club_events/, "the fixture agenda still does not pretend an event is a fixture")
 })
 
-test("the Fixture Control Centre and the desk tools are a hand-off from Club Home, never duplicated onto the mobile Fixtures screen or a team context", () => {
+test("the Fixture Control Centre and the desk tools are a hand-off from the Admin Console, never duplicated onto the mobile Fixtures screen, Club Home or a team context", () => {
   // OWNER CORRECTION PASS (Section 2): the Fixtures tab's own Fixture Control Centre card was itself the
   // thing the owner rejected, not merely its styling -- mobile Fixtures now carries no entry point to it
-  // at all. Club Home's own hand-off (a different screen) is untouched and still the one legitimate route.
+  // at all. Team Profiles + Club Admin Home (later pass) moved the desk-tool hand-off itself off Club
+  // Home's retired "From Here" section and onto the Admin Centre's own section list, reached through
+  // Club Home's Admin Console tile -- still one legitimate, non-native, non-duplicated route.
   const fixtures = code(join(MOBILE, "app/(tabs)/fixtures/index.tsx"))
   assert.doesNotMatch(fixtures, /anyDeskFixtureTool|Fixture Control Centre|\/fixtures\/management/, "the Fixtures tab must not reintroduce this hand-off card")
   const home = code(join(MOBILE, "src/club/home.tsx"))
-  assert.match(home, /anyDeskFixtureTool\(data\.overview\.authority\)/)
+  assert.doesNotMatch(home, /anyDeskFixtureTool|Fixture Control Centre|\/fixtures\/management/, "Club Home must not carry its own desk-tool hand-off; the Admin Console tile is the one route to it")
+  const adminCentre = code("packages/contracts/src/club/admin-centre.ts")
+  for (const capability of ["fixture.planner.use", "fixture.import.run", "competition.creator.use"]) {
+    assert.match(adminCentre, new RegExp(`capability: "${capability.replace(/\./g, "\\.")}"`), `the Admin Centre section list is missing a desk-tool row for ${capability}`)
+    assert.match(adminCentre, new RegExp(`capability: "${capability.replace(/\./g, "\\.")}", native: false`), `${capability}'s Admin Centre row must be a web hand-off, never a native reimplementation`)
+  }
   for (const f of walk(join(MOBILE, "src/team")).concat(walk(join(MOBILE, "app/(tabs)/team")))) {
     assert.doesNotMatch(code(f), /fixtures\/management|planner|fixture\.import|competition\.creator/i, `${f} reaches for a desk tool from a team context`)
   }
@@ -89,12 +96,17 @@ test("Club Home is the shared overview: crest is the club, attention is CA-M8, n
 })
 
 test("entering a team from the club is explicit and only where the person holds that team as a context", () => {
-  const team = code(join(MOBILE, "app/(tabs)/club/teams/[teamId].tsx"))
-  assert.match(team, /teamContextKeyFor\(teamId, contexts, active\)/)
-  assert.match(team, /label="Enter Team Context"/)
-  assert.match(team, /teamKey \? \(/, "offered only with a held key")
-  assert.doesNotMatch(team, /select\(`team:\$\{/, "never builds a context key from a tap")
-  assert.doesNotMatch(team, /loadRegister|AvailabilityRegister|readTeamFixtureRequests|issueTeamJoinCode/, "no Team workspace duplicated inside the club view")
+  // Later pass (Team Profiles + Club Admin Home): this used to be its own club-scoped screen; it now
+  // converges on the shared TeamProfileScreen, which carries the same Enter Team Context rule for every
+  // viewer -- the route file itself is a thin wrapper, asserted separately in mobile_team_profile.test.mts.
+  const route = code(join(MOBILE, "app/(tabs)/club/teams/[teamId].tsx"))
+  assert.match(route, /TeamProfileScreen/, "the route no longer converges on the shared Team Profile screen")
+  const screen = code(join(MOBILE, "src/team/profile-screen.tsx"))
+  assert.match(screen, /teamContextKeyFor\(teamId, contexts, active\)/)
+  assert.match(screen, /label="Enter Team Context"/)
+  assert.match(screen, /teamKey && \(/, "offered only with a held key")
+  assert.doesNotMatch(screen, /select\(`team:\$\{/, "never builds a context key from a tap")
+  assert.doesNotMatch(screen, /loadRegister|AvailabilityRegister|readTeamFixtureRequests|issueTeamJoinCode/, "no Team workspace duplicated inside the club view")
 })
 
 test("club requests use the shared My Requests view across every side, negotiation lives on the Fixture Request detail screen, and the club's More holds no admin junk", () => {

@@ -7950,6 +7950,13 @@
         ]
       },
       {
+        "signature": "team_people_counts(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/team/profile.ts"
+        ]
+      },
+      {
         "signature": "team_playing_group_recipients(uuid)",
         "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
         "consumers": []
@@ -9181,6 +9188,7 @@
       "team_conversation_state(uuid)",
       "team_delete_fixture_message(uuid)",
       "team_people(uuid)",
+      "team_people_counts(uuid)",
       "team_playing_group_recipient_context(uuid)",
       "team_playing_group_recipients(uuid)",
       "team_playing_group_summary(uuid)",
