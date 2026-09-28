@@ -25,10 +25,12 @@ test("loadTeamProfile never counts squad/staff before checking authority.view --
   assert.doesNotMatch(src, /from\("player_team_memberships"\)|from\("team_permissions"\)/, "counts must come from the team_people_counts RPC, never a direct RLS-filtered table count")
 })
 
-test("TeamProfileScreen never claims an empty squad -- the hidden state says 'not available in this view', never 'no players'", () => {
+test("TeamProfileScreen never claims an empty squad -- the restricted state says 'not part of your view', never 'no players', and the two stay textually distinct", () => {
   const src = code("apps/mobile/src/team/profile-screen.tsx")
-  assert.match(src, /Squad details aren(&apos;|')t available in this view/, "the safe hidden-count state is missing its honest copy")
-  assert.doesNotMatch(src, /No players/i, "a hidden count must never render as a fabricated empty squad")
+  const fn = src.slice(src.indexOf("function SquadTab"), src.indexOf("function SquadRow("))
+  const restrictedText = fn.slice(fn.indexOf("!profile.people.rosterVisible"), fn.indexOf("!profile.people.rosterVisible") + 200)
+  assert.match(restrictedText, /Squad isn(&apos;|')t part of your view/, "the restricted state's own honest copy is missing")
+  assert.doesNotMatch(restrictedText, /No players/i, "a denied roster must never render as a fabricated empty squad -- the two states must use different wording")
 })
 
 test("the club Teams list, the Clubhouse cross-club Teams tab and Club Admin Home's Your Teams rail all route to the one canonical /teams/[teamId], never a role-named copy", () => {
@@ -134,7 +136,8 @@ test("the Team Profile still exposes exactly four canonical tabs, in order, and 
   assert.ok(match, "the TABS constant must exist as a single literal array")
   const labels = [...match![1].matchAll(/label: "([^"]+)"/g)].map((m) => m[1])
   assert.deepEqual(labels, ["Overview", "Fixtures", "Squad", "Staff"], "the four destinations, in this exact order, are the whole tab strip")
-  assert.doesNotMatch(src, /pill|Pill/, "pill-shaped tabs must not be restored")
+  const tabRow = src.slice(src.indexOf("{TABS.map("), src.indexOf("{TABS.map(") + 800)
+  assert.doesNotMatch(tabRow, /pill|Pill/, "pill-shaped tabs must not be restored -- the tab row itself must never reach for the pill radius token")
 })
 
 test("'Add Description' opens the focused native description editor, never Team Settings, and an existing description offers Edit instead of Add", () => {
@@ -243,4 +246,77 @@ test("Fixtures/Squad/Staff collapse to the compact forest header -- Overview kee
   const src = code("apps/mobile/src/team/profile-screen.tsx")
   assert.match(src, /\{tab === "overview" && \(\s*<TeamCoverHero/, "the photographic hero must be Overview-only")
   assert.match(src, /title=\{identity\?\.fullLabel \?\? "Team"\}/, "the pinned bar must carry the team's real name so the compact tabs have an identity to read")
+})
+
+/**
+ * TEAM PROFILE SECTION 3 -- SQUAD. The legitimate player roster, reusing the same team_people RPC and
+ * team.roster.view gate the existing People screen already relies on -- no parallel roster reader, no
+ * jersey numbers the canonical schema doesn't carry, and no player photo storage read this build didn't
+ * already have authority for.
+ */
+test("Squad reads through the canonical team_people RPC, scoped to this one team, never a parallel roster query", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const fn = src.slice(src.indexOf("function SquadTab"), src.indexOf("function SquadRow("))
+  assert.match(fn, /readTeamPeople\(supabase, identity\.id\)/, "Squad must read via the shared readTeamPeople helper, scoped to this team's own id")
+  assert.doesNotMatch(fn, /\.from\("player_team_memberships"\)|\.from\("players"\)|\.from\("team_permissions"\)/, "Squad must never read roster rows directly off a table -- team_people is the one authorised reader")
+})
+
+test("Squad's restricted state is gated on the real team.roster.view predictor and is never rendered as an empty squad", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const fn = src.slice(src.indexOf("function SquadTab"), src.indexOf("function SquadRow("))
+  const restrictedIndex = fn.indexOf("!profile.people.rosterVisible || refused")
+  const loadingIndex = fn.indexOf("people === null")
+  const emptyIndex = fn.indexOf('title="No players yet"')
+  assert.ok(restrictedIndex >= 0 && restrictedIndex < loadingIndex, "the restricted check must be decided before the loading skeleton ever renders")
+  assert.ok(loadingIndex < emptyIndex, "loading must be checked and returned before the empty-squad state can ever be reached")
+  assert.match(fn, /NotForYou title="Squad isn&apos;t part of your view"/, "a denied roster must say so honestly, using the same NotForYou pattern the People screen already uses -- never 'No players yet'")
+  assert.match(fn, /e\.code === "42501"/, "the RPC's own refusal must be handled defensively as a second line, even though rosterVisible already predicts it")
+})
+
+test("Squad never fabricates a jersey number and never renders contact, DOB or safeguarding detail", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const fn = src.slice(src.indexOf("function SquadRow("), src.indexOf("function SquadRowSkeleton"))
+  assert.doesNotMatch(fn, /#\d|jersey|squadNumber|shirtNumber/i, "no jersey/squad number field exists on the canonical roster reader -- Squad must not invent one from list order or anywhere else")
+  assert.doesNotMatch(fn, /\bemail\b|\bphone\b|dateOfBirth|\bdob\b/i, "team_people carries names only -- no contact or identity detail belongs on a squad row")
+})
+
+test("Squad's player avatar is the same honest initials fallback the People screen already uses, never a new storage read", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const fn = src.slice(src.indexOf("function SquadRow("), src.indexOf("function SquadRowSkeleton"))
+  assert.match(fn, /<PersonAvatar name={person\.name} url={null} size=\{44\} \/>/, "no authorised whole-roster avatar source exists yet -- this must stay the deliberate initials fallback, not a new bucket read")
+})
+
+test("Add Player and the row's detail destination are both gated on the viewer already standing in this team's own context, never on club-wide or Site Admin scope", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const gate = src.slice(src.indexOf("const inThisTeamContext"), src.indexOf("return (\n    <View style={{ flex: 1, backgroundColor: colour.chalk }}>"))
+  assert.match(gate, /active\?\.kind === "team" && active\.id === identity\.id/, "inThisTeamContext must require the exact team context, since /team/people and /team/settings/* resolve their own team id from it")
+  const fn = src.slice(src.indexOf("function SquadTab"), src.indexOf("function SquadRow("))
+  assert.match(fn, /const canAdd = inThisTeamContext && \(profile\.authority\.rosterManage \|\| profile\.authority\.joinCodeManage\)/, "Add Player must require both team context and a real authority -- never shown merely because the profile itself is visible")
+  assert.match(fn, /const openPlayer = inThisTeamContext \? /, "the row's own destination must use the identical team-context gate, not a separate or looser one")
+})
+
+test("Add Player offers only the two real mobile-reachable ways a squad grows today, each independently capability-gated", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const sheetFn = src.slice(src.indexOf("function AddPlayerSheet"), src.length)
+  assert.match(sheetFn, /canManageCodes && \(/, "Join Codes must be its own independent gate")
+  assert.match(sheetFn, /canManageRequests && \(/, "Join Requests must be its own independent gate")
+  assert.doesNotMatch(sheetFn, /createPlayer|addPlayerDirect|insert_player|new_player_rpc/i, "no new player-creation mutation may be invented for this sheet")
+  const squadFn = src.slice(src.indexOf("function SquadTab"), src.indexOf("function SquadRow("))
+  assert.match(squadFn, /router\.push\("\/team\/settings\/join-codes" as never\)/, "must route to the canonical Join Codes screen, never a new invitation mechanism")
+  assert.match(squadFn, /router\.push\("\/team\/settings\/requests" as never\)/, "must route to the canonical Join Requests screen, never a new membership mutation")
+})
+
+test("the Squad heading count is the real rendered roster length, never the separately-computed aggregate", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const fn = src.slice(src.indexOf("function SquadTab"), src.indexOf("function SquadRow("))
+  assert.match(fn, /const players = people\.players/, "the rendered list must come from the real fetched roster")
+  assert.match(fn, /accessibilityLabel={`\$\{players\.length\} players`}/, "the heading count must reconcile with the rendered rows by construction, not by coincidence")
+})
+
+test("search is case-insensitive over the already-authorised roster only, and distinguishes zero-match from a genuinely empty squad", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const fn = src.slice(src.indexOf("function SquadTab"), src.indexOf("function SquadRow("))
+  assert.match(fn, /query\.trim\(\)\.toLowerCase\(\)/, "the search query must be normalised")
+  assert.match(fn, /p\.name\.toLowerCase\(\)\.includes\(q\)/, "search must be case-insensitive name matching over the already-fetched roster, never a second network call")
+  assert.match(fn, /title="No players match your search"/, "a genuinely empty squad and a zero-match search must be worded differently")
 })

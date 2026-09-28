@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
+import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native"
 import { Image } from "expo-image"
 import { useFocusEffect, useRouter } from "expo-router"
 
 import type { AgendaItem } from "@ovalball/contracts"
 import { loadTeamProfile, loadTeamProfileIdentity, type TeamProfile, type TeamProfileIdentity } from "@ovalball/contracts/team/profile"
+import { readTeamPeople, teamPeopleErrorMessage, type TeamPeople, type TeamPerson } from "@ovalball/contracts/team/people"
 
 import { supabase } from "../auth/supabase"
 import { useAppContexts } from "../context/contexts"
@@ -14,14 +15,15 @@ import { routeForAgendaItem } from "../links/destinations"
 import { teamContextKeyFor } from "./context"
 import { demoTeamCoverAsset } from "./team-cover-demo"
 import { EditDescriptionSheet } from "./edit-description-sheet"
+import { NotForYou } from "./screen"
 import { friendly, logDetail } from "../errors/translate"
 import { OvalballDetailHeader } from "../components/app-header"
 import { BottomSheet } from "../components/bottom-sheet"
 import { NextFixtureCard } from "../components/agenda-row"
-import { ClubCrest } from "../components/identity"
+import { ClubCrest, PersonAvatar } from "../components/identity"
 import { PhotoBottomShade } from "../components/photo-gradient"
 import { pageFixtures } from "../agenda/fixture-list"
-import { Camera, CalendarDays, ChevronRight, Ellipsis, MapPin, SlidersHorizontal, Users } from "../components/icons"
+import { Camera, CalendarDays, ChevronRight, Ellipsis, KeyRound, MapPin, Search, SlidersHorizontal, UserPlus, Users } from "../components/icons"
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../components/ui"
 import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../design/tokens"
 
@@ -130,6 +132,16 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
     !!identity &&
     (active?.kind === "site_admin" || (active?.kind === "team" && active.id === identity.id) || (active?.kind === "club" && active.clubId === identity.clubId))
 
+  // SQUAD'S ROW-TAP AND ADD-PLAYER DESTINATIONS SHARE THIS SAME CONSTRAINT (Section 10/12): `/team/
+  // people/[kind]/[id]`, `/team/settings/join-codes` and `/team/settings/requests` all resolve their own
+  // team id from the viewer's ACTIVE switched context (`useTeamAuthority`), never from a route param --
+  // so pushing to any of them is only ever correct when the viewer is already standing inside THIS
+  // team's own context. Unlike the Fixtures agenda, a club-wide or Site Admin scope does not make these
+  // safe: they would resolve to whatever team (or no team) the viewer happens to be switched into, not
+  // this one. Where this is false, a row simply isn't tappable and Add Player isn't offered (Section 10's
+  // own explicit fallback), rather than risk sending anyone to another team's roster tools.
+  const inThisTeamContext = !!identity && active?.kind === "team" && active.id === identity.id
+
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
       {/* THE TOP BAR STAYS REACHABLE while the rest scrolls -- back navigation and the team menu are
@@ -209,7 +221,7 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
                   onOpenFullList={() => router.push({ pathname: "/fixtures", params: { teamId } } as never)}
                 />
               )}
-              {tab === "squad" && <SquadTab identity={identity} profile={profile} router={router} />}
+              {tab === "squad" && <SquadTab identity={identity} profile={profile} router={router} inThisTeamContext={inThisTeamContext} />}
               {tab === "staff" && (
                 <EmptyState title="Staff is coming soon" body="A dedicated staff list -- coaches, managers and other team roles -- is being built next. Squad already shows how many staff this side has." icon={<Users size={22} color={colour.inkSubtle} />} />
               )}
@@ -638,25 +650,224 @@ function AboutThisTeam({ description, canManage, onEdit }: { description: string
   )
 }
 
-function SquadTab({ identity, profile, router }: { identity: TeamProfileIdentity; profile: TeamProfile; router: ReturnType<typeof useRouter> }) {
-  if (!profile.people.counts) {
-    return <EmptyState title="Not visible here" body="Squad details aren&apos;t available in this view." icon={<Users size={22} color={colour.inkSubtle} />} />
+/**
+ * SQUAD -- the legitimate players attached to THIS team, from the same `team_people` RPC and
+ * `team.roster.view` gate the existing People screen already relies on (Section 5/6 brief): never a
+ * parallel roster query, never a client-side RLS-filtered table read, and never the aggregate
+ * `team_people_counts` standing in for the real rows. `profile.people.rosterVisible` is exactly
+ * `team.roster.view`'s own answer (confirmed against `internal.team_people_authority`'s current
+ * definition), so it correctly predicts whether this call will succeed -- the 42501 branch below is
+ * a defensive second line, not the primary gate.
+ *
+ * FETCHED LAZILY, ONLY WHILE THIS TAB IS OPEN: unlike Fixtures' own small window, a squad list has no
+ * natural size cap (Section 23), so nothing here is worth loading for a viewer who never opens Squad.
+ */
+function SquadTab({
+  identity,
+  profile,
+  router,
+  inThisTeamContext,
+}: {
+  identity: TeamProfileIdentity
+  profile: TeamProfile
+  router: ReturnType<typeof useRouter>
+  inThisTeamContext: boolean
+}) {
+  const [people, setPeople] = useState<TeamPeople | null>(null)
+  const [problem, setProblem] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
+  const [query, setQuery] = useState("")
+  const [addOpen, setAddOpen] = useState(false)
+
+  const load = useCallback(async () => {
+    setProblem(null)
+    try {
+      setPeople(await readTeamPeople(supabase, identity.id))
+      setRefused(false)
+    } catch (caught) {
+      const e = caught as { code?: string }
+      if (e.code === "42501") {
+        // THE SAME REFUSAL, NEVER RELABELLED (Section 20): a denial is never rendered as "no players
+        // yet" -- that would say something false about a team that may have a full squad this viewer
+        // simply isn't shown.
+        setRefused(true)
+        setPeople({ staff: [], players: [], guardians: [], requests: [], archived: [] })
+        return
+      }
+      setProblem(teamPeopleErrorMessage(caught, "Couldn't load the squad. Try again."))
+    }
+  }, [identity.id])
+
+  useEffect(() => {
+    setPeople(null)
+    setProblem(null)
+    setRefused(false)
+    void load()
+  }, [load])
+
+  if (!profile.people.rosterVisible || refused) {
+    return <NotForYou title="Squad isn&apos;t part of your view" body="Who is in the side is shown to the people who run it." />
   }
+  if (problem && !people) {
+    return <ErrorState message={problem} onRetry={load} />
+  }
+  if (people === null) {
+    return (
+      <View style={{ gap: space.md }}>
+        <View style={{ height: 46, borderRadius: radius.pill, backgroundColor: colour.line, opacity: 0.5 }} />
+        <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <SquadRowSkeleton key={i} first={i === 0} />
+          ))}
+        </View>
+      </View>
+    )
+  }
+
+  // ACTIVE PLAYERS ONLY (Section 16): `readTeamPeople`'s own grouping already filters
+  // `player_team_memberships.status = 'active'` -- a former or a still-pending player is never counted
+  // or rendered here, and the heading's own number is this same array's length, never the separately
+  // computed aggregate, so the two can never silently disagree for a fully authorised viewer.
+  const players = people.players
+  const q = query.trim().toLowerCase()
+  const shown = q ? players.filter((p) => p.name.toLowerCase().includes(q)) : players
+  const canAdd = inThisTeamContext && (profile.authority.rosterManage || profile.authority.joinCodeManage)
+  const openPlayer = inThisTeamContext ? (p: TeamPerson) => router.push({ pathname: "/team/people/[kind]/[id]", params: { kind: p.kind, id: p.rowId } } as never) : undefined
+
   return (
     <View style={{ gap: space.md }}>
-      <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.lg, gap: 4 }}>
-        <Text style={[type.title, { color: colour.ink }]}>{profile.people.counts.players}</Text>
-        <Text style={[type.caption, { color: colour.inkMuted }]}>Players</Text>
+      <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
+        <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>Squad</Text>
+        <Text accessibilityLabel={`${players.length} players`} style={[type.title, { color: colour.ink }]}>{players.length}</Text>
       </View>
-      <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.lg, gap: 4 }}>
-        <Text style={[type.title, { color: colour.ink }]}>{profile.people.counts.staff}</Text>
-        <Text style={[type.caption, { color: colour.inkMuted }]}>Staff</Text>
-      </View>
-      {profile.people.rosterVisible ? (
-        <Button label="View People" onPress={() => router.push({ pathname: "/team/people", params: { teamId: identity.id } } as never)} />
-      ) : (
-        <Text style={[type.small, { color: colour.inkMuted }]}>Names aren&apos;t shown in this view.</Text>
+      <Text style={[type.caption, { color: colour.inkMuted, marginTop: -space.sm }]}>Players registered to this team</Text>
+
+      {players.length > 0 && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: TOUCH_TARGET, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.surface }}>
+          <Search size={18} color={colour.inkSubtle} />
+          <TextInput
+            accessibilityLabel="Search players"
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search players..."
+            placeholderTextColor={colour.inkSubtle}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            style={[type.body, { flex: 1, minHeight: TOUCH_TARGET, color: colour.ink }]}
+          />
+        </View>
       )}
+
+      {players.length === 0 ? (
+        <EmptyState title="No players yet" body="Players added to this team will appear here." icon={<Users size={22} color={colour.inkSubtle} />} />
+      ) : shown.length === 0 ? (
+        <EmptyState title="No players match your search" body="Try a different name." icon={<Search size={22} color={colour.inkSubtle} />} />
+      ) : (
+        <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+          {shown.map((p, i) => (
+            <SquadRow key={p.rowId} person={p} first={i === 0} onPress={openPlayer ? () => openPlayer(p) : undefined} />
+          ))}
+        </View>
+      )}
+
+      {canAdd && <Button label="Add Player" onPress={() => setAddOpen(true)} />}
+      <AddPlayerSheet
+        visible={addOpen}
+        onClose={() => setAddOpen(false)}
+        canManageRequests={profile.authority.rosterManage}
+        canManageCodes={profile.authority.joinCodeManage}
+        onJoinRequests={() => { setAddOpen(false); router.push("/team/settings/requests" as never) }}
+        onJoinCodes={() => { setAddOpen(false); router.push("/team/settings/join-codes" as never) }}
+      />
     </View>
+  )
+}
+
+function SquadRow({ person, first, onPress }: { person: TeamPerson; first: boolean; onPress?: () => void }) {
+  const row = (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, paddingHorizontal: space.lg, borderTopWidth: first ? 0 : 1, borderTopColor: colour.line }}>
+      {/* NO REAL PLAYER PHOTO YET (Section 4): the only authorised avatar resolution that exists today
+          (`FamilyProjection`) covers a guardian's OWN linked children, not a whole roster a coach or
+          admin is looking at -- so this stays the same honest initials fallback the existing People
+          screen already uses for every row, rather than a new storage read invented for this screen. */}
+      <PersonAvatar name={person.name} url={null} size={44} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink, fontSize: 15 }]}>{person.name}</Text>
+        <Text style={[type.caption, { color: colour.inkMuted }]}>Player</Text>
+      </View>
+      {!!onPress && <ChevronRight size={17} color={colour.inkSubtle} />}
+    </View>
+  )
+  if (!onPress) {
+    return (
+      <View accessible accessibilityLabel={`${person.name}, player`}>
+        {row}
+      </View>
+    )
+  }
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`${person.name}, player`} onPress={onPress} style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 12, opacity: pressed ? 0.85 : 1 })}>
+      {row}
+    </Pressable>
+  )
+}
+
+function SquadRowSkeleton({ first }: { first: boolean }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, paddingHorizontal: space.lg, borderTopWidth: first ? 0 : 1, borderTopColor: colour.line }}>
+      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colour.line, opacity: 0.5 }} />
+      <View style={{ flex: 1, gap: 6 }}>
+        <View style={{ height: 14, width: "55%", borderRadius: 4, backgroundColor: colour.line, opacity: 0.5 }} />
+        <View style={{ height: 11, width: "30%", borderRadius: 4, backgroundColor: colour.line, opacity: 0.35 }} />
+      </View>
+    </View>
+  )
+}
+
+/**
+ * ADD PLAYER -- exactly the two real mobile-reachable ways a squad grows (Section 12 audit: there is no
+ * third, "create a player directly" mutation on mobile today). Each row is its own capability, gated
+ * independently and exactly as `Team Settings` itself already gates them -- this sheet invents no new
+ * authority and no new membership mutation, it is only a shortcut into the two that already exist.
+ */
+function AddPlayerSheet({
+  visible,
+  onClose,
+  canManageRequests,
+  canManageCodes,
+  onJoinRequests,
+  onJoinCodes,
+}: {
+  visible: boolean
+  onClose: () => void
+  canManageRequests: boolean
+  canManageCodes: boolean
+  onJoinRequests: () => void
+  onJoinCodes: () => void
+}) {
+  return (
+    <BottomSheet visible={visible} onClose={onClose} title="Add Player">
+      {canManageCodes && (
+        <Pressable accessibilityRole="button" accessibilityLabel="Join Codes. Share a code a family can use to ask to join" onPress={onJoinCodes} style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 12, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}>
+          <KeyRound size={20} color={colour.forest800} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[type.smallMedium, { color: colour.ink }]}>Join Codes</Text>
+            <Text style={[type.caption, { color: colour.inkMuted }]}>Share a code a family can use to ask to join</Text>
+          </View>
+          <ChevronRight size={16} color={colour.inkSubtle} />
+        </Pressable>
+      )}
+      {canManageRequests && (
+        <Pressable accessibilityRole="button" accessibilityLabel="Join Requests. Players waiting to be let into the side" onPress={onJoinRequests} style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 12, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}>
+          <UserPlus size={20} color={colour.forest800} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[type.smallMedium, { color: colour.ink }]}>Join Requests</Text>
+            <Text style={[type.caption, { color: colour.inkMuted }]}>Players waiting to be let into the side</Text>
+          </View>
+          <ChevronRight size={16} color={colour.inkSubtle} />
+        </Pressable>
+      )}
+    </BottomSheet>
   )
 }
