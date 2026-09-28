@@ -2591,6 +2591,7 @@ export type Database = {
       };
       club_directory: {
         Row: {
+          accent_colour: string | null;
           active: boolean;
           address: string | null;
           admin_verification_status: string;
@@ -2609,6 +2610,10 @@ export type Database = {
           home_ground: string | null;
           id: string;
           latitude: number | null;
+          logo_candidate_evidence: string | null;
+          logo_candidate_found_at: string | null;
+          logo_candidate_source: string | null;
+          logo_candidate_url: string | null;
           logo_storage_path: string | null;
           longitude: number | null;
           name: string;
@@ -2617,8 +2622,10 @@ export type Database = {
           notes: string | null;
           official_email: string | null;
           postcode: string | null;
+          primary_colour: string | null;
           region: string | null;
           rugby_code: string;
+          secondary_colour: string | null;
           source: string;
           source_updated_at: string | null;
           source_url: string | null;
@@ -2629,6 +2636,7 @@ export type Database = {
           website: string | null;
         };
         Insert: {
+          accent_colour?: string | null;
           active?: boolean;
           address?: string | null;
           admin_verification_status?: string;
@@ -2647,6 +2655,10 @@ export type Database = {
           home_ground?: string | null;
           id?: string;
           latitude?: number | null;
+          logo_candidate_evidence?: string | null;
+          logo_candidate_found_at?: string | null;
+          logo_candidate_source?: string | null;
+          logo_candidate_url?: string | null;
           logo_storage_path?: string | null;
           longitude?: number | null;
           name: string;
@@ -2655,8 +2667,10 @@ export type Database = {
           notes?: string | null;
           official_email?: string | null;
           postcode?: string | null;
+          primary_colour?: string | null;
           region?: string | null;
           rugby_code: string;
+          secondary_colour?: string | null;
           source: string;
           source_updated_at?: string | null;
           source_url?: string | null;
@@ -2667,6 +2681,7 @@ export type Database = {
           website?: string | null;
         };
         Update: {
+          accent_colour?: string | null;
           active?: boolean;
           address?: string | null;
           admin_verification_status?: string;
@@ -2685,6 +2700,10 @@ export type Database = {
           home_ground?: string | null;
           id?: string;
           latitude?: number | null;
+          logo_candidate_evidence?: string | null;
+          logo_candidate_found_at?: string | null;
+          logo_candidate_source?: string | null;
+          logo_candidate_url?: string | null;
           logo_storage_path?: string | null;
           longitude?: number | null;
           name?: string;
@@ -2693,8 +2712,10 @@ export type Database = {
           notes?: string | null;
           official_email?: string | null;
           postcode?: string | null;
+          primary_colour?: string | null;
           region?: string | null;
           rugby_code?: string;
+          secondary_colour?: string | null;
           source?: string;
           source_updated_at?: string | null;
           source_url?: string | null;
@@ -27468,6 +27489,7 @@ export type Database = {
       site_club_directory_record: {
         Args: { p_directory_id: string };
         Returns: {
+          accent_colour: string | null;
           active: boolean;
           address: string | null;
           admin_verification_status: string;
@@ -27486,6 +27508,10 @@ export type Database = {
           home_ground: string | null;
           id: string;
           latitude: number | null;
+          logo_candidate_evidence: string | null;
+          logo_candidate_found_at: string | null;
+          logo_candidate_source: string | null;
+          logo_candidate_url: string | null;
           logo_storage_path: string | null;
           longitude: number | null;
           name: string;
@@ -27494,8 +27520,10 @@ export type Database = {
           notes: string | null;
           official_email: string | null;
           postcode: string | null;
+          primary_colour: string | null;
           region: string | null;
           rugby_code: string;
+          secondary_colour: string | null;
           source: string;
           source_updated_at: string | null;
           source_url: string | null;

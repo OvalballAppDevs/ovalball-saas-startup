@@ -492,6 +492,11 @@
       "owner": "Club and Site Admin",
       "reason": "Site Admin Club Directory Verification Status."
     },
+    "directory_enrichment_extension": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club and Site Admin",
+      "reason": "Overnight Directory Enrichment (20270575000000): bio/primary_colour/secondary_colour are valid club_directory_research_proposals fields, an unrecognised field is still rejected, club_directory's new primary_colour/secondary_colour/accent_colour columns reject non-hex values and accept valid ones (same shape as club_kits), a logo candidate can be recorded without ever touching logo_storage_path, and the existing one-pending-proposal-per-field uniqueness holds for the new fields too. Self-seeding and rolled back."
+    },
     "directory_public_profile": {
       "disposition": "CANONICAL_GATE",
       "owner": "Club and Site Admin",
