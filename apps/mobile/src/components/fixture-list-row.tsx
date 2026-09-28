@@ -91,14 +91,17 @@ export function FixtureListRow({
       accessibilityLabel={`${isNext ? "Next. " : ""}${spokenAgendaItem(item, today)}`}
       onPress={onPress}
       style={({ pressed }) => ({
-        borderRadius: radius.lg,
+        borderRadius: radius.md,
         borderWidth: 1,
-        borderColor: isNext ? colour.pitch600 : colour.line,
-        backgroundColor: isNext ? colour.mint100 : colour.surface,
+        // A VERY SUBTLE TINT, NEVER A HEAVY OUTLINE (owner physical review correction): the earlier
+        // saturated pitch-green border gave Next Fixture too much visual weight again, by another
+        // route. The border stays the SAME neutral line every other card uses; only the fill tints.
+        borderColor: colour.line,
+        backgroundColor: isNext ? colour.successSurface : colour.surface,
         opacity: pressed ? 0.94 : cancelled ? 0.65 : 1,
       })}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: space.md, padding: space.md }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingVertical: 10, paddingHorizontal: space.md }}>
         <View style={{ width: 34, alignItems: "center", gap: 1 }}>
           {isNext && (
             <Text style={[type.caption, { color: colour.forest800, fontSize: 9, letterSpacing: 0.4 }]}>NEXT</Text>

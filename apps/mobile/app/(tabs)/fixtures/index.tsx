@@ -175,18 +175,10 @@ export default function Fixtures() {
   const effective = useMemo(() => ({ ...filter, playerId: selectedPlayerId }), [filter, selectedPlayerId])
   const shown = useMemo(() => (items ? applyFilter(items, effective) : null), [items, effective])
 
-  // THE NEXT ONE THAT IS ACTUALLY ON, marked in place rather than pulled into a separate section
-  // (Section 3): a cancelled match is not what somebody is preparing for, so it is skipped for this
-  // purpose but still stays exactly where it belongs chronologically.
-  const nextKey = useMemo(() => {
-    if (direction !== "upcoming" || !shown) return null
-    return shown.find((item) => item.status !== "Cancelled")?.key ?? null
-  }, [shown, direction])
-
   // ONE MATCH, EVERY CHILD IN IT (CA-M9). A family reading all its children collapses the agenda's
   // one-row-per-child onto the event, so two siblings on one side are one row with two answers.
   const familyReading = active !== null && isFamilyFacingContext(active.kind) && selectedPlayerId === null
-  const rows: { row: AgendaItem; siblings?: { member: FamilyMember; attendance: AgendaItem["attendance"]; outstanding: boolean }[] }[] = useMemo(
+  const allRows: { row: AgendaItem; siblings?: { member: FamilyMember; attendance: AgendaItem["attendance"]; outstanding: boolean }[] }[] = useMemo(
     () =>
       familyReading
         ? collapseFamilyEvents(shown ?? []).map((e) => ({
@@ -198,6 +190,15 @@ export default function Fixtures() {
         : (shown ?? []).map((row) => ({ row, siblings: undefined })),
     [shown, familyReading, projection, today]
   )
+
+  // NEXT FIXTURE (owner clarification): its OWN section, same card anatomy, never a second, duplicate
+  // appearance inside Upcoming Fixtures. A cancelled match is not what somebody is preparing for, so it
+  // is skipped for this purpose but still stays exactly where it belongs chronologically further down.
+  const nextRow = useMemo(() => {
+    if (direction !== "upcoming") return null
+    return allRows.find((r) => r.row.status !== "Cancelled") ?? null
+  }, [allRows, direction])
+  const rows = useMemo(() => (nextRow ? allRows.filter((r) => r.row.key !== nextRow.row.key) : allRows), [allRows, nextRow])
 
   const page = useMemo(() => pageFixtures(rows, direction === "upcoming" ? expandedUpcoming : expandedPast), [rows, direction, expandedUpcoming, expandedPast])
 
@@ -341,14 +342,14 @@ export default function Fixtures() {
             <EmptyState
               title={
                 countActive(filter, baseline) > 0
-                  ? "Nothing matches that filter"
+                  ? "No fixtures match these filters"
                   : direction === "upcoming"
                     ? "No upcoming fixtures"
                     : "No past fixtures yet"
               }
               body={
                 countActive(filter, baseline) > 0
-                  ? "Clear the filter to see the rest."
+                  ? "Try different filters, or clear them to see everything."
                   : direction === "upcoming"
                     ? canAdd || canRequest
                       ? "Add a fixture or use Clubhouse to find opposition."
@@ -357,7 +358,12 @@ export default function Fixtures() {
               }
               icon={<OvalIcon size={24} color={colour.inkSubtle} />}
             />
-            {direction === "upcoming" && (canAdd || canRequest) && (
+            {countActive(filter, baseline) > 0 && (
+              <View style={{ marginTop: space.md }}>
+                <Button label="Clear Filters" variant="secondary" onPress={() => setFilter(baseline)} />
+              </View>
+            )}
+            {countActive(filter, baseline) === 0 && direction === "upcoming" && (canAdd || canRequest) && (
               <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.md }}>
                 {canAdd && <Button label="Add Fixture" style={{ flex: 1 }} onPress={() => router.push({ pathname: "/fixtures/new", params: { teamId: active?.id ?? "" } })} />}
                 <Button label="Find a Fixture" variant="secondary" style={{ flex: 1 }} onPress={() => router.push("/clubhouse/find-fixture" as never)} />
@@ -366,17 +372,37 @@ export default function Fixtures() {
           </View>
         )}
 
+        {/* NEXT FIXTURE (owner clarification): its own labelled section, the SAME card anatomy as every
+            other row -- a subtle mint tint and a small NEXT mark, never a giant hero, never a heavier
+            border. Upcoming Fixtures below never repeats it. */}
+        {nextRow && (
+          <View style={{ paddingHorizontal: space.lg, gap: space.sm, marginBottom: space.sm }}>
+            <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>
+              Next Fixture
+            </Text>
+            <FixtureListRow
+              item={nextRow.row}
+              today={today}
+              isNext
+              onPress={() => openEvent(nextRow.row)}
+              child={memberFor(projection, nextRow.row.playerId)}
+              siblings={nextRow.siblings}
+            />
+          </View>
+        )}
+
         {shown && shown.length > 0 && (
           <View style={{ paddingHorizontal: space.lg, gap: space.sm }}>
-            <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>
-              {direction === "upcoming" ? "Upcoming Fixtures" : "Past Fixtures"}
-            </Text>
+            {(page.shown.length > 0 || !nextRow) && (
+              <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>
+                {direction === "upcoming" ? "Upcoming Fixtures" : "Past Fixtures"}
+              </Text>
+            )}
             {page.shown.map(({ row: item, siblings }) => (
               <FixtureListRow
                 key={item.key}
                 item={item}
                 today={today}
-                isNext={item.key === nextKey}
                 onPress={() => openEvent(item)}
                 child={memberFor(projection, item.playerId)}
                 siblings={siblings}
