@@ -5,6 +5,7 @@ import { cookies } from "next/headers"
 
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext } from "@/lib/app-context/session-context"
+import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
 
 export type DocActionResult = { ok: true } | { ok: false; error: string }
@@ -15,6 +16,11 @@ const ALLOWED_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
+}
+const ALLOWED_TEAM_DOC_MIME: Record<string, string> = {
+  ...ALLOWED_MIME,
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 }
 
 async function requireManageableClub(): Promise<{ ok: true; clubId: string; userId: string } | { ok: false; error: string }> {
@@ -130,4 +136,67 @@ export async function deleteClubDocument(documentId: string): Promise<DocActionR
   if (error) return { ok: false, error: error.message }
   revalidatePath("/documents")
   return { ok: true }
+}
+
+/**
+ * TEAM DOCUMENTS (Section 7) -- the canonical RPC path (`add_team_document`), never the raw
+ * insert/upload `uploadClubDocument` above uses. `add_team_document` re-checks authority itself
+ * (team.team.manage OR club.profile.edit OR club.documents.manage) and re-validates the storage path
+ * shape server-side, exactly matching the mobile client's own `addTeamDocument` -- the SAME canonical
+ * write, reached from a second door, never a second write path.
+ */
+export async function uploadTeamDocument(teamId: string, formData: FormData): Promise<DocActionResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Not signed in." }
+
+  const { data: team } = await supabase.from("teams").select("club_id").eq("id", teamId).maybeSingle()
+  if (!team) return { ok: false, error: "Team not found." }
+
+  const file = formData.get("file")
+  const title = String(formData.get("title") ?? "").trim()
+  if (!(file instanceof File)) return { ok: false, error: "No file provided." }
+  if (!title) return { ok: false, error: "A title is required." }
+  const extension = ALLOWED_TEAM_DOC_MIME[file.type]
+  if (!extension) return { ok: false, error: "Use a PDF, Word document or image." }
+  if (file.size > MAX_DOC_BYTES) return { ok: false, error: "Documents must be 10MB or smaller." }
+  if (file.size <= 0) return { ok: false, error: "That file appears to be empty." }
+
+  const storagePath = `${team.club_id}/${teamId}/${crypto.randomUUID()}.${extension}`
+  const bytes = await file.arrayBuffer()
+  const { error: uploadError } = await supabase.storage
+    .from("club-documents")
+    .upload(storagePath, bytes, { contentType: file.type, upsert: false })
+  if (uploadError) return { ok: false, error: "Couldn't upload that file -- please try again." }
+
+  const { error: rpcError } = await supabase.rpc("add_team_document", {
+    p_team_id: teamId,
+    p_storage_path: storagePath,
+    p_title: title,
+    p_original_filename: file.name,
+    p_mime_type: file.type,
+    p_size_bytes: file.size,
+  })
+  if (rpcError) {
+    await supabase.storage.from("club-documents").remove([storagePath])
+    return { ok: false, error: rpcError.message }
+  }
+
+  revalidatePath("/documents")
+  return { ok: true }
+}
+
+/** The one place the web app needs to ask "may I manage THIS team's documents" -- the exact same
+ * three-way union `add_team_document`/`delete_club_document` check server-side, and the exact same
+ * union mobile's `canEditCover` already reuses for Team Gallery. Decides what to SHOW only. */
+export async function canManageTeamDocuments(clubId: string, teamId: string): Promise<boolean> {
+  const supabase = await createClient()
+  const [teamManage, clubProfileEdit, clubDocsManage] = await Promise.all([
+    hasCapability(supabase, "team.team.manage", "team", { clubId, teamId }),
+    hasCapability(supabase, "club.profile.edit", "club", { clubId }),
+    hasCapability(supabase, "club.documents.manage", "club", { clubId }),
+  ])
+  return teamManage || clubProfileEdit || clubDocsManage
 }

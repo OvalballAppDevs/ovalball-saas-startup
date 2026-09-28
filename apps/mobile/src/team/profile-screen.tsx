@@ -26,7 +26,7 @@ import { NextFixtureCard } from "../components/agenda-row"
 import { ClubCrest, PersonAvatar } from "../components/identity"
 import { PhotoBottomShade } from "../components/photo-gradient"
 import { pageFixtures } from "../agenda/fixture-list"
-import { Camera, CalendarDays, ChevronRight, Ellipsis, IdCard, KeyRound, MapPin, Search, SlidersHorizontal, UserPlus, Users } from "../components/icons"
+import { Camera, CalendarDays, ChevronRight, Ellipsis, FileText, IdCard, KeyRound, MapPin, Search, SlidersHorizontal, UserPlus, Users } from "../components/icons"
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../components/ui"
 import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../design/tokens"
 
@@ -249,6 +249,7 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
           canManageSettings={profile.authority.teamManage}
           onTeamPhoto={() => { setMenuOpen(false); router.push({ pathname: "/teams/[teamId]/photo", params: { teamId: identity.id } } as never) }}
           onTeamDetails={() => { setMenuOpen(false); router.push({ pathname: "/teams/[teamId]/details", params: { teamId: identity.id } } as never) }}
+          onTeamDocuments={() => { setMenuOpen(false); router.push({ pathname: "/teams/[teamId]/documents", params: { teamId: identity.id } } as never) }}
           onTeamSettings={() => { setMenuOpen(false); router.push({ pathname: "/admin/teams/[teamId]", params: { teamId: identity.id } } as never) }}
         />
       )}
@@ -285,6 +286,7 @@ function TeamMenuSheet({
   canManageSettings,
   onTeamPhoto,
   onTeamDetails,
+  onTeamDocuments,
   onTeamSettings,
 }: {
   visible: boolean
@@ -293,6 +295,7 @@ function TeamMenuSheet({
   canManageSettings: boolean
   onTeamPhoto: () => void
   onTeamDetails: () => void
+  onTeamDocuments: () => void
   onTeamSettings: () => void
 }) {
   return (
@@ -315,6 +318,18 @@ function TeamMenuSheet({
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[type.smallMedium, { color: colour.ink }]}>Team Details</Text>
           <Text style={[type.caption, { color: colour.inkMuted }]}>Name, age grade, gender, season and description</Text>
+        </View>
+        <ChevronRight size={16} color={colour.inkSubtle} />
+      </Pressable>
+      {/* Shown unconditionally, same reasoning as Team Details above: read_team_documents is refused
+          server-side (42501) for a genuine stranger, and the screen itself renders that refusal as "No
+          documents shared with you" rather than hiding the destination -- exactly Team Gallery's own
+          established shape for a non-roster-visible viewer. */}
+      <Pressable accessibilityRole="button" accessibilityLabel="Documents. This team's shared files" onPress={onTeamDocuments} style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 12, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}>
+        <FileText size={20} color={colour.forest800} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[type.smallMedium, { color: colour.ink }]}>Documents</Text>
+          <Text style={[type.caption, { color: colour.inkMuted }]}>This team's shared files</Text>
         </View>
         <ChevronRight size={16} color={colour.inkSubtle} />
       </Pressable>
@@ -612,6 +627,22 @@ function OverviewTab({
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[type.smallMedium, { color: colour.ink }]}>Team Details</Text>
           <Text style={[type.caption, { color: colour.inkMuted }]}>Name, age grade, gender and season</Text>
+        </View>
+        <ChevronRight size={18} color={colour.inkSubtle} />
+      </Pressable>
+
+      {/* Same unconditional visibility as Team Details above -- read_team_documents itself refuses a
+          genuine stranger server-side; this row is never the authority. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Documents. This team's shared files"
+        onPress={() => router.push({ pathname: "/teams/[teamId]/documents", params: { teamId: identity.id } } as never)}
+        style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.md, minHeight: TOUCH_TARGET + 10, opacity: pressed ? 0.6 : 1 })}
+      >
+        <FileText size={18} color={colour.forest800} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[type.smallMedium, { color: colour.ink }]}>Documents</Text>
+          <Text style={[type.caption, { color: colour.inkMuted }]}>This team's shared files</Text>
         </View>
         <ChevronRight size={18} color={colour.inkSubtle} />
       </Pressable>

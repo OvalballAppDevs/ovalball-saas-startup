@@ -73,6 +73,8 @@ function extensionFor(mimeType: string): string {
   if (mimeType === "image/png") return ".png"
   if (mimeType === "image/webp") return ".webp"
   if (mimeType === "image/jpeg") return ".jpg"
+  if (mimeType === "application/msword") return ".doc"
+  if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return ".docx"
   return ""
 }
 
@@ -82,5 +84,7 @@ function utiFor(mimeType: string): string | undefined {
   if (mimeType === "image/jpeg") return "public.jpeg"
   if (mimeType === "image/png") return "public.png"
   if (mimeType === "image/webp") return "org.webmproject.webp"
+  if (mimeType === "application/msword") return "com.microsoft.word.doc"
+  if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return "org.openxmlformats.wordprocessingml.document"
   return undefined
 }
