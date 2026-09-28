@@ -176,3 +176,71 @@ test("the populated Next Fixture card is the same NextFixtureCard the screen alr
   assert.match(src, /profile\.nextUp \?[\s\S]{0,40}<NextFixtureCard item=\{profile\.nextUp\}/, "Next Fixture must render straight from profile.nextUp via the shared card, not a bespoke populated-state component")
   assert.match(src, /onPress=\{\(\) => onOpenFixture\(profile\.nextUp!\)\}/, "tapping it must route through the one canonical fixture-open handler, never a duplicate fixture screen")
 })
+
+/**
+ * TEAM PROFILE SECTION 2 -- FIXTURES. A focused team-scoped Upcoming/Past/All, never the Club Admin
+ * fixture agenda re-rendered inside this profile.
+ */
+test("the Fixtures tab's Upcoming and Past reads reuse the exact same team-only scope loadTeamProfile already built -- never a second, broader query", () => {
+  const src = code("packages/contracts/src/team/profile.ts")
+  const scopeIndex = src.indexOf('const scope = { kind: "teams"')
+  const historyIndex = src.indexOf("loadAgenda(supabase, scope, teamAgendaWindows(todayIso).past")
+  assert.ok(scopeIndex >= 0, "the one team-only scope must still be declared")
+  assert.ok(historyIndex > scopeIndex, "the new past-fixture read must reuse that same `scope` variable, never construct a second one")
+  assert.match(src, /history: history\.items/, "the past window's items must be returned on the profile, not silently dropped")
+})
+
+test("Upcoming and Past exclude cancelled fixtures; All keeps them, restrained, in their real date order", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const listsFn = src.slice(src.indexOf("const fixtureLists = useMemo"), src.indexOf("const canOpenFullFixtureList"))
+  assert.match(listsFn, /const upcoming = onlyFixtures\(profile\.upcoming\)\.filter\(notCancelled\)/, "Upcoming must filter out Cancelled")
+  assert.match(listsFn, /const past = onlyFixtures\(profile\.history\)\.filter\(notCancelled\)/, "Past must filter out Cancelled")
+  assert.doesNotMatch(listsFn.slice(listsFn.indexOf("const all =")), /notCancelled/, "All must NOT filter out Cancelled -- it is the one segment that keeps real fixture history intact")
+  assert.match(listsFn, /\.sort\(\(a, b\) => a\.date\.localeCompare\(b\.date\)\)/, "All must be in real chronological date order, not left in whatever order the two source reads happened to arrive")
+})
+
+test("each Fixtures segment previews at most five rows via the existing pageFixtures helper, never a hand-rolled slice", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const fn = src.slice(src.indexOf("function FixturesTab"), src.indexOf("function FixtureSegments"))
+  assert.match(fn, /pageFixtures\(lists\[segment\], false\)\.shown/, "the segment's rows must come from pageFixtures with expansion off, capping at its own five-row default")
+})
+
+test("'View Full Fixture List' opens the one canonical Fixtures agenda pre-scoped to this team, and only where that agenda's own active-context scoping is already known to cover it", () => {
+  const screenSrc = code("apps/mobile/src/team/profile-screen.tsx")
+  assert.match(screenSrc, /router\.push\(\{ pathname: "\/fixtures", params: \{ teamId \} \}/, "the CTA must route to the canonical /fixtures screen, never a second full-fixtures page")
+  const gate = screenSrc.slice(screenSrc.indexOf("const canOpenFullFixtureList"), screenSrc.indexOf("return (\n    <View style={{ flex: 1, backgroundColor: colour.chalk }}>"))
+  assert.match(gate, /active\?\.kind === "site_admin"/, "Site Admin's platform-wide scope is a legitimate case")
+  assert.match(gate, /active\?\.kind === "team" && active\.id === identity\.id/, "a viewer already standing in this exact team's own context is a legitimate case")
+  assert.match(gate, /active\?\.kind === "club" && active\.clubId === identity\.clubId/, "a viewer standing in this team's own club is a legitimate case")
+
+  const fixturesSrc = code("apps/mobile/app/(tabs)/fixtures/index.tsx")
+  assert.match(fixturesSrc, /setFilter\(\(f\) => \(\{ \.\.\.f, teamId: params\.teamId \?\? null \}\)\)/, "the incoming teamId must only ever NARROW the existing AgendaFilter.teamId field, never open a second query path")
+})
+
+test("the Team Profile fixture row never renders meet time, and shows a real result only where one exists -- never a fabricated score", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const rowFn = src.slice(src.indexOf("function TeamFixtureRow"), src.indexOf("function OverviewTab"))
+  assert.doesNotMatch(rowFn, /meetTime/, "meet time is match-day operational detail and must never appear in a fixture list row")
+  assert.match(rowFn, /resultOutcome\(item\.result\)/, "the result must come from the canonical resultOutcome helper, never a hand-rolled win/loss guess")
+  assert.match(rowFn, />Result pending</, "a past fixture with no recorded result must say so honestly, never show an invented score")
+})
+
+test("tapping a Team Profile fixture row routes through the same canonical destination table every other agenda surface uses", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  assert.match(src, /onOpenFixture=\{open\}/, "FixturesTab must be driven by the screen's one `open` handler (routeForAgendaItem), never a second routing rule")
+})
+
+test("the Fixtures tab only ever renders once the profile has loaded -- loading and a genuine read error are never rendered as an empty fixture list", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const problemGuard = src.indexOf("problem ? (")
+  const loadingGuard = src.indexOf("!identity || !profile")
+  const fixturesTabCall = src.indexOf('tab === "fixtures" && (')
+  assert.ok(problemGuard >= 0 && problemGuard < fixturesTabCall, "the error guard must sit before any tab content, including Fixtures")
+  assert.ok(loadingGuard >= 0 && loadingGuard < fixturesTabCall, "the loading skeleton guard must sit before any tab content, including Fixtures")
+})
+
+test("Fixtures/Squad/Staff collapse to the compact forest header -- Overview keeps the rich photographic hero, never a second route for either state", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  assert.match(src, /\{tab === "overview" && \(\s*<TeamCoverHero/, "the photographic hero must be Overview-only")
+  assert.match(src, /title=\{identity\?\.fullLabel \?\? "Team"\}/, "the pinned bar must carry the team's real name so the compact tabs have an identity to read")
+})

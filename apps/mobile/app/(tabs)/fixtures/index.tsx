@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
-import { useFocusEffect, useRouter } from "expo-router"
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { isFamilyFacingContext, memberFor, type AgendaItem, type FamilyMember } from "@ovalball/contracts"
 import { collapseFamilyEvents } from "@ovalball/contracts/family/events"
@@ -92,6 +92,20 @@ export default function Fixtures() {
     appliedDefault.current = true
     setFilter((f) => ({ ...f, includeCancelled: baseline.includeCancelled }))
   }, [active, baseline])
+
+  // TEAM PROFILE'S "VIEW FULL FIXTURE LIST" (Section 17): a `teamId` in the route seeds the filter's
+  // OWN existing `teamId` field once, on arrival -- the same narrowing `applyFilter` always performed,
+  // never a second query and never anything that could widen what this screen's own scope already
+  // authorised. Team Profile only ever sends this param where that scope is already known to cover the
+  // team, so this never surfaces as a confusing empty list; it just saves the person the extra tap the
+  // Filter sheet's own Team picker would otherwise ask for.
+  const params = useLocalSearchParams<{ teamId?: string }>()
+  const appliedTeamParam = useRef(false)
+  useEffect(() => {
+    if (appliedTeamParam.current || !params.teamId) return
+    appliedTeamParam.current = true
+    setFilter((f) => ({ ...f, teamId: params.teamId ?? null }))
+  }, [params.teamId])
 
   const load = useCallback(async () => {
     if (!sessionContext || !active) return

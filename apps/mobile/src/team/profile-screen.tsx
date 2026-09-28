@@ -9,7 +9,7 @@ import { loadTeamProfile, loadTeamProfileIdentity, type TeamProfile, type TeamPr
 import { supabase } from "../auth/supabase"
 import { useAppContexts } from "../context/contexts"
 import { todayIso } from "../agenda/load"
-import { relativeDate } from "../agenda/presentation"
+import { dateBlock, homeAwayLabel, kickoffLabel, opponentLine, relativeDate, resultOutcome, shortVenue, spokenAgendaItem } from "../agenda/presentation"
 import { routeForAgendaItem } from "../links/destinations"
 import { teamContextKeyFor } from "./context"
 import { demoTeamCoverAsset } from "./team-cover-demo"
@@ -18,10 +18,10 @@ import { friendly, logDetail } from "../errors/translate"
 import { OvalballDetailHeader } from "../components/app-header"
 import { BottomSheet } from "../components/bottom-sheet"
 import { NextFixtureCard } from "../components/agenda-row"
-import { FixtureListRow } from "../components/fixture-list-row"
+import { ClubCrest } from "../components/identity"
 import { PhotoBottomShade } from "../components/photo-gradient"
 import { pageFixtures } from "../agenda/fixture-list"
-import { Camera, CalendarDays, ChevronRight, Ellipsis, SlidersHorizontal, Users } from "../components/icons"
+import { Camera, CalendarDays, ChevronRight, Ellipsis, MapPin, SlidersHorizontal, Users } from "../components/icons"
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../components/ui"
 import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../design/tokens"
 
@@ -57,7 +57,10 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
   const [problem, setProblem] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [tab, setTab] = useState<Tab>("overview")
-  const [fixturesExpanded, setFixturesExpanded] = useState(false)
+  // PRESERVED ACROSS A FIXTURE VISIT (Section 13): this screen stays mounted while a row push takes the
+  // viewer to `/fixtures/[fixtureId]`, so the segment they had open is exactly where Back returns them,
+  // with no extra state to restore.
+  const [fixtureSegment, setFixtureSegment] = useState<"upcoming" | "past" | "all">("upcoming")
   const [menuOpen, setMenuOpen] = useState(false)
   const [editingDescription, setEditingDescription] = useState(false)
 
@@ -93,15 +96,46 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
     [router, active?.kind]
   )
 
-  const page = useMemo(() => (profile ? pageFixtures(profile.upcoming, fixturesExpanded) : { shown: [], hasMore: false }), [profile, fixturesExpanded])
   const menuAvailable = !!profile && (profile.canEditCover || profile.authority.teamManage)
+
+  // THE THREE FIXTURE LISTS THIS TAB EVER SHOWS -- narrowed and de-duplicated ONCE here from the two
+  // reads `loadTeamProfile` already made (`upcoming`, `history`), never a fourth network round trip.
+  //   Upcoming: legitimate future fixtures, nearest first, cancelled excluded (Section 6).
+  //   Past:     completed fixtures, most recent first, cancelled excluded (Section 7 -- a cancelled
+  //             match never legitimately reads as "the past", it is a fixture that did not happen).
+  //   All:      the season's own reading order, oldest to newest, WITH cancelled fixtures kept in their
+  //             real date slot (Section 8/24) -- the one place this tab admits a cancelled match ever
+  //             existed, deliberately restrained rather than hidden from history entirely.
+  const fixtureLists = useMemo(() => {
+    if (!profile) return { upcoming: [], past: [], all: [] }
+    const onlyFixtures = (items: AgendaItem[]) => items.filter((i) => i.kind === "fixture")
+    const notCancelled = (i: AgendaItem) => i.status !== "Cancelled"
+    const upcoming = onlyFixtures(profile.upcoming).filter(notCancelled)
+    const past = onlyFixtures(profile.history).filter(notCancelled)
+    const seen = new Set<string>()
+    const all = [...onlyFixtures(profile.upcoming), ...onlyFixtures(profile.history)]
+      .filter((i) => (seen.has(i.key) ? false : (seen.add(i.key), true)))
+      .sort((a, b) => a.date.localeCompare(b.date))
+    return { upcoming, past, all }
+  }, [profile])
+
+  // "VIEW FULL FIXTURE LIST" ONLY WHERE IT COULD LEGITIMATELY SHOW SOMETHING (Section 17/27): the
+  // canonical Fixtures agenda scopes itself from the viewer's OWN active context, which this screen does
+  // not control and must never silently switch. Offered only where that context already, structurally,
+  // covers this team -- standing in its own team context, standing in this team's own club, or Site
+  // Admin's platform-wide one -- never guessed from whether Team Profile itself happens to show fixtures,
+  // which would send a cross-club guest or a family context to a screen that would legitimately show
+  // them nothing and read as broken rather than as the honest absence it is.
+  const canOpenFullFixtureList =
+    !!identity &&
+    (active?.kind === "site_admin" || (active?.kind === "team" && active.id === identity.id) || (active?.kind === "club" && active.clubId === identity.clubId))
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
       {/* THE TOP BAR STAYS REACHABLE while the rest scrolls -- back navigation and the team menu are
           never scrolled out of reach, exactly like every other detail screen this primitive serves. */}
       <OvalballDetailHeader
-        title="Team"
+        title={identity?.fullLabel ?? "Team"}
         onBack={() => router.back()}
         tone="forest"
         rightAction={
@@ -130,8 +164,15 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
               content surface's own corner radius, sits after them so the rounded-sheet overlap below
               only ever eats into that spacer -- never into the tab row's own height or touch targets. */}
           <View style={{ backgroundColor: surface.forest }}>
-            <TeamCoverHero identity={identity} profile={profile} onOpenClub={identity.clubDirectoryId ? () => router.push({ pathname: "/clubhouse/club/[directoryId]", params: { directoryId: identity.clubDirectoryId } } as never) : undefined} />
-            <View style={{ flexDirection: "row", paddingBottom: space.sm }}>
+            {/* THE RICH PHOTOGRAPHIC HERO IS OVERVIEW'S OWN (Section 3): it earns half the screen because
+                Overview's whole job is "who is this team". Fixtures/Squad/Staff are working screens --
+                the pinned bar above already carries the team's real name, so collapsing straight to the
+                tab row here is the SAME profile settling into its working state, never a second header
+                or a second route. */}
+            {tab === "overview" && (
+              <TeamCoverHero identity={identity} profile={profile} onOpenClub={identity.clubDirectoryId ? () => router.push({ pathname: "/clubhouse/club/[directoryId]", params: { directoryId: identity.clubDirectoryId } } as never) : undefined} />
+            )}
+            <View style={{ flexDirection: "row", paddingTop: tab === "overview" ? 0 : space.xs, paddingBottom: space.sm }}>
               {TABS.map(({ key, label }) => (
                 <Pressable
                   key={key}
@@ -158,18 +199,15 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
                 <OverviewTab identity={identity} profile={profile} today={today} onOpenFixture={open} router={router} teamKey={teamKey} onEnterTeamContext={() => { void select(teamKey!); router.replace("/" as never) }} onEditDescription={() => setEditingDescription(true)} />
               )}
               {tab === "fixtures" && (
-                <>
-                  {page.shown.length === 0 ? (
-                    <EmptyState title="No fixtures scheduled" body="When a fixture is arranged for this side, it appears here." icon={<CalendarDays size={22} color={colour.inkSubtle} />} />
-                  ) : (
-                    <View style={{ gap: space.sm }}>
-                      {page.shown.map((item, index) => (
-                        <FixtureListRow key={item.key} item={item} today={today} isNext={index === 0} onPress={() => open(item)} />
-                      ))}
-                    </View>
-                  )}
-                  {page.hasMore && <Button label="View All" variant="secondary" onPress={() => setFixturesExpanded(true)} />}
-                </>
+                <FixturesTab
+                  lists={fixtureLists}
+                  today={today}
+                  segment={fixtureSegment}
+                  onSegment={setFixtureSegment}
+                  onOpenFixture={open}
+                  canOpenFullList={canOpenFullFixtureList}
+                  onOpenFullList={() => router.push({ pathname: "/fixtures", params: { teamId } } as never)}
+                />
               )}
               {tab === "squad" && <SquadTab identity={identity} profile={profile} router={router} />}
               {tab === "staff" && (
@@ -304,6 +342,181 @@ function TeamCoverHero({ identity, profile, onOpenClub }: { identity: TeamProfil
         </View>
       </View>
     </View>
+  )
+}
+
+/**
+ * FIXTURES -- "what fixtures does THIS team have" (Section 2 brief), a focused team-scoped view, never
+ * the Club Admin fixture agenda wearing this team's colours. Upcoming/Past/All narrow the ONE pair of
+ * reads `loadTeamProfile` already made (`upcoming`, `history`) -- no hardcoded review objects, no second
+ * fixture domain. Each segment previews at most five (Section 16, via the same `pageFixtures` the old
+ * Overview-only list used), nearest/most-recent/earliest first; "View Full Fixture List" is the one door
+ * to the deeper, more powerful canonical Fixtures agenda, offered only where that screen's own
+ * active-context scoping is already known to cover this team.
+ */
+function FixturesTab({
+  lists,
+  today,
+  segment,
+  onSegment,
+  onOpenFixture,
+  canOpenFullList,
+  onOpenFullList,
+}: {
+  lists: { upcoming: AgendaItem[]; past: AgendaItem[]; all: AgendaItem[] }
+  today: string
+  segment: "upcoming" | "past" | "all"
+  onSegment: (next: "upcoming" | "past" | "all") => void
+  onOpenFixture: (item: AgendaItem) => void
+  canOpenFullList: boolean
+  onOpenFullList: () => void
+}) {
+  const shown = pageFixtures(lists[segment], false).shown
+  const empty = {
+    upcoming: { title: "No upcoming fixtures", body: "When a match is arranged for this side, it will appear here." },
+    past: { title: "No past fixtures", body: "Results will appear here once this team has played." },
+    all: { title: "No fixtures yet", body: "This team's fixture list will appear here once one is arranged." },
+  }[segment]
+
+  return (
+    <View style={{ gap: space.md }}>
+      <FixtureSegments value={segment} onChange={onSegment} />
+      {shown.length === 0 ? (
+        <EmptyState title={empty.title} body={empty.body} icon={<CalendarDays size={22} color={colour.inkSubtle} />} />
+      ) : (
+        <View style={{ gap: space.sm }}>
+          {shown.map((item) => (
+            <TeamFixtureRow key={item.key} item={item} today={today} onPress={() => onOpenFixture(item)} />
+          ))}
+        </View>
+      )}
+      {canOpenFullList && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="View Full Fixture List"
+          onPress={onOpenFullList}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: space.sm,
+            minHeight: TOUCH_TARGET,
+            borderRadius: radius.md,
+            borderWidth: 1,
+            borderColor: colour.forest800,
+            opacity: pressed ? 0.7 : 1,
+          })}
+        >
+          <CalendarDays size={18} color={colour.forest800} />
+          <Text style={[type.smallMedium, { color: colour.forest800 }]}>View Full Fixture List</Text>
+        </Pressable>
+      )}
+    </View>
+  )
+}
+
+/** The same forest-fill/neutral segmented control the Fixtures agenda's own Upcoming/Past uses (Section
+ * 5), extended to a third option here -- a small, explicit variant rather than a change to that screen's
+ * own two-way control, which Calendar/Home never touch and must not gain a third state. */
+function FixtureSegments({ value, onChange }: { value: "upcoming" | "past" | "all"; onChange: (next: "upcoming" | "past" | "all") => void }) {
+  const options: { key: "upcoming" | "past" | "all"; label: string }[] = [
+    { key: "upcoming", label: "Upcoming" },
+    { key: "past", label: "Past" },
+    { key: "all", label: "All" },
+  ]
+  return (
+    <View accessibilityRole="tablist" style={{ flexDirection: "row", backgroundColor: "rgba(16,21,18,0.05)", borderRadius: radius.md, padding: 3 }}>
+      {options.map(({ key, label }) => {
+        const selected = key === value
+        return (
+          <Pressable
+            key={key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+            accessibilityLabel={`${label} fixtures`}
+            onPress={() => onChange(key)}
+            style={{ flex: 1, minHeight: TOUCH_TARGET - 8, alignItems: "center", justifyContent: "center", borderRadius: radius.sm, backgroundColor: selected ? colour.forest800 : "transparent" }}
+          >
+            <Text style={[type.smallMedium, { color: selected ? colour.onForest : colour.inkMuted }]}>{label}</Text>
+          </Pressable>
+        )
+      })}
+    </View>
+  )
+}
+
+/**
+ * THE TEAM PROFILE'S OWN FIXTURE ROW (Section 9) -- deliberately not `FixtureListRow`: that row's
+ * second line names which of the viewer's OWN teams the fixture belongs to, a fact this screen already
+ * gave the reader once, in its header, for every row on the page. This one spends that line on
+ * Home/Away and fixture type instead, and shows kickoff alongside venue on the third line (Section 12 --
+ * meet time still never appears here or anywhere else in a fixture list), replaced by the real score and
+ * a restrained Win/Loss/Draw once a result exists (Section 7). Presentation only: every fact comes from
+ * the same `AgendaItem` shape and the same presentation helpers (`dateBlock`, `homeAwayLabel`,
+ * `resultOutcome`, `shortVenue`, `kickoffLabel`, `spokenAgendaItem`) `FixtureListRow` itself already
+ * draws from.
+ */
+function TeamFixtureRow({ item, today, onPress }: { item: AgendaItem; today: string; onPress: () => void }) {
+  const block = dateBlock(item.date)
+  const cancelled = item.status === "Cancelled"
+  const home = homeAwayLabel(item.homeAway)
+  const outcome = resultOutcome(item.result)
+  const venue = shortVenue(item.venue)
+  const kickoff = kickoffLabel(item.time)
+  const isPast = item.date < today
+  const metaLine = [home?.spoken, item.gameType].filter(Boolean).join(" · ") || null
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={spokenAgendaItem(item, today)}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.sm,
+        paddingVertical: 10,
+        paddingHorizontal: space.md,
+        borderRadius: radius.md,
+        borderWidth: 1,
+        borderColor: colour.line,
+        backgroundColor: colour.surface,
+        opacity: pressed ? 0.94 : cancelled ? 0.65 : 1,
+      })}
+    >
+      <View style={{ width: 34, alignItems: "center", gap: 1 }}>
+        <Text style={[type.caption, { color: colour.inkSubtle, fontSize: 10, letterSpacing: 0.4 }]}>{block.weekday}</Text>
+        <Text style={[type.smallMedium, { color: colour.ink, fontSize: 18, lineHeight: 20 }]}>{block.day}</Text>
+        <Text style={[type.caption, { color: colour.inkSubtle, fontSize: 10, letterSpacing: 0.4 }]}>{block.month}</Text>
+      </View>
+
+      <ClubCrest clubName={item.them?.clubName ?? null} url={item.them?.crestUrl ?? null} size={40} />
+
+      <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
+        <Text numberOfLines={1} style={[type.bodyMedium, { color: colour.ink, fontSize: 15, textDecorationLine: cancelled ? "line-through" : "none" }]}>
+          {opponentLine(item)}
+        </Text>
+        {!!metaLine && <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>{metaLine}</Text>}
+        {cancelled ? (
+          <Text style={[type.caption, { color: colour.inkSubtle, fontSize: 11 }]}>Cancelled</Text>
+        ) : outcome ? (
+          <Text style={[type.caption, { fontSize: 11, color: outcome.tone === "positive" ? colour.forest800 : outcome.tone === "negative" ? colour.danger : colour.inkMuted }]}>
+            {item.result!.ourScore}–{item.result!.theirScore} · {outcome.label}
+          </Text>
+        ) : isPast ? (
+          <Text style={[type.caption, { color: colour.inkSubtle, fontSize: 11 }]}>Result pending</Text>
+        ) : venue ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+            <MapPin size={11} color={colour.inkSubtle} />
+            <Text numberOfLines={1} style={[type.caption, { color: colour.inkSubtle, fontSize: 11 }]}>{[kickoff, venue].filter(Boolean).join(" · ")}</Text>
+          </View>
+        ) : (
+          <Text style={[type.caption, { color: colour.inkSubtle, fontSize: 11 }]}>{kickoff ? `${kickoff} · Venue TBC` : "Venue TBC"}</Text>
+        )}
+      </View>
+
+      <ChevronRight size={18} color={colour.inkSubtle} />
+    </Pressable>
   )
 }
 

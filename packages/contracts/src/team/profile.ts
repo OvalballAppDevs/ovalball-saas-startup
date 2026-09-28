@@ -119,6 +119,14 @@ export interface TeamProfile {
   authority: TeamAuthority
   nextUp: AgendaItem | null
   upcoming: AgendaItem[]
+  /**
+   * FIXTURES ALREADY PLAYED, newest first -- the same rolling `teamAgendaWindows(...).past` window and
+   * the same `loadAgenda` call `loadTeamOverview`'s own `history` already uses, read with
+   * `includeTraining: false` since a Fixtures tab answers "what matches have we got", never "what
+   * training happened". Section 2's Fixtures tab is the one consumer; nothing here re-derives a second
+   * past-fixture query.
+   */
+  history: AgendaItem[]
   people: TeamProfilePeople
   season: TeamProfileSeason | null
   seasonSummary: TeamProfileFixtureSummary | null
@@ -159,7 +167,10 @@ export async function loadTeamProfile(supabase: Client, clubId: string, teamId: 
   // upcoming-only window the screen used before season-scoping existed, and the summary is honestly
   // absent rather than guessed from an arbitrary range.
   const window = seasonRow ? { startIso: seasonRow.starts_on, endIso: seasonRow.ends_on, order: "asc" as const, label: "this season" } : teamAgendaWindows(todayIso).upcoming
-  const agenda = await loadAgenda(supabase, scope, window, { includeTraining: true })
+  const [agenda, history] = await Promise.all([
+    loadAgenda(supabase, scope, window, { includeTraining: true }),
+    loadAgenda(supabase, scope, teamAgendaWindows(todayIso).past, { includeTraining: false }),
+  ])
   const upcoming = seasonRow ? agenda.items.filter((i) => i.date >= todayIso) : agenda.items
   const nextUp = upcoming.find(isOn) ?? null
 
@@ -182,6 +193,7 @@ export async function loadTeamProfile(supabase: Client, clubId: string, teamId: 
     authority,
     nextUp,
     upcoming,
+    history: history.items,
     people: { counts, rosterVisible: authority.rosterView },
     season,
     seasonSummary,
