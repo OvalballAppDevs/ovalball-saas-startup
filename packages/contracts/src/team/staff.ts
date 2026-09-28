@@ -18,8 +18,13 @@ type Client = SupabaseClient<Database>
  *
  * THE SAME ROSTER GATE PLAYERS ALREADY USE (`team.roster.view`/`team_people_authority`) -- staff is
  * not a separate audience from the rest of the roster, so it is not a separate capability either.
+ *
+ * TEAM_SAFEGUARDING_LEAD (Section 4 addendum, `20270571000000`) is a genuinely distinct, team-scoped
+ * role -- never the club-scoped, Site-only `SAFEGUARDING_OFFICER` wearing a team-facing label. It
+ * shares FIRST_AIDER's own "VO" bundle (view-only plus `safeguarding.conversation.start`), so it can
+ * reach the club's safeguarding contact but holds none of the confirmed officer's authority.
  */
-export const TEAM_STAFF_ROLE_KEYS = ["TEAM_ADMINISTRATION", "TEAM_MANAGER", "COACH", "FIRST_AIDER"] as const
+export const TEAM_STAFF_ROLE_KEYS = ["TEAM_ADMINISTRATION", "TEAM_MANAGER", "COACH", "FIRST_AIDER", "TEAM_SAFEGUARDING_LEAD"] as const
 
 /** The two presentational coaching titles Section 13/14 allows -- `null` means the plain "Coach" label
  * with no extra title. Authority is always exactly COACH underneath; this never changes what a Coach
@@ -56,7 +61,7 @@ export interface TeamStaffMember {
 /** The row's own deterministic sort key (Section 36) -- the SAME order the reader already put each
  * person's own roles in, read off their first (most senior) role. Two people sharing a rank fall back
  * to name, so the list never reorders itself between reads for no visible reason. */
-const ROLE_RANK: Record<string, number> = { TEAM_ADMINISTRATION: 1, TEAM_MANAGER: 2, COACH: 3, FIRST_AIDER: 4 }
+const ROLE_RANK: Record<string, number> = { TEAM_ADMINISTRATION: 1, TEAM_MANAGER: 2, COACH: 3, FIRST_AIDER: 4, TEAM_SAFEGUARDING_LEAD: 5 }
 export function teamStaffSortKey(member: TeamStaffMember): number {
   return Math.min(...member.roles.map((r) => ROLE_RANK[r.roleKey] ?? 99), 99)
 }

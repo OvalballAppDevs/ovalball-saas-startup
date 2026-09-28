@@ -376,7 +376,58 @@ test("Add Staff honestly reports partial failure -- it never claims full success
   const src = code("apps/mobile/src/team/staff-tab.tsx")
   assert.match(src, /const succeeded: string\[\] = \[\]/, "results must be tracked per role")
   assert.match(src, /const failed: string\[\] = \[\]/, "failures must be tracked separately from successes")
-  assert.match(src, /Added \$\{succeeded\.length\} of \$\{roles\.size\} roles\./, "a partial result must say exactly how many of how many succeeded, never a bare success message")
+  assert.match(src, /Added \$\{succeeded\.length\} of \$\{newRoles\.length\} roles\./, "a partial result must say exactly how many of how many succeeded, never a bare success message")
+})
+
+test("Add Staff Member never mutates straight from the role-selection screen -- a Confirm step sits between selecting roles and granting them", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  const rolesStep = src.slice(src.indexOf('step === "roles" && picked'), src.indexOf('step === "confirm" && picked'))
+  assert.match(rolesStep, /label="Continue" onPress=\{\(\) => setStep\("confirm"\)\}/, "the role-selection screen's own button must only advance to Confirm, never call submit directly")
+  assert.doesNotMatch(rolesStep, /onPress=\{submit\}/, "submit must not be reachable from the role-selection screen")
+  const confirmStep = src.slice(src.indexOf('step === "confirm" && picked'))
+  assert.match(confirmStep, /label="Confirm and Add" onPress=\{submit\}/, "only the Confirm screen's own primary action may call submit")
+})
+
+test("Manage Staff Member stages role changes locally and applies them behind one Save Changes, never firing a mutation the instant a checkbox is tapped", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  const toggleFn = src.slice(src.indexOf("function toggle(key: string) {"), src.indexOf("async function save()"))
+  assert.doesNotMatch(toggleFn, /grantTeamStaffRole|revokeTeamStaffRole|setCoachTitle/, "toggling a role checkbox must only update local staged state, never call a mutation RPC directly")
+  assert.match(src, /label="Save Changes" onPress=\{save\} busy=\{busy\} disabled=\{!hasChanges\}/, "Save Changes must be the one action that applies the staged diff, and must be disabled when nothing changed")
+})
+
+test("Manage Staff Member's Save Changes only grants/revokes the roles that actually changed, leaving every unchanged role alone", () => {
+  const saveFn = code("apps/mobile/src/team/staff-tab.tsx")
+  assert.match(saveFn, /const toGrant = \[\.\.\.selected\]\.filter\(\(k\) => !currentKeys\.has\(k\)\)/, "only newly-selected roles may be granted")
+  assert.match(saveFn, /const toRevoke = member\.roles\.filter\(\(r\) => !selected\.has\(r\.roleKey\)\)/, "only deselected roles may be revoked -- every role still selected is left untouched")
+})
+
+test("Add Staff Member and Manage Staff Member share the exact same role catalogue and selector component, never two role vocabularies", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  const selectorDefinitions = [...src.matchAll(/function RoleSelector\(/g)]
+  assert.equal(selectorDefinitions.length, 1, "there must be exactly one RoleSelector component")
+  const selectorUses = [...src.matchAll(/<RoleSelector /g)]
+  assert.equal(selectorUses.length, 2, "both Add Staff Member and Manage Staff Member must render the same RoleSelector")
+})
+
+test("Team Safeguarding Lead is offered as a grantable team role, ordered after First Aider, and never inherits club Safeguarding Officer authority", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  assert.match(src, /GRANTABLE_ROLES: \(typeof TEAM_STAFF_ROLE_KEYS\)\[number\]\[\] = \["TEAM_MANAGER", "COACH", "FIRST_AIDER", "TEAM_SAFEGUARDING_LEAD"\]/, "Team Safeguarding Lead must be offered, in the owner's own suggested order")
+  const migration = code("supabase/migrations/20270571000000_a_team_names_its_own_safeguarding_contact.sql")
+  assert.match(migration, /'TEAM_SAFEGUARDING_LEAD', 'TEAM', 'Team Safeguarding Lead', 'VO'/, "Team Safeguarding Lead must reuse the same view-only VO bundle First Aider already reuses, never the club officer's SO bundle")
+  assert.doesNotMatch(migration, /'SO'/, "this role must never reference the club Safeguarding Officer's own bundle")
+})
+
+test("the Confirm screen never duplicates BottomSheet's own built-in Cancel button", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  const confirmStep = src.slice(src.indexOf('step === "confirm" && picked'))
+  assert.doesNotMatch(confirmStep, /label="Cancel"/, "BottomSheet already renders its own Cancel button after children -- a second one here would show two Cancel buttons stacked on the Confirm screen (found live, by physical review)")
+})
+
+test("Add Staff Member's Invite a New Staff Member path is honest about the missing invitation architecture, never a decorative QR code", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  assert.match(src, /Select from Club People/, "the existing-person path must be offered")
+  assert.match(src, /Invite a New Staff Member/, "the invite path must be offered as an option, per the approved mockup")
+  assert.doesNotMatch(src, /QrCode|Share QR Code|Share Invite Code/, "no QR code or invite code UI may be built until a real TEAM_STAFF invitation kind exists server-side -- this pass reports the gap rather than faking it")
 })
 
 test("Staff carries no contact action at all -- no messaging route and no phone number, honouring the existing 'no messaging route from a team entity' lock (team_operations_ca7.test.mts) over Section 29's own request", () => {

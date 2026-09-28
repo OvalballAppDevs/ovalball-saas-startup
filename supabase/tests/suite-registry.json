@@ -1770,6 +1770,11 @@
       "owner": "Team Profiles",
       "reason": "Team Profiles Section 4: the new public.team_staff RPC (one row per person, every active role, never the legacy team_permissions compatibility view's collapsed single slot) and its write paths (assign_role/transition_role_assignment called with an explicit team id, set_team_role_title). STA1-STA20: read authority and refusal, cross-team isolation both directions, FIRST_AIDER rendering, two- and three-role aggregation on one person, distinct-person row counting, an existing guardian or adult player gaining and losing a staff role without disturbing the relationship/membership underneath it, minor and unknown-age refusal, a team-delegated Team Administration unable to reach another team, single-role revocation leaving siblings intact, First Aider's live capability ceiling, and a Club Admin with no personal role on the team managing it directly via explicit team id (no synthetic context membership). Self-seeding and rolled back."
     },
+    "team_safeguarding_lead": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team Profiles",
+      "reason": "Team Profiles Section 4 owner-review addendum: the new team-scoped TEAM_SAFEGUARDING_LEAD role (20270571000000), proven genuinely distinct from the club-scoped, Site-only SAFEGUARDING_OFFICER. TSL1-TSL10: role shape (TEAM scope, VO bundle, minor-prohibited, TEAM_ADMIN-delegable), a delegated team manager granting it without reaching Site Admin, cross-team refusal, stranger refusal, minor and unknown-age refusal, coexistence with Coach and First Aider as one row with three roles, an authority ceiling that holds the VO bundle's safeguarding CONTACT keys but none of the confirmed club officer's welfare/dispensation/moderation/contact-edit authority, removal isolation from sibling roles, the canonical label, and the Overview staff count agreeing exactly with the Staff tab's own distinct-person count once a Team Safeguarding Lead is added. Self-seeding and rolled back."
+    },
     "tournament_centre": {
       "disposition": "CANONICAL_GATE",
       "owner": "Fixture operations",
