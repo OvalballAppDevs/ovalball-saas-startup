@@ -113,6 +113,47 @@ incomplete until it has been checked as parent/guardian, adult player and
 team/club staff against the **same** fixture, with only the authorised data and
 actions differing.
 
+## Ovalball mobile chrome
+
+Authenticated mobile product surfaces use deep forest as their primary
+navigation/header chrome. Warm chalk is the default content canvas, white is
+used for contained cards, and bright green is reserved for primary actions and
+active accents. New mobile surfaces must use the shared Ovalball header
+primitives (`AppHeader`, `OvalballDetailHeader` in
+`apps/mobile/src/components/app-header.tsx`) rather than introducing white or
+bespoke top chrome without a deliberate, documented reason.
+
+> DEEP FOREST — app/page header, navigation chrome, bottom nav
+> WARM CHALK — page background
+> WHITE — cards / contained surfaces
+> BRIGHT GREEN — primary actions, selected states, accents
+> MINT — positive/supporting states
+> RESTRAINED AMBER/RED — warning, destructive, status only
+
+`AppHeader`'s `tone` prop defaults to `"forest"` — white (`tone="chalk"`) is an
+explicit opt-out for a screen with a genuine, deliberate reason to differ, never
+the silent default a new screen inherits by doing nothing.
+
+Also:
+
+- The status bar uses light content over forest, dark over chalk — both
+  primitives set this themselves (`expo-status-bar`), so a screen using them
+  never has to remember it separately. No white safe-area strip above a forest
+  header: the two must read as one continuous top surface.
+- Real club crests and person avatars are never tinted, recoloured or
+  substituted for one another to fit the ground they sit on.
+- Root/tab screens and the bottom nav visually bookend the app in forest; the
+  content canvas between them stays chalk/white. Do not make an entire screen's
+  body dark green.
+- A screen with a genuine, deliberate reason to differ (the Calendar's own
+  full-forest feature area, the Clubhouse map's immersive surface, Rugby Hub's
+  photography hierarchy) may vary its BODY: the rule concerns application
+  chrome, not forcing an identical page body onto every screen.
+- `OvalballDetailHeader` is the shared back/title chrome for a detail or flow
+  screen (forest by default, back chevron, a title, an optional single
+  legitimate action) — never the root identity header's avatar/context/
+  switcher content, which belongs only on a root/tab screen.
+
 ## Guardrails
 
 `scripts/verify-content-standard.mjs` checks canonical navigation labels,

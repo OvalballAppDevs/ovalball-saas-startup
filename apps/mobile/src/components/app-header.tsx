@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Pressable, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { StatusBar } from "expo-status-bar"
 
 import { supabase } from "../auth/supabase"
 import { useAppContexts } from "../context/contexts"
@@ -8,7 +9,7 @@ import { removeClubCrest, removeMyAvatar, replaceClubCrest, replaceMyAvatar } fr
 import { ClubCrest, PersonAvatar } from "./identity"
 import { PictureSheet, type PictureAction } from "./picture-sheet"
 import { HeaderUtilities } from "./header-utilities"
-import { ChevronDown } from "./icons"
+import { ChevronDown, ChevronRight } from "./icons"
 import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../design/tokens"
 
 /**
@@ -46,17 +47,20 @@ import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "..
  */
 export function AppHeader({
   onOpenContexts,
-  tone = "chalk",
+  tone = "forest",
   bottomRule = true,
 }: {
   onOpenContexts: () => void
   /**
    * WHICH GROUND THIS HEADER IS STANDING ON.
    *
-   * "chalk" is the app's ordinary light header. "forest" is for a screen whose
-   * whole upper half is the brand ground -- the Calendar -- where a white bar
-   * across the top would cut the screen in two and make the product look like
-   * four unrelated panels stacked on one another.
+   * OWNER DESIGN-SYSTEM RULE (physical review correction pass): deep forest is now the default
+   * authenticated top chrome across the app, not a special case for a screen whose whole upper half is
+   * the brand ground. White was never a deliberate choice for the other root screens -- it was simply
+   * what this prop defaulted to before anybody had reason to say otherwise, and the physical build made
+   * that omission visible. "chalk" remains available for a screen with a genuine, deliberate reason to
+   * differ (an immersive surface, a printed-document-style page) -- it is an opt-OUT now, not the
+   * default a new screen silently inherits by doing nothing.
    *
    * IT IS A GROUND, NOT A THEME. The same identity, the same three utilities, the
    * same badges from the same canonical read; only the ink changes so it stays
@@ -148,19 +152,24 @@ export function AppHeader({
     : ""
 
   return (
-    <View
-      style={{
-        paddingTop: insets.top + space.sm,
-        paddingBottom: space.sm,
-        paddingHorizontal: space.lg,
-        backgroundColor: onForestGround ? surface.forest : colour.chalk,
-        borderBottomWidth: bottomRule ? 1 : 0,
-        borderBottomColor: onForestGround ? onForest.line : colour.line,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: space.sm,
-      }}
-    >
+    <>
+      {/* THE STATUS BAR JOINS THE HEADER'S OWN GROUND (Section 4 of the chrome pass) -- light content
+          on forest, dark on chalk, set here so every screen that uses this one shared header gets it
+          for free rather than having to remember a second, separate fix per screen. */}
+      <StatusBar style={onForestGround ? "light" : "dark"} />
+      <View
+        style={{
+          paddingTop: insets.top + space.sm,
+          paddingBottom: space.sm,
+          paddingHorizontal: space.lg,
+          backgroundColor: onForestGround ? surface.forest : colour.chalk,
+          borderBottomWidth: bottomRule ? 1 : 0,
+          borderBottomColor: onForestGround ? onForest.line : colour.line,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: space.sm,
+        }}
+      >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={person.avatarUrl ? "Your picture. Change it" : "You have no picture. Add one"}
@@ -239,6 +248,72 @@ export function AppHeader({
           flight and closes on the server's success, so nobody is left looking
           at the old picture wondering whether anything happened. */}
       <PictureSheet action={picture} onClose={() => setPicture(null)} />
-    </View>
+      </View>
+    </>
+  )
+}
+
+/**
+ * THE OTHER HALF OF THE SAME SYSTEM -- a detail/flow screen's own header (owner chrome pass): back,
+ * a title, an optional legitimate action, on the SAME forest ground and the SAME status-bar handling
+ * as `AppHeader`, so a tap from a root screen into a fixture, a request or any other detail never drops
+ * from forest into an accidental white bar. Not a copy: every screen that has been hand-copying this
+ * back-chevron block (31 of them, at last count) is a candidate to move onto this one component, not a
+ * reason to invent a second version of it -- but that migration is its own pass, not tonight's.
+ *
+ * NEVER THE ROOT IDENTITY HEADER'S CONTENT. A detail screen is "where am I, how do I leave", not "who
+ * am I and what am I standing in" -- copying `AppHeader`'s avatar/context/switcher onto every fixture
+ * and request screen would be answering a question nobody is asking there.
+ */
+export function OvalballDetailHeader({
+  title,
+  onBack,
+  tone = "forest",
+  rightAction,
+}: {
+  title: string
+  onBack: () => void
+  /** "chalk" only for a screen with a genuine, deliberate reason to differ -- see `AppHeader`'s own note. */
+  tone?: "chalk" | "forest"
+  /** A single legitimate action this specific screen needs beside its title -- never a second identity block. */
+  rightAction?: React.ReactNode
+}) {
+  const insets = useSafeAreaInsets()
+  const onForestGround = tone === "forest"
+  const ink = onForestGround ? onForest.primary : colour.ink
+
+  return (
+    <>
+      <StatusBar style={onForestGround ? "light" : "dark"} />
+      <View
+        style={{
+          paddingTop: insets.top + space.sm,
+          paddingBottom: space.sm,
+          paddingHorizontal: space.md,
+          backgroundColor: onForestGround ? surface.forest : colour.chalk,
+          borderBottomWidth: 1,
+          borderBottomColor: onForestGround ? onForest.line : colour.line,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: space.xs,
+        }}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={onBack}
+          hitSlop={8}
+          style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
+        >
+          <View style={{ transform: [{ rotate: "180deg" }] }}>
+            <ChevronRight size={22} color={ink} />
+          </View>
+        </Pressable>
+        <Text accessibilityRole="header" numberOfLines={1} style={[type.heading, { color: ink, flex: 1 }]}>
+          {title}
+        </Text>
+        {rightAction}
+      </View>
+    </>
   )
 }
