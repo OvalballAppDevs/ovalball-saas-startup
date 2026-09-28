@@ -7518,6 +7518,13 @@
         ]
       },
       {
+        "signature": "set_team_role_title(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/team/staff.ts"
+        ]
+      },
+      {
         "signature": "set_team_award_category(uuid, text, boolean, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7961,6 +7968,13 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "packages/contracts/src/team/profile.ts"
+        ]
+      },
+      {
+        "signature": "team_staff(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/team/staff.ts"
         ]
       },
       {
@@ -9167,6 +9181,7 @@
       "set_team_access(uuid, uuid, text, text)",
       "set_team_alias(uuid, text)",
       "set_team_description(uuid, text)",
+      "set_team_role_title(uuid, text)",
       "set_team_award_category(uuid, text, boolean, text)",
       "set_team_conversation_active(uuid, boolean)",
       "set_updated_at()",
@@ -9197,6 +9212,7 @@
       "team_delete_fixture_message(uuid)",
       "team_people(uuid)",
       "team_people_counts(uuid)",
+      "team_staff(uuid)",
       "team_playing_group_recipient_context(uuid)",
       "team_playing_group_recipients(uuid)",
       "team_playing_group_summary(uuid)",

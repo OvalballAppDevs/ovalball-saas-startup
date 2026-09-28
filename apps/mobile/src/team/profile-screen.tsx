@@ -15,6 +15,7 @@ import { routeForAgendaItem } from "../links/destinations"
 import { teamContextKeyFor } from "./context"
 import { demoTeamCoverAsset } from "./team-cover-demo"
 import { EditDescriptionSheet } from "./edit-description-sheet"
+import { StaffTab } from "./staff-tab"
 import { NotForYou } from "./screen"
 import { friendly, logDetail } from "../errors/translate"
 import { OvalballDetailHeader } from "../components/app-header"
@@ -223,7 +224,11 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
               )}
               {tab === "squad" && <SquadTab identity={identity} profile={profile} router={router} inThisTeamContext={inThisTeamContext} />}
               {tab === "staff" && (
-                <EmptyState title="Staff is coming soon" body="A dedicated staff list -- coaches, managers and other team roles -- is being built next. Squad already shows how many staff this side has." icon={<Users size={22} color={colour.inkSubtle} />} />
+                <StaffTab
+                  identity={{ id: identity.id, clubId: identity.clubId }}
+                  rosterVisible={profile.people.rosterVisible}
+                  canManageRoles={profile.authority.roleAssignTeam}
+                />
               )}
             </View>
           </View>

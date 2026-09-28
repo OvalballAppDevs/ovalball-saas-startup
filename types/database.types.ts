@@ -27585,6 +27585,10 @@ export type Database = {
         Args: { p_description: string; p_team_id: string }
         Returns: undefined
       }
+      set_team_role_title: {
+        Args: { p_assignment_id: string; p_title: string | null }
+        Returns: undefined
+      }
       set_team_award_category: {
         Args: {
           p_category_key: string
@@ -28129,6 +28133,16 @@ export type Database = {
         Returns: {
           players: number | null
           staff: number | null
+        }[]
+      }
+      team_staff: {
+        Args: { p_team_id: string }
+        Returns: {
+          avatar_storage_path: string | null
+          display_name: string
+          membership_id: string
+          person_id: string
+          roles: Json
         }[]
       }
       team_playing_group_recipient_context: {

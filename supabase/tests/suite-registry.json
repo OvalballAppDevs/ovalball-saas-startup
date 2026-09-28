@@ -1765,6 +1765,11 @@
       "owner": "Team Profiles",
       "reason": "Team Profiles Section 1 staff/role audit: a person may be guardian and staff, or staff of more than one role, at once (team_people_counts.staff counts the person once); an adult player may also coach; a minor is refused a minor-prohibited team role by grant_role itself; revoking one role leaves the person's other roles and relationships untouched; a Volunteer-only staff member is counted (the exact undercount 20270566000000 fixes, since the legacy team_permissions view never included that role); an unrelated viewer still gets null, never a fabricated zero. Self-seeding and rolled back."
     },
+    "team_staff_reader": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team Profiles",
+      "reason": "Team Profiles Section 4: the new public.team_staff RPC (one row per person, every active role, never the legacy team_permissions compatibility view's collapsed single slot) and its write paths (assign_role/transition_role_assignment called with an explicit team id, set_team_role_title). STA1-STA20: read authority and refusal, cross-team isolation both directions, FIRST_AIDER rendering, two- and three-role aggregation on one person, distinct-person row counting, an existing guardian or adult player gaining and losing a staff role without disturbing the relationship/membership underneath it, minor and unknown-age refusal, a team-delegated Team Administration unable to reach another team, single-role revocation leaving siblings intact, First Aider's live capability ceiling, and a Club Admin with no personal role on the team managing it directly via explicit team id (no synthetic context membership). Self-seeding and rolled back."
+    },
     "tournament_centre": {
       "disposition": "CANONICAL_GATE",
       "owner": "Fixture operations",

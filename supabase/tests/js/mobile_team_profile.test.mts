@@ -85,11 +85,13 @@ test("cover-photo edit authority reuses the existing Team Manage and Club Profil
   assert.match(src, /canEditCover: authority\.teamManage \|\| clubAuthority\.profileEdit/, "cover-edit authority must be exactly the existing team.team.manage OR club.profile.edit signal, never a third, newly-invented capability")
 })
 
-test("the Staff tab says it is not built yet rather than showing a fabricated or duplicated roster", () => {
+test("the Staff tab renders the real StaffTab component, never a fabricated or duplicated roster", () => {
   const src = code("apps/mobile/src/team/profile-screen.tsx")
-  assert.match(src, /"staff", label: "Staff"/, "the four-tab shell (Overview, Fixtures, Squad, Staff) must be in place for Sections 2-4 to attach to")
-  assert.match(src, /tab === "staff"/, "the Staff tab must render something, not silently do nothing")
-  assert.doesNotMatch(src, /James Wilson|Head Coach|Sarah Mitchell/i, "no invented staff member ever appears")
+  assert.match(src, /"staff", label: "Staff"/, "the four-tab shell (Overview, Fixtures, Squad, Staff) must be in place")
+  assert.match(src, /tab === "staff" && \(\s*<StaffTab/, "the Staff tab must render the real StaffTab component, not a placeholder")
+  // "Head Coach" is now legitimate presentational copy (Section 4's own coaching-title feature); the
+  // literal mockup names it was never allowed to fabricate stay excluded specifically.
+  assert.doesNotMatch(src, /James Wilson|Sarah Mitchell|Mark Thompson|Lisa Carter|Tom Evans/i, "no invented staff member from the Section 4 mockup ever appears verbatim")
 })
 
 /**
@@ -319,4 +321,87 @@ test("search is case-insensitive over the already-authorised roster only, and di
   assert.match(fn, /query\.trim\(\)\.toLowerCase\(\)/, "the search query must be normalised")
   assert.match(fn, /p\.name\.toLowerCase\(\)\.includes\(q\)/, "search must be case-insensitive name matching over the already-fetched roster, never a second network call")
   assert.match(fn, /title="No players match your search"/, "a genuinely empty squad and a zero-match search must be worded differently")
+})
+
+/**
+ * TEAM PROFILE SECTION 4 -- STAFF. The canonical multi-role reader (team_staff), explicit-team-id
+ * management with no synthetic context switch, and the safeguarding-conscious contact/avatar rules.
+ */
+test("Staff is the fourth Team Profile tab, with no nested Squad/Staff switch anywhere in the shell", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const match = src.match(/const TABS: \{ key: Tab; label: string \}\[\] = \[([\s\S]*?)\]/)
+  const labels = [...match![1].matchAll(/label: "([^"]+)"/g)].map((m) => m[1])
+  assert.deepEqual(labels, ["Overview", "Fixtures", "Squad", "Staff"], "Staff must be the fourth and last top-level tab")
+  assert.match(src, /tab === "staff" && \(\s*<StaffTab/, "the Staff tab must render the real StaffTab component")
+})
+
+test("Staff reads through the new team_staff RPC, never the legacy team_people coach branch or a direct table read", () => {
+  const src = code("packages/contracts/src/team/staff.ts")
+  assert.match(src, /supabase\.rpc\("team_staff", \{ p_team_id: teamId \}\)/, "must call the new canonical multi-role reader")
+  assert.doesNotMatch(src, /\.from\("role_assignments"\)|\.from\("team_permissions"\)|\.from\("club_memberships"\)/, "no direct table read may stand in for the RPC")
+})
+
+test("Staff never fabricates HEAD_COACH/ASSISTANT_COACH as real role keys -- authority stays exactly COACH", () => {
+  const migration = code("supabase/migrations/20270570000000_one_person_many_team_roles.sql")
+  assert.doesNotMatch(migration, /insert into public\.role_definitions[\s\S]{0,200}HEAD_COACH|insert into public\.role_definitions[\s\S]{0,200}ASSISTANT_COACH/, "no new role_definitions row may be created for a coaching title")
+  assert.match(migration, /attributes = case when p_title is null then attributes - 'staff_title' else jsonb_set\(attributes, '\{staff_title\}', to_jsonb\(p_title\)\)/, "a title must only ever touch attributes.staff_title on an existing role assignment")
+  assert.match(migration, /if v_assignment\.role_key <> 'COACH' then/, "the title setter must refuse any role assignment that isn't COACH")
+})
+
+test("Safeguarding Officer is never presented as an ordinary team staff role", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  assert.doesNotMatch(src, /SAFEGUARDING_OFFICER/, "Safeguarding Officer is club-scoped and SITE-assignable only (confirmed against the live role_definitions row) -- it has no place in this team-scoped picker")
+})
+
+test("Add Staff Member and role management both use this screen's own explicit clubId/teamId, never a switched active-context team", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  assert.doesNotMatch(src, /useTeamAuthority|useAppContexts/, "Staff management must never depend on the viewer's switched active context (Section 26) -- every mutation carries its own explicit team id")
+  assert.match(src, /grantTeamStaffRole\(supabase, picked\.membershipId, roleKey, teamId,/, "granting a role must pass this screen's own explicit teamId")
+  assert.match(src, /grantTeamStaffRole\(supabase, member\.membershipId, key, teamId,/, "Manage Staff Member's own role toggle must also pass the explicit teamId")
+})
+
+test("Add Staff searches existing club people first and never creates a new identity or a second membership model", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  assert.match(src, /readClubPeople\(supabase, clubId, \{ search: query/, "must search the club's own existing people directory")
+  assert.doesNotMatch(src, /createPerson|createProfile|signUp|insert into public\.profiles/i, "no new identity may be created from this sheet -- only existing club people are selectable")
+})
+
+test("removing a staff role revokes exactly that one assignment, never the person's membership, player place or guardian link", () => {
+  const src = code("packages/contracts/src/team/staff.ts")
+  assert.match(src, /rpc\("transition_role_assignment", \{ p_assignment_id: assignmentId, p_to_state: "REVOKED"/, "must revoke by the specific assignment id, never a broader membership action")
+  assert.doesNotMatch(src, /delete_membership|remove_guardian|archive_player_team_membership|delete_player/i, "revoking a staff role must never reach for a membership/player/guardian deletion path")
+})
+
+test("Add Staff honestly reports partial failure -- it never claims full success when only some of several roles were granted", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  assert.match(src, /const succeeded: string\[\] = \[\]/, "results must be tracked per role")
+  assert.match(src, /const failed: string\[\] = \[\]/, "failures must be tracked separately from successes")
+  assert.match(src, /Added \$\{succeeded\.length\} of \$\{roles\.size\} roles\./, "a partial result must say exactly how many of how many succeeded, never a bare success message")
+})
+
+test("Staff carries no contact action at all -- no messaging route and no phone number, honouring the existing 'no messaging route from a team entity' lock (team_operations_ca7.test.mts) over Section 29's own request", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  assert.doesNotMatch(src, /open_direct_conversation|openConversationWith|my_direct_message_candidates|loadRecipients/, "no direct-conversation primitive may appear anywhere under apps/mobile/src/team/ -- a pre-existing, owner-locked architectural rule this section's own brief did not know about")
+  assert.doesNotMatch(src, /\.phone\b|phoneNumber|Linking\.openURL\(`tel:/i, "no phone number or tel: action is exposed -- Section 7's own conservative default")
+})
+
+test("the Staff row's avatar is a real signed personal picture where the bucket admits it, falling back to initials -- never a club crest, kit or generated portrait", () => {
+  const staffTs = code("packages/contracts/src/team/staff.ts")
+  assert.match(staffTs, /resolvePersonalAvatarUrls\(supabase, rows\.map\(\(r\) => r\.avatar_storage_path\)\)/, "must resolve real profiles.avatar_storage_path pictures via the canonical signed-URL resolver")
+  const tabTsx = code("apps/mobile/src/team/staff-tab.tsx")
+  assert.match(tabTsx, /<PersonAvatar name={member\.displayName} url={member\.avatarUrl} size=\{52\} \/>/, "the row must pass the resolved URL through, with PersonAvatar's own initials fallback for anyone it resolves to null")
+})
+
+test("Staff's restricted state is worded distinctly from empty, and loading never flashes zero staff", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  const restrictedIndex = src.indexOf("!rosterVisible || refused")
+  const loadingIndex = src.indexOf("staff === null")
+  const emptyIndex = src.indexOf('title="No staff added yet"')
+  assert.ok(restrictedIndex >= 0 && restrictedIndex < loadingIndex && loadingIndex < emptyIndex, "restricted must be decided before loading, and loading before the empty state can ever render")
+  assert.match(src, /NotForYou title="Staff isn&apos;t part of your view"/, "a denied staff roster must say so honestly, never 'No staff added yet'")
+})
+
+test("the open Manage Staff Member sheet re-syncs to the freshly reloaded roster after every change, never keeps showing a stale role snapshot", () => {
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  assert.match(src, /setManaging\(staff\.find\(\(m\) => m\.membershipId === managing\.membershipId\) \?\? null\)/, "the currently-open Manage sheet must be replaced with the matching person from the freshly reloaded staff array (or closed if their last role is gone), never left showing what the roles looked like before the change")
 })
