@@ -13,6 +13,12 @@
 --   TSR5  a minor cannot be granted a minor-prohibited team role (grant_role's own enforcement)
 --   TSR6  revoking one role leaves the other role, the guardian link and the player membership intact
 --   TSR7  an unrelated viewer still gets null/null, never a fabricated zero, after all of the above
+--   TSR8  Coach + First Aider, one person: two real assignments
+--   TSR9  Coach + Team Manager + First Aider, one person: three real assignments, still one staff count
+--   TSR10 a guardian who becomes First Aider keeps the guardian relationship
+--   TSR11 First Aider carries none of fixture edit, roster manage, pitch allocation, finance or
+--         safeguarding-officer authority
+--   TSR12 removing First Aider leaves the same person's other role untouched
 --
 -- Self-seeding and rolled back.
 
@@ -172,5 +178,72 @@ select pg_temp.check(
 select pg_temp.person('Unrelated Viewer') as stranger_id \gset
 select pg_temp.check(players is null and staff is null, 'TSR7 an unrelated viewer gets null/null, never zero, from team_people_counts')
   from pg_temp.counts_as(:'stranger_id'::uuid, :'team_id'::uuid);
+
+-- ---- FIRST AIDER (20270568000000) -----------------------------------------------------------------
+--   TSR8   Coach + First Aider, one person: two assignments, one staff count
+--   TSR9   Coach + Team Manager + First Aider, one person: three assignments, one staff count
+--   TSR10  a guardian who also becomes First Aider keeps the guardian relationship
+--   TSR11  First Aider grants no fixture edit, roster manage, pitch allocation, finance or
+--          safeguarding-officer capability -- the minimum legitimate default the brief requires
+--   TSR12  removing First Aider leaves every other role and relationship on the same person untouched
+
+select pg_temp.person('Coach First Aider', '1982-04-01') as tsr8_id \gset
+select pg_temp.member(:'club_id', :'tsr8_id') as tsr8_membership \gset
+select pg_temp.try_grant(:'tsr8_membership'::uuid, 'COACH', :'team_id'::uuid, 'CLUB_ADMIN_ASSIGNMENT', 'TSR8') as tsr8_coach_result \gset
+select pg_temp.try_grant(:'tsr8_membership'::uuid, 'FIRST_AIDER', :'team_id'::uuid, 'CLUB_ADMIN_ASSIGNMENT', 'TSR8') as tsr8_fa_result \gset
+select pg_temp.check(:'tsr8_coach_result' = 'OK' and :'tsr8_fa_result' = 'OK', 'TSR8 setup: Coach and First Aider both grant for the same person (' || :'tsr8_coach_result' || ' / ' || :'tsr8_fa_result' || ')');
+select pg_temp.check(
+  (select count(*) from public.role_assignments where membership_id = :'tsr8_membership' and team_id = :'team_id' and state = 'ACTIVE') = 2,
+  'TSR8 Coach + First Aider is two real assignments on one person'
+);
+
+select pg_temp.person('Coach Manager First Aider', '1979-11-11') as tsr9_id \gset
+select pg_temp.member(:'club_id', :'tsr9_id') as tsr9_membership \gset
+select pg_temp.try_grant(:'tsr9_membership'::uuid, 'COACH', :'team_id'::uuid, 'CLUB_ADMIN_ASSIGNMENT', 'TSR9') as tsr9_a \gset
+select pg_temp.try_grant(:'tsr9_membership'::uuid, 'TEAM_MANAGER', :'team_id'::uuid, 'CLUB_ADMIN_ASSIGNMENT', 'TSR9') as tsr9_b \gset
+select pg_temp.try_grant(:'tsr9_membership'::uuid, 'FIRST_AIDER', :'team_id'::uuid, 'CLUB_ADMIN_ASSIGNMENT', 'TSR9') as tsr9_c \gset
+select pg_temp.check(:'tsr9_a' = 'OK' and :'tsr9_b' = 'OK' and :'tsr9_c' = 'OK', 'TSR9 setup: Coach, Team Manager and First Aider all grant for the same person');
+select pg_temp.check(
+  (select count(*) from public.role_assignments where membership_id = :'tsr9_membership' and team_id = :'team_id' and state = 'ACTIVE') = 3,
+  'TSR9 Coach + Team Manager + First Aider is three real assignments on one person'
+);
+-- Six distinct staff on record by this point: TSR1's guardian-manager, TSR2/6's dual person (Team
+-- Manager survives Coach's TSR6 revocation), TSR3's Volunteer-only person, TSR4's adult player-coach,
+-- and the two new First Aiders from TSR8/TSR9 -- every one counted once, however many roles they hold.
+select pg_temp.check(staff = 6, format('TSR8/TSR9 team_people_counts.staff counts 6 distinct people, never one per role row, got %s', staff))
+  from pg_temp.counts_as(:'admin_id'::uuid, :'team_id'::uuid);
+
+-- TSR10: a guardian who ALSO becomes First Aider keeps the guardian relationship (the same fact TSR1
+-- already proved for Team Manager, re-proved for the new role specifically).
+select pg_temp.person('Guardian First Aider', '1984-02-14') as tsr10_id \gset
+select pg_temp.member(:'club_id', :'tsr10_id') as tsr10_membership \gset
+select pg_temp.player('2017-05-01') as tsr10_child_id \gset
+insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state) values (:'tsr10_id', :'tsr10_child_id', 'guardian', 'active', 'ACTIVE');
+select pg_temp.try_grant(:'tsr10_membership'::uuid, 'FIRST_AIDER', :'team_id'::uuid, 'CLUB_ADMIN_ASSIGNMENT', 'TSR10') as tsr10_result \gset
+select pg_temp.check(
+  :'tsr10_result' = 'OK'
+  and (select count(*) = 1 from public.guardians where guardian_user_id = :'tsr10_id' and player_id = :'tsr10_child_id' and state = 'ACTIVE'),
+  'TSR10 a guardian who becomes First Aider keeps the guardian relationship'
+);
+
+-- TSR11: First Aider grants none of the specific capabilities the brief names -- fixture edit, roster
+-- manage, pitch allocation manage, finance and safeguarding officer authority are all absent.
+do $$
+declare v_leak text;
+begin
+  select string_agg(capability_key, ', ') into v_leak
+  from bundle_capabilities
+  where bundle_key = (select bundle_key from role_definitions where role_key = 'FIRST_AIDER')
+    and capability_key in ('fixture.fixture.edit', 'team.roster.manage', 'venue.pitch_allocation.manage', 'finance.subscription.configure', 'safeguarding.officer.nominate');
+  perform pg_temp.check(v_leak is null, coalesce('TSR11 First Aider must not carry: ' || v_leak, 'TSR11 First Aider carries none of the named capabilities'));
+end $$;
+
+-- TSR12: removing First Aider leaves the person's other role and relationship untouched.
+update public.role_assignments set state = 'REVOKED', revoked_at = now(), revocation_reason = 'TSR12'
+  where membership_id = :'tsr8_membership' and role_key = 'FIRST_AIDER';
+select pg_temp.check(
+  (select state from public.role_assignments where membership_id = :'tsr8_membership' and role_key = 'COACH') = 'ACTIVE',
+  'TSR12 removing First Aider leaves the same person''s Coach role untouched'
+);
 
 rollback;

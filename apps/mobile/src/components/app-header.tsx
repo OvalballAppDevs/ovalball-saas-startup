@@ -309,9 +309,17 @@ export function OvalballDetailHeader({
             <ChevronRight size={22} color={ink} />
           </View>
         </Pressable>
-        <Text accessibilityRole="header" numberOfLines={1} style={[type.heading, { color: ink, flex: 1 }]}>
-          {title}
-        </Text>
+        {/* THE TITLE IS CENTRED ON THE BAR ITSELF, not merely in the space left over between the back
+            button and whatever `rightAction` happens to be -- an absolutely-positioned overlay keeps it
+            centred whether the right side carries nothing, a single icon or a wider control, rather than
+            drifting toward whichever side is narrower. Touches pass through it to nothing, since there is
+            never anything tappable behind the title itself. */}
+        <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: insets.top + space.sm, bottom: space.sm, alignItems: "center", justifyContent: "center", paddingHorizontal: TOUCH_TARGET + space.xl }}>
+          <Text accessibilityRole="header" numberOfLines={1} style={[type.heading, { color: ink, textAlign: "center" }]}>
+            {title}
+          </Text>
+        </View>
+        <View style={{ flex: 1 }} />
         {rightAction}
       </View>
     </>

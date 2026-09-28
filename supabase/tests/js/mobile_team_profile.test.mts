@@ -89,3 +89,28 @@ test("the Staff tab says it is not built yet rather than showing a fabricated or
   assert.match(src, /tab === "staff"/, "the Staff tab must render something, not silently do nothing")
   assert.doesNotMatch(src, /James Wilson|Head Coach|Sarah Mitchell/i, "no invented staff member ever appears")
 })
+
+/**
+ * TEAM PROFILE SECTION 1A -- VISUAL CONVERGENCE + TEAM HEADER ACTIONS. The ellipsis menu, Team Photo's
+ * honest shell, and Fold Team staying out of that menu.
+ */
+test("the team ellipsis menu is capability-gated, never a role check, and never exposes Fold Team directly", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  assert.match(src, /canEditCover && \(/, "Team Photo is offered only where the same cover-edit authority already computed for the screen says yes")
+  assert.match(src, /canManageSettings && \(/, "Team Settings is offered only where team.team.manage already says yes")
+  assert.doesNotMatch(src, /role\s*===?\s*["'](CLUB_ADMIN|Coach|Team Manager)["']/i, "the menu must not decide from a role label")
+  assert.doesNotMatch(src, /Fold Team/, "Fold Team must not be exposed from the Team Profile ellipsis -- it stays inside Team Settings' own danger zone")
+})
+
+test("Team Photo shows the team's real current photo and an honest 'coming soon' state, never a working picker that doesn't exist yet", () => {
+  const src = code("apps/mobile/src/team/team-photo-screen.tsx")
+  assert.match(src, /demoTeamCoverAsset\(identity\)/, "the shown photo is the same real/fallback resolution the Profile hero and Home card already use, never a new one invented for this screen")
+  assert.match(src, /coming soon/i, "the screen must say plainly that choosing a new photo isn't built yet")
+  assert.doesNotMatch(src, /ImagePicker|launchImageLibraryAsync|expo-image-picker/, "no working picker exists yet -- wiring one here would be exactly the fake functionality the brief forbids")
+  assert.match(src, /: !canEdit \? \(/, "an unauthorised direct visit to this route must still refuse on its own account, never trust the menu having hidden the row")
+})
+
+test("the Team Profile top bar centres its title independently of what sits on either side", () => {
+  const src = code("apps/mobile/src/components/app-header.tsx")
+  assert.match(src, /position: "absolute", left: 0, right: 0/, "the title is centred by an absolute overlay across the whole bar, not merely flexed into whatever space the back button and rightAction happen to leave")
+})

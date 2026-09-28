@@ -15,11 +15,12 @@ import { teamContextKeyFor } from "./context"
 import { demoTeamCoverAsset } from "./team-cover-demo"
 import { friendly, logDetail } from "../errors/translate"
 import { OvalballDetailHeader } from "../components/app-header"
+import { BottomSheet } from "../components/bottom-sheet"
 import { NextFixtureCard } from "../components/agenda-row"
-import { FixtureListRow, FixtureRowSkeleton } from "../components/fixture-list-row"
+import { FixtureListRow } from "../components/fixture-list-row"
 import { PhotoBottomShade } from "../components/photo-gradient"
 import { pageFixtures } from "../agenda/fixture-list"
-import { ChevronRight, SlidersHorizontal, Users } from "../components/icons"
+import { Camera, CalendarDays, ChevronRight, Ellipsis, SlidersHorizontal, Users } from "../components/icons"
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../components/ui"
 import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../design/tokens"
 
@@ -41,6 +42,10 @@ const TABS: { key: Tab; label: string }[] = [
  * `readTeamAuthority` for THIS viewer against THIS team, never inferred from the viewer's own active
  * context. A Club Admin looking at their own side and a parent from another club looking at an
  * opposition side land on the exact same component tree with different data drawn.
+ *
+ * ONE CONTINUOUS FOREST BLOCK carries the top bar, the photographic hero and the tab bar (Section 1A
+ * convergence pass) -- header, photo and tabs read as one identity system, the same way the Calendar's
+ * own forest plate sits above its white sheet. Only the content below the tabs is chalk.
  */
 export function TeamProfileScreen({ teamId }: { teamId: string }) {
   const router = useRouter()
@@ -52,6 +57,7 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
   const [refreshing, setRefreshing] = useState(false)
   const [tab, setTab] = useState<Tab>("overview")
   const [fixturesExpanded, setFixturesExpanded] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const load = useCallback(async () => {
     setProblem(null)
@@ -86,108 +92,192 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
   )
 
   const page = useMemo(() => (profile ? pageFixtures(profile.upcoming, fixturesExpanded) : { shown: [], hasMore: false }), [profile, fixturesExpanded])
+  const menuAvailable = !!profile && (profile.canEditCover || profile.authority.teamManage)
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <OvalballDetailHeader title="" onBack={() => router.back()} tone="forest" />
+      {/* THE TOP BAR STAYS REACHABLE while the rest scrolls -- back navigation and the team menu are
+          never scrolled out of reach, exactly like every other detail screen this primitive serves. */}
+      <OvalballDetailHeader
+        title="Team"
+        onBack={() => router.back()}
+        tone="forest"
+        rightAction={
+          menuAvailable ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Team actions" onPress={() => setMenuOpen(true)} hitSlop={8} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
+              <Ellipsis size={22} color={onForest.primary} />
+            </Pressable>
+          ) : undefined
+        }
+      />
       {problem ? (
         <View style={{ padding: space.lg }}>
           <ErrorState message={problem} onRetry={() => void load()} />
         </View>
       ) : !identity || !profile ? (
         <View style={{ padding: space.lg, gap: space.md }}>
-          <View style={{ height: 160, borderRadius: radius.lg, backgroundColor: colour.line }} />
+          <View style={{ height: 220, borderRadius: radius.lg, backgroundColor: colour.line }} />
           <CardSkeleton lines={2} />
           <CardSkeleton lines={4} />
         </View>
       ) : (
-        <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load().finally(() => setRefreshing(false)) }} tintColor={colour.forest800} />}>
-          <TeamCoverHero identity={identity} profile={profile} onOpenClub={identity.clubDirectoryId ? () => router.push({ pathname: "/clubhouse/club/[directoryId]", params: { directoryId: identity.clubDirectoryId } } as never) : undefined} />
-          {/*
-            FOUR TABS, ONE SHELL (Section 1: "architected so Sections 2-4 can become real screens
-            without redesigning the shell"). Fixtures and Squad already have real content from earlier
-            passes; Staff does not exist as its own surface yet, and says so honestly rather than
-            duplicating a thin version of Section 4's own future work.
-          */}
-          <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, flexDirection: "row", gap: space.xs }}>
-            {TABS.map(({ key, label }) => (
-              <Pressable
-                key={key}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: tab === key }}
-                onPress={() => setTab(key)}
-                style={({ pressed }) => ({ flex: 1, minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", borderRadius: radius.md, backgroundColor: tab === key ? colour.forest950 : pressed ? colour.line : "transparent" })}
-              >
-                <Text numberOfLines={1} style={[type.smallMedium, { color: tab === key ? colour.onForest : colour.inkMuted, fontSize: 13 }]}>{label}</Text>
-              </Pressable>
-            ))}
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load().finally(() => setRefreshing(false)) }} tintColor={colour.forest800} />}>
+          {/* THE ONE FOREST BLOCK: photo, identity and tabs never separate from one another -- one
+              continuous ground flowing straight on from the forest bar above, not photo-then-white-page. */}
+          <View style={{ backgroundColor: surface.forest }}>
+            <TeamCoverHero identity={identity} profile={profile} onOpenClub={identity.clubDirectoryId ? () => router.push({ pathname: "/clubhouse/club/[directoryId]", params: { directoryId: identity.clubDirectoryId } } as never) : undefined} />
+            <View style={{ flexDirection: "row" }}>
+              {TABS.map(({ key, label }) => (
+                <Pressable
+                  key={key}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: tab === key }}
+                  onPress={() => setTab(key)}
+                  style={({ pressed }) => ({ flex: 1, minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", gap: 6, opacity: pressed ? 0.75 : 1 })}
+                >
+                  <Text numberOfLines={1} style={[type.smallMedium, { color: tab === key ? onForest.primary : onForest.secondary, fontSize: 14 }]}>{label}</Text>
+                  <View style={{ height: 2, width: 22, borderRadius: 1, backgroundColor: tab === key ? onForest.primary : "transparent" }} />
+                </Pressable>
+              ))}
+            </View>
           </View>
 
-          <View style={{ padding: space.lg, gap: space.md }}>
-            {tab === "overview" && (
-              <OverviewTab identity={identity} profile={profile} today={today} onOpenFixture={open} router={router} teamKey={teamKey} onEnterTeamContext={() => { void select(teamKey!); router.replace("/" as never) }} />
-            )}
-            {tab === "fixtures" && (
-              <>
-                {page.shown.length === 0 ? (
-                  <EmptyState title="No fixtures scheduled" body="When a fixture is arranged for this side, it appears here." icon={<Users size={22} color={colour.inkSubtle} />} />
-                ) : (
-                  <View style={{ gap: space.sm }}>
-                    {page.shown.map((item, index) => (
-                      <FixtureListRow key={item.key} item={item} today={today} isNext={index === 0} onPress={() => open(item)} />
-                    ))}
-                  </View>
-                )}
-                {page.hasMore && <Button label="View All" variant="secondary" onPress={() => setFixturesExpanded(true)} />}
-              </>
-            )}
-            {tab === "squad" && <SquadTab identity={identity} profile={profile} router={router} />}
-            {tab === "staff" && (
-              <EmptyState title="Staff is coming soon" body="A dedicated staff list -- coaches, managers and other team roles -- is being built next. Squad already shows how many staff this side has." icon={<Users size={22} color={colour.inkSubtle} />} />
-            )}
+          {/* THE CONTENT SURFACE, tucked under the forest block with a large-radius seam rather than a
+              hard edge -- the same relationship the Calendar's own forest plate has to its white sheet. */}
+          <View style={{ flex: 1, backgroundColor: colour.chalk, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, marginTop: -radius.xl, paddingTop: radius.xl }}>
+            <View style={{ padding: space.lg, gap: space.md }}>
+              {tab === "overview" && (
+                <OverviewTab identity={identity} profile={profile} today={today} onOpenFixture={open} router={router} teamKey={teamKey} onEnterTeamContext={() => { void select(teamKey!); router.replace("/" as never) }} />
+              )}
+              {tab === "fixtures" && (
+                <>
+                  {page.shown.length === 0 ? (
+                    <EmptyState title="No fixtures scheduled" body="When a fixture is arranged for this side, it appears here." icon={<CalendarDays size={22} color={colour.inkSubtle} />} />
+                  ) : (
+                    <View style={{ gap: space.sm }}>
+                      {page.shown.map((item, index) => (
+                        <FixtureListRow key={item.key} item={item} today={today} isNext={index === 0} onPress={() => open(item)} />
+                      ))}
+                    </View>
+                  )}
+                  {page.hasMore && <Button label="View All" variant="secondary" onPress={() => setFixturesExpanded(true)} />}
+                </>
+              )}
+              {tab === "squad" && <SquadTab identity={identity} profile={profile} router={router} />}
+              {tab === "staff" && (
+                <EmptyState title="Staff is coming soon" body="A dedicated staff list -- coaches, managers and other team roles -- is being built next. Squad already shows how many staff this side has." icon={<Users size={22} color={colour.inkSubtle} />} />
+              )}
+            </View>
           </View>
         </ScrollView>
+      )}
+
+      {profile && identity && (
+        <TeamMenuSheet
+          visible={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          canEditCover={profile.canEditCover}
+          canManageSettings={profile.authority.teamManage}
+          onTeamPhoto={() => { setMenuOpen(false); router.push({ pathname: "/teams/[teamId]/photo", params: { teamId: identity.id } } as never) }}
+          onTeamSettings={() => { setMenuOpen(false); router.push({ pathname: "/admin/teams/[teamId]", params: { teamId: identity.id } } as never) }}
+        />
       )}
     </View>
   )
 }
 
 /**
- * THE TEAM'S PHOTOGRAPH (owner's Visual Correction Pass, Section 8): a real cover where the club has
- * set one (`resolveTeamCover`, unchanged -- production truth still runs real cover -> crest -> none),
- * or the SAME deterministic, category-appropriate stand-in Club Admin Home's Your Teams rail uses
- * (`demoTeamCoverAsset`) -- one resolver, called from both places, so a team's card on Home and its own
- * Profile cover are never two different pictures of the same side. The crest is never the photograph:
- * it is always drawn separately, as a small identity badge over the photo's bottom edge, exactly as it
- * was before this pass.
+ * THE TEAM'S ACTIONS -- Team Photo and Team Settings only, each shown only where the SAME authority the
+ * future editor/existing settings screen already checks says yes (owner brief Section 3/17: "one
+ * canonical rule", never a role-name UI check, never inferred from fixture edit, result recording,
+ * pitch allocation or roster view). Fold Team stays inside Team Settings' own danger zone -- it does
+ * not belong in this menu, and nothing here duplicates it.
+ */
+function TeamMenuSheet({
+  visible,
+  onClose,
+  canEditCover,
+  canManageSettings,
+  onTeamPhoto,
+  onTeamSettings,
+}: {
+  visible: boolean
+  onClose: () => void
+  canEditCover: boolean
+  canManageSettings: boolean
+  onTeamPhoto: () => void
+  onTeamSettings: () => void
+}) {
+  return (
+    <BottomSheet visible={visible} onClose={onClose} title="Team">
+      {canEditCover && (
+        <Pressable accessibilityRole="button" accessibilityLabel="Team Photo. Change the team cover image" onPress={onTeamPhoto} style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 12, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}>
+          <Camera size={20} color={colour.forest800} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[type.smallMedium, { color: colour.ink }]}>Team Photo</Text>
+            <Text style={[type.caption, { color: colour.inkMuted }]}>Change the team cover image</Text>
+          </View>
+          <ChevronRight size={16} color={colour.inkSubtle} />
+        </Pressable>
+      )}
+      {canManageSettings && (
+        <Pressable accessibilityRole="button" accessibilityLabel="Team Settings. Details, people and team management" onPress={onTeamSettings} style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 12, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}>
+          <SlidersHorizontal size={20} color={colour.forest800} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[type.smallMedium, { color: colour.ink }]}>Team Settings</Text>
+            <Text style={[type.caption, { color: colour.inkMuted }]}>Details, people and team management</Text>
+          </View>
+          <ChevronRight size={16} color={colour.inkSubtle} />
+        </Pressable>
+      )}
+    </BottomSheet>
+  )
+}
+
+/** "Senior · Women · 2026/27", "Age Grade · Boys · 2026/27" -- derived from the same canonical
+ * `category`/`gender` fields `fullTeamLabel` already reads, never parsed from the team's name and never
+ * a second naming rule: this never produces the team's NAME, only a metadata line beside it. A part
+ * whose canonical field is genuinely absent (no gender recorded, no current season) is omitted, not
+ * guessed. */
+function teamMetaLine(identity: TeamProfileIdentity, season: string | null): string {
+  const categoryWord = identity.category === "senior" ? "Senior" : identity.category === "colts" ? "Colts" : "Age Grade"
+  const genderWord = identity.gender === "mens" ? "Men" : identity.gender === "womens" ? "Women" : identity.gender === "boys" ? "Boys" : identity.gender === "girls" ? "Girls" : identity.gender === "mixed" ? "Mixed" : null
+  return [categoryWord, genderWord, season].filter(Boolean).join(" · ")
+}
+
+/**
+ * THE TEAM'S PHOTOGRAPH (owner's Visual Correction Pass, Section 8; enlarged and realigned in Section
+ * 1A): a real cover where the club has set one (`resolveTeamCover`, unchanged -- production truth still
+ * runs real cover -> crest -> none), or the SAME deterministic, category-appropriate stand-in Club
+ * Admin Home's Your Teams rail uses (`demoTeamCoverAsset`) -- one resolver, called from both places, so
+ * a team's card on Home and its own Profile cover are never two different pictures of the same side.
+ * The crest is never the photograph: it is always drawn separately, as an identity badge over the
+ * photo's bottom edge, exactly as it was before this pass -- just larger, to carry the parent-club
+ * identity the way the approved mockup does.
  */
 function TeamCoverHero({ identity, profile, onOpenClub }: { identity: TeamProfileIdentity; profile: TeamProfile; onOpenClub?: () => void }) {
   const photo = identity.cover.kind === "cover" ? { uri: identity.cover.url } : demoTeamCoverAsset(identity)
-  // The season only -- `identity.fullLabel` above ("Under 12 Boys", "Women's 1st Team") already carries
-  // category and gender in the one canonical form `fullTeamLabel` produces, so restating them here
-  // would be a second, ad-hoc derivation of the same identity. The season is the one genuinely new
-  // fact, from the canonical register, absent where none is currently on record.
-  const metaLine = profile.season?.label ?? null
+  const metaLine = teamMetaLine(identity, profile.season?.label ?? null)
   return (
-    <View style={{ height: 240, backgroundColor: surface.forest, overflow: "hidden" }}>
+    <View style={{ height: 260, overflow: "hidden" }}>
       <Image source={photo} accessible={false} contentFit="cover" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
       <PhotoBottomShade />
       <View style={{ flex: 1, padding: space.lg, flexDirection: "row", alignItems: "flex-end", gap: space.md }}>
         {!!identity.crestUrl && (
-          <View style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: colour.chalk, alignItems: "center", justifyContent: "center" }}>
-            <Image source={{ uri: identity.crestUrl }} accessible={false} contentFit="contain" style={{ width: 38, height: 38 }} />
+          <View style={{ width: 84, height: 84, borderRadius: radius.lg, backgroundColor: colour.chalk, alignItems: "center", justifyContent: "center" }}>
+            <Image source={{ uri: identity.crestUrl }} accessible={false} contentFit="contain" style={{ width: 66, height: 66 }} />
           </View>
         )}
-        <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
-          <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: onForest.primary }]}>{identity.fullLabel}</Text>
+        <View style={{ flex: 1, minWidth: 0, gap: 2, paddingBottom: 2 }}>
+          <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: onForest.primary, fontSize: 24, lineHeight: 28 }]}>{identity.fullLabel}</Text>
           {onOpenClub ? (
             <Pressable accessibilityRole="link" accessibilityLabel={`Open ${identity.clubName}'s club profile`} onPress={onOpenClub} hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, alignSelf: "flex-start" })}>
-              <Text numberOfLines={1} style={[type.caption, { color: onForest.secondary, textDecorationLine: "underline" }]}>{identity.clubName}</Text>
+              <Text numberOfLines={1} style={[type.small, { color: onForest.primary }]}>{identity.clubName}</Text>
             </Pressable>
           ) : (
-            <Text numberOfLines={1} style={[type.caption, { color: onForest.secondary }]}>{identity.clubName}</Text>
+            <Text numberOfLines={1} style={[type.small, { color: onForest.primary }]}>{identity.clubName}</Text>
           )}
-          {!!metaLine && <Text numberOfLines={1} style={[type.caption, { color: onForest.secondary, marginTop: 2 }]}>{metaLine}</Text>}
+          {!!metaLine && <Text numberOfLines={1} style={[type.caption, { color: onForest.secondary, marginTop: 1 }]}>{metaLine}</Text>}
         </View>
       </View>
     </View>
@@ -226,23 +316,26 @@ function OverviewTab({
         {profile.nextUp ? (
           <NextFixtureCard item={profile.nextUp} today={today} onPress={() => onOpenFixture(profile.nextUp!)} />
         ) : (
-          <EmptyState title="No upcoming fixture" body="When a match is arranged for this side, it appears here." icon={<Users size={22} color={colour.inkSubtle} />} />
+          <EmptyState title="No upcoming fixture" body="When a match is arranged for this side, it appears here." icon={<CalendarDays size={22} color={colour.inkSubtle} />} />
         )}
       </View>
 
       <TeamMetrics profile={profile} />
 
-      <AboutThisTeam description={identity.description} canManage={profile.canEditCover} />
+      <AboutThisTeam description={identity.description} canManage={profile.canEditCover} onManage={() => router.push({ pathname: "/admin/teams/[teamId]", params: { teamId: identity.id } } as never)} />
 
       {profile.authority.teamManage && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Manage Team"
+          accessibilityLabel="Manage Team. Team details, people and settings"
           onPress={() => router.push({ pathname: "/admin/teams/[teamId]", params: { teamId: identity.id } } as never)}
-          style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: TOUCH_TARGET, opacity: pressed ? 0.6 : 1 })}
+          style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.md, minHeight: TOUCH_TARGET + 10, opacity: pressed ? 0.6 : 1 })}
         >
           <SlidersHorizontal size={18} color={colour.forest800} />
-          <Text style={[type.smallMedium, { color: colour.forest800, flex: 1 }]}>Manage Team</Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[type.smallMedium, { color: colour.ink }]}>Manage Team</Text>
+            <Text style={[type.caption, { color: colour.inkMuted }]}>Team details, people and settings</Text>
+          </View>
           <ChevronRight size={16} color={colour.inkSubtle} />
         </Pressable>
       )}
@@ -271,7 +364,7 @@ function TeamMetrics({ profile }: { profile: TeamProfile }) {
     <View style={{ flexDirection: "row", borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, paddingVertical: space.md }}>
       {metrics.map((m, i) => (
         <View key={m.label} accessible accessibilityLabel={`${m.label}: ${m.value === null ? "not available" : m.value}`} style={{ flex: 1, alignItems: "center", gap: 2, borderLeftWidth: i === 0 ? 0 : 1, borderLeftColor: colour.line }}>
-          <Text style={[type.title, { color: colour.ink, fontSize: 20 }]}>{m.value === null ? "—" : m.value}</Text>
+          <Text style={[type.title, { color: colour.ink, fontSize: 22 }]}>{m.value === null ? "—" : m.value}</Text>
           <Text style={[type.caption, { color: colour.inkMuted }]}>{m.label}</Text>
         </View>
       ))}
@@ -280,20 +373,21 @@ function TeamMetrics({ profile }: { profile: TeamProfile }) {
 }
 
 /**
- * ABOUT THIS TEAM -- canonical `teams.description` only, never invented (owner brief Section F). The
+ * ABOUT THIS TEAM -- canonical `teams.description` only, never invented (owner brief Section F/15). The
  * whole card is absent for an unauthorised viewer when there is nothing to show: an admin prompt is
- * exactly the kind of furniture Section F says a stranger must never see. The prompt itself is not yet
- * a working editor -- that belongs to Team Details (Section 8) -- so it names what to do without
- * offering a button that has nowhere real to go yet.
+ * exactly the kind of furniture Section F says a stranger must never see. For an authorised manager
+ * with nothing written yet, the prompt is now actionable -- it opens the same canonical Team Settings
+ * destination the "Manage Team" row already uses, never a second, ad-hoc inline editor.
  */
-function AboutThisTeam({ description, canManage }: { description: string | null; canManage: boolean }) {
+function AboutThisTeam({ description, canManage, onManage }: { description: string | null; canManage: boolean; onManage: () => void }) {
   if (!description && !canManage) return null
   return (
-    <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.lg, gap: 6 }}>
+    <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.lg, gap: space.sm }}>
       <Text accessibilityRole="header" style={[type.smallMedium, { color: colour.ink }]}>About This Team</Text>
       <Text style={[type.small, { color: description ? colour.ink : colour.inkMuted }]}>
         {description ?? "Tell members a little about this team."}
       </Text>
+      {!description && canManage && <Button label="Add Description" variant="quiet" onPress={onManage} />}
     </View>
   )
 }
