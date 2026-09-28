@@ -85,11 +85,15 @@ test("Add Fixture from a club context chooses one of the club's sides and then r
 
 test("Club Home is the shared overview: crest is the club, attention is CA-M8, no icon grid, no fake KPI", () => {
   const home = code(join(MOBILE, "src/club/home.tsx"))
-  assert.match(home, /<ClubCrest clubName=\{club\.name\} url=\{club\.crestUrl\}/, "the crest is the club's canonical crest")
+  // Visual Correction Pass: the crest moved from an inline call in ClubHome itself into the hero
+  // component it now renders through (`ClubHomeHero`), so the match is on the crest reaching the real
+  // club identity by the time it renders, not on textual adjacency to one particular call site.
+  assert.match(home, /<ClubCrest clubName=\{clubName\} url=\{crestUrl\}/, "the crest is rendered from the club's own identity props")
+  assert.match(home, /crestUrl=\{club\.crestUrl\}/, "the hero is given the club's canonical crest, not a second source")
   assert.doesNotMatch(home, /RugbyKit|kit\.primary|PersonAvatar/, "never a kit as a crest, never a person as the club")
   assert.match(home, /<HomeAttention \/>/)
   assert.match(home, /loadClubHome\(supabase/)
-  assert.match(home, /data\.overview\.snapshot\.(today|upcoming|incomplete|awaitingUs|requestsIncoming)/, "the snapshot is the canonical count")
+  assert.match(home, /data\??\.overview\.snapshot\.(today|upcoming|incomplete|awaitingUs|requestsIncoming)/, "the snapshot is the canonical count")
   assert.doesNotMatch(home, /Math\.random|placeholder|TODO/i)
   const index = code(join(MOBILE, "app/(tabs)/index.tsx"))
   assert.match(index, /\{clubContext && <ClubHome \/>\}/)

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Image, Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
+import { Image } from "expo-image"
 import { useFocusEffect, useRouter } from "expo-router"
 
 import type { AgendaItem } from "@ovalball/contracts"
@@ -11,10 +12,12 @@ import { todayIso } from "../agenda/load"
 import { relativeDate } from "../agenda/presentation"
 import { routeForAgendaItem } from "../links/destinations"
 import { teamContextKeyFor } from "./context"
+import { demoTeamCoverAsset } from "./team-cover-demo"
 import { friendly, logDetail } from "../errors/translate"
 import { OvalballDetailHeader } from "../components/app-header"
 import { NextFixtureCard } from "../components/agenda-row"
 import { FixtureListRow, FixtureRowSkeleton } from "../components/fixture-list-row"
+import { PhotoBottomShade } from "../components/photo-gradient"
 import { pageFixtures } from "../agenda/fixture-list"
 import { ChevronRight, SlidersHorizontal, Users } from "../components/icons"
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../components/ui"
@@ -134,18 +137,27 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
   )
 }
 
+/**
+ * THE TEAM'S PHOTOGRAPH (owner's Visual Correction Pass, Section 8): a real cover where the club has
+ * set one (`resolveTeamCover`, unchanged -- production truth still runs real cover -> crest -> none),
+ * or the SAME deterministic, category-appropriate stand-in Club Admin Home's Your Teams rail uses
+ * (`demoTeamCoverAsset`) -- one resolver, called from both places, so a team's card on Home and its own
+ * Profile cover are never two different pictures of the same side. The crest is never the photograph:
+ * it is always drawn separately, as a small identity badge over the photo's bottom edge, exactly as it
+ * was before this pass.
+ */
 function TeamCoverHero({ identity }: { identity: TeamProfileIdentity }) {
+  const photo = identity.cover.kind === "cover" ? { uri: identity.cover.url } : demoTeamCoverAsset(identity)
   return (
-    <View style={{ backgroundColor: surface.forest }}>
-      {identity.cover.kind === "cover" ? (
-        <Image source={{ uri: identity.cover.url }} style={{ width: "100%", height: 180 }} resizeMode="cover" />
-      ) : (
-        <View style={{ width: "100%", height: 120, alignItems: "center", justifyContent: "center" }}>
-          {identity.cover.kind === "crest" && <Image source={{ uri: identity.cover.url }} style={{ width: 64, height: 64, borderRadius: 12 }} resizeMode="contain" />}
-        </View>
-      )}
-      <View style={{ padding: space.lg, flexDirection: "row", alignItems: "flex-end", gap: space.md }}>
-        {identity.cover.kind === "cover" && identity.crestUrl && <Image source={{ uri: identity.crestUrl }} style={{ width: 44, height: 44, borderRadius: 10, marginTop: -34, borderWidth: 2, borderColor: surface.forest }} resizeMode="contain" />}
+    <View style={{ height: 220, backgroundColor: surface.forest, overflow: "hidden" }}>
+      <Image source={photo} accessible={false} contentFit="cover" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
+      <PhotoBottomShade />
+      <View style={{ flex: 1, padding: space.lg, flexDirection: "row", alignItems: "flex-end", gap: space.md }}>
+        {!!identity.crestUrl && (
+          <View style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: colour.chalk, alignItems: "center", justifyContent: "center" }}>
+            <Image source={{ uri: identity.crestUrl }} accessible={false} contentFit="contain" style={{ width: 38, height: 38 }} />
+          </View>
+        )}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text accessibilityRole="header" numberOfLines={1} style={[type.title, { color: onForest.primary }]}>{identity.fullLabel}</Text>
           <Text numberOfLines={1} style={[type.caption, { color: onForest.secondary }]}>{identity.clubName}</Text>

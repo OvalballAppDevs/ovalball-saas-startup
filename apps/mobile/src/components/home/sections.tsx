@@ -141,7 +141,9 @@ function NewsCard({ article, accents, onPress }: { article: ClubNewsCard; accent
   )
 }
 
-function fallbackFor(categoryLabel: string) {
+/** Exported so Club Admin Home's own News & Announcements rail falls back to the same photography by
+ * category, rather than a second fallback rule invented for one more screen. */
+export function fallbackFor(categoryLabel: string) {
   const c = categoryLabel.toLowerCase()
   if (/match|fixture|result/.test(c)) return editorial.news.matchday
   if (/train/.test(c)) return editorial.news.training
