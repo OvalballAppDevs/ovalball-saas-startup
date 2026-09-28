@@ -51,9 +51,13 @@ const config: ExpoConfig = {
     bundleIdentifier: identity.bundle,
     supportsTablet: true,
     infoPlist: {
-      // The launch storyboard's own background, so the very first frame the system draws -- before any
-      // JavaScript exists -- is already the brand ground. This is the frame that used to be white.
-      UIViewControllerBasedStatusBarAppearance: true,
+      // FALSE, NOT TRUE (fixed after a physical-device crash: "RCTStatusBarManager module requires
+      // that the UIViewControllerBasedStatusBarAppearance key in the Info.plist is set to NO"). This
+      // key controls status-bar-per-VIEW-CONTROLLER appearance, not the launch screen -- that is a
+      // separate concern (`backgroundColor` above). `expo-status-bar`'s own `style`/`hidden` props
+      // (which the Ovalball mobile chrome rule now uses on every forest screen) require this to be
+      // false to work at all; left true, every `<StatusBar style=.../>` throws exactly this error.
+      UIViewControllerBasedStatusBarAppearance: false,
     },
   },
   android: {
