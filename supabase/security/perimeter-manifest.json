@@ -7511,6 +7511,13 @@
         ]
       },
       {
+        "signature": "set_team_description(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/team/profile.ts"
+        ]
+      },
+      {
         "signature": "set_team_award_category(uuid, text, boolean, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -9159,6 +9166,7 @@
       "set_subscription_price(uuid, integer, date)",
       "set_team_access(uuid, uuid, text, text)",
       "set_team_alias(uuid, text)",
+      "set_team_description(uuid, text)",
       "set_team_award_category(uuid, text, boolean, text)",
       "set_team_conversation_active(uuid, boolean)",
       "set_updated_at()",

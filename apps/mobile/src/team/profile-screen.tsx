@@ -13,6 +13,7 @@ import { relativeDate } from "../agenda/presentation"
 import { routeForAgendaItem } from "../links/destinations"
 import { teamContextKeyFor } from "./context"
 import { demoTeamCoverAsset } from "./team-cover-demo"
+import { EditDescriptionSheet } from "./edit-description-sheet"
 import { friendly, logDetail } from "../errors/translate"
 import { OvalballDetailHeader } from "../components/app-header"
 import { BottomSheet } from "../components/bottom-sheet"
@@ -58,6 +59,7 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
   const [tab, setTab] = useState<Tab>("overview")
   const [fixturesExpanded, setFixturesExpanded] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [editingDescription, setEditingDescription] = useState(false)
 
   const load = useCallback(async () => {
     setProblem(null)
@@ -123,10 +125,13 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
       ) : (
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load().finally(() => setRefreshing(false)) }} tintColor={colour.forest800} />}>
           {/* THE ONE FOREST BLOCK: photo, identity and tabs never separate from one another -- one
-              continuous ground flowing straight on from the forest bar above, not photo-then-white-page. */}
+              continuous ground flowing straight on from the forest bar above, not photo-then-white-page.
+              The tabs belong entirely to this block: a dedicated forest SPACER, sized to exactly the
+              content surface's own corner radius, sits after them so the rounded-sheet overlap below
+              only ever eats into that spacer -- never into the tab row's own height or touch targets. */}
           <View style={{ backgroundColor: surface.forest }}>
             <TeamCoverHero identity={identity} profile={profile} onOpenClub={identity.clubDirectoryId ? () => router.push({ pathname: "/clubhouse/club/[directoryId]", params: { directoryId: identity.clubDirectoryId } } as never) : undefined} />
-            <View style={{ flexDirection: "row" }}>
+            <View style={{ flexDirection: "row", paddingBottom: space.sm }}>
               {TABS.map(({ key, label }) => (
                 <Pressable
                   key={key}
@@ -140,14 +145,17 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
                 </Pressable>
               ))}
             </View>
+            {/* The spacer the rounded content sheet overlaps -- never the tabs above it. */}
+            <View style={{ height: radius.xl }} />
           </View>
 
-          {/* THE CONTENT SURFACE, tucked under the forest block with a large-radius seam rather than a
-              hard edge -- the same relationship the Calendar's own forest plate has to its white sheet. */}
+          {/* THE CONTENT SURFACE, tucked under the forest block's own spacer with a large-radius seam
+              rather than a hard edge -- the same relationship the Calendar's own forest plate has to its
+              white sheet -- and never across the tab row itself. */}
           <View style={{ flex: 1, backgroundColor: colour.chalk, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, marginTop: -radius.xl, paddingTop: radius.xl }}>
             <View style={{ padding: space.lg, gap: space.md }}>
               {tab === "overview" && (
-                <OverviewTab identity={identity} profile={profile} today={today} onOpenFixture={open} router={router} teamKey={teamKey} onEnterTeamContext={() => { void select(teamKey!); router.replace("/" as never) }} />
+                <OverviewTab identity={identity} profile={profile} today={today} onOpenFixture={open} router={router} teamKey={teamKey} onEnterTeamContext={() => { void select(teamKey!); router.replace("/" as never) }} onEditDescription={() => setEditingDescription(true)} />
               )}
               {tab === "fixtures" && (
                 <>
@@ -180,6 +188,21 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
           canManageSettings={profile.authority.teamManage}
           onTeamPhoto={() => { setMenuOpen(false); router.push({ pathname: "/teams/[teamId]/photo", params: { teamId: identity.id } } as never) }}
           onTeamSettings={() => { setMenuOpen(false); router.push({ pathname: "/admin/teams/[teamId]", params: { teamId: identity.id } } as never) }}
+        />
+      )}
+
+      {editingDescription && identity && (
+        <EditDescriptionSheet
+          teamId={identity.id}
+          current={identity.description}
+          onClose={() => setEditingDescription(false)}
+          onSaved={(description) => {
+            // Updates the card immediately -- no full reload, no second read -- exactly the value the
+            // server just stored (the same trim-to-null it applies, mirrored client-side for this one
+            // optimistic update only).
+            setIdentity((prior) => (prior ? { ...prior, description } : prior))
+            setEditingDescription(false)
+          }}
         />
       )}
     </View>
@@ -292,6 +315,7 @@ function OverviewTab({
   router,
   teamKey,
   onEnterTeamContext,
+  onEditDescription,
 }: {
   identity: TeamProfileIdentity
   profile: TeamProfile
@@ -300,6 +324,7 @@ function OverviewTab({
   router: ReturnType<typeof useRouter>
   teamKey: string | null
   onEnterTeamContext: () => void
+  onEditDescription: () => void
 }) {
   return (
     <>
@@ -322,7 +347,7 @@ function OverviewTab({
 
       <TeamMetrics profile={profile} />
 
-      <AboutThisTeam description={identity.description} canManage={profile.canEditCover} onManage={() => router.push({ pathname: "/admin/teams/[teamId]", params: { teamId: identity.id } } as never)} />
+      <AboutThisTeam description={identity.description} canManage={profile.canEditCover} onEdit={onEditDescription} />
 
       {profile.authority.teamManage && (
         <Pressable
@@ -375,19 +400,27 @@ function TeamMetrics({ profile }: { profile: TeamProfile }) {
 /**
  * ABOUT THIS TEAM -- canonical `teams.description` only, never invented (owner brief Section F/15). The
  * whole card is absent for an unauthorised viewer when there is nothing to show: an admin prompt is
- * exactly the kind of furniture Section F says a stranger must never see. For an authorised manager
- * with nothing written yet, the prompt is now actionable -- it opens the same canonical Team Settings
- * destination the "Manage Team" row already uses, never a second, ad-hoc inline editor.
+ * exactly the kind of furniture Section F says a stranger must never see. For an authorised manager,
+ * "Add Description" (nothing written yet) or "Edit" (something already is) opens the real focused
+ * composer (`EditDescriptionSheet`) -- never a hand-off to Team Settings, and never shown at all once
+ * text exists for an ordinary viewer, who sees only the words themselves.
  */
-function AboutThisTeam({ description, canManage, onManage }: { description: string | null; canManage: boolean; onManage: () => void }) {
+function AboutThisTeam({ description, canManage, onEdit }: { description: string | null; canManage: boolean; onEdit: () => void }) {
   if (!description && !canManage) return null
   return (
     <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, padding: space.lg, gap: space.sm }}>
-      <Text accessibilityRole="header" style={[type.smallMedium, { color: colour.ink }]}>About This Team</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Text accessibilityRole="header" style={[type.smallMedium, { color: colour.ink }]}>About This Team</Text>
+        {!!description && canManage && (
+          <Pressable accessibilityRole="button" accessibilityLabel="Edit team description" onPress={onEdit} hitSlop={8} style={({ pressed }) => ({ minHeight: 32, justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
+            <Text style={[type.smallMedium, { color: colour.forest800 }]}>Edit</Text>
+          </Pressable>
+        )}
+      </View>
       <Text style={[type.small, { color: description ? colour.ink : colour.inkMuted }]}>
         {description ?? "Tell members a little about this team."}
       </Text>
-      {!description && canManage && <Button label="Add Description" variant="quiet" onPress={onManage} />}
+      {!description && canManage && <Button label="Add Description" variant="quiet" onPress={onEdit} />}
     </View>
   )
 }

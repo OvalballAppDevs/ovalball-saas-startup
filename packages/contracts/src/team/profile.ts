@@ -51,6 +51,19 @@ export async function loadTeamProfileIdentity(supabase: Client, teamId: string):
 }
 
 /**
+ * THE ONE GOVERNED WRITE for "About This Team" -- never a direct client `.update()` on `teams`, even
+ * though its own RLS would permit one for the right holder. `set_team_description` (SECURITY DEFINER)
+ * re-checks `team.team.manage` / `club.profile.edit` / the site fallback server-side, trims the text,
+ * and stores canonical NULL for a whitespace-only value rather than an indistinguishable empty string
+ * -- the same shape `identity.description` already expects. Throws on refusal; the caller's own
+ * authority-gated UI is a convenience, never the real gate.
+ */
+export async function setTeamDescription(supabase: Client, teamId: string, description: string): Promise<void> {
+  const { error } = await supabase.rpc("set_team_description", { p_team_id: teamId, p_description: description })
+  if (error) throw error
+}
+
+/**
  * A TEAM PROFILE MAY BE OPENED BY ANYONE WITH A LINK TO IT -- a Club Admin on their own side, a
  * parent scanning their own club's Teams tab, another club's Fixture Secretary browsing Clubhouse
  * before proposing a fixture. `team.team.view` is decided for THAT VIEWER by the same capability

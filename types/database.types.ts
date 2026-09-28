@@ -27581,6 +27581,10 @@ export type Database = {
         Args: { p_alias: string; p_team_id: string }
         Returns: undefined
       }
+      set_team_description: {
+        Args: { p_description: string; p_team_id: string }
+        Returns: undefined
+      }
       set_team_award_category: {
         Args: {
           p_category_key: string

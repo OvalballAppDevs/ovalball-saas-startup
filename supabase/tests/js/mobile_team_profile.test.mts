@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
 
 const code = (p: string) => readFileSync(p, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
 
@@ -113,4 +113,66 @@ test("Team Photo shows the team's real current photo and an honest 'coming soon'
 test("the Team Profile top bar centres its title independently of what sits on either side", () => {
   const src = code("apps/mobile/src/components/app-header.tsx")
   assert.match(src, /position: "absolute", left: 0, right: 0/, "the title is centred by an absolute overlay across the whole bar, not merely flexed into whatever space the back button and rightAction happen to leave")
+})
+
+/**
+ * TEAM PROFILE SECTION 1B -- PHYSICAL REVIEW CORRECTIONS + UAT FIXTURE REVIEW DATA. The tab/content
+ * layering fix, the governed description editor, and the review-only UAT fixture seed.
+ */
+test("the forest tab strip has its own dedicated spacer -- the rounded content sheet's negative margin must never overlap the tabs themselves", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const forestOpen = src.indexOf('backgroundColor: surface.forest')
+  const tabsRow = src.indexOf("TABS.map(")
+  const spacer = src.indexOf('height: radius.xl', tabsRow)
+  assert.ok(forestOpen >= 0 && tabsRow > forestOpen, "the tabs must render inside the forest block")
+  assert.ok(spacer > tabsRow, "a dedicated spacer view must come AFTER the tabs row, so the sheet's negative margin eats the spacer, never the tabs' own height or touch targets")
+})
+
+test("the Team Profile still exposes exactly four canonical tabs, in order, and neither restores pill tabs nor invents a fifth", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const match = src.match(/const TABS: \{ key: Tab; label: string \}\[\] = \[([\s\S]*?)\]/)
+  assert.ok(match, "the TABS constant must exist as a single literal array")
+  const labels = [...match![1].matchAll(/label: "([^"]+)"/g)].map((m) => m[1])
+  assert.deepEqual(labels, ["Overview", "Fixtures", "Squad", "Staff"], "the four destinations, in this exact order, are the whole tab strip")
+  assert.doesNotMatch(src, /pill|Pill/, "pill-shaped tabs must not be restored")
+})
+
+test("'Add Description' opens the focused native description editor, never Team Settings, and an existing description offers Edit instead of Add", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  assert.match(src, /onEditDescription: \(\) => void/, "OverviewTab must accept a dedicated description-edit callback")
+  assert.match(src, /setEditingDescription\(true\)/, "activating description edit must open the sheet, not navigate to Team Settings")
+  assert.doesNotMatch(src, /AboutThisTeam[\s\S]{0,120}Team Settings/, "About This Team must never hand off to Team Settings for the description")
+  const aboutFn = src.slice(src.indexOf("function AboutThisTeam"))
+  assert.match(aboutFn, /!description && canManage && <Button label="Add Description"/, "Add Description only appears once there is genuinely no description yet")
+  assert.match(aboutFn, /!!description && canManage[\s\S]{0,300}Edit<\/Text>/, "an existing description must offer Edit, never keep showing Add Description")
+})
+
+test("the description editor saves through the governed set_team_description RPC, never a direct client-side table update", () => {
+  const editorSrc = code("apps/mobile/src/team/edit-description-sheet.tsx")
+  assert.match(editorSrc, /setTeamDescription\(supabase, teamId, text\)/, "the sheet must call the shared contracts helper, not roll its own mutation")
+  assert.doesNotMatch(editorSrc, /\.from\("teams"\)\.update/, "no direct client-side update of teams.description is permitted -- authority is enforced server-side only")
+
+  const contractSrc = code("packages/contracts/src/team/profile.ts")
+  assert.match(contractSrc, /rpc\("set_team_description"/, "setTeamDescription must call the canonical RPC by name")
+  assert.doesNotMatch(contractSrc, /\.from\("teams"\)\.update\(\{[^}]*description/, "the contracts layer itself must not perform an ungoverned direct update either")
+})
+
+test("the UAT fixture review data for Team Profile Section 1B lives in a seed file, never a production migration or a hardcoded component fixture", () => {
+  const migrationFiles = readdirSync("supabase/migrations")
+  assert.ok(
+    migrationFiles.every((f) => !f.endsWith("_local_uat_team_profile_review.sql") && f !== "local_uat_team_profile_review.sql"),
+    "the review fixture data must never appear as a migration file"
+  )
+  const seedSrc = code("supabase/seeds/local_uat_team_profile_review.sql")
+  assert.match(seedSrc, /local_dev_seed/, "the seed must carry the standard real-dataset guard")
+  assert.match(seedSrc, /if not exists/i, "the seed must be idempotent, not a blind insert")
+
+  const screenSrc = code("apps/mobile/src/team/profile-screen.tsx")
+  assert.doesNotMatch(screenSrc, /28-12|10-22|Ovalball UAT Opposition RFC/, "no review fixture's data may be hardcoded directly into the screen component")
+})
+
+test("the populated Next Fixture card is the same NextFixtureCard the screen already used for a real profile.nextUp, never a second fixture screen or an invented placeholder", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  assert.match(src, /profile\.nextUp \?[\s\S]{0,40}<NextFixtureCard item=\{profile\.nextUp\}/, "Next Fixture must render straight from profile.nextUp via the shared card, not a bespoke populated-state component")
+  assert.match(src, /onPress=\{\(\) => onOpenFixture\(profile\.nextUp!\)\}/, "tapping it must route through the one canonical fixture-open handler, never a duplicate fixture screen")
 })

@@ -1712,6 +1712,11 @@
       "owner": "Team directory and roster",
       "reason": "Activating a team's standing conversation (20270247000000)."
     },
+    "team_description_authority": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team Profiles",
+      "reason": "set_team_description (20270569000000) is the one governed write for About This Team: an unrelated viewer is refused and the description stays untouched; a real Club Admin (club.profile.edit, by role) may write it; a person delegated exactly team.team.manage by that Club Admin -- never a second Club Admin, and never narrowly team-scoped, since the capability catalogue's own grant_level fixes that delegation at club scope with inherits_to_team -- may also write it; whitespace-only input clears to canonical null, never an empty string; a real value reads back exactly as trimmed; and the Section 1B UAT review fixtures are real fixtures rows reached through create_fixture/submit_fixture_result/cancel_fixture, with the season-scoped fixture and win counts computed live rather than written in."
+    },
     "team_fixture_authority": {
       "disposition": "CANONICAL_GATE",
       "owner": "Team Operations / Fixture Operations",
