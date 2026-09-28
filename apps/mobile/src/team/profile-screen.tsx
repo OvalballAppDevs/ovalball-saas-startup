@@ -26,7 +26,7 @@ import { NextFixtureCard } from "../components/agenda-row"
 import { ClubCrest, PersonAvatar } from "../components/identity"
 import { PhotoBottomShade } from "../components/photo-gradient"
 import { pageFixtures } from "../agenda/fixture-list"
-import { Camera, CalendarDays, ChevronRight, Ellipsis, KeyRound, MapPin, Search, SlidersHorizontal, UserPlus, Users } from "../components/icons"
+import { Camera, CalendarDays, ChevronRight, Ellipsis, IdCard, KeyRound, MapPin, Search, SlidersHorizontal, UserPlus, Users } from "../components/icons"
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../components/ui"
 import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../design/tokens"
 
@@ -248,6 +248,7 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
           canEditCover={profile.canEditCover}
           canManageSettings={profile.authority.teamManage}
           onTeamPhoto={() => { setMenuOpen(false); router.push({ pathname: "/teams/[teamId]/photo", params: { teamId: identity.id } } as never) }}
+          onTeamDetails={() => { setMenuOpen(false); router.push({ pathname: "/teams/[teamId]/details", params: { teamId: identity.id } } as never) }}
           onTeamSettings={() => { setMenuOpen(false); router.push({ pathname: "/admin/teams/[teamId]", params: { teamId: identity.id } } as never) }}
         />
       )}
@@ -283,6 +284,7 @@ function TeamMenuSheet({
   canEditCover,
   canManageSettings,
   onTeamPhoto,
+  onTeamDetails,
   onTeamSettings,
 }: {
   visible: boolean
@@ -290,6 +292,7 @@ function TeamMenuSheet({
   canEditCover: boolean
   canManageSettings: boolean
   onTeamPhoto: () => void
+  onTeamDetails: () => void
   onTeamSettings: () => void
 }) {
   return (
@@ -304,6 +307,17 @@ function TeamMenuSheet({
           <ChevronRight size={16} color={colour.inkSubtle} />
         </Pressable>
       )}
+      {/* Shown whenever this menu itself is available (canEditCover OR teamManage, per menuAvailable) --
+          Team Details is a real destination either way: read-only presentation for someone who reached
+          the menu through teamManage-only authority elsewhere, editable Description for canEditCover. */}
+      <Pressable accessibilityRole="button" accessibilityLabel="Team Details. Name, age grade, gender, season and description" onPress={onTeamDetails} style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 12, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}>
+        <IdCard size={20} color={colour.forest800} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[type.smallMedium, { color: colour.ink }]}>Team Details</Text>
+          <Text style={[type.caption, { color: colour.inkMuted }]}>Name, age grade, gender, season and description</Text>
+        </View>
+        <ChevronRight size={16} color={colour.inkSubtle} />
+      </Pressable>
       {canManageSettings && (
         <Pressable accessibilityRole="button" accessibilityLabel="Team Settings. Details, people and team management" onPress={onTeamSettings} style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 12, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}>
           <SlidersHorizontal size={20} color={colour.forest800} />
@@ -584,6 +598,23 @@ function OverviewTab({
       <TeamMetrics profile={profile} />
 
       <AboutThisTeam description={identity.description} canManage={profile.canEditCover} onEdit={onEditDescription} />
+
+      {/* Every legitimate Team Profile viewer may open Team Details -- read-only presentation of
+          non-sensitive identity fields, exactly the same visibility Overview itself already has (Section
+          6). Editing inside it is separately capability-gated on canEditCover. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Team Details. Name, age grade, gender, season and description"
+        onPress={() => router.push({ pathname: "/teams/[teamId]/details", params: { teamId: identity.id } } as never)}
+        style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.md, minHeight: TOUCH_TARGET + 10, opacity: pressed ? 0.6 : 1 })}
+      >
+        <IdCard size={18} color={colour.forest800} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[type.smallMedium, { color: colour.ink }]}>Team Details</Text>
+          <Text style={[type.caption, { color: colour.inkMuted }]}>Name, age grade, gender and season</Text>
+        </View>
+        <ChevronRight size={18} color={colour.inkSubtle} />
+      </Pressable>
 
       {profile.authority.teamManage && (
         <Pressable

@@ -577,3 +577,65 @@ test("PhotoViewer and ManagePhotoSheet are never mounted at once -- two stacked 
   const src = code("apps/mobile/src/team/team-gallery-screen.tsx")
   assert.match(src, /viewerIndex !== null && media && !managing && \(/, "the viewer must unmount before the Manage sheet's own Modal opens, found live as a silently-broken tap otherwise")
 })
+
+/**
+ * TEAM PROFILE SECTION 6 -- TEAM DETAILS. Read-only presentation of the team's identity fields with
+ * exactly one governed edit (Description). Name/Age Grade/Gender/Season are Category C by audit --
+ * see team-details-screen.tsx's own header comment for the full reasoning per field.
+ */
+
+test("Team Details is the one canonical route, reached from the ellipsis menu and from Overview's own Team Details row", () => {
+  const profileSrc = code("apps/mobile/src/team/profile-screen.tsx")
+  const matches = [...profileSrc.matchAll(/pathname: "\/teams\/\[teamId\]\/details"/g)]
+  assert.equal(matches.length, 2, "exactly two entry points must route to /teams/[teamId]/details -- the ellipsis menu and Overview's own row, never a third or a duplicate destination")
+  const routeSrc = code("apps/mobile/app/(tabs)/teams/[teamId]/details.tsx")
+  assert.match(routeSrc, /TeamDetailsScreen/, "the route must render the real TeamDetailsScreen component")
+})
+
+test("Team Name, Age Grade, Gender and Season are read-only -- no chevron, no tap handler, no mutation RPC anywhere in Team Details", () => {
+  const src = code("apps/mobile/src/team/team-details-screen.tsx")
+  assert.doesNotMatch(src, /ChevronRight/, "a read-only row must never carry a chevron implying it can be tapped")
+  assert.doesNotMatch(src, /set_team_name|set_team_category|set_team_age_group|set_team_gender|set_team_season/i, "no mutation RPC may exist for name, age grade, gender or season -- all four are Category C by this section's own audit")
+  assert.match(src, /function DetailRow\(\{ label, value, first \}/, "the read-only row component must take only label/value, never an onPress")
+})
+
+test("Team Details never performs a direct client-side update on the teams table", () => {
+  const src = code("apps/mobile/src/team/team-details-screen.tsx")
+  assert.doesNotMatch(src, /\.from\("teams"\)\.(update|upsert)/, "no direct table write may stand in for a governed RPC")
+})
+
+test("Description is the one genuinely editable field, reusing the exact governed set_team_description RPC and the existing EditDescriptionSheet -- no second write path", () => {
+  const src = code("apps/mobile/src/team/team-details-screen.tsx")
+  assert.match(src, /import \{ EditDescriptionSheet \} from "\.\/edit-description-sheet"/, "must reuse the existing sheet component, never a second description editor")
+  assert.doesNotMatch(src, /setTeamDescription|set_team_description/, "the screen itself must never call the RPC directly -- EditDescriptionSheet already owns that call")
+})
+
+test("edit affordances on Team Details are gated on exactly canEditCover -- the same authority Overview's own About This Team card already uses", () => {
+  const src = code("apps/mobile/src/team/team-details-screen.tsx")
+  assert.match(src, /const canManage = profile\?\.canEditCover \?\? false/, "Team Details must reuse the exact same authority signal, never derive a new one")
+  assert.match(src, /!!identity\.description && canManage &&/, "the Edit action must be gated on canManage")
+  assert.match(src, /!identity\.description && canManage &&/, "the Add Description action must be gated on canManage")
+})
+
+test("Team Name reuses the canonical fullLabel -- Overview and Team Details can never disagree on what a team is called", () => {
+  const src = code("apps/mobile/src/team/team-details-screen.tsx")
+  assert.match(src, /identity\.fullLabel/, "Team Name must read the same canonical fullLabel Overview's own hero already renders, never a second naming computation")
+})
+
+test("Age Grade and Gender humanise the same canonical vocabulary Overview's own meta line already uses, and never invent a value the underlying field doesn't have", () => {
+  const src = code("apps/mobile/src/team/team-details-screen.tsx")
+  assert.match(src, /"mens":\s*\n\s*return "Men"/, "gender vocabulary must match Overview's own teamMetaLine mapping")
+  assert.match(src, /return "Not set"/, "an absent field must render as an honest 'Not set', never a fabricated value")
+})
+
+test("Season is read from the canonical current-season register, never a field the team itself owns -- teams has no season_id to edit", () => {
+  const src = code("apps/mobile/src/team/team-details-screen.tsx")
+  assert.match(src, /profile\.season\?\.label \?\? "Not set"/, "Season must read the exact same TeamProfile.season Overview's own summary already resolves")
+})
+
+test("the ellipsis menu's Team Details row is offered whenever the menu itself is available, and Fold Team is never duplicated into it", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  const menuFn = src.slice(src.indexOf("function TeamMenuSheet"))
+  assert.match(menuFn, /accessibilityLabel="Team Details\. Name, age grade, gender, season and description"/, "the ellipsis menu must offer Team Details")
+  assert.doesNotMatch(menuFn, /Fold Team/, "Fold Team must stay inside Team Settings' own danger zone, never surfaced in this quick menu")
+})
