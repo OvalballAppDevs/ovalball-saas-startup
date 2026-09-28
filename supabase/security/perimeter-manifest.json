@@ -7496,6 +7496,27 @@
         ]
       },
       {
+        "signature": "add_team_media(uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/team/media.ts"
+        ]
+      },
+      {
+        "signature": "read_team_media(uuid, integer)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/team/media.ts"
+        ]
+      },
+      {
+        "signature": "remove_team_media(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/team/media.ts"
+        ]
+      },
+      {
         "signature": "set_team_access(uuid, uuid, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7508,6 +7529,13 @@
         "consumers": [
           "app/(app)/teams/[teamId]/actions.ts",
           "app/(app)/teams/actions.ts"
+        ]
+      },
+      {
+        "signature": "set_team_cover(uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/team/media.ts"
         ]
       },
       {
@@ -8695,6 +8723,7 @@
       "add_reporting_route_citation(uuid, uuid, text, uuid)",
       "add_support_followup(uuid, text)",
       "add_support_internal_note(uuid, text)",
+      "add_team_media(uuid, text, text)",
       "add_tournament_team_entry(uuid, uuid)",
       "admin_get_message_thread_content(uuid, uuid)",
       "admin_message_analytics(date, date, uuid, uuid, text)",
@@ -9024,6 +9053,7 @@
       "reconcile_overdue_fixture_results()",
       "reconcile_referral_attribution(boolean)",
       "reconcile_tournament_participant(uuid)",
+      "read_team_media(uuid, integer)",
       "record_billing_request(uuid, uuid, text, text, text)",
       "record_competition_match_result(uuid, integer, integer, uuid)",
       "record_directory_verification_result(uuid, uuid, text, text, directory_verification_proposal_input[])",
@@ -9056,6 +9086,7 @@
       "remove_match_kudos(uuid, uuid, uuid, text)",
       "remove_setup_team(uuid, text)",
       "remove_team_access(uuid, text)",
+      "remove_team_media(uuid)",
       "remove_tournament_opponent(uuid)",
       "remove_tournament_participant(uuid)",
       "remove_tournament_team_entry(uuid)",
@@ -9180,6 +9211,7 @@
       "set_subscription_price(uuid, integer, date)",
       "set_team_access(uuid, uuid, text, text)",
       "set_team_alias(uuid, text)",
+      "set_team_cover(uuid, text, text)",
       "set_team_description(uuid, text)",
       "set_team_role_title(uuid, text)",
       "set_team_award_category(uuid, text, boolean, text)",

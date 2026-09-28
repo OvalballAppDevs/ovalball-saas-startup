@@ -106,11 +106,13 @@ test("the team ellipsis menu is capability-gated, never a role check, and never 
   assert.doesNotMatch(src, /Fold Team/, "Fold Team must not be exposed from the Team Profile ellipsis -- it stays inside Team Settings' own danger zone")
 })
 
-test("Team Photo shows the team's real current photo and an honest 'coming soon' state, never a working picker that doesn't exist yet", () => {
+test("Edit Team Photo is the one canonical cover editor -- take/choose/library, real preview, refuses on its own account", () => {
   const src = code("apps/mobile/src/team/team-photo-screen.tsx")
-  assert.match(src, /demoTeamCoverAsset\(identity\)/, "the shown photo is the same real/fallback resolution the Profile hero and Home card already use, never a new one invented for this screen")
-  assert.match(src, /coming soon/i, "the screen must say plainly that choosing a new photo isn't built yet")
-  assert.doesNotMatch(src, /ImagePicker|launchImageLibraryAsync|expo-image-picker/, "no working picker exists yet -- wiring one here would be exactly the fake functionality the brief forbids")
+  assert.match(src, /demoTeamCoverAsset\(identity\)/, "the shown photo falls back to the same real/fallback resolution the Profile hero and Home card already use")
+  assert.match(src, /Take Photo/, "must offer Take Photo")
+  assert.match(src, /Choose from Library/, "must offer Choose from Library")
+  assert.match(src, /Use Ovalball Image Library/, "must offer the Ovalball Image Library, not a vendor-branded label")
+  assert.doesNotMatch(src, /Use Higgsfield Image/, "Higgsfield is a production source, never a consumer-facing vendor label (Section 9)")
   assert.match(src, /: !canEdit \? \(/, "an unauthorised direct visit to this route must still refuse on its own account, never trust the menu having hidden the row")
 })
 
@@ -132,12 +134,12 @@ test("the forest tab strip has its own dedicated spacer -- the rounded content s
   assert.ok(spacer > tabsRow, "a dedicated spacer view must come AFTER the tabs row, so the sheet's negative margin eats the spacer, never the tabs' own height or touch targets")
 })
 
-test("the Team Profile still exposes exactly four canonical tabs, in order, and neither restores pill tabs nor invents a fifth", () => {
+test("the Team Profile now exposes exactly five canonical tabs, in order, and neither restores pill tabs nor invents a sixth", () => {
   const src = code("apps/mobile/src/team/profile-screen.tsx")
   const match = src.match(/const TABS: \{ key: Tab; label: string \}\[\] = \[([\s\S]*?)\]/)
   assert.ok(match, "the TABS constant must exist as a single literal array")
   const labels = [...match![1].matchAll(/label: "([^"]+)"/g)].map((m) => m[1])
-  assert.deepEqual(labels, ["Overview", "Fixtures", "Squad", "Staff"], "the four destinations, in this exact order, are the whole tab strip")
+  assert.deepEqual(labels, ["Overview", "Fixtures", "Squad", "Staff", "Media"], "Media joins as the fifth destination, in this exact order (Section 5)")
   const tabRow = src.slice(src.indexOf("{TABS.map("), src.indexOf("{TABS.map(") + 800)
   assert.doesNotMatch(tabRow, /pill|Pill/, "pill-shaped tabs must not be restored -- the tab row itself must never reach for the pill radius token")
 })
@@ -327,11 +329,11 @@ test("search is case-insensitive over the already-authorised roster only, and di
  * TEAM PROFILE SECTION 4 -- STAFF. The canonical multi-role reader (team_staff), explicit-team-id
  * management with no synthetic context switch, and the safeguarding-conscious contact/avatar rules.
  */
-test("Staff is the fourth Team Profile tab, with no nested Squad/Staff switch anywhere in the shell", () => {
+test("Staff is the fourth Team Profile tab (Media the fifth), with no nested Squad/Staff switch anywhere in the shell", () => {
   const src = code("apps/mobile/src/team/profile-screen.tsx")
   const match = src.match(/const TABS: \{ key: Tab; label: string \}\[\] = \[([\s\S]*?)\]/)
   const labels = [...match![1].matchAll(/label: "([^"]+)"/g)].map((m) => m[1])
-  assert.deepEqual(labels, ["Overview", "Fixtures", "Squad", "Staff"], "Staff must be the fourth and last top-level tab")
+  assert.deepEqual(labels, ["Overview", "Fixtures", "Squad", "Staff", "Media"], "Staff is fourth, Media fifth and last")
   assert.match(src, /tab === "staff" && \(\s*<StaffTab/, "the Staff tab must render the real StaffTab component")
 })
 
@@ -455,4 +457,123 @@ test("Staff's restricted state is worded distinctly from empty, and loading neve
 test("the open Manage Staff Member sheet re-syncs to the freshly reloaded roster after every change, never keeps showing a stale role snapshot", () => {
   const src = code("apps/mobile/src/team/staff-tab.tsx")
   assert.match(src, /setManaging\(staff\.find\(\(m\) => m\.membershipId === managing\.membershipId\) \?\? null\)/, "the currently-open Manage sheet must be replaced with the matching person from the freshly reloaded staff array (or closed if their last role is gone), never left showing what the roles looked like before the change")
+})
+
+/**
+ * TEAM PROFILE SECTION 5 -- MEDIA (Team Gallery + Ovalball Image Library + the one canonical cover
+ * editor). See the migration's own safeguarding note (20270572000000) for the audited finding that
+ * Ovalball has no per-child media-publication-consent primitive -- these tests hold the mitigation
+ * that was actually built: private-bucket signed URLs, no face/person tagging, no fabricated stock
+ * history, and the exact same authority the Profile screen already computes for cover editing.
+ */
+
+test("Media renders the real MediaTab component as the fifth tab, never a placeholder", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  assert.match(src, /tab === "media" && \(\s*<MediaTab/, "the Media tab must render the real MediaTab component")
+  assert.match(src, /canManage={profile\.canEditCover}/, "Media management authority must reuse canEditCover, never a new capability")
+})
+
+test("Team Gallery reads through the private, signed-URL team-gallery-media bucket, never a public URL", () => {
+  const src = code("packages/contracts/src/team/media.ts")
+  assert.match(src, /createSignedUrls\(rows\.map/, "gallery photos must be resolved as short-lived signed URLs")
+  assert.doesNotMatch(src, /getPublicUrl[\s\S]*team-gallery-media|team-gallery-media[\s\S]*getPublicUrl/, "the gallery bucket must never be read through a public URL")
+})
+
+test("the Team Gallery migration puts youth-safeguarding-relevant media in a PRIVATE bucket, and documents the consent-model gap rather than inventing one", () => {
+  const migration = code("supabase/migrations/20270572000000_a_team_keeps_its_own_photographs.sql")
+  assert.match(migration, /'team-gallery-media', 'team-gallery-media', false,/, "the gallery bucket must be created private (public: false)")
+  assert.match(migration, /SAFEGUARDING FINDING/, "the migration must document the guardian-consent audit finding, not silently skip it")
+  assert.doesNotMatch(migration, /face_api|detectFaces|ml_kit|vision\.faces|person_tag|face_recognition/i, "no face-recognition or auto-tagging API call may be introduced")
+})
+
+test("Media management reuses exactly the Profile screen's own cover authority -- no team.media.view/team.media.manage capability was invented", () => {
+  const migration = code("supabase/migrations/20270572000000_a_team_keeps_its_own_photographs.sql")
+  assert.doesNotMatch(migration, /has_capability\('team\.media\.(view|manage)'/, "no new media-specific capability key may be checked -- team.team.manage/club.profile.edit already express this")
+  assert.match(migration, /internal\.has_capability\('team\.team\.manage', 'team'/, "writes must reuse team.team.manage")
+  assert.match(migration, /internal\.has_capability\('club\.profile\.edit', 'club'/, "writes must reuse club.profile.edit")
+})
+
+test("a stock cover selection is validated server-side against a fixed allow-list, never trusted from the client", () => {
+  const migration = code("supabase/migrations/20270572000000_a_team_keeps_its_own_photographs.sql")
+  assert.match(migration, /if p_stock_key is not null and not \(p_stock_key = any\(array\[/, "set_team_cover must refuse any stock key outside its own server-side allow-list")
+})
+
+test("the gallery preview shows at most six photos and only offers Show All once there are more", () => {
+  const src = code("apps/mobile/src/team/media-tab.tsx")
+  assert.match(src, /readTeamMedia\(supabase, identity\.id, 6\)/, "the tab's own preview read must be capped at six")
+  assert.match(src, /media\.length > 6 &&/, "Show all must only render once there are more than six photos")
+})
+
+test("an empty Team Gallery is shown honestly -- never padded out with Ovalball Image Library stock pretending to be this team's own history", () => {
+  const src = code("apps/mobile/src/team/media-tab.tsx")
+  assert.match(src, /title="Build your team gallery"/, "an empty gallery must say so honestly")
+  assert.doesNotMatch(src, /STOCK_COVER_CATALOGUE|stockCoversForCategory/, "the Media tab's own gallery preview must never reach into the stock catalogue")
+})
+
+test("Media's restricted state is worded distinctly from empty, matching the same pattern Staff already established", () => {
+  const src = code("apps/mobile/src/team/media-tab.tsx")
+  const restrictedIndex = src.indexOf("!rosterVisible || refused")
+  const emptyIndex = src.indexOf('title="Build your team gallery"')
+  assert.ok(restrictedIndex >= 0 && restrictedIndex < emptyIndex, "restricted must be decided before an empty gallery can ever render")
+  assert.match(src, /NotForYou title="Photos aren&apos;t part of your view"/, "a denied gallery must say so honestly, never 'Build your team gallery'")
+})
+
+test("Edit Team Photo and Media's own Edit Cover Photo button converge on the exact same route -- one canonical cover editor, not two", () => {
+  const tabSrc = code("apps/mobile/src/team/media-tab.tsx")
+  const menuSrc = code("apps/mobile/src/team/profile-screen.tsx")
+  const route = /pathname: "\/teams\/\[teamId\]\/photo", params: \{ teamId: identity\.id \}/
+  assert.match(tabSrc, route, "Media's Edit Cover Photo button must route to the one canonical /teams/[teamId]/photo destination")
+  assert.match(menuSrc, /onTeamPhoto=\{\(\) => \{ setMenuOpen\(false\); router\.push\(\{ pathname: "\/teams\/\[teamId\]\/photo"/, "the ellipsis menu's Team Photo action must route to the exact same destination")
+})
+
+test("the Ovalball Image Library's stock catalogue uses stable canonical keys, never array position, and the server allow-list matches it key for key", () => {
+  const lib = code("apps/mobile/src/team/cover-library.ts")
+  const keys = [...lib.matchAll(/key: "([a-z0-9-]+)"/g)].map((m) => m[1])
+  assert.ok(keys.length >= 8, "the catalogue should carry a genuine library, not a token entry")
+  assert.equal(new Set(keys).size, keys.length, "every catalogue key must be unique")
+  const migration = code("supabase/migrations/20270572000000_a_team_keeps_its_own_photographs.sql")
+  for (const key of keys) {
+    assert.match(migration, new RegExp(`'${key}'`), `server allow-list must include catalogue key ${key}`)
+  }
+})
+
+test("stock cover imagery is built only from existing bundled assets -- no new image generation call in this pass", () => {
+  const lib = code("apps/mobile/src/team/cover-library.ts")
+  assert.doesNotMatch(lib, /generate_image|higgsfield|Higgsfield/i, "no image-generation call may appear in the stock catalogue module -- every asset must already be bundled")
+  assert.match(lib, /require\("\.\.\/\.\.\/assets\//, "every catalogue entry must resolve to an already-bundled local asset")
+})
+
+test("a read-only Media viewer sees the cover and gallery but never Edit Cover Photo, Add Photos or any management control", () => {
+  const tabSrc = code("apps/mobile/src/team/media-tab.tsx")
+  assert.match(tabSrc, /canManage && \(/, "the Edit Cover Photo floating action must be gated on canManage")
+  assert.match(tabSrc, /canManage && \(\s*<Button\s*\n\s*label="Add Photos"/, "Add Photos must be gated on canManage")
+  const gallerySrc = code("apps/mobile/src/team/team-gallery-screen.tsx")
+  assert.match(gallerySrc, /canManage && <Button label="Add Photos"/, "the full Team Gallery's own Add Photos must also be gated on canManage")
+  assert.match(gallerySrc, /onManage=\{canManage \? \(index\) => setManageId\(media\[index\]\.id\) : undefined\}/, "the photo-management overflow action must only be offered to PhotoViewer for an authorised manager")
+})
+
+test("adding or removing a Team Gallery photo goes through the governed add_team_media/remove_team_media RPCs, never a direct table write", () => {
+  const src = code("packages/contracts/src/team/media.ts")
+  assert.match(src, /supabase\.rpc\("add_team_media"/, "adding a photo must call the canonical RPC")
+  assert.match(src, /supabase\.rpc\("remove_team_media"/, "removing a photo must call the canonical RPC")
+  assert.doesNotMatch(src, /\.from\("team_media"\)\.(insert|update|delete)/, "no direct client write to team_media may stand in for the RPCs")
+})
+
+test("the Team Gallery/cover upload path id never depends on globalThis.crypto -- found live, that Hermes has no crypto.randomUUID polyfill here", () => {
+  const src = code("packages/contracts/src/team/media.ts")
+  assert.doesNotMatch(src, /globalThis\.crypto|crypto\.randomUUID/, "no upload path may depend on a crypto API this runtime doesn't actually provide")
+  assert.match(src, /Math\.random\(\)/, "the path id must be generated without a platform crypto dependency, matching the shared package's own constraint")
+})
+
+test("the photo viewer's manage overflow renders inside PhotoViewer's own Modal, never as a sibling that would sit behind it", () => {
+  const src = code("apps/mobile/src/team/media-tab.tsx")
+  const viewerFn = src.slice(src.indexOf("export function PhotoViewer"))
+  assert.match(viewerFn, /onManage && \(/, "PhotoViewer must render its own manage affordance when offered one, inside its Modal")
+  const gallerySrc = code("apps/mobile/src/team/team-gallery-screen.tsx")
+  assert.match(gallerySrc, /onManage=\{canManage \? \(index\) => setManageId\(media\[index\]\.id\) : undefined\}/, "the full gallery screen must pass management through PhotoViewer's own prop, never render a second absolutely-positioned control outside the Modal")
+})
+
+test("PhotoViewer and ManagePhotoSheet are never mounted at once -- two stacked Modals don't present correctly on iOS", () => {
+  const src = code("apps/mobile/src/team/team-gallery-screen.tsx")
+  assert.match(src, /viewerIndex !== null && media && !managing && \(/, "the viewer must unmount before the Manage sheet's own Modal opens, found live as a silently-broken tap otherwise")
 })

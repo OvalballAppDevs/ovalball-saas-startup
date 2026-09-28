@@ -124,6 +124,9 @@ export async function revokeTeamStaffRole(supabase: Client, assignmentId: string
 /** The presentational Head Coach / Assistant Coach label -- attributes only, on a role assignment the
  * server has already confirmed is COACH. Authority never changes. */
 export async function setCoachTitle(supabase: Client, assignmentId: string, title: CoachTitle): Promise<void> {
-  const { error } = await supabase.rpc("set_team_role_title", { p_assignment_id: assignmentId, p_title: title })
+  // The generated RPC arg type is imprecisely non-nullable here (a known `supabase gen types` quirk
+  // for a text param with no SQL default) even though the function itself accepts and expects NULL to
+  // clear a title -- the cast reflects the real, tested server signature, not this call's own belief.
+  const { error } = await supabase.rpc("set_team_role_title", { p_assignment_id: assignmentId, p_title: title as string })
   if (error) throw error
 }

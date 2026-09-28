@@ -14,8 +14,10 @@ import { dateBlock, homeAwayLabel, kickoffLabel, opponentLine, relativeDate, res
 import { routeForAgendaItem } from "../links/destinations"
 import { teamContextKeyFor } from "./context"
 import { demoTeamCoverAsset } from "./team-cover-demo"
+import { teamCoverPhotoSource } from "./cover-library"
 import { EditDescriptionSheet } from "./edit-description-sheet"
 import { StaffTab } from "./staff-tab"
+import { MediaTab } from "./media-tab"
 import { NotForYou } from "./screen"
 import { friendly, logDetail } from "../errors/translate"
 import { OvalballDetailHeader } from "../components/app-header"
@@ -28,12 +30,13 @@ import { Camera, CalendarDays, ChevronRight, Ellipsis, KeyRound, MapPin, Search,
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../components/ui"
 import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../design/tokens"
 
-type Tab = "overview" | "fixtures" | "squad" | "staff"
+type Tab = "overview" | "fixtures" | "squad" | "staff" | "media"
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "fixtures", label: "Fixtures" },
   { key: "squad", label: "Squad" },
   { key: "staff", label: "Staff" },
+  { key: "media", label: "Media" },
 ]
 
 /**
@@ -230,6 +233,9 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
                   canManageRoles={profile.authority.roleAssignTeam}
                 />
               )}
+              {tab === "media" && (
+                <MediaTab identity={identity} rosterVisible={profile.people.rosterVisible} canManage={profile.canEditCover} />
+              )}
             </View>
           </View>
         </ScrollView>
@@ -334,7 +340,7 @@ function teamMetaLine(identity: TeamProfileIdentity, season: string | null): str
  * identity the way the approved mockup does.
  */
 function TeamCoverHero({ identity, profile, onOpenClub }: { identity: TeamProfileIdentity; profile: TeamProfile; onOpenClub?: () => void }) {
-  const photo = identity.cover.kind === "cover" ? { uri: identity.cover.url } : demoTeamCoverAsset(identity)
+  const photo = teamCoverPhotoSource(identity.cover, demoTeamCoverAsset(identity))
   const metaLine = teamMetaLine(identity, profile.season?.label ?? null)
   return (
     <View style={{ height: 260, overflow: "hidden" }}>

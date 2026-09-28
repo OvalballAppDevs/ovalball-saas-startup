@@ -31,7 +31,7 @@ export interface TeamProfileIdentity extends ClubTeam {
  * its club cannot be found; a caller with an invalid teamId has a routing bug, not a privacy question.
  */
 export async function loadTeamProfileIdentity(supabase: Client, teamId: string): Promise<TeamProfileIdentity> {
-  const { data: row, error } = await supabase.from("teams").select("club_id, cover_image_path, description").eq("id", teamId).maybeSingle()
+  const { data: row, error } = await supabase.from("teams").select("club_id, cover_image_path, cover_stock_key, description").eq("id", teamId).maybeSingle()
   if (error) throw error
   if (!row) throw new Error("This team could not be found.")
   const clubId = row.club_id
@@ -45,7 +45,7 @@ export async function loadTeamProfileIdentity(supabase: Client, teamId: string):
 
   const clubName = club?.club_directory?.name ?? "Ovalball"
   const crestUrl = resolveClubLogoUrl(supabase, club ?? null)
-  const cover = resolveTeamCover({ supabase, coverImagePath: row.cover_image_path, crestUrl })
+  const cover = resolveTeamCover({ supabase, coverImagePath: row.cover_image_path, coverStockKey: row.cover_stock_key, crestUrl })
 
   return { ...team, clubId, clubName, clubDirectoryId: club?.directory_id ?? "", crestUrl, cover, description: row.description }
 }

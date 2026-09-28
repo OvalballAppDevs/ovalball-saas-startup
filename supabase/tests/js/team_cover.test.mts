@@ -25,21 +25,26 @@ const supabaseStub = {
 } as unknown as Parameters<typeof teamCoverUrlFromPath>[0]
 
 test("a team's own cover wins", () => {
-  const cover = resolveTeamCover({ supabase: supabaseStub, coverImagePath: "club-x/u12-cover.jpg", crestUrl: "https://crest" })
+  const cover = resolveTeamCover({ supabase: supabaseStub, coverImagePath: "club-x/u12-cover.jpg", coverStockKey: null, crestUrl: "https://crest" })
   assert.equal(cover.kind, "cover")
   assert.match(cover.kind === "cover" ? cover.url : "", /club-news-media\/club-x\/u12-cover\.jpg$/)
 })
 
-test("without one, the club's crest stands in, and is marked as a crest", () => {
-  const cover = resolveTeamCover({ supabase: supabaseStub, coverImagePath: null, crestUrl: "https://crest" })
+test("without an upload, a deliberate Ovalball library selection is next, carried by its key", () => {
+  const cover = resolveTeamCover({ supabase: supabaseStub, coverImagePath: null, coverStockKey: "rugby-team-scrum-01", crestUrl: "https://crest" })
+  assert.deepEqual(cover, { kind: "stock", key: "rugby-team-scrum-01" })
+})
+
+test("without either, the club's crest stands in, and is marked as a crest", () => {
+  const cover = resolveTeamCover({ supabase: supabaseStub, coverImagePath: null, coverStockKey: null, crestUrl: "https://crest" })
   // The KIND matters as much as the url: a crest is an identity mark to be
   // centred, not a photograph to be stretched across a banner.
   assert.deepEqual(cover, { kind: "crest", url: "https://crest" })
 })
 
-test("with neither, the answer is nothing -- never a stock photograph of somebody else's rugby", () => {
-  assert.deepEqual(resolveTeamCover({ supabase: supabaseStub, coverImagePath: null, crestUrl: null }), { kind: "none" })
-  assert.deepEqual(resolveTeamCover({ supabase: supabaseStub, coverImagePath: "   ", crestUrl: null }), { kind: "none" })
+test("with nothing at all, the answer is nothing -- never a stock photograph standing in uninvited", () => {
+  assert.deepEqual(resolveTeamCover({ supabase: supabaseStub, coverImagePath: null, coverStockKey: null, crestUrl: null }), { kind: "none" })
+  assert.deepEqual(resolveTeamCover({ supabase: supabaseStub, coverImagePath: "   ", coverStockKey: null, crestUrl: null }), { kind: "none" })
 })
 
 test("an empty or whitespace path is not a cover", () => {

@@ -1775,6 +1775,11 @@
       "owner": "Team Profiles",
       "reason": "Team Profiles Section 4 owner-review addendum: the new team-scoped TEAM_SAFEGUARDING_LEAD role (20270571000000), proven genuinely distinct from the club-scoped, Site-only SAFEGUARDING_OFFICER. TSL1-TSL10: role shape (TEAM scope, VO bundle, minor-prohibited, TEAM_ADMIN-delegable), a delegated team manager granting it without reaching Site Admin, cross-team refusal, stranger refusal, minor and unknown-age refusal, coexistence with Coach and First Aider as one row with three roles, an authority ceiling that holds the VO bundle's safeguarding CONTACT keys but none of the confirmed club officer's welfare/dispensation/moderation/contact-edit authority, removal isolation from sibling roles, the canonical label, and the Overview staff count agreeing exactly with the Staff tab's own distinct-person count once a Team Safeguarding Lead is added. Self-seeding and rolled back."
     },
+    "team_media": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team Profiles",
+      "reason": "Team Profile Section 5: the canonical Team Gallery (team_media, add_team_media, remove_team_media, read_team_media), the governed cover write (set_team_cover) and the private Team Gallery bucket's own authority function (internal.may_access_team_gallery_media). TM1-TM16: read authority and stranger refusal, cross-team isolation both directions, only a genuine team.team.manage/club.profile.edit holder (never a plain Team Manager) may add or remove a photo, a storage path stamped for another team is refused, a Club Admin with no personal team role can manage directly, removal leaves the other team untouched and never resurfaces in reads, a delegated Team A holder cannot reach Team B, set_team_cover's upload-path/stock-key mutual exclusivity and server-side stock allow-list, and the storage bucket's own write-needs-manage/view-needs-roster-view/malformed-path-refused logic. Self-seeding and rolled back."
+    },
     "tournament_centre": {
       "disposition": "CANONICAL_GATE",
       "owner": "Fixture operations",
