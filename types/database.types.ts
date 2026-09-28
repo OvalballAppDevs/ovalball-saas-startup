@@ -19356,6 +19356,7 @@ export type Database = {
           cover_image_path: string | null
           created_at: string
           created_by: string | null
+          description: string | null
           display_name: string
           fold_reason: string | null
           folded_at: string | null
@@ -19382,6 +19383,7 @@ export type Database = {
           cover_image_path?: string | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
           display_name: string
           fold_reason?: string | null
           folded_at?: string | null
@@ -19408,6 +19410,7 @@ export type Database = {
           cover_image_path?: string | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
           display_name?: string
           fold_reason?: string | null
           folded_at?: string | null

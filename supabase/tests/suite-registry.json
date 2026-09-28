@@ -1755,6 +1755,11 @@
       ],
       "measured": "Run standalone in Step 10: 2 passed, 3 failed. Inserts into public.team_permissions, which became a compatibility VIEW at 20270422000000 and has no unique constraint for ON CONFLICT."
     },
+    "team_staff_multi_role": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Team Profiles",
+      "reason": "Team Profiles Section 1 staff/role audit: a person may be guardian and staff, or staff of more than one role, at once (team_people_counts.staff counts the person once); an adult player may also coach; a minor is refused a minor-prohibited team role by grant_role itself; revoking one role leaves the person's other roles and relationships untouched; a Volunteer-only staff member is counted (the exact undercount 20270566000000 fixes, since the legacy team_permissions view never included that role); an unrelated viewer still gets null, never a fabricated zero. Self-seeding and rolled back."
+    },
     "tournament_centre": {
       "disposition": "CANONICAL_GATE",
       "owner": "Fixture operations",

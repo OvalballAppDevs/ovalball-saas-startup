@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { loadAgenda, type AgendaItem } from "../agenda/load"
 import { resolveClubLogoUrl } from "../club-logo"
 import { readClubTeams, type ClubTeam } from "../club/teams"
+import { noClubAuthority, readClubAuthority } from "../club/overview"
 import { resolveTeamCover, type TeamCover } from "../team-cover"
 import { teamAgendaWindows } from "./overview"
 import type { Database } from "../database"
@@ -13,8 +14,13 @@ type Client = SupabaseClient<Database>
 export interface TeamProfileIdentity extends ClubTeam {
   clubId: string
   clubName: string
+  /** The Club Directory row this club is presented under -- `/clubhouse/club/[directoryId]`, the one
+   * canonical cross-club Club Profile route every viewer (including this team's own club) already uses. */
+  clubDirectoryId: string
   crestUrl: string | null
   cover: TeamCover
+  /** "About This Team", canonical (`teams.description`) -- null where nobody has written one, never invented. */
+  description: string | null
 }
 
 /**
@@ -25,14 +31,14 @@ export interface TeamProfileIdentity extends ClubTeam {
  * its club cannot be found; a caller with an invalid teamId has a routing bug, not a privacy question.
  */
 export async function loadTeamProfileIdentity(supabase: Client, teamId: string): Promise<TeamProfileIdentity> {
-  const { data: row, error } = await supabase.from("teams").select("club_id, cover_image_path").eq("id", teamId).maybeSingle()
+  const { data: row, error } = await supabase.from("teams").select("club_id, cover_image_path, description").eq("id", teamId).maybeSingle()
   if (error) throw error
   if (!row) throw new Error("This team could not be found.")
   const clubId = row.club_id
 
   const [directory, { data: club }] = await Promise.all([
     readClubTeams(supabase, clubId),
-    supabase.from("clubs").select("logo_storage_path, club_directory(name, logo_storage_path)").eq("id", clubId).maybeSingle(),
+    supabase.from("clubs").select("directory_id, logo_storage_path, club_directory(name, logo_storage_path)").eq("id", clubId).maybeSingle(),
   ])
   const team = [...directory.teams, ...directory.folded].find((t) => t.id === teamId)
   if (!team) throw new Error("This team could not be found.")
@@ -41,7 +47,7 @@ export async function loadTeamProfileIdentity(supabase: Client, teamId: string):
   const crestUrl = resolveClubLogoUrl(supabase, club ?? null)
   const cover = resolveTeamCover({ supabase, coverImagePath: row.cover_image_path, crestUrl })
 
-  return { ...team, clubId, clubName, crestUrl, cover }
+  return { ...team, clubId, clubName, clubDirectoryId: club?.directory_id ?? "", crestUrl, cover, description: row.description }
 }
 
 /**
@@ -78,29 +84,70 @@ export interface TeamProfilePeople {
   rosterVisible: boolean
 }
 
+/** The season a fixture/win summary is scoped to -- the canonical register, never a computed cutoff. */
+export interface TeamProfileSeason {
+  id: string
+  /** "2026/27" -- built from the register's own year bounds, never a free-text label. */
+  label: string
+  startsOn: string
+  endsOn: string
+}
+
+/** Fixtures and wins for the current season -- public, the same sporting facts Clubhouse already shows
+ * cross-club through fixtures/results, never gated behind roster authority. Null only where there is no
+ * current season on record for this team's rugby code (a real gap between seasons, not "unauthorised"). */
+export interface TeamProfileFixtureSummary {
+  fixtures: number
+  wins: number
+}
+
 export interface TeamProfile {
   teamId: string
   authority: TeamAuthority
   nextUp: AgendaItem | null
   upcoming: AgendaItem[]
   people: TeamProfilePeople
+  season: TeamProfileSeason | null
+  seasonSummary: TeamProfileFixtureSummary | null
+  /**
+   * WHETHER THIS VIEWER MAY CHANGE THE TEAM'S COVER PHOTO (Section 7 foundation) -- Club authority
+   * (`club.profile.edit`, the same key that already gates the club's own cover) OR Team authority
+   * (`team.team.manage`, the same key the existing "Manage Team" link already gates on). Never inferred
+   * from fixture editing, result recording, pitch allocation or roster viewing, which are independent
+   * capabilities. No new capability was created: both keys already exist and already mean "may change
+   * this identity's own presentation fields". The Overview screen does not yet act on this -- there is
+   * no cover editor to send it to until Section 6 -- but the signal is real and tested now so that
+   * screen can attach to it without a second authority read.
+   */
+  canEditCover: boolean
 }
 
 const isOn = (item: AgendaItem) => item.status !== "Cancelled"
+const won = (item: AgendaItem) => item.result !== null && item.result.ourScore > item.result.theirScore
 
 /**
  * The Team Profile read -- identity is the caller's own (already resolved before this is called, from
  * `teams`/`club-logo`/`team-cover`, the same public data Clubhouse already shows cross-club); this
  * supplies only the parts that depend on WHO is asking.
  */
-export async function loadTeamProfile(supabase: Client, clubId: string, teamId: string, todayIso: string = new Date().toISOString().slice(0, 10)): Promise<TeamProfile> {
-  const { upcoming: window } = teamAgendaWindows(todayIso)
+export async function loadTeamProfile(supabase: Client, clubId: string, teamId: string, rugbyCode: string, todayIso: string = new Date().toISOString().slice(0, 10)): Promise<TeamProfile> {
   const scope = { kind: "teams" as const, teamIds: [teamId], clubId }
 
-  const authority = await readTeamAuthority(supabase, clubId, teamId).catch(() => noTeamAuthority())
+  const [authority, clubAuthority, { data: seasonRow }] = await Promise.all([
+    readTeamAuthority(supabase, clubId, teamId).catch(() => noTeamAuthority()),
+    readClubAuthority(supabase, clubId).catch(() => noClubAuthority()),
+    supabase.from("seasons").select("id, starts_on, ends_on, season_year_start, season_year_end").eq("rugby_code", rugbyCode).lte("starts_on", todayIso).gte("ends_on", todayIso).maybeSingle(),
+  ])
 
+  // ONE FETCH SERVES BOTH THE UPCOMING LIST AND THE SEASON SUMMARY where a current season is on
+  // record -- today always falls inside it by construction, so filtering locally avoids a second
+  // network round trip for the same underlying fixtures (Section 13: no serial waterfall). Where no
+  // current season exists (a genuine gap between seasons), this falls back to the same rolling
+  // upcoming-only window the screen used before season-scoping existed, and the summary is honestly
+  // absent rather than guessed from an arbitrary range.
+  const window = seasonRow ? { startIso: seasonRow.starts_on, endIso: seasonRow.ends_on, order: "asc" as const, label: "this season" } : teamAgendaWindows(todayIso).upcoming
   const agenda = await loadAgenda(supabase, scope, window, { includeTraining: true })
-  const upcoming = agenda.items
+  const upcoming = seasonRow ? agenda.items.filter((i) => i.date >= todayIso) : agenda.items
   const nextUp = upcoming.find(isOn) ?? null
 
   let counts: TeamProfilePeople["counts"] = null
@@ -111,11 +158,20 @@ export async function loadTeamProfile(supabase: Client, clubId: string, teamId: 
     }
   }
 
+  const season: TeamProfileSeason | null = seasonRow
+    ? { id: seasonRow.id, label: `${seasonRow.season_year_start}/${String(seasonRow.season_year_end).slice(-2)}`, startsOn: seasonRow.starts_on, endsOn: seasonRow.ends_on }
+    : null
+  const seasonFixtures = seasonRow ? agenda.items.filter((i) => i.kind === "fixture" && isOn(i)) : []
+  const seasonSummary: TeamProfileFixtureSummary | null = seasonRow ? { fixtures: seasonFixtures.length, wins: seasonFixtures.filter(won).length } : null
+
   return {
     teamId,
     authority,
     nextUp,
     upcoming,
     people: { counts, rosterVisible: authority.rosterView },
+    season,
+    seasonSummary,
+    canEditCover: authority.teamManage || clubAuthority.profileEdit,
   }
 }

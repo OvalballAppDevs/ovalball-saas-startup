@@ -51,3 +51,41 @@ test("Club Admin Home has no 'From Here' section and no mobile Fixture Control C
     assert.match(src, new RegExp(tile), `the ${tile} tile is missing from the four-tile grid`)
   }
 })
+
+/**
+ * TEAM PROFILE SECTION 1 -- OVERVIEW. Permanent structural pins for the metrics row, About This Team,
+ * the season register and cover-photo authority foundation.
+ */
+test("the Players/Staff/Fixtures/Wins row never shows a fabricated zero -- an unavailable metric is an em dash, not 0", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  assert.match(src, /m\.value === null \? "—" : m\.value/, "an unavailable metric must render as an em dash, never a computed or default zero")
+  assert.match(src, /profile\.people\.counts\?\.players \?\? null/, "Players reads the same authority-gated aggregate as Squad, never a second count")
+  assert.match(src, /profile\.people\.counts\?\.staff \?\? null/, "Staff reads the same authority-gated aggregate as Squad, never a second count")
+})
+
+test("About This Team never shows an admin prompt to an unauthorised viewer, and never invents a description", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  assert.match(src, /if \(!description && !canManage\) return null/, "with no real description and no management authority, the whole card must be absent")
+  assert.doesNotMatch(src, /Our (Under|U\d)|is a key part of|focused on player development/i, "a fabricated team description must never appear")
+  const contract = code("packages/contracts/src/team/profile.ts")
+  assert.match(contract, /description: string \| null/, "description is read as a real nullable field, never given a placeholder default")
+})
+
+test("the season and fixture/win summary come from the canonical seasons register, never a computed cutoff", () => {
+  const src = code("packages/contracts/src/team/profile.ts")
+  assert.match(src, /from\("seasons"\)/, "the season is read from the canonical register")
+  assert.match(src, /eq\("rugby_code", rugbyCode\)/, "the season lookup is scoped to this team's own rugby code -- union and league seasons run separately")
+  assert.doesNotMatch(src, /new Date\(\)\.getFullYear\(\)|currentYear|hardcoded/i, "no invented or computed season boundary")
+})
+
+test("cover-photo edit authority reuses the existing Team Manage and Club Profile Edit capabilities -- no new capability was invented", () => {
+  const src = code("packages/contracts/src/team/profile.ts")
+  assert.match(src, /canEditCover: authority\.teamManage \|\| clubAuthority\.profileEdit/, "cover-edit authority must be exactly the existing team.team.manage OR club.profile.edit signal, never a third, newly-invented capability")
+})
+
+test("the Staff tab says it is not built yet rather than showing a fabricated or duplicated roster", () => {
+  const src = code("apps/mobile/src/team/profile-screen.tsx")
+  assert.match(src, /"staff", label: "Staff"/, "the four-tab shell (Overview, Fixtures, Squad, Staff) must be in place for Sections 2-4 to attach to")
+  assert.match(src, /tab === "staff"/, "the Staff tab must render something, not silently do nothing")
+  assert.doesNotMatch(src, /James Wilson|Head Coach|Sarah Mitchell/i, "no invented staff member ever appears")
+})
