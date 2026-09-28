@@ -4,7 +4,7 @@ import { View } from "react-native"
 
 import { supabase } from "../../../../src/auth/supabase"
 import { loadFixtureSurface, type FixtureSurface } from "../../../../src/fixtures/surface"
-import { FixtureConsole } from "../../../../src/fixtures/fixture-console"
+import { FixtureDetailScreen } from "../../../../src/fixtures/fixture-detail-screen"
 import { MatchCentre } from "../../../../src/fixtures/match-centre"
 import { colour } from "../../../../src/design/tokens"
 
@@ -25,9 +25,15 @@ import { colour } from "../../../../src/design/tokens"
  * and restored navigation state. Closing it in one list's `onPress` could never
  * have been enough, because the address itself was the defect.
  *
- * SO THE ADDRESS IS NOW AUTHORITY-AWARE, and the console is no longer addressable
- * at all -- it is a component this gate renders, not a route anybody can type. A
- * manually constructed URL cannot reach it because there is no URL for it.
+ * SO THE ADDRESS IS NOW AUTHORITY-AWARE, and neither Fixture Detail nor Match Centre is addressable
+ * on its own -- each is a component this gate renders, not a route anybody can type. A manually
+ * constructed URL cannot reach either directly.
+ *
+ * FIXTURE DETAIL IS READ/OVERVIEW (owner decision, physical review correction pass): the operational
+ * console this gate used to render directly was split into Fixture Detail (what/when/where, and the
+ * doors out: Match Centre, Edit Fixture, Cancel Fixture) and Edit Fixture (the mutation form, its own
+ * address). Both reuse the exact same canonical read/authority this gate itself uses -- no second
+ * fixture model.
  *
  * THE DECISION IS THE SERVER'S. `get_match_centre_capabilities` is the canonical
  * per-fixture resolver -- the same one the Match Centre itself reads and the same
@@ -65,5 +71,5 @@ export default function Fixture() {
     this is a plain ground rather than a third loading design.
   */
   if (surface === null) return <View style={{ flex: 1, backgroundColor: colour.chalk }} />
-  return surface === "operations" ? <FixtureConsole /> : <MatchCentre />
+  return surface === "operations" ? <FixtureDetailScreen /> : <MatchCentre />
 }

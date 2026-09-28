@@ -107,6 +107,8 @@ export function routeForIntent(intent: LinkIntent): Route | null {
       return { pathname: "/fixtures/[fixtureId]/match-centre", params: { fixtureId: intent.fixtureId } }
     case "ADD_RESULT":
       return { pathname: "/fixtures/[fixtureId]/add-result", params: { fixtureId: intent.fixtureId } }
+    case "EDIT_FIXTURE":
+      return { pathname: "/fixtures/[fixtureId]/edit", params: { fixtureId: intent.fixtureId } }
     case "TRAINING":
       return { pathname: "/calendar/training/[sessionId]", params: { sessionId: intent.sessionId } }
     case "CALENDAR":

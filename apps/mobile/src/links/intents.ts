@@ -72,6 +72,13 @@ export type LinkIntent =
    * rather than a hand-built path, for the same reason every other fixture destination does.
    */
   | { kind: "ADD_RESULT"; fixtureId: string }
+  /**
+   * EDIT FIXTURE (owner decision: Fixture Detail / Edit Fixture / Match Centre are now three separate
+   * destinations). Mobile-only, exactly like ADD_RESULT above -- built and reached only from Fixture
+   * Detail's own "Edit Fixture" button, gated on `fixture.fixture.edit` there before this is ever
+   * produced.
+   */
+  | { kind: "EDIT_FIXTURE"; fixtureId: string }
   /** Open the calendar, optionally anchored on a day a notification was about. */
   | { kind: "CALENDAR"; date: string | null }
   /**

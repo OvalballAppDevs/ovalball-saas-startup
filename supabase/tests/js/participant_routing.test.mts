@@ -201,15 +201,21 @@ function routeFiles(dir = APP, acc: string[] = []): string[] {
   return acc
 }
 
-test("the fixture console has no route of its own", () => {
-  // The protection that does not depend on anybody choosing the right URL: there is
-  // no URL. Exactly one route file may import it, and that one decides by authority.
-  const importers = routeFiles().filter((f) => /fixture-console/.test(readFileSync(f, "utf8")))
+test("Fixture Detail has no route of its own outside the canonical gate; Edit Fixture is its own explicit address", () => {
+  // OWNER DECISION (physical review correction pass): the former all-in-one console split into Fixture
+  // Detail (read/overview) and Edit Fixture (the mutation form, its own destination). The same
+  // protection applies to Fixture Detail as applied to the console it replaced: there is no URL for it
+  // outside the one canonical gate. Edit Fixture, by contrast, IS meant to be its own pushable address
+  // (reached from Fixture Detail's own "Edit Fixture" button), so it is exempted from this specific
+  // check and asserted instead by the routing table / EDIT_FIXTURE intent tests.
+  const detailImporters = routeFiles().filter((f) => /fixture-detail-screen/.test(readFileSync(f, "utf8")))
   assert.deepEqual(
-    importers,
+    detailImporters,
     [`${APP}/fixtures/[fixtureId]/index.tsx`],
-    "a route other than the canonical fixture address can draw the fixture console"
+    "a route other than the canonical fixture address can draw Fixture Detail"
   )
+  const editImporters = routeFiles().filter((f) => /edit-fixture-screen/.test(readFileSync(f, "utf8")))
+  assert.deepEqual(editImporters, [`${APP}/fixtures/[fixtureId]/edit.tsx`], "Edit Fixture has exactly its own route")
 })
 
 test("the canonical fixture address decides from the server, not from a role", () => {
@@ -352,7 +358,7 @@ test("a participant screen's Back goes to its own surface, never to whichever na
   for (const [file, surface] of [
     ["apps/mobile/app/(tabs)/calendar/training/[sessionId].tsx", "/calendar"],
     ["apps/mobile/src/fixtures/match-centre.tsx", "/fixtures"],
-    ["apps/mobile/src/fixtures/fixture-console.tsx", "/fixtures"],
+    ["apps/mobile/src/fixtures/fixture-detail-screen.tsx", "/fixtures"],
   ] as const) {
     const source = readFileSync(file, "utf8")
     assert.ok(!/=> router\.back\(\)/.test(source), `${file} still calls back() with nowhere to go`)
