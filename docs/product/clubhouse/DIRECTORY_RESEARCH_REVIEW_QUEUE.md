@@ -161,3 +161,123 @@ merge decision, not something research can resolve:**
   "Worcester Wanderers RFC," a distinct amateur/community club from the professional
   Worcester Warriors; the stored name doesn't reflect this and needs a human decision on
   what canonical name to use.
+
+## Batch 4 — full club name verification (238 short-name clubs, directory-wide)
+
+Prompted by a direct question about whether "York" and similarly short directory names
+(town name only, no "RFC"/"Rugby"/"Club" etc.) reflect the clubs' real full names. `name`
+became a proposable field in this batch (see `20260901170000`'s allowlist, already covered
+`name` from day one — the note above about it not being proposable was stale by the time
+this batch ran). 238 active clubs with a name containing none of
+rugby/rfc/ruf?c/rlfc/club/athletic/hoppers/academicals/old boys/wanderers were researched
+identity-first, per-club, exactly like the earlier field-enrichment batches. 147 produced a
+sourced, verified fuller name; 91 were confirmed to already carry their genuine short name
+(explicitly NOT "fixed" by mechanically appending a suffix) or had no confirmable fuller
+name. Staged as pending `name` proposals on run `3762c626-b835-4b5f-a499-778274f38a2d`,
+never auto-accepted.
+
+**Two proposals worth extra scrutiny before accepting, because both DROP a word from the
+current name rather than just extending it:**
+- **Rotherham Titans → "Rotherham Rugby Union Football Club"** — medium confidence,
+  sourced only from a Wikipedia infobox field with no independent corroboration against
+  the official site. "Titans" is very plausibly the club's genuine current promotional
+  name (the same pattern as Bristol Bears/Bedford Blues/Taunton Titans, all correctly left
+  untouched elsewhere in this same batch) rather than an informal nickname layered on the
+  real name. Recommend rejecting unless independently confirmed.
+- **Worthing Raiders → "Worthing Rugby Football Club"** — high confidence; the researching
+  agent specifically cited Wikipedia's infobox distinguishing "Raiders" as the first-XV's
+  nickname field from "Worthing Rugby Football Club" as the stated full-name field (the
+  same distinction that correctly preserved Worcester's "Wanderers" nickname while
+  proposing "Worcester Rugby Football Club" as its real name). Better-evidenced than
+  Rotherham, but still worth a human glance given the same drop-a-word shape.
+
+**Identity could not be confirmed, no proposal made (12):**
+Ayrshire Clan, Cockermouth, Consett, Keswick, Keynsham, Leatherhead, Leicester Forest,
+Lincoln, Walsingham, The Glasgow Clan (real risk of confusion with the Elite Ice Hockey
+League team of the same name), Wellington (multiple plausible English clubs, no town/county
+on the directory row to disambiguate). "Ovalball UAT Borough RL" was correctly recognised
+as a synthetic local test fixture and skipped rather than researched.
+- **Walsingham** in particular may be a directory data-quality issue rather than a research
+  gap — no rugby club by this name could be found anywhere; Walsingham, Norfolk is
+  documented only as a pilgrimage/shrine village. Worth checking whether this row should
+  exist at all.
+
+**Now resolvable, previously blocked:** the Batch 3 notes above about Newcastle
+Falcons→Red Bulls and Leeds Tykes' repeated renames said "name isn't a proposable field" —
+that's no longer true. Neither was included in this batch's target list (both already
+contain "Falcons"/"Tykes", not bare place names, so the short-name filter didn't select
+them), but a human could now stage those as ordinary `name` proposals through the same
+pipeline if the rebrand should be reflected canonically.
+
+## Batch 5 — Cheshire, Lancashire and Yorkshire, applied directly rather than staged
+
+Different mechanism from Batches 2–4: instead of researching a target list and staging
+`pending` proposals for later review, the product owner drove this pass interactively —
+naming specific gapped clubs (crest, bio, address, postcode, website), supplying links
+they'd found themselves for most of them, with a research fork covering the rest. Every
+fact was individually curl-verified (crest URLs: HTTP 200 + real image content-type) or
+cross-checked against an independently-fetched source before being written straight to
+`club_directory` (via direct `UPDATE`s and `scripts/ingestion/apply_logo_candidates.mjs`),
+then geocoded via `scripts/ingestion/run_geocoding_backfill.mjs`. Nothing here went through
+the `club_directory_research_proposals` pending/accept pipeline.
+
+**Cheshire RFU cohort (37 clubs):** every active club now has a real, verified crest.
+**Reaseheath College** was deactivated (`active = false`, not deleted — it has accepted
+research proposals and a `directory_requests` row pointing at it) per the standing rule that
+an entry which *is* an educational institution with no real club behind it gets removed from
+the live directory, same treatment as any future "college is the club" case.
+
+**Lancashire cohort (23 of the 23 originally gapped, Bay Horse RFC excluded per standing
+instruction):** fully resolved. Notable items:
+- **Blackley Rugby Football Club renamed to Blackley Rangers RUFC** — the placeholder name
+  on file was incomplete; product-owner research found the club's real current name.
+- **Lancaster Lionesses RFC — an address conflict was caught and resolved.** The product
+  owner initially supplied "Powder House Ln, Lancaster LA1 2TT," which didn't match either
+  the club's own bio ("Lancaster University Sports Centre") or the pre-existing DB postcode
+  (LA1 4YQ). An independent source (fybrugby.com) confirmed the ground as Lancaster
+  University Sports Centre, Bailrigg, postcode LA1 4YT, matching the bio — applied that
+  instead, and the product owner confirmed this was correct rather than Powder House Lane.
+- Four clubs (England Fire Service RFC, West Lancashire Freemasons RFC, British Police
+  Womens RFC, Anti-Assassins RFC) are genuinely "No Fixed Address" representative/touring
+  sides — left with no street address by design, not a gap.
+- Four university-affiliated clubs (Edge Hill, University of Cumbria RFC Lancaster Campus,
+  University of Lancashire, University of Salford) got club-level bios; their address/
+  postcode/crest were already correct on file, so the university-fallback rule wasn't
+  needed here.
+
+**Yorkshire cohort (14 of 16 fully resolved):**
+- 6 bio-only gaps filled (Bradford Salem, Dearne Valley, Garforth, Leeds Medics and
+  Dentists, Old Grovians, Rossington Hornets).
+- Guisborough RUFC and Wetherby RUFC got real crests + address/postcode + website. Note:
+  the research fork's Guisborough crest URL had a transcription error (typed "GUISBOROUGH,"
+  Pitchero's actual filename is "GUISBROUGH") that returned HTTP 403 until corrected —
+  worth remembering that a subagent-supplied crest URL still needs re-verification by
+  whoever applies it, filename typos don't always fail loudly.
+- Four university clubs (Leeds Beckett, Hull, Leeds, York) had no reachable club-specific
+  page (Students' Union activity pages 404'd or were JS-rendered with nothing fetchable), so
+  each now carries its **university's own** official address and coat-of-arms crest as an
+  explicit, labelled fallback — never presented as the club's own distinct identity — per
+  the standing university-fallback rule. Revisit if a genuine club-specific source ever
+  surfaces.
+- **Still gapped, left honest rather than guessed:** Clayton Rugby Football Club (no
+  address/postcode found anywhere, including its own site); York RI (Railway Institute)
+  RUFC (bio and a street name were found, but no postcode and no working crest source — its
+  only known Pitchero page is dead).
+
+**Sitewide "College" scan, deliberately not touched:** the product owner's rule is "all
+Colleges [that are institutions standing in for a club] get deleted from the record," per
+the Reaseheath precedent. A sitewide name search also turned up King's College Hospital RFC
+(Greater London), Stamford College Old Boys RFC (Lincolnshire) and Swindon College Old Boys
+Rugby Football Club (Wiltshire) — none of these are institutions-as-clubs, they're genuine
+standalone rugby clubs that merely reference a college in their name/heritage. Left active
+and untouched; still open whether the product owner wants those gone too despite the name
+match, which would need an explicit decision since deleting a real club would be
+destructive.
+
+Constraint discovered mid-pass: WebSearch draws from a single session-wide call budget
+shared across all concurrently- or sequentially-running research (main thread and every
+forked subagent draw from the same 200-call session cap). Once exhausted, only direct-URL
+WebFetch and curl remain available for the rest of the session — which is why the Yorkshire
+fork (lucky enough to find a Wikipedia list of Yorkshire RFU affiliated clubs to follow by
+direct link) came back far more complete than the Lancashire fork (which had no such list
+to walk and came back almost entirely unresolved) despite running the same instructions.
