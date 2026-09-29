@@ -110,3 +110,54 @@ confirmation bar — not a skipped attempt.
 - **Hartlepool RFC** (ambiguous_needs_review) — Hartlepool has several distinct historic rugby union clubs (West Hartlepool RFC, Hartlepool Rovers RFC, Hartlepool Athletic RFC, Hartlepool B.B.O.B. RFC). A plain 'Hartlepool RFC' could not be confidently matched to one specific still-active entity distinct from these, so no facts are proposed.
 - **Hatfield RFC** (not_found) — Could not independently verify a specific rugby union club named 'Hatfield RFC' in Hertfordshire; searches surfaced only general Hertfordshire RFU governance context and a player born in Hatfield, not a dedicated confirmation of this club's existence or details.
 - **Hemel Hempstead** (not_found) — Could not verify a specific rugby UNION club named 'Hemel Hempstead RFC'. The only clearly confirmed rugby club in Hemel Hempstead found was the Hemel Stags, which play rugby LEAGUE, not union, so was not used to avoid code confusion.
+
+## Batch 3 (North of England + Midlands regional pass, 235 clubs)
+
+This pass specifically targeted North West, Yorkshire, North East and Midlands clubs not
+yet covered by Batch 2's alphabetical sweep. 166 researched with real proposals, 57
+confirmed-but-thin (genuine identity, no verifiable new facts — thin or unreachable web
+presence), 12 flagged below.
+
+**Duplicate-record candidates (two directory rows, likely one real club) — needs a human
+merge decision, not something research can resolve:**
+- **Leigh Rugby Union Football Club** vs the existing **Leigh RUFC** entry (postcode WN7
+  3NA already on file) — only one real Leigh, Greater Manchester rugby union club (Round
+  Ash Park) could be found.
+- **Sileby RFC** vs **Sileby Town RFC** (founded 2006, Cossington) — evidence points to one
+  active club under the "Town" name.
+- **Upton-on-Severn Rugby Football Club** vs **Upton-upon-Severn RFC** — differ only by an
+  "on"/"upon" spelling; a real club competes as "Upton-upon-Severn" but it could not be
+  confirmed whether this is one club double-listed or two distinct entities.
+
+**Possibly defunct / inactive:**
+- **Withernsea RUFC** — joined Counties 4 Yorkshire 2024/25 then withdrew mid-season; no
+  working site or ground found since.
+- **Liverpool Collegiate Rugby Football Club** — only historical (up to 2017/18) league
+  mentions; not on the current Lancashire RFU affiliated-clubs list.
+- **New Brighton Rugby Club** (Wallasey) — similarly only historical mentions; not on the
+  current Lancashire RFU list.
+
+**Identity could not be confirmed at all:**
+- **Typhoons Rugby Football Club** — only match found was an unrelated ice hockey club.
+- **Lincoln** — no citable source distinguished a specific "Lincoln RFC" from an unrelated
+  same-named New Zealand club.
+- **Wortley RUFC** — real risk of confusion with rugby league heritage in the
+  Wortley/Barnsley area and with Wortley, Leeds; no citable evidence of a distinct union
+  club under this name.
+- **North Shields RFC** — no dedicated page, site, or league mention found.
+- **Spartans (Midlands) Rugby Club** — "Spartans" is a common rugby-club name nationally;
+  no page found and the shared WebSearch budget ran out before proper disambiguation
+  could be attempted (a genuine tooling gap, not a claim the club doesn't exist).
+
+**Worth a human's attention though not blocking (name/identity nuance, not ambiguity):**
+- **Newcastle Falcons** rebranded to **Newcastle Red Bulls** in 2025 after a Red Bull GmbH
+  takeover (confirmed on the live official site) — the directory still carries the old
+  name; "name" isn't a proposable field in the current schema, so this needs a direct
+  admin correction, not a proposal.
+- **Leeds Tykes** has been renamed multiple times (→ Leeds Carnegie → Yorkshire Carnegie →
+  reverted to Leeds Tykes in 2020) and now groundshares with a separate club, West Park
+  Leeds RUFC — flagged for awareness given the churn.
+- **Worcester** (directory's stored name is the bare town name) — the real current club is
+  "Worcester Wanderers RFC," a distinct amateur/community club from the professional
+  Worcester Warriors; the stored name doesn't reflect this and needs a human decision on
+  what canonical name to use.
