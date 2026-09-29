@@ -3,7 +3,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "@/types/database.types"
-import { resolveClubLogoUrl } from "@/lib/app-context/club-logo"
+import { clubLogoUrlFromPath, resolveClubLogoUrl } from "@/lib/app-context/club-logo"
 import { loadOpponentGroupLabels } from "@/lib/calendar/resolve-entry-participant"
 import { resolveHomeAwayGroupIds } from "@/lib/fixtures/resolve-home-away-groups"
 import { fullTeamLabel } from "@/lib/teams/compact-label"
@@ -271,22 +271,50 @@ export async function attachTeamAliases(supabase: SupabaseClient<Database>, rows
  * is the exact same canonical field ClubAvatar's other callers already
  * read, so a logo changed in Club settings shows here immediately on the
  * next render, with zero extra propagation logic to get wrong.
+ *
+ * Directory-only opponents (the common case: a real club that has never
+ * activated on Ovalball, so it has no `clubs` row at all) fell through this
+ * entirely -- `clubIds` only ever contained operational club ids, so an
+ * opponent like Garstang or Wigan RUFC never got a lookup key, regardless of
+ * how much crest research had been reconciled into
+ * `club_directory.logo_storage_path`. This is the second, already-documented
+ * shape of the one resolution rule (see resolveClubLogoPathFrom's own
+ * comment: "a fixture's OPPONENT may be an unclaimed club with no clubs row,
+ * in which case the fallback is the directory row the fixture itself points
+ * at"), not a second rule -- so it gets its own batched lookup keyed by
+ * `opponentDirectoryId`/`owningDirectoryId`, used only when the operational
+ * side has no logo for that id.
  */
 export async function attachClubLogos(supabase: SupabaseClient<Database>, rows: AdminFixtureRow[]): Promise<AdminFixtureRow[]> {
   const clubIds = [...new Set(rows.flatMap((r) => [r.owningClubId, r.opponentClubId]).filter((id): id is string => Boolean(id)))]
-  if (clubIds.length === 0) return rows
+  const directoryIds = [
+    ...new Set(rows.flatMap((r) => [r.owningDirectoryId, r.opponentClubId ? null : r.opponentDirectoryId]).filter((id): id is string => Boolean(id))),
+  ]
 
-  const { data: clubs } = await supabase.from("clubs").select("id, logo_storage_path, club_directory(logo_storage_path)").in("id", clubIds)
-  const logoByClubId = new Map((clubs ?? []).map((c) => [c.id, resolveClubLogoUrl(supabase, c)]))
+  const [clubsResult, directoryResult] = await Promise.all([
+    clubIds.length > 0
+      ? supabase.from("clubs").select("id, logo_storage_path, club_directory(logo_storage_path)").in("id", clubIds)
+      : Promise.resolve({ data: [] as { id: string; logo_storage_path: string | null; club_directory: { logo_storage_path: string | null } | null }[] }),
+    directoryIds.length > 0
+      ? supabase.from("club_directory").select("id, logo_storage_path").in("id", directoryIds)
+      : Promise.resolve({ data: [] as { id: string; logo_storage_path: string | null }[] }),
+  ])
+
+  const logoByClubId = new Map((clubsResult.data ?? []).map((c) => [c.id, resolveClubLogoUrl(supabase, c)]))
+  const logoByDirectoryId = new Map((directoryResult.data ?? []).map((d) => [d.id, clubLogoUrlFromPath(supabase, d.logo_storage_path)]))
+
+  if (clubIds.length === 0 && directoryIds.length === 0) return rows
 
   return rows.map((r) => {
     const isHome = r.homeAway !== "Away"
     const homeClubId = isHome ? r.owningClubId : r.opponentClubId
     const awayClubId = isHome ? r.opponentClubId : r.owningClubId
+    const homeDirectoryId = isHome ? r.owningDirectoryId : r.opponentDirectoryId
+    const awayDirectoryId = isHome ? r.opponentDirectoryId : r.owningDirectoryId
     return {
       ...r,
-      homeClubLogoUrl: (homeClubId && logoByClubId.get(homeClubId)) || null,
-      awayClubLogoUrl: (awayClubId && logoByClubId.get(awayClubId)) || null,
+      homeClubLogoUrl: (homeClubId && logoByClubId.get(homeClubId)) || (homeDirectoryId && logoByDirectoryId.get(homeDirectoryId)) || null,
+      awayClubLogoUrl: (awayClubId && logoByClubId.get(awayClubId)) || (awayDirectoryId && logoByDirectoryId.get(awayDirectoryId)) || null,
     }
   })
 }
