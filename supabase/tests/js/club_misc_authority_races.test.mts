@@ -172,10 +172,9 @@ test("R3 a document filed while its folder is deleted never ends up in a folder 
 
 test("R4 two clubs opening the same partnership from both ends leave one relationship", async () => {
   sql(`delete from public.club_partnerships where requesting_club_id in ('${ids.club}','${ids.far}') or partner_club_id in ('${ids.club}','${ids.far}')`)
-  const a = session(`mrace_a_${TAG}`, `begin;\n${asUser(ids.ca)}insert into public.club_partnerships (requesting_club_id, partner_club_id, status, requested_by)
-    values ('${ids.club}','${ids.far}','pending','${ids.ca}');\ncommit;\n`)
-  const b = session(`mrace_b_${TAG}`, `begin;\n${asUser(ids.farca)}insert into public.club_partnerships (requesting_club_id, partner_club_id, status, requested_by)
-    values ('${ids.far}','${ids.club}','pending','${ids.farca}');\ncommit;\n`)
+  // Each end asks through the one door (20270743000000): the table takes no direct write.
+  const a = session(`mrace_a_${TAG}`, `begin;\n${asUser(ids.ca)}select public.request_club_partnership('${ids.club}','${ids.far}');\ncommit;\n`)
+  const b = session(`mrace_b_${TAG}`, `begin;\n${asUser(ids.farca)}select public.request_club_partnership('${ids.far}','${ids.club}');\ncommit;\n`)
   const [oa, ob] = await Promise.all([a.done, b.done])
   const n = one(`select count(*) from public.club_partnerships where status <> 'revoked'
     and least(requesting_club_id, partner_club_id) = least('${ids.club}'::uuid,'${ids.far}'::uuid)

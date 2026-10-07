@@ -386,8 +386,9 @@ test("a session with no end shows no window rather than a dangling dash", () => 
 
 test("both cards go to the participant centres and nowhere else", () => {
   for (const kind of ["parent", "family", "player"] as const) {
+    // The one Match Centre, at the canonical fixture address (consolidation, 2026-10-03).
     assert.deepEqual(routeForAgendaItem(match(), kind), {
-      pathname: "/fixtures/[fixtureId]/match-centre",
+      pathname: "/fixtures/[fixtureId]",
       params: { fixtureId: "fx-1" },
     })
     assert.deepEqual(routeForAgendaItem(match({ kind: "training", eventId: "ts-1", them: null }), kind), {

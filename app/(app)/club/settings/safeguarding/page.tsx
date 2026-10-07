@@ -56,17 +56,29 @@ export default async function SafeguardingOfficerPage() {
   // invisible here and the page told the club it had no Safeguarding Officer at
   // all. That is not "no officer yet"; it is "an appointment is in progress and
   // this screen cannot see it", and it was the screen that owns the appointment.
-  const [{ data: officerRows }, appointments] = await Promise.all([
+  const [{ data: officerRows }, appointments, { data: openInvitations }] = await Promise.all([
     supabase.rpc("get_club_safeguarding_officers", { p_club_id: clubId }),
     resolveClubSafeguardingAppointments(supabase, clubId),
+    // THE CANONICAL ISSUER's open invitations (M10): the officer reader still carries only the legacy table's id, which
+    // is empty for every invitation issued since the canonical move -- so Revoke Invite was never offered.
+    supabase.from("invitations_admin_view").select("id, intended_outcome").eq("club_id", clubId).eq("kind", "SAFEGUARDING_OFFICER").eq("state", "ISSUED"),
   ])
+  const canonicalByOfficer = new Map<string, string>()
+  for (const row of openInvitations ?? []) {
+    const officerId = ((row.intended_outcome ?? {}) as { officer_id?: string }).officer_id
+    if (row.id && officerId) canonicalByOfficer.set(officerId, row.id)
+  }
   const officers: OfficerData[] = (officerRows ?? []).map((o) => ({
     id: o.id,
     officerType: o.officer_type as "primary" | "deputy",
     contactName: o.contact_name,
     contactEmail: o.contact_email,
     status: o.status as OfficerData["status"],
-    pendingInvitationId: o.pending_invitation_id,
+    pendingInvitation: canonicalByOfficer.has(o.id)
+      ? { id: canonicalByOfficer.get(o.id) as string, legacy: false }
+      : o.pending_invitation_id
+        ? { id: o.pending_invitation_id, legacy: true }
+        : null,
   }))
 
   const pending = appointments.filter((a) => a.confirmationState === "PENDING_CONFIRMATION")

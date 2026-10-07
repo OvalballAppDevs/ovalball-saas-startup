@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 import { entranceLanding, type EntranceLanding } from "@/lib/invitations/entrance-landing"
+import type { TeamCodeChoices, TeamCodeSubject } from "@ovalball/contracts/team/team-code"
 
 import { acceptInvitation, adoptEntranceContext, recordOwnDateOfBirth, signOutAndReturnToInvitation } from "./actions"
+import { TeamCodeSteps } from "./team-code-steps"
 
 export function JoinPanel({
   token,
@@ -17,6 +19,7 @@ export function JoinPanel({
   signedIn,
   hasInvitation,
   needsName,
+  teamChoices = null,
 }: {
   token: string | null
   /** A code already in the URL, which the page has previewed. */
@@ -24,6 +27,8 @@ export function JoinPanel({
   signedIn: boolean
   hasInvitation: boolean
   needsName: boolean
+  /** A team's code, signed in: who it could be for, as the server answered (20270741000000). */
+  teamChoices?: TeamCodeChoices | null
 }) {
   const router = useRouter()
   const [code, setCode] = useState("")
@@ -37,7 +42,7 @@ export function JoinPanel({
   const [dob, setDob] = useState("")
   const [firstName, setFirstName] = useState("")
   const [surname, setSurname] = useState("")
-  const [lastInput, setLastInput] = useState<{ token?: string | null; code?: string | null }>({})
+  const [lastInput, setLastInput] = useState<{ token?: string | null; code?: string | null; subject?: TeamCodeSubject | null }>({})
 
   // WHAT JUST HAPPENED, WHEN IT IS WORTH SAYING. An outcome that established access can simply take the
   // person there; an outcome that established a REQUEST must not, because a silent redirect into the
@@ -72,7 +77,7 @@ export function JoinPanel({
     go(landing)
   }
 
-  function submit(input: { token?: string | null; code?: string | null }) {
+  function submit(input: { token?: string | null; code?: string | null; subject?: TeamCodeSubject | null }) {
     setError(null)
     setLastInput(input)
     start(async () => {
@@ -185,6 +190,12 @@ export function JoinPanel({
         )}
       </form>
     )
+  }
+
+  // A TEAM'S CODE: who it is for, then one request for THAT team (20270741000000).
+  if (hasInvitation && teamChoices && (token || previewedCode)) {
+    const secret = token ? { token } : { code: previewedCode }
+    return <TeamCodeSteps choices={teamChoices} secret={secret} pending={pending} error={error} onSend={(subject) => submit({ ...secret, subject })} />
   }
 
   // ANYTHING THAT PREVIEWED IS ACCEPTED WITH ONE CONTROL -- a link or a code.

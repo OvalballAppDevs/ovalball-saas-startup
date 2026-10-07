@@ -1,5 +1,6 @@
 import {
   detectConflicts,
+  detectEventConflicts,
   detectResourceConflicts,
   detectTournamentConflicts,
   fixtureOccupiedWindow,
@@ -53,6 +54,7 @@ export function applyPending(board: PitchAllocationBoard, pending: Map<string, P
     ]
   )
   for (const c of fromTournament) if (!conflicts.some((x) => x.fixtureId === c.fixtureId)) conflicts.push(c)
+  for (const c of detectEventConflicts(allocated, board.clubEvents, board.pitches, buffers)) if (!conflicts.some((x) => x.fixtureId === c.fixtureId)) conflicts.push(c)
   return { ...board, fixtures: allocated, unallocated, conflicts, trainingConflicts, fixtureConflictsFromTraining, tournamentConflicts }
 }
 

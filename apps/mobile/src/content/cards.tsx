@@ -3,7 +3,7 @@ import { Image } from "expo-image"
 import type { AnnouncementCard, ArticleCard } from "@ovalball/contracts/club/content"
 
 import { relativeTime } from "./links"
-import { editorial } from "../components/home/editorial"
+import { newsFallbackImage } from "./news-fallback"
 import { Megaphone } from "../components/icons"
 import { StatusPill } from "../components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
@@ -52,17 +52,10 @@ export function AnnouncementRow({ item, accent, onPress, first = false, showClub
   )
 }
 
-export function fallbackImageFor(categoryLabel: string) {
-  const c = categoryLabel.toLowerCase()
-  if (/match|fixture|result/.test(c)) return editorial.news.matchday
-  if (/train/.test(c)) return editorial.news.training
-  if (/club|community|social|event/.test(c)) return editorial.news.community
-  return editorial.news.general
-}
 
 /** A 16:9 picture: the story's own with its alt text, or the app-owned editorial fallback (decorative). */
 export function HeroImage({ item, radiusTop = true }: { item: Pick<ArticleCard, "heroUrl" | "heroAlt" | "categoryLabel" | "title">; radiusTop?: boolean }) {
-  const fallback = fallbackImageFor(item.categoryLabel)
+  const fallback = newsFallbackImage(item.categoryLabel)
   const shape = { width: "100%" as const, aspectRatio: 16 / 9, backgroundColor: colour.forest900, borderTopLeftRadius: radiusTop ? radius.lg : 0, borderTopRightRadius: radiusTop ? radius.lg : 0, overflow: "hidden" as const }
   if (item.heroUrl) {
     return <Image source={{ uri: item.heroUrl }} style={shape} contentFit="cover" transition={140} accessible accessibilityLabel={item.heroAlt || item.title} />

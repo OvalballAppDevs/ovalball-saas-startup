@@ -53,6 +53,8 @@ export function TextField({
   label,
   multiline,
   autoCapitalize = "sentences",
+  keyboardType = "default",
+  onFocus,
 }: {
   value: string
   onChange: (next: string) => void
@@ -60,16 +62,22 @@ export function TextField({
   label: string
   multiline?: boolean
   autoCapitalize?: "none" | "sentences" | "words"
+  keyboardType?: "default" | "decimal-pad"
+  /** So a screen with the field low in a scrollable form (e.g. a trailing Notes box) can scroll it
+   * clear of the keyboard itself -- this component has no scroll container of its own to do that. */
+  onFocus?: () => void
 }) {
   return (
     <TextInput
       accessibilityLabel={label}
       value={value}
       onChangeText={onChange}
+      onFocus={onFocus}
       placeholder={placeholder}
       placeholderTextColor={colour.inkSubtle}
       multiline={multiline}
       autoCapitalize={autoCapitalize}
+      keyboardType={keyboardType}
       selectionColor={colour.pitch600}
       style={[
         type.body,
@@ -152,10 +160,15 @@ export function TimeField({
   value,
   onChange,
   label,
+  clearable = true,
 }: {
   value: string | null
   onChange: (time: string | null) => void
   label: string
+  /** Whether the field offers a Clear action. Defaults to true, which is every existing caller's
+   * behaviour. A REQUIRED time passes false: offering to clear a value the form will not accept as
+   * empty invites a person into a dead end. */
+  clearable?: boolean
 }) {
   const [open, setOpen] = useState(Platform.OS === "ios")
   const base = new Date()
@@ -181,7 +194,7 @@ export function TimeField({
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
           <Clock size={18} color={colour.forest800} strokeWidth={1.9} />
           <DateTimePicker value={base} mode="time" display="compact" onChange={handle} accessibilityLabel={label} />
-          {!!value && <Clear onPress={() => onChange(null)} label={`Clear ${label}`} />}
+          {clearable && !!value && <Clear onPress={() => onChange(null)} label={`Clear ${label}`} />}
         </View>
       ) : Platform.OS === "web" ? (
         /* Typed on web (see DateField): the native picker has no web implementation. */
@@ -189,7 +202,7 @@ export function TimeField({
           <View style={{ flex: 1 }}>
             <TypedField icon={<Clock size={18} color={colour.forest800} strokeWidth={1.9} />} label={label} value={value ?? ""} placeholder="HH:MM" pattern={/^([01]\d|2[0-3]):[0-5]\d$/} onChange={(next) => onChange(next)} />
           </View>
-          {!!value && <Clear onPress={() => onChange(null)} label={`Clear ${label}`} />}
+          {clearable && !!value && <Clear onPress={() => onChange(null)} label={`Clear ${label}`} />}
         </View>
       ) : (
         <>

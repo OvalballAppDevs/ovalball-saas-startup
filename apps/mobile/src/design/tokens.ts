@@ -54,6 +54,14 @@ export const colour = {
   warning: "#8a5a00",
   warningSurface: "#fdf6e7",
   successSurface: "#e9f7ee",
+  /**
+   * INFORMATIONAL, not a status. The pale blue Ovalball already uses for a training event's surface
+   * (`eventTone.training`), named here so an explanatory note can reach for the meaning rather than
+   * for a hex value -- and so Planning's guidance boxes are the same blue as the rest of the app
+   * instead of a new one chosen by eye.
+   */
+  info: "#2f5d8c",
+  infoSurface: "#e8eff7",
 } as const
 
 /**
@@ -97,6 +105,38 @@ export const onForest = {
 } as const
 
 /**
+ * MESSAGING -- every colour a conversation uses, named once.
+ *
+ * Mine is messenger blue, theirs is mint; what sits ON a blue bubble (a quote, a voice track, a time) is white at
+ * a named strength rather than a strength chosen per component, so a quote, a voice note and a receipt inside one
+ * bubble agree. Nothing here is a new hue: each is drawn from `colour` or is white/ink at a stated opacity.
+ */
+export const messenger = {
+  mine: colour.messengerBlue,
+  theirs: colour.mint100,
+  /** Text and marks on my bubble, strongest to quietest. */
+  onMine: colour.onForest,
+  onMineSoft: "rgba(255,255,255,0.82)",
+  onMineFaint: "rgba(255,255,255,0.18)",
+  onMineLine: "rgba(255,255,255,0.28)",
+  /** Marks on their bubble: a quote's ground, a voice track. */
+  onTheirsSoft: "rgba(18,61,44,0.07)",
+  onTheirsLine: "rgba(18,61,44,0.14)",
+  /** A day line or a system notice on the thread's chalk. */
+  notice: "rgba(16,21,18,0.06)",
+  /** Read receipt: the green tick, never blue -- blue is the bubble. */
+  read: colour.rugby700,
+  /** A row pressed on light ground, and on forest. */
+  pressed: "rgba(16,21,18,0.04)",
+  pressedOnForest: "rgba(255,255,255,0.06)",
+  /** The scrim behind a sheet or the compact panel. */
+  scrim: "rgba(7,28,20,0.5)",
+  scrimLight: "rgba(7,28,20,0.32)",
+  /** An icon well on forest: a group's symbol in a header or a row. */
+  wellOnForest: "rgba(255,255,255,0.12)",
+} as const
+
+/**
  * A CANONICAL STATE, SHOWN ON THE FOREST GROUND.
  *
  * The same three tones the light surfaces use, measured against forest instead of
@@ -125,6 +165,33 @@ export const statusOnForest = {
 export const eventTone = {
   match: { accent: colour.pitch600, surface: colour.mint100, text: colour.forest800 },
   training: { accent: colour.messengerBlue, surface: "#e8eff7", text: colour.messengerBlue },
+  /**
+   * A TOURNAMENT'S OWN TONE. Deep forest rather than the match green or the
+   * training blue: a festival sits beside both in one day's list, and three
+   * distinguishable accents is the point of having an accent at all.
+   */
+  tournament: { accent: colour.forest800, surface: colour.mint300, text: colour.forest800 },
+  /**
+   * A CLUB EVENT'S OWN TONE (Events brief, approved mock-up): violet, so a party, a meeting or a charity run
+   * reads as neither a match, a session nor a festival. 6.9:1 on white for the text; the word EVENT is
+   * always there too.
+   */
+  event: { accent: "#7448c9", surface: "#efe9fb", text: "#5a34a8" },
+} as const
+
+/**
+ * A NOTIFICATION FAMILY'S ACCENT ON THE FOREST GROUND -- the foreground banner's progress line.
+ *
+ * The light-surface accents (messengerBlue, warning, danger) are measured against chalk and go muddy
+ * on forest, so each is lifted here to the SAME hue at a brightness that reads on forest950/900:
+ * the amber and red are the exact hues `statusOnForest` already grounds itself in, and the blue is
+ * messengerBlue lifted. Decorative only -- every banner also carries its icon and its words.
+ */
+export const familyOnForest = {
+  green: colour.pitch400,
+  blue: "#8db4e0",
+  amber: "rgb(251,191,36)",
+  red: "rgb(248,113,113)",
 } as const
 
 /** The month grid's own states, named for what they mean. */
@@ -163,6 +230,12 @@ export const radius = {
  * pressable in this app is at least this tall, which is cheaper to hold as a token than to remember.
  */
 export const TOUCH_TARGET = 44
+
+/**
+ * LARGE TEXT. Above this Dynamic Type scale (iOS's first accessibility size is about 1.4x), controls laid
+ * side by side no longer fit their words: paired buttons stack and a row of four tiles becomes two by two.
+ */
+export const LARGE_TEXT_SCALE = 1.35
 
 /**
  * ELEVATION, stated once. React Native's shadow props differ between the platforms, and a card that

@@ -30,6 +30,12 @@ const ACTOR = { email: "uat.coach@ovalball.test" }   // Club Admin
 // it (the recipient resolution below needs one), and removes it at the end.
 // The prefix is swept first so a crashed run cannot leave one behind.
 const TAG = `QA-TRAINING-${Date.now()}`
+const RUN_STARTED = sql(`select now()`)
+// A START TIME NO REAL PLAN USES, and the tile clicked is the one showing it. Seeded at the team's usual 18:00,
+// this session shared a slot with the Under 12 Boys plan's own Wednesday session whenever today + 10 fell on a
+// Wednesday; `first()` picked the plan's tile and the run cancelled a real UAT session, telling five real
+// people (the owner among them) that their training was off (found 4 Oct 2026, restored by hand).
+const SESSION_START = "06:10"
 sql(`delete from public.training_sessions where notes like 'QA-TRAINING-%'`)
 
 const trainingTeam = sql(`
@@ -43,7 +49,7 @@ if (!/^[0-9a-f-]{36}$/.test(trainingTeam)) {
 }
 const sessionId = sql(`
   insert into public.training_sessions (club_id, team_id, session_date, start_time, end_time, notes, status, source)
-  select t.club_id, t.id, (current_date + 10)::date, '18:00'::time, '19:30'::time, '${TAG}', 'PLANNED', 'MANUAL'
+  select t.club_id, t.id, (current_date + 10)::date, '${SESSION_START}'::time, '07:10'::time, '${TAG}', 'PLANNED', 'MANUAL'
   from public.teams t where t.id = '${trainingTeam}'
   returning id;`).split("\n").map((l) => l.trim()).find((l) => /^[0-9a-f-]{36}$/.test(l))
 if (!sessionId) {
@@ -57,6 +63,14 @@ function cleanupSession() {
   try {
     sql(`delete from public.player_fixture_attendance where training_session_id = '${sessionId}'`)
     sql(`delete from public.training_sessions where id = '${sessionId}'`)
+    // SELF-CLEANING EVEN IF A CLICK EVER LANDS ELSEWHERE: any other session this run cancelled is put back and
+    // its cancellation notices removed -- a real family must never be told a real session is off.
+    sql(`with put_back as (
+           update public.training_sessions set status = 'PLANNED', cancelled_at = null, cancelled_by = null, cancellation_reason = null
+           where id <> '${sessionId}' and cancellation_reason = 'QA-NOTIF mandatory training cancellation' and cancelled_at >= '${RUN_STARTED}'
+           returning id)
+         delete from public.notifications
+         where type = 'training_session_cancelled' and data->>'training_session_id' in (select id::text from put_back)`)
   } catch (e) {
     console.error("training session cleanup failed:", e)
   }
@@ -190,6 +204,7 @@ await page.waitForLoadState("networkidle").catch(() => {})
 const sessionButton = page
   .locator("button:visible")
   .filter({ hasText: /Training/ })
+  .filter({ hasText: `· ${SESSION_START}` })
   .filter({ hasNotText: "Schedule Training" })
   .first()
 await sessionButton.click()

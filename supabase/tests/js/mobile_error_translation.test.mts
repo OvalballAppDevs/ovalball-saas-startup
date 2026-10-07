@@ -66,3 +66,38 @@ test("a failure with no message at all still produces something a person can rea
     assert.equal(result.detail, nothing && typeof nothing === "object" && "message" in nothing ? result.detail : result.detail)
   }
 })
+
+/*
+  A FAILED ACTION IS SAID AS ONE (integration audit, live Events UAT).
+
+  The Event Centre reported a refused reminder -- the same reminder went out minutes earlier -- as
+  "Couldn't load the message. Try again.", after the organiser pressed Send. Retrying could never help,
+  and nothing had been loaded. The server's own sentence is what the person needs; an unrecognised
+  failure names the action that failed, never "load".
+*/
+test("an action's refusal sentence reaches the person who was refused", async () => {
+  const { friendlyAction } = await import("../../../apps/mobile/src/errors/translate")
+  const refused = friendlyAction({ code: "22023", message: "That reminder went out less than six hours ago." }, "send", "the reminder")
+  assert.equal(refused.message, "That reminder went out less than six hours ago.")
+  assert.equal(refused.retryable, false)
+})
+
+test("an action that fails for no stated reason names the action, never a load", async () => {
+  const { friendlyAction } = await import("../../../apps/mobile/src/errors/translate")
+  const failed = friendlyAction({ code: "PGRST202", message: "Could not find the function public.send_event_message" }, "send", "the message")
+  assert.equal(failed.message, "Couldn't send the message. Try again.")
+  assert.ok(!failed.message.includes("send_event_message"), "an identifier never reaches the screen")
+})
+
+test("a refusal that names an identifier is still hidden behind the action's own words", async () => {
+  const { friendlyAction } = await import("../../../apps/mobile/src/errors/translate")
+  const leaky = friendlyAction({ code: "22023", message: "Bad value for fixture_communications_body_shape." }, "send", "the reminder")
+  assert.equal(leaky.message, "Couldn't send the reminder. Try again.")
+})
+
+test("an action refused for authority says so rather than inviting a retry", async () => {
+  const { friendlyAction } = await import("../../../apps/mobile/src/errors/translate")
+  const forbidden = friendlyAction({ code: "42501", message: "permission denied for function send_event_message" }, "send", "the message")
+  assert.equal(forbidden.message, "You do not have access to the message.")
+  assert.equal(forbidden.retryable, false)
+})

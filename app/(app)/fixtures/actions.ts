@@ -29,21 +29,22 @@ export async function acceptFixtureRequest(requestId: string, targetTeamId?: str
 }
 
 /**
- * A plain status update, not a function -- fixture_requests_update_scoped
- * RLS already covers this (either side may decline/cancel), no atomic
- * multi-table write is needed the way acceptance requires.
+ * The answering side says no: `decline_fixture_request` decides on the server whose turn it is, that the request is
+ * still open, and records who declined. The table is not writable from a client (20270762000000).
  */
 export async function declineFixtureRequest(requestId: string): Promise<RequestActionResult> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { ok: false, error: "Not signed in." }
+  const { error } = await supabase.rpc("decline_fixture_request", { p_request_id: requestId })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/fixtures")
+  revalidatePath("/dashboard")
+  return { ok: true }
+}
 
-  const { error } = await supabase
-    .from("fixture_requests")
-    .update({ status: "declined", decided_by: user.id, decided_at: new Date().toISOString() })
-    .eq("id", requestId)
+/** The requesting side withdraws its own open request (`cancelled`, never `declined`). */
+export async function withdrawFixtureRequest(requestId: string): Promise<RequestActionResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("withdraw_fixture_request", { p_request_id: requestId })
   if (error) return { ok: false, error: error.message }
   revalidatePath("/fixtures")
   revalidatePath("/dashboard")

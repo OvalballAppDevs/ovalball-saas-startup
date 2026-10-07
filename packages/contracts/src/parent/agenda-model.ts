@@ -48,6 +48,12 @@ export interface AgendaEvent {
   /** The fixture's own lifecycle status; null for training. */
   status: string | null
   attendance: AttendanceResponse
+  /**
+   * Whether the server will take an answer yet (`fixtures.attendance_is_open`). A fixture's attendance
+   * opens six days out by default, a club's own number when it sets one, or earlier when a side opens
+   * it. Absent for anything that has no window.
+   */
+  attendanceOpen?: boolean | null
   /** Where this row opens -- the Match Centre for a fixture. */
   href: string | null
 }
@@ -185,12 +191,15 @@ export function outstandingResponseEvents(events: AgendaEvent[], todayIso: strin
  *   this weekend's job.
  */
 export function needsAttendanceResponse(
-  event: { attendance: AttendanceResponse; status: string | null; date: string },
+  event: { attendance: AttendanceResponse; status: string | null; date: string; attendanceOpen?: boolean | null },
   todayIso: string,
   horizonDays: number = ATTENDANCE_HORIZON_DAYS
 ): boolean {
   if (event.attendance !== null) return false
   if (event.status === "Cancelled") return false
+  // NOT BEFORE IT OPENS. A match whose attendance has not opened cannot be answered yet, so asking for
+  // an answer would send a family to a refusal (Match Centre consolidation, 2026-10-03).
+  if (event.attendanceOpen === false) return false
   const delta = daysBetween(todayIso, event.date)
   return delta >= 0 && delta <= horizonDays
 }

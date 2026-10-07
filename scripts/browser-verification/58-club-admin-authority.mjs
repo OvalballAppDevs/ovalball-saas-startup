@@ -31,6 +31,10 @@ const status = JSON.parse(execFileSync("npx", ["supabase", "status", "-o", "json
 const API = status.API_URL
 const ANON_KEY = status.ANON_KEY
 const SERVICE_KEY = status.SERVICE_ROLE_KEY
+// signIn() signs in through the real password form, so this run's people carry the local UAT password.
+const PASSWORD = process.env.UAT_BROWSER_PASSWORD
+  || (fs.readFileSync(path.resolve(import.meta.dirname, "../../.env.local"), "utf8").split("\n").find((l) => l.startsWith("UAT_BROWSER_PASSWORD=")) ?? "").slice("UAT_BROWSER_PASSWORD=".length).trim().replace(/^["']|["']$/g, "")
+if (!PASSWORD) throw new Error("No UAT_BROWSER_PASSWORD in the environment or .env.local")
 
 const TAG = Date.now().toString(36).slice(-6)
 const people = {
@@ -46,7 +50,7 @@ async function createIdentity(person) {
   const res = await fetch(`${API}/auth/v1/admin/users`, {
     method: "POST",
     headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ email: person.email, email_confirm: true }),
+    body: JSON.stringify({ email: person.email, password: PASSWORD, email_confirm: true }),
   })
   const body = await res.json()
   if (!body.id) throw new Error(`could not create ${person.email}: HTTP ${res.status}`)
@@ -89,7 +93,7 @@ begin
   delete from public.club_pitches where club_id = any(v_clubs);
   delete from public.venues where club_id = any(v_clubs);
   delete from public.notifications where user_id = any(v_people);
-  delete from public.team_permissions where membership_id in (select id from public.club_memberships where club_id = any(v_clubs));
+  delete from testing.team_roles where membership_id in (select id from public.club_memberships where club_id = any(v_clubs));
   delete from public.role_assignments where club_id = any(v_clubs);
   delete from public.club_memberships where club_id = any(v_clubs);
   delete from public.club_setup_state where club_id = any(v_clubs);

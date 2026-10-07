@@ -200,9 +200,13 @@ test("a team link resolves to the team's own screens, and a link can select a he
   assert.equal(teamContextKeyFor("t1", [held, other], other), "team:t1", "a held team is selected")
   assert.equal(teamContextKeyFor("t1", [held, other], held), null, "already there: no switch")
   assert.equal(teamContextKeyFor("t9", [held, other], held), null, "a team the person does not hold is never selected")
+  // Opening a notification (the Centre and the bell's quick view alike) goes through one shared
+  // navigator, src/notifications/open.ts, which is where the context switch now lives.
   const notifications = code(join(MOBILE, "app/(tabs)/notifications/index.tsx"))
-  assert.match(notifications, /teamContextKeyFor\((?:intent|hint)\.teamId, contexts, active\)/, "the bell switches through the canonical rule")
-  assert.doesNotMatch(notifications, /select\(`team:\$\{/, "and never builds a context key from a link")
+  const navigator = code(join(MOBILE, "src/notifications/open.ts"))
+  assert.match(notifications, /useNotificationNavigator\(\)/, "the Centre opens through the shared navigator")
+  assert.match(navigator, /teamContextKeyFor\((?:intent|hint)\.teamId, contexts, active\)/, "the bell switches through the canonical rule")
+  assert.doesNotMatch(navigator, /select\(`team:\$\{/, "and never builds a context key from a link")
 })
 
 // ------------------------------------------------------------------ subscriptions
@@ -266,7 +270,8 @@ test("the classification is the one canonical list on both clients, rendered on 
   for (const f of ["src/components/agenda-row.tsx", "src/match-centre/load.ts"]) {
     assert.match(code(join(MOBILE, f)), /matchTypeLabel/, `${f} resolves the classification through the shared label`)
   }
-  assert.match(code(join(MOBILE, "src/fixtures/match-centre.tsx")), /view\.matchType/, "the Match Centre draws the classification the view model resolved")
+  assert.match(code(join(MOBILE, "src/fixtures/match-centre/hero.tsx")), /view\.matchType/, "the Match Centre draws the classification the view model resolved")
+  assert.match(code(join(MOBILE, "src/fixtures/match-centre/overview-section.tsx")), /view\.matchType/, "in the hero and in the match details")
   assert.match(code(join(MOBILE, "src/components/participant/match-card.tsx")), /matchType/, "the Calendar card carries it too")
   const mutations = code(join(MOBILE, "src/agenda/mutations.ts"))
   assert.doesNotMatch(mutations, /delete_fixture|\.delete\(\)/, "no delete from the team's mutations")

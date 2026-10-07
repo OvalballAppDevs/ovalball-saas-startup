@@ -1,5 +1,5 @@
 import { Children, useEffect, useMemo, useState } from "react"
-import { Alert, Linking, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native"
+import { Alert, Linking, Pressable, ScrollView, Text, TextInput, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Image } from "expo-image"
@@ -11,7 +11,6 @@ import {
   distanceMiles,
   findDistanceOrigin,
   gameWeekRange,
-  inviteClubToOvalball,
   readClubDetail,
   readClubhouseMarkers,
   requestPartnership,
@@ -33,12 +32,12 @@ import { useSession } from "../../../../src/auth/session"
 import { useAppContexts } from "../../../../src/context/contexts"
 import { startClubConversation } from "../../../../src/messages/club-conversations"
 import { CLAIMABLE_ROLES, submitClubClaim, type ClaimableRole } from "../../../../src/clubhouse/claims"
+import { applyDetailPreviewOverlay, applyPreviewOverlay, type PreviewDetail, type PreviewMarker } from "../../../../src/clubhouse/research-preview-overlay"
 import { ChoiceField, Field, TextField } from "../../../../src/components/form"
 import { BottomSheet } from "../../../../src/components/bottom-sheet"
 import { Button, CardSkeleton, ErrorState, StatusPill } from "../../../../src/components/ui"
-import { CalendarDays, ChevronRight, Globe, MapPin, Share2, Users } from "../../../../src/components/icons"
+import { CalendarDays, ChevronRight, Globe, MapPin, Users } from "../../../../src/components/icons"
 import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../../src/design/tokens"
-import { webUrl } from "../../../../src/config/environment"
 import { ClubCrest, ClubMetricRow } from "../../../../src/clubhouse/components"
 
 /**
@@ -103,9 +102,9 @@ export default function ClubProfile() {
   const viewerClubId = active?.clubId ?? (active?.kind === "club" ? active.id : null)
   const viewerTeamId = active?.kind === "team" ? active.id : null
 
-  const [markers, setMarkers] = useState<ClubMapMarker[] | null>(null)
+  const [markers, setMarkers] = useState<PreviewMarker[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [detail, setDetail] = useState<ClubDetail | null>(null)
+  const [detail, setDetail] = useState<PreviewDetail | null>(null)
   const [clubTeams, setClubTeams] = useState<ClubTeam[] | null>(null)
   const [viewerTeams, setViewerTeams] = useState<ClubTeam[] | null>(null)
   const [clubFixtureRequests, setClubFixtureRequests] = useState<{ incoming: ClubFixtureRequest[]; outgoing: ClubFixtureRequest[] } | null>(null)
@@ -115,6 +114,7 @@ export default function ClubProfile() {
   const [messageDraft, setMessageDraft] = useState<string | null>(null)
   const [sendingMessage, setSendingMessage] = useState(false)
   const [messageSentFor, setMessageSentFor] = useState<string | null>(null)
+  const [sentConversationId, setSentConversationId] = useState<string | null>(null)
   // LIFTED OUT OF OnOvalballBody (owner correction, Section 6/13): the bottom action bar needs to know
   // the active tab too, so it can hide its own "Request Fixtures" CTA while the Availability tab's own
   // copy of that CTA is already on screen -- never two visible Request Fixtures buttons at once.
@@ -134,7 +134,7 @@ export default function ClubProfile() {
 
   function loadMarkers() {
     void readClubhouseMarkers(supabase, viewerClubId, viewerTeamId)
-      .then((rows) => setMarkers(rows))
+      .then((rows) => setMarkers(applyPreviewOverlay(rows)))
       .catch(() => setError("Couldn't load this club. Check your connection and try again."))
   }
 
@@ -143,7 +143,7 @@ export default function ClubProfile() {
     setError(null)
     void readClubhouseMarkers(supabase, viewerClubId, viewerTeamId)
       .then((rows) => {
-        if (live) setMarkers(rows)
+        if (live) setMarkers(applyPreviewOverlay(rows))
       })
       .catch(() => {
         if (live) setError("Couldn't load this club. Check your connection and try again.")
@@ -158,7 +158,7 @@ export default function ClubProfile() {
 
   function loadDetail() {
     if (!marker) return
-    void readClubDetail(supabase, marker, viewerClubId, viewerTeamId).then(setDetail)
+    void readClubDetail(supabase, marker, viewerClubId, viewerTeamId).then((d) => setDetail(applyDetailPreviewOverlay(d, marker.directoryId)))
   }
 
   useEffect(() => {
@@ -249,6 +249,7 @@ export default function ClubProfile() {
       return
     }
     setMessageDraft(null)
+    setSentConversationId(result.conversationId)
     setMessageSentFor(marker.name)
   }
 
@@ -358,7 +359,7 @@ export default function ClubProfile() {
               onRequestPartnership={() =>
                 void act(async () => {
                   if (!viewerClubId || !userId || !marker.clubId) return { ok: false, error: "You don't have fixture authority at a club." }
-                  const result = await requestPartnership(supabase, viewerClubId, marker.clubId, userId)
+                  const result = await requestPartnership(supabase, viewerClubId, marker.clubId)
                   return { ...result, message: result.ok ? `Partnership request sent to ${marker.name}.` : undefined }
                 })
               }
@@ -381,6 +382,17 @@ export default function ClubProfile() {
 
           <BottomSheet visible={!!messageSentFor} onClose={() => setMessageSentFor(null)} title="Message Sent" cancelLabel="Done">
             <Text style={[type.small, { color: colour.ink }]}>{`You've sent ${messageSentFor} a message.`}</Text>
+            {!!sentConversationId && (
+              <Button
+                label="Open Conversation"
+                variant="secondary"
+                onPress={() => {
+                  const id = sentConversationId
+                  setMessageSentFor(null)
+                  router.push({ pathname: "/messages/[kind]/[id]", params: { kind: "club", id, returnTo: `/clubhouse/club/${directoryId}` } } as never)
+                }}
+              />
+            )}
           </BottomSheet>
           {/* THE BOTTOM ACTION BAR (visual-lock Job 2, Section 15; owner correction, Section 13): two
               buttons when this profile was reached from an FF-3 result card (a contextual secondary
@@ -409,7 +421,7 @@ export default function ClubProfile() {
                       onPress={() =>
                         void act(async () => {
                           if (!viewerClubId || !userId || !marker.clubId) return { ok: false, error: "You don't have fixture authority at a club." }
-                          return requestPartnership(supabase, viewerClubId, marker.clubId, userId)
+                          return requestPartnership(supabase, viewerClubId, marker.clubId)
                         })
                       }
                     />
@@ -419,7 +431,7 @@ export default function ClubProfile() {
                     <Button
                       label="Request Fixtures"
                       style={{ backgroundColor: colour.pitch600, borderColor: colour.pitch600 }}
-                      onPress={() => router.push({ pathname: "/fixtures/new", params: { opponentDirectoryId: marker.directoryId, opponentClubId: marker.clubId ?? "" } } as never)}
+                      onPress={() => router.push({ pathname: "/fixtures/new", params: { opponentDirectoryId: marker.directoryId, opponentClubId: marker.clubId ?? "", returnTo: `/clubhouse/club/${marker.directoryId}` } } as never)}
                     />
                   )}
                 </>
@@ -775,7 +787,11 @@ function OnOvalballBody({
   onRequestPartnership,
 }: {
   marker: ClubMapMarker
-  detail: ClubDetail | null
+  // The preview projection, not the bare server value: this body renders the "pending research, not
+  // yet approved" pill from `isPreview`, which only the overlay-applied shape carries. With the
+  // preview flag off (every real build) `applyDetailPreviewOverlay` returns isPreview: false, so the
+  // type is honest in both cases rather than a cast at the call site.
+  detail: PreviewDetail | null
   clubTeams: ClubTeam[] | null
   hasTeams: boolean
   hasHistory: boolean
@@ -848,6 +864,7 @@ function OnOvalballBody({
           own content already lives in Partnership, so neither is repeated here a second time. */}
       {tab === "overview" && (
         <View style={{ gap: space.sm }}>
+          {detail.isPreview && <StatusPill label="Preview: pending research, not yet approved" tone="caution" />}
           {detail.bio && (
             <>
               <SectionHeader label="About" />
@@ -1076,10 +1093,7 @@ function TeamRow({ team }: { team: ClubTeam }) {
  * someone else there is never confused with claiming it yourself.
  */
 function DirectoryOnlyBody({ marker, detail, viewerClubId }: { marker: ClubMapMarker; detail: ClubDetail | null; viewerClubId: string | null }) {
-  const [invite, setInvite] = useState<{ name: string; email: string } | null>(null)
-  const [inviteLink, setInviteLink] = useState<string | null>(null)
-  const [inviteBusy, setInviteBusy] = useState(false)
-  const [inviteError, setInviteError] = useState<string | null>(null)
+  const router = useRouter()
   const [claimForm, setClaimForm] = useState<{ role: ClaimableRole; declaration: string } | null>(null)
   const [claimSubmitting, setClaimSubmitting] = useState(false)
   const [claimSubmitted, setClaimSubmitted] = useState(false)
@@ -1104,75 +1118,15 @@ function DirectoryOnlyBody({ marker, detail, viewerClubId }: { marker: ClubMapMa
         </Text>
       </View>
 
+      {/* REFER THIS CLUB: the one referral flow (People & Invitations), with this club already chosen --
+          never a second inline form. It records the referral, then shares the link, QR code or poster. */}
       {detail?.actions.canInviteToOvalball && (
         <ProfileCard>
-          <SectionHeader label="Invite This Club" />
+          <SectionHeader label="Refer This Club" />
           <Text style={[type.small, { color: colour.inkMuted }]}>
-            An invitation lets someone at {marker.name} create their own Ovalball account -- it does not give you or anyone else ownership of the club.
+            Recommend Ovalball to {marker.name}. It lets someone there create their own Ovalball account -- it does not give you or anyone else ownership of the club.
           </Text>
-          {!inviteLink && (
-            <>
-              {invite === null ? (
-                <Button variant="secondary" label="Invite to Ovalball" onPress={() => setInvite({ name: "", email: "" })} />
-              ) : (
-                <View style={{ gap: space.sm }}>
-                  <TextInput
-                    accessibilityLabel="Contact name"
-                    value={invite.name}
-                    onChangeText={(name) => setInvite({ ...invite, name })}
-                    placeholder="Contact name at this club"
-                    placeholderTextColor={colour.inkSubtle}
-                    style={sheetInputStyle}
-                  />
-                  <TextInput
-                    accessibilityLabel="Contact email"
-                    value={invite.email}
-                    onChangeText={(email) => setInvite({ ...invite, email })}
-                    placeholder="Contact email"
-                    placeholderTextColor={colour.inkSubtle}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    style={sheetInputStyle}
-                  />
-                  {inviteError && <Text style={[type.caption, { color: colour.warning }]}>{inviteError}</Text>}
-                  <Button
-                    label="Send Invitation"
-                    busy={inviteBusy}
-                    disabled={!invite.name.trim() || !invite.email.trim()}
-                    onPress={async () => {
-                      if (!viewerClubId) {
-                        setInviteError("You don't have fixture authority at a club.")
-                        return
-                      }
-                      setInviteBusy(true)
-                      setInviteError(null)
-                      const result = await inviteClubToOvalball(supabase, webUrl, viewerClubId, marker.directoryId, invite.name.trim(), invite.email.trim())
-                      setInviteBusy(false)
-                      if (!result.ok) {
-                        setInviteError(result.error)
-                        return
-                      }
-                      setInviteLink(result.inviteLink)
-                    }}
-                  />
-                </View>
-              )}
-            </>
-          )}
-          {inviteLink && (
-            <View style={{ gap: space.sm }}>
-              <Text style={[type.caption, { color: colour.inkMuted }]}>Invitation sent. Share the link yourself too, if useful:</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Share invitation link"
-                onPress={() => void Share.share({ message: inviteLink })}
-                style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.xs, minHeight: TOUCH_TARGET, borderRadius: radius.md, backgroundColor: colour.forest800 }}
-              >
-                <Share2 size={16} color={colour.onForest} />
-                <Text style={[type.smallMedium, { color: colour.onForest }]}>Share Invitation</Text>
-              </Pressable>
-            </View>
-          )}
+          <Button variant="secondary" label="Refer This Club" onPress={() => router.push({ pathname: "/clubhouse/refer-club", params: { directoryId: marker.directoryId, clubName: marker.name } } as never)} />
         </ProfileCard>
       )}
 
@@ -1256,12 +1210,3 @@ function DirectoryOnlyBody({ marker, detail, viewerClubId }: { marker: ClubMapMa
   )
 }
 
-const sheetInputStyle = {
-  minHeight: TOUCH_TARGET,
-  paddingHorizontal: space.md,
-  borderRadius: radius.md,
-  borderWidth: 1,
-  borderColor: colour.lineStrong,
-  backgroundColor: colour.surface,
-  color: colour.ink,
-}

@@ -712,3 +712,18 @@ UAT RUFC. R. Large text, VoiceOver, Reduce Motion, airplane mode as before.
 | **L3** | The *presentation* is fixed; underneath, one role still has two keys — `FIXTURES_SECRETARY` in `role_definitions`, `FIXTURE_SECRETARY` in `club_memberships` and `role_capability_defaults` | schema/auth cleanup owner |
 
 **L2, L4, L5 and L6 are closed.**
+
+## Match Centre consolidation (2026-10-03) — the opposition's side of the review world
+
+Match Centre now shows each side's attendance differently (names to that side's own staff, numbers to
+the other side, nothing to anybody else), so the review world needed people on **both** sides of an
+Ovalball v Preston match. Added, permanently:
+
+| Persona | Who | Notes |
+|---|---|---|
+| `uat.preston.parent@ovalball.test` | **Rachel Hart**, guardian of **Oliver Hart** (Preston Grasshoppers RFC Under 12 Boys) | The away/opposition parent. Same shared local UAT password as every persona. |
+
+Preston Grasshoppers RFC Under 12 Boys now has a squad of eight: Oliver Hart, Jack Nolan, Harry Shaw,
+Leo Bennett, Noah Price, Theo Walsh, Isaac Grant and Alfie Doyle (Oliver is Rachel's son). Ovalball UAT
+RUFC's Under 12 Boys squad is unchanged (Ava, Cara, Priya). The review fixture is **Preston Grasshoppers
+U12 v Ovalball UAT U12, Saturday 17 October, 10:30** — Ovalball away.

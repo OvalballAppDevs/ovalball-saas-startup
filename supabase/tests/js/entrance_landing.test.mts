@@ -19,7 +19,7 @@ import { SUCCESSFUL_REDEMPTION_OUTCOMES } from "@/lib/invitations/redeem"
 const BODY = "7d01b631-86fb-4c44-9708-e22b83daf744"
 
 /** Outcomes that established a REQUEST rather than access. */
-const REQUESTS = ["JOIN_REQUEST_PENDING", "PENDING_CONFIRMATION"] as const
+const REQUESTS = ["JOIN_REQUEST_PENDING", "PENDING_CONFIRMATION", "TEAM_PLACE_PENDING"] as const
 
 test("1. every successful outcome has a landing -- none falls through to a generic dashboard", () => {
   for (const outcome of SUCCESSFUL_REDEMPTION_OUTCOMES) {

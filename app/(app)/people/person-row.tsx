@@ -93,7 +93,7 @@ export function PersonRow({ person, isSelf, canChangeRole = true, canSuspend = f
           <p className="truncate text-sm font-medium text-ink">
             {person.name}
             {isSelf && <span className="ml-1.5 text-xs font-normal text-ink-muted">(you)</span>}
-            {suspended && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Suspended</span>}
+            {suspended && <span className="ml-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Deactivated</span>}
           </p>
           <p className="truncate text-xs text-ink-muted">{person.email}</p>
         </div>
@@ -116,13 +116,13 @@ export function PersonRow({ person, isSelf, canChangeRole = true, canSuspend = f
           {!isSelf && canSuspend && (
             <Dialog open={confirmingSuspend} onOpenChange={setConfirmingSuspend}>
               <DialogTrigger render={<Button type="button" variant="ghost" size="sm" className="h-9" />}>
-                {suspended ? "Restore" : "Suspend"}
+                {suspended ? "Reactivate" : "Deactivate"}
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>{suspended ? `Restore ${person.name}?` : `Suspend ${person.name}?`}</DialogTitle>
+                  <DialogTitle>{suspended ? `Reactivate ${person.name}?` : `Deactivate ${person.name}'s membership?`}</DialogTitle>
                   <DialogDescription>
-                    {suspended ? "Their access returns as it was. The reason is recorded." : "They keep their membership but lose access until it is restored. The reason is recorded."}
+                    {suspended ? "Their access returns, with the roles they had. The reason is recorded." : "They lose access to the club straight away. Their roles are paused, not deleted; their Ovalball account and the club's records are kept, and you can reactivate them at any time. The reason is recorded."}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col gap-1.5">
@@ -138,7 +138,7 @@ export function PersonRow({ person, isSelf, canChangeRole = true, canSuspend = f
                 </div>
                 <DialogFooter showCloseButton>
                   <Button className="h-9" disabled={saving || suspendReason.trim().length === 0} onClick={handleSuspendToggle}>
-                    {saving ? "Saving…" : suspended ? "Restore" : "Confirm Suspension"}
+                    {saving ? "Saving…" : suspended ? "Reactivate Membership" : "Deactivate Membership"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -148,14 +148,14 @@ export function PersonRow({ person, isSelf, canChangeRole = true, canSuspend = f
           {!isSelf && canRemove && (
             <Dialog open={confirmingRemove} onOpenChange={setConfirmingRemove}>
               <DialogTrigger render={<Button type="button" variant="ghost" size="sm" className="h-9 text-destructive-text" />}>
-                Remove
+                Remove from Club
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Remove {person.name} from the club?</DialogTitle>
                   <DialogDescription>
-                    They lose club-wide and team access immediately. Their membership is kept as history; to bring them back, invite them
-                    again and they join as a new member.
+                    They lose club-wide and team access immediately and every role here ends. Their Ovalball account is not deleted and
+                    the club&apos;s records are kept. This can&apos;t be undone: to bring them back, invite them again.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col gap-1.5">
@@ -171,7 +171,7 @@ export function PersonRow({ person, isSelf, canChangeRole = true, canSuspend = f
                 </div>
                 <DialogFooter showCloseButton>
                   <Button variant="destructive" className="h-9" disabled={saving || removalReason.trim().length === 0} onClick={handleRemove}>
-                    {saving ? "Removing…" : "Remove Access"}
+                    {saving ? "Removing…" : "Remove from Club"}
                   </Button>
                 </DialogFooter>
               </DialogContent>

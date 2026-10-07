@@ -33,6 +33,7 @@ export type TeamAttentionKind =
   | "call_up"
   | "subscription"
   | "age_grade"
+  | "tournament_result"
 
 export interface TeamAttentionItem {
   kind: TeamAttentionKind
@@ -67,8 +68,8 @@ export interface TeamAttentionInput {
   incompleteFixtures: { fixtureId: string; dateIso: string; missing: ("kick-off" | "ground")[] }[]
   /** Fixtures where the OTHER club proposed a kick-off change and this club has not answered. */
   kickoffProposals: { fixtureId: string; dateIso: string }[]
-  /** Fixtures where a result is waiting for this club to confirm or dispute. */
-  resultConfirmations: { fixtureId: string; dateIso: string }[]
+  /** Fixtures where the next move on the result is this club's (see `resultsWaitingOn`). */
+  resultConfirmations: { fixtureId: string; dateIso: string; state?: "awaiting" | "amendment" | "disputed" }[]
   /** Requests addressed to this team and still `sent`. */
   incomingRequests: { requestId: string }[]
   /** Place requests (`player_team_memberships` pending) on this team. */
@@ -77,8 +78,10 @@ export interface TeamAttentionInput {
   callUpsAwaiting: number
   /** From the team subscription projection, only where the viewer may see it. Null otherwise. */
   subscriptionsNeedingAttention: number | null
-  /** Players whose age grade needs a club decision, from `team_age_grade_attention`. */
+  /** Players whose age grade the TEAM can act on (`ageGradeNeedingTeam` over `team_age_grade_attention`). */
   ageGradeAttention: number
+  /** Tournament games where the OTHER side submitted a score this team has not answered. */
+  tournamentResultConfirmations?: { gameId: string; dateIso: string }[]
 }
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many)
@@ -143,9 +146,15 @@ export function projectTeamAttention(input: TeamAttentionInput): TeamAttentionIt
       items.push({
         kind: "result_confirmation",
         key: `result:${r.fixtureId}`,
-        label: "A result is waiting for your club to confirm",
+        label:
+          r.state === "disputed"
+            ? "A disputed result needs agreement"
+            : r.state === "amendment"
+              ? "A change to a result needs your club's answer"
+              : "A result is waiting for your club to confirm",
         detail: null,
-        href: `/fixtures/${r.fixtureId}`,
+        // THE RESULT, NOT THE FIXTURE: the score and the confirm/dispute choice, never fixture editing.
+        href: `/fixtures/${r.fixtureId}/result`,
         count: 1,
         urgent: false,
         capability: "fixture.result.record",
@@ -203,8 +212,8 @@ export function projectTeamAttention(input: TeamAttentionInput): TeamAttentionIt
     items.push({
       kind: "subscription",
       key: "subscriptions",
-      label: n === 1 ? "A player's subscription needs following up" : `${n} players' subscriptions need following up`,
-      detail: "Not set up, or a payment failed",
+      label: n === 1 ? "A player's membership needs action" : `${n} players' memberships need action`,
+      detail: "Not set up or started yet, overdue, or a payment problem",
       href: `/teams/${teamId}/subscriptions`,
       count: n,
       urgent: false,
@@ -212,14 +221,34 @@ export function projectTeamAttention(input: TeamAttentionInput): TeamAttentionIt
     })
   }
 
+  // A TOURNAMENT RESULT IS ANSWERED LIKE A FIXTURE RESULT: one row per game, read from the game's own
+  // result columns, gone the moment it is confirmed, contested or settled by the organiser.
+  if (a.resultRecord) {
+    for (const r of input.tournamentResultConfirmations ?? []) {
+      items.push({
+        kind: "tournament_result",
+        key: `tournament-result:${r.gameId}`,
+        label: "A tournament result is waiting for your confirmation",
+        detail: null,
+        href: `/tournaments/result/${r.gameId}`,
+        count: 1,
+        urgent: false,
+        capability: "fixture.result.record",
+      })
+    }
+  }
+
+  // A TEAM NEVER DECIDES A DISPENSATION (20270742000000): the club's Safeguarding Officer or a Club Admin
+  // does, from their own Needs Attention. The team's age-grade job is to ask, below.
   if (a.rosterManage && input.ageGradeAttention > 0) {
     const n = input.ageGradeAttention
     items.push({
       kind: "age_grade",
       key: "age-grade",
-      label: n === 1 ? "A player's age grade needs a club decision" : `${n} players' age grades need a club decision`,
-      detail: "Playing up or down needs the club's approval",
-      href: `/teams/${teamId}`,
+      label: n === 1 ? "A player's age grade needs your action" : `${n} players' age grades need your action`,
+      detail: "Outside this team's age grade this season. Request a dispensation for the club to decide.",
+      // THE AGE-GRADE LIST ITSELF, where the request is made -- not Team Home, which offered nothing to do.
+      href: `/teams/${teamId}/age-grade`,
       count: n,
       urgent: false,
       capability: "team.roster.manage",

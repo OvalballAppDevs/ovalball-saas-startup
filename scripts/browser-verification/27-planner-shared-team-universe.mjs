@@ -71,7 +71,7 @@ const labelOf = (id) => sql(`select display_name from public.teams where id='${i
 const U7 = labelOf(u7)
 const U8 = labelOf(u8)
 const expectedManagerTeams = sql(`select string_agg(t.display_name, '|' order by t.display_name) from public.teams t
-  join public.team_permissions tp on tp.team_id=t.id where tp.membership_id='${membershipId}' and tp.permission <> 'view_only' and t.active`)
+  join testing.team_roles tp on tp.team_id=t.id where tp.membership_id='${membershipId}' and tp.role_key <> 'view_only' and t.active`)
 record("seed: the manager runs both U7/U8 Tags teams", expectedManagerTeams.includes(U7) && expectedManagerTeams.includes(U8), expectedManagerTeams)
 
 const browser = await launch()

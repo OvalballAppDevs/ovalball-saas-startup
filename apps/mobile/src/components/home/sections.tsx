@@ -3,7 +3,7 @@ import { Image } from "expo-image"
 
 import type { ClubAccents, ClubNewsCard, ClubNotice, FamilySubscription } from "@ovalball/contracts"
 
-import { editorial } from "./editorial"
+import { newsFallbackImage } from "../../content/news-fallback"
 import { ChevronRight, CircleAlert, Megaphone, Receipt } from "../icons"
 import { TOUCH_TARGET, colour, radius, space, surface, type } from "../../design/tokens"
 
@@ -107,7 +107,7 @@ export function NewsRail({
  * load".
  */
 function NewsCard({ article, accents, onPress }: { article: ClubNewsCard; accents: ClubAccents; onPress: () => void }) {
-  const fallback = fallbackFor(article.categoryLabel)
+  const fallback = newsFallbackImage(article.categoryLabel)
   return (
     <Pressable
       accessibilityRole="button"
@@ -141,15 +141,6 @@ function NewsCard({ article, accents, onPress }: { article: ClubNewsCard; accent
   )
 }
 
-/** Exported so Club Admin Home's own News & Announcements rail falls back to the same photography by
- * category, rather than a second fallback rule invented for one more screen. */
-export function fallbackFor(categoryLabel: string) {
-  const c = categoryLabel.toLowerCase()
-  if (/match|fixture|result/.test(c)) return editorial.news.matchday
-  if (/train/.test(c)) return editorial.news.training
-  if (/club|community|social|event/.test(c)) return editorial.news.community
-  return editorial.news.general
-}
 
 /**
  * THE FAMILY'S MEMBERSHIP, from the one payment domain.
@@ -165,6 +156,8 @@ export function SubscriptionStatusCard({ subscription, onPress }: { subscription
       ? { chip: colour.dangerSurface, ink: colour.danger, label: "Action required" }
       : subscription.attention === "setup_required"
         ? { chip: colour.warningSurface, ink: colour.warning, label: "Setup required" }
+        : subscription.attention === "start_required"
+          ? { chip: colour.warningSurface, ink: colour.warning, label: "Start required" }
         : { chip: colour.successSurface, ink: colour.forest800, label: subscription.statusLabel ?? "Set up" }
 
   return (

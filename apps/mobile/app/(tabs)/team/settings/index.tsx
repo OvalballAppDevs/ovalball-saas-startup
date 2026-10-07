@@ -4,7 +4,7 @@ import { anyTeamAdministration } from "@ovalball/contracts/team/authority"
 
 import { useTeamAuthority } from "../../../../src/team/authority"
 import { NotForYou, TeamScreen } from "../../../../src/team/screen"
-import { ArrowRightLeft, ChevronRight, KeyRound, Newspaper, Settings2, UserPlus, Users } from "../../../../src/components/icons"
+import { ArrowRightLeft, CalendarDays, ChevronRight, KeyRound, Newspaper, Settings2, UserPlus, Users } from "../../../../src/components/icons"
 import { CardSkeleton } from "../../../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
 
@@ -28,6 +28,7 @@ export default function TeamSettings() {
     { key: "player-requests", icon: <ArrowRightLeft size={19} color={colour.forest800} strokeWidth={1.9} />, label: "Player Requests", caption: "Call-ups between the club's sides for a fixture", onPress: () => router.push("/team/settings/player-requests" as never), show: a.callupRequest },
     { key: "staff", icon: <Users size={19} color={colour.forest800} strokeWidth={1.9} />, label: "Staff", caption: "The coaches and managers who run the side", onPress: () => router.push({ pathname: "/team/people", params: { tab: "staff" } } as never), show: a.roleAssignTeam || a.rosterView },
     { key: "codes", icon: <KeyRound size={19} color={colour.forest800} strokeWidth={1.9} />, label: "Join Codes", caption: "A code a family can use to ask to join", onPress: () => router.push("/team/settings/join-codes" as never), show: a.joinCodeManage },
+    { key: "events", icon: <CalendarDays size={19} color={colour.forest800} strokeWidth={1.9} />, label: "Events", caption: "The side's own socials, runs and trips", onPress: () => router.push("/team/settings/events" as never), show: a.calendarEventManage },
     { key: "news", icon: <Newspaper size={19} color={colour.forest800} strokeWidth={1.9} />, label: "News & Announcements", caption: "What this side publishes", onPress: () => router.push("/admin/news" as never), show: a.newsManage },
     { key: "details", icon: <Settings2 size={19} color={colour.forest800} strokeWidth={1.9} />, label: "Team Details", caption: "The side's canonical name and its alias", onPress: () => router.push({ pathname: "/admin/teams/[teamId]", params: { teamId: teamId ?? "" } } as never), show: a.teamManage },
   ]
@@ -36,7 +37,7 @@ export default function TeamSettings() {
   return (
     <TeamScreen section="Team Settings">
       {loading && <CardSkeleton lines={3} />}
-      {!loading && !anyTeamAdministration(a) && <NotForYou title="Nothing to set up from here" body="Requests, codes, staff and publishing for this side are handled by the people the club has given those jobs to." />}
+      {!loading && !anyTeamAdministration(a) && !a.calendarEventManage && <NotForYou title="Nothing to set up from here" body="Requests, codes, staff and publishing for this side are handled by the people the club has given those jobs to." />}
       {!loading && shown.length > 0 && (
         <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
           {shown.map((r, index) => (

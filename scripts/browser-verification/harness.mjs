@@ -31,6 +31,62 @@ export const EXE =
   process.env.HOME +
   "/Library/Caches/ms-playwright/chromium-1187/chrome-mac/Chromium.app/Contents/MacOS/Chromium"
 export const APP = process.env.APP_URL || "http://localhost:3000"
+
+// =====================================================================
+// STORAGE FIXTURES -- a real image for a suite that needs one, put where the
+// product will look and taken away again.
+//
+// A suite that points a club at a storage path it never uploads is testing a
+// broken image: ClubAvatar correctly swaps a crest that fails to load for the
+// club's initials, so whether the suite "sees" the crest becomes a race between
+// the request failing and the sample being taken. Suite 76 lost that race. The
+// image below is a real 160x160 PNG -- big enough that the avatar shows it at
+// full size rather than as a speck -- and it was suite 67's own fixture before
+// it moved here so both suites use one.
+// =====================================================================
+const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321"
+export const SAMPLE_CREST_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAIAAAAErfB6AAABhUlEQVR4nO3RAQkAMAzAsPk3vasYhxKIgEJnZwmb7wWcMjjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4LgHq4NDqp+p9ZIAAAAASUVORK5CYII=",
+  "base64",
+)
+function storageServiceKey() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || readEnvValue("SUPABASE_SERVICE_ROLE_KEY")
+  if (!key) throw new Error("No SUPABASE_SERVICE_ROLE_KEY for a storage fixture.")
+  return key
+}
+/** Puts `body` at `bucket/path` (overwriting), for a fixture that the suite removes again. */
+export async function uploadStorageObject(bucket, path, body = SAMPLE_CREST_PNG, contentType = "image/png") {
+  const key = storageServiceKey()
+  const res = await fetch(`${STORAGE_URL}/storage/v1/object/${bucket}/${path}`, {
+    method: "POST",
+    headers: { apikey: key, authorization: `Bearer ${key}`, "content-type": contentType, "x-upsert": "true" },
+    body,
+  })
+  if (!res.ok) throw new Error(`storage fixture upload failed for ${bucket}/${path}: ${res.status} ${await res.text()}`)
+}
+/** Removes a fixture object. Never throws: cleanup must run to the end. */
+export async function removeStorageObject(bucket, path) {
+  const key = storageServiceKey()
+  await fetch(`${STORAGE_URL}/storage/v1/object/${bucket}/${path}`, {
+    method: "DELETE",
+    headers: { apikey: key, authorization: `Bearer ${key}` },
+  }).catch(() => {})
+}
+
+/** Reads one value out of the gitignored `.env.local`. Test credentials live there, never in source. */
+function readEnvValue(name) {
+  // Resolved from THIS file's location, not the process cwd: a suite run from anywhere must still
+  // find the repository's own gitignored env files.
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
+  for (const file of [".env.local", ".env"]) {
+    try {
+      const text = fs.readFileSync(path.join(repoRoot, file), "utf8")
+      const match = text.match(new RegExp(`^${name}=(.*)$`, "m"))
+      if (match) return match[1].trim()
+    } catch {}
+  }
+  return null
+}
 export const MAILPIT = process.env.MAILPIT_URL || "http://127.0.0.1:54324"
 
 /**
@@ -243,61 +299,49 @@ export async function signIn(page, email, { attempts = 3 } = {}) {
       throw new Error(`Login field holds "${typed}", not "${email}" -- refusing to submit.`)
     }
 
-    // Slice 6 made PASSWORD the primary method, so the form now opens asking for one and its submit
-    // button stays disabled until a password is typed. This harness signs in by magic link -- that is
-    // the whole point of reading the address out of the mail catcher -- so it takes the same route a
-    // person without a password takes, and switches the form to the link method first.
+    // PASSWORD IS THE PLATFORM'S CURRENT METHOD. Magic-link login was retired by the identity
+    // programme, so the route this harness used to take -- switch the form to the link method, read
+    // the address out of the mail catcher, follow it -- can no longer complete. It stalled waiting for
+    // a verification navigation that never arrives, which read as a broken login page rather than a
+    // retired one.
     //
-    // Clicking a disabled submit and waiting for a mail that was never requested is what this
-    // otherwise looks like, and the failure reads as a broken login page rather than a changed one.
-    const switchToLink = page.getByRole("button", { name: /email me a link instead/i })
-    if (await switchToLink.count()) {
-      await switchToLink.first().click()
+    // The password comes from `UAT_BROWSER_PASSWORD` in the gitignored `.env.local` and is provisioned
+    // onto the `uat.*@ovalball.test` personas by `provision-uat-auth.mjs` through Supabase's own Auth
+    // admin API. Nothing here weakens authentication: this signs in through the real login form
+    // against a real password. Run that script once per fresh database.
+    const password = process.env.UAT_BROWSER_PASSWORD || readEnvValue("UAT_BROWSER_PASSWORD")
+    if (!password) {
+      throw new Error("No UAT_BROWSER_PASSWORD. Set it in .env.local and run scripts/browser-verification/provision-uat-auth.mjs")
     }
+
+    const passwordField = page.locator('input[type="password"]').first()
+    await passwordField.waitFor({ state: "visible", timeout: 15000 })
+    await passwordField.click()
+    await passwordField.fill("")
+    // Real key events -- assigning .value leaves a React-controlled input holding something else.
+    await passwordField.type(password, { delay: 12 })
 
     const submit = page.locator('form button[type="submit"]').first()
     await submit.waitFor({ state: "visible", timeout: 15000 })
-    // Switching method re-renders the form, and the submit is briefly disabled while it does. Reading
-    // the flag on the very next tick therefore measured the render rather than the page: every persona
-    // with a cached session skipped this path entirely, so the flake only surfaced the first time a
-    // brand-new identity signed in. Wait for the state instead of sampling it.
+    // The submit stays disabled until React has both values, so its enabled state is the proof that
+    // the framework actually received what was typed. Wait for it rather than sampling it.
     const enabledBy = Date.now() + 10000
     while ((await submit.isDisabled()) && Date.now() < enabledBy) {
       await page.waitForTimeout(100)
     }
     if (await submit.isDisabled()) {
-      throw new Error("The sign-in submit is still disabled 10s after switching to the link method.")
+      lastError = new Error("The sign-in submit stayed disabled -- the form did not accept the credentials typed.")
+      continue
     }
     await submit.click()
-
-    let link
-    try {
-      link = await waitForSignInLink(email, since)
-    } catch (error) {
-      lastError = error
-      // The auth server rate-limits magic links per address. Waiting is the
-      // correct response: requesting harder produces no email at all.
-      await new Promise((r) => setTimeout(r, 20000))
-      continue
-    }
-
-    // The verify hop occasionally stalls; a stalled navigation is not a
-    // failed sign-in, so it is retried rather than reported as one.
-    try {
-      await page.goto(link, { waitUntil: "domcontentloaded", timeout: 45000 })
-    } catch {
-      lastError = new Error(`Verify navigation stalled for ${email}`)
-      await new Promise((r) => setTimeout(r, 8000))
-      continue
-    }
     await page.waitForLoadState("networkidle").catch(() => {})
+    await page.waitForTimeout(1500)
 
-    // PROVE THE SESSION, DO NOT ASSUME IT. A consumed or expired token
-    // lands back on /login?error=link, and every later assertion in the
-    // run would then be measuring a signed-out page.
+    // PROVE THE SESSION, DO NOT ASSUME IT. A rejected password lands back on /login, and every later
+    // assertion in the run would then be measuring a signed-out page.
     if (!/\/login/.test(page.url())) {
       await cacheSession(page, email)
-      return link
+      return "password"
     }
 
     lastError = new Error(`Sign-in for ${email} landed on ${page.url()}`)
@@ -461,7 +505,14 @@ export function record(name, ok, detail = "") {
 export function summarise() {
   const pass = results.filter((r) => r.ok).length
   console.log(`\n${pass}/${results.length} passed`)
-  return pass === results.length
+  // A SUITE THAT PRINTS FAILURES AND EXITS 0 IS A FAILURE. Sixteen suites end with a bare `summarise()`, so
+  // the exit status used to be 0 whatever they recorded, and anything that asked the process rather than
+  // reading its FAIL lines was told the suite had passed. The exit status now says what the assertions say;
+  // a suite that recorded nothing has proved nothing and fails too. Suites that already exit on the result
+  // (`process.exit(summarise() ? 0 : 1)`) are unchanged.
+  const allPassed = results.length > 0 && pass === results.length
+  if (!allPassed) process.exitCode = 1
+  return allPassed
 }
 
 // =====================================================================

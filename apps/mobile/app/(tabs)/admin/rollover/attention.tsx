@@ -1,14 +1,12 @@
 import { useState } from "react"
 import { Text, View } from "react-native"
 import { useRouter } from "expo-router"
-import * as Linking from "expo-linking"
 import { askGuardianForPlayingInformation, askGuardianSentence, blockerDestination, type HandoverBlocker } from "@ovalball/contracts/club/handover"
 
 import { AdminScreen } from "../../../../src/admin/screen"
 import { HandoverSeasonLine, handoverProblem, useHandoverBoard } from "../../../../src/admin/handover"
 import { friendly, logDetail } from "../../../../src/errors/translate"
 import { supabase } from "../../../../src/auth/supabase"
-import { webUrl } from "../../../../src/config/environment"
 import { CircleCheck } from "../../../../src/components/icons"
 import { Button, Card, CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
 import { colour, space, type } from "../../../../src/design/tokens"
@@ -105,8 +103,9 @@ function BlockerRow({ blocker: b, first }: { blocker: HandoverBlocker; first: bo
 
   function go() {
     if (destination.section === "seasons") {
-      // Site Admin's season register is a desk job on the website, opened there -- never a WebView.
-      void Linking.openURL(`${webUrl}/admin/seasons`)
+      // THE SEASON CALENDAR IS OVALBALL'S, not the club's: its page is Site Admin only, so opening it for a Club
+      // Admin was a dead end. Say who sets it and how to reach them instead.
+      setMessage("Ovalball sets the season calendar for every club. Ask Ovalball Support to add the next season, then come back to the handover.")
       return
     }
     router.push(`/admin/rollover/${destination.section}` as never)
@@ -137,7 +136,10 @@ function BlockerRow({ blocker: b, first }: { blocker: HandoverBlocker; first: bo
           {message && <Text style={[type.caption, { color: colour.inkMuted }]}>{message}</Text>}
         </>
       ) : (
-        <Button label={destination.label} variant="secondary" onPress={go} accessibilityHint={destination.section === "seasons" ? "Opens the Ovalball website" : undefined} />
+        <>
+          <Button label={destination.label} variant="secondary" onPress={go} accessibilityHint={destination.section === "seasons" ? "Explains who sets the season calendar" : undefined} />
+          {message && <Text style={[type.caption, { color: colour.inkMuted }]}>{message}</Text>}
+        </>
       )}
     </View>
   )

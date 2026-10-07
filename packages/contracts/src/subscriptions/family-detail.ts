@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "../database"
+import { collectionDayLine, loadFamilyMembershipCharge, type FamilyMembershipCharge } from "../membership/family-charge"
 import { MANDATE_STATUS_LABEL, SUBSCRIPTION_STATUS_LABEL, loadFamilySubscription, type FamilySubscription } from "./family"
 
 type Client = SupabaseClient<Database>
@@ -28,8 +29,10 @@ export interface FamilySubscriptionDetail {
   /** Pence per month, where a price is agreed. */
   monthlyAmountMinor: number | null
   currency: string
-  /** "Collected on the 1st of each month" -- the programme's one frequency. */
+  /** "Collected on the 15th of each month" -- the club's own collection day (family_membership_charge). */
   frequencyLabel: string
+  /** What the Direct Debit collects and who pays Ovalball's fee (20270751000000); null when it could not be read. */
+  charge: FamilyMembershipCharge | null
   siblingDiscount: { ordinal: number; description: string } | null
   directDebit: { statusLabel: string; nextPossibleChargeDate: string | null } | null
   ongoing: { statusLabel: string; amountMinor: number | null } | null
@@ -67,18 +70,25 @@ export async function loadFamilySubscriptionDetail(
   const { data: eligibility } = await supabase.rpc("get_enrolment_eligibility", { p_player_id: input.playerId, p_club_id: input.clubId })
   const row = Array.isArray(eligibility) ? eligibility[0] : eligibility
   const payerSubscriptionId = row?.existing_payer_subscription_id ?? null
+  const charge = await loadFamilyMembershipCharge(supabase, input.playerId, input.clubId).catch(() => null)
 
   const base: FamilySubscriptionDetail = {
     summary,
     youAreThePayer: false,
-    monthlyAmountMinor: null,
-    currency: "GBP",
-    frequencyLabel: "Collected on the 1st of each month",
+    monthlyAmountMinor: charge?.youPay ? charge.monthlyAmountMinor : null,
+    currency: charge?.currency ?? "GBP",
+    frequencyLabel: collectionDayLine(charge?.collectionDay ?? null),
+    charge,
     siblingDiscount: null,
     directDebit: null,
     ongoing: null,
     thisMonth: null,
-    nextStep: summary.attention === "setup_required" ? "Set up the Direct Debit on the Ovalball website to start the membership." : null,
+    nextStep:
+      summary.attention === "setup_required"
+        ? "Set up the Direct Debit on the Ovalball website to start the membership."
+        : summary.attention === "start_required"
+          ? "Start the membership on the Ovalball website, so the club can collect it."
+          : null,
     webPath,
   }
   if (!payerSubscriptionId) return base
@@ -117,7 +127,8 @@ export async function loadFamilySubscriptionDetail(
       ? {
           ordinal: payer.sibling_ordinal,
           description:
-            payer.sibling_discount_type === "PERCENT"
+            // The stored value is PERCENTAGE (the column's check); "PERCENT" never matched, so 10% read "£0.10".
+            payer.sibling_discount_type === "PERCENTAGE"
               ? `${payer.sibling_discount_value}% sibling discount applied`
               : `${formatMinor(payer.sibling_discount_value)} sibling discount applied`,
         }
@@ -128,6 +139,8 @@ export async function loadFamilySubscriptionDetail(
       ? "The Direct Debit could not be set up. Set it up again on the Ovalball website."
       : summary.attention === "setup_required"
         ? "Finish setting up the Direct Debit on the Ovalball website to start the membership."
+        : summary.attention === "start_required"
+          ? "Your Direct Debit is set up. Start the membership on the Ovalball website, so the club can collect it."
         : obligation?.status === "FAILED"
           ? "This month's collection failed. The club will be in touch about the next step."
           : null

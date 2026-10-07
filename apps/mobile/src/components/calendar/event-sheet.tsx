@@ -21,7 +21,11 @@ export function EventSheet({
   children: React.ReactNode
   /** The day, or the range, in words. */
   heading: string
-  /** "2 events", where saying so helps. Omitted for a list that names its own days. */
+  /**
+   * "2 things on", where saying so helps -- matches, sessions, festivals and club events alike. Not "events":
+   * an Event is now its own kind of thing (the Event Centre), and a match day called "1 event" said otherwise.
+   * Omitted for a list that names its own days.
+   */
   count?: number
 }) {
   return (
@@ -53,7 +57,7 @@ export function EventSheet({
         </Text>
         {typeof count === "number" && count > 0 && (
           <Text style={[type.caption, { color: colour.inkSubtle }]}>
-            {count === 1 ? "1 event" : `${count} events`}
+            {count === 1 ? "1 thing on" : `${count} things on`}
           </Text>
         )}
       </View>

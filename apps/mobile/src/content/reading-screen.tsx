@@ -1,5 +1,5 @@
 import { Pressable, RefreshControl, ScrollView, Text, View, type StyleProp, type ViewStyle } from "react-native"
-import { useNavigation, useRouter } from "expo-router"
+import { useNavigation, usePathname, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ChevronLeft } from "../components/icons"
@@ -17,10 +17,14 @@ export function ReadingScreen({ section, clubName, clubCrestUrl, children, refre
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const navigation = useNavigation()
+  const pathname = usePathname()
   const { club } = useAppContexts()
   const back = () => {
     const state = navigation.getState()
     if (state && state.index > 0) router.back()
+    // At the News list itself there is nothing beneath it in its stack: Back goes Home (dismissing to "/news"
+    // from "/news" did nothing at all).
+    else if (pathname === "/news") router.navigate("/" as never)
     else router.dismissTo("/news" as never)
   }
   return (

@@ -66,11 +66,16 @@ test("the Match Centre asks which hat, and the announce and console rows follow 
   const load = readFileSync("apps/mobile/src/match-centre/load.ts", "utf8")
   assert.match(load, /narrowCapabilitiesToContext\(/)
   assert.match(load, /contextKind: ActiveContextKind \| null = null/)
-  const screen = readFileSync("apps/mobile/src/fixtures/match-centre.tsx", "utf8")
+  // The Match Centre is a folder of sections since the consolidation (2026-10-03).
+  const screen = readFileSync("apps/mobile/src/fixtures/match-centre/index.tsx", "utf8")
   assert.match(screen, /loadMatchCentre\(supabase, id, active\?\.kind \?\? null\)/)
-  // Both controls are gated on the narrowed capability, not on a role name.
-  assert.match(screen, /\{view\.canManageFixture && \(audience\.team !== null/)
-  assert.match(screen, /\{view\.canManageFixture && \(/)
+  // Both controls are gated on the narrowed capability, not on a role name: announcing (the Changing
+  // Room's composer, only with a team audience to reach) and the attendance reminder.
+  assert.match(screen, /canAnnounce=\{view\.canManageFixture\}/)
+  const room = readFileSync("apps/mobile/src/fixtures/match-centre/changing-room-section.tsx", "utf8")
+  assert.match(room, /\{canAnnounce && counts && counts\.team !== null && <Composer/)
+  const attendance = readFileSync("apps/mobile/src/fixtures/match-centre/attendance-section.tsx", "utf8")
+  assert.match(attendance, /\{view\.canManageFixture && staffSide && /)
 })
 
 // ---------------------------------------------------------- where it is played

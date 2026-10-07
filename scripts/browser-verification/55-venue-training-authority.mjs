@@ -31,6 +31,10 @@ const status = JSON.parse(execFileSync("npx", ["supabase", "status", "-o", "json
 const API = status.API_URL
 const ANON_KEY = status.ANON_KEY
 const SERVICE_KEY = status.SERVICE_ROLE_KEY
+// signIn() signs in through the real password form, so this run's people carry the local UAT password.
+const PASSWORD = process.env.UAT_BROWSER_PASSWORD
+  || (fs.readFileSync(path.resolve(import.meta.dirname, "../../.env.local"), "utf8").split("\n").find((l) => l.startsWith("UAT_BROWSER_PASSWORD=")) ?? "").slice("UAT_BROWSER_PASSWORD=".length).trim().replace(/^["']|["']$/g, "")
+if (!PASSWORD) throw new Error("No UAT_BROWSER_PASSWORD in the environment or .env.local")
 
 const TAG = Date.now().toString(36).slice(-6)
 const people = {
@@ -46,7 +50,7 @@ async function createIdentity(person) {
   const res = await fetch(`${API}/auth/v1/admin/users`, {
     method: "POST",
     headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ email: person.email, email_confirm: true }),
+    body: JSON.stringify({ email: person.email, password: PASSWORD, email_confirm: true }),
   })
   const body = await res.json()
   if (!body.id) throw new Error(`could not create ${person.email}: HTTP ${res.status}`)
@@ -83,7 +87,7 @@ begin
   delete from public.club_pitches where club_id = any(v_clubs);
   delete from public.venues where club_id = any(v_clubs);
   delete from public.notifications where user_id = any(v_people);
-  delete from public.team_permissions where membership_id in (select id from public.club_memberships where club_id = any(v_clubs));
+  delete from testing.team_roles where membership_id in (select id from public.club_memberships where club_id = any(v_clubs));
   delete from public.role_assignments where club_id = any(v_clubs);
   delete from public.club_memberships where club_id = any(v_clubs);
   delete from public.club_setup_state where club_id = any(v_clubs);
@@ -184,17 +188,20 @@ sql(`insert into public.club_memberships (club_id, user_id, role, status) values
   ('${ids.club}','${people.manager2.id}','BASIC_USER','active'),
   ('${ids.club}','${people.member.id}','BASIC_USER','active'),
   ('${ids.farClub}','${people.farAdmin.id}','CLUB_ADMIN','active');
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'manager' from public.club_memberships where club_id='${ids.club}' and user_id='${people.manager.id}';
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team2}', 'manager' from public.club_memberships where club_id='${ids.club}' and user_id='${people.manager2.id}';`)
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'TEAM_MANAGER' from public.club_memberships where club_id='${ids.club}' and user_id='${people.manager.id}';
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team2}', 'TEAM_MANAGER' from public.club_memberships where club_id='${ids.club}' and user_id='${people.manager2.id}';`)
 
 ids.venue = one(`insert into public.venues (club_id, name, slug, active) values ('${ids.club}','Slice Four E Park ${TAG}','uat-s4e-park-${TAG}',true) returning id`)
 ids.pitch = one(`insert into public.club_pitches (club_id, venue_id, display_name, active) values ('${ids.club}','${ids.venue}','Pitch 1',true) returning id`)
 ids.season = one(`select id from public.seasons where rugby_code='union' and not is_regression_fixture
   and current_date between coalesce(pre_season_starts_on, starts_on) and ends_on limit 1`)
-ids.event = one(`insert into public.club_events (club_id, name, starts_on, ends_on, venue_id, is_club_wide, created_by)
-  values ('${ids.club}','Slice Four E Open Day ${TAG}',current_date+20,current_date+20,'${ids.venue}',true,'${people.admin.id}') returning id`)
+// A club event the whole club can see. Since 20270729000000 that is `visibility = 'CLUB'` (the default is
+// INVITED -- only those asked); `is_club_wide` alone no longer shows an event to anybody, so the fixture says
+// what C3 is about in the current model's own terms.
+ids.event = one(`insert into public.club_events (club_id, name, starts_on, ends_on, venue_id, is_club_wide, visibility, created_by)
+  values ('${ids.club}','Slice Four E Open Day ${TAG}',current_date+20,current_date+20,'${ids.venue}',true,'CLUB','${people.admin.id}') returning id`)
 ids.plan = one(`insert into public.training_plans (club_id, team_id, season_id, schedule_mode, preferred_venue_id, preferred_pitch_id, created_by)
   values ('${ids.club}','${ids.team}','${ids.season}','SEASON','${ids.venue}','${ids.pitch}','${people.admin.id}') returning id`)
 ids.session = one(`insert into public.training_sessions (club_id, team_id, training_plan_id, session_date, start_time, duration_minutes)

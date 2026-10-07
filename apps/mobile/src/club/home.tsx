@@ -5,6 +5,7 @@ import { useFocusEffect, useRouter } from "expo-router"
 
 import type { AgendaItem, ClubNewsCard, ClubNotice } from "@ovalball/contracts"
 import type { ClubTeamSummary } from "@ovalball/contracts/club/overview"
+import { readPeopleCapabilities } from "@ovalball/contracts/club/people"
 
 import { supabase } from "../auth/supabase"
 import { useAppContexts } from "../context/contexts"
@@ -14,20 +15,21 @@ import { routeForAgendaItem } from "../links/destinations"
 import { friendly, logDetail } from "../errors/translate"
 import { HomeAttention } from "../attention/home-attention"
 import { NextFixtureCard } from "../components/agenda-row"
-import { fallbackFor } from "../components/home/sections"
+import { newsFallbackImage } from "../content/news-fallback"
 import { ClubCrest } from "../components/identity"
 import { PhotoBottomShade } from "../components/photo-gradient"
-import { demoTeamCoverAsset } from "../team/team-cover-demo"
-import { BookOpen, ChevronRight, House, MapPin, Megaphone, OvalIcon, SlidersHorizontal } from "../components/icons"
+import { BookOpen, ChevronRight, House, MapPin, Megaphone, OvalIcon, Plus, SlidersHorizontal } from "../components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../components/ui"
 import { TOUCH_TARGET, colour, radius, space, surface, type } from "../design/tokens"
 import { loadClubHome, type ClubHomeData } from "./data"
+import { teamFallbackAsset, libraryAsset } from "../media/stock-assets"
+import { HUB_ASSETS } from "../hub/visuals/assets"
 
-const heroPhoto = require("../../assets/club-home/hero-club.jpg")
-const tileClubhouse = require("../../assets/editorial/rugby-community.jpg")
-const tilePitchAllocation = require("../../assets/hub/scene-pitch.jpg")
+const heroPhoto = libraryAsset("matchday-floodlit-01")
+const tileClubhouse = libraryAsset("rugby-team-community-01")
+const tileArena = libraryAsset("arena-estate-01")
 const tileRugbyHub = require("../../assets/club-home/tile-rugby-hub.jpg")
-const tileAdminConsole = require("../../assets/hub/hero-coach.jpg")
+const tileAdminConsole = HUB_ASSETS["hero-coach"]
 
 /**
  * CLUB HOME -- the living front door of the club, not a dashboard (CA-M10, Visual Correction Pass).
@@ -48,6 +50,9 @@ export function ClubHome() {
   const { active, sessionContext, club } = useAppContexts()
   const [data, setData] = useState<ClubHomeData | null>(null)
   const [problem, setProblem] = useState<{ message: string; offline: boolean } | null>(null)
+  // WHO MAY BRING PEOPLE IN: the server's answer at this club, asked once per visit. Hiding the button
+  // grants and protects nothing -- every door behind it re-checks.
+  const [canAdd, setCanAdd] = useState(false)
 
   const load = useCallback(async () => {
     if (!active || !sessionContext) return
@@ -66,6 +71,18 @@ export function ClubHome() {
     setData(null)
     void load()
   }, [load])
+  useEffect(() => {
+    const clubId = active?.kind === "club" ? (active.clubId ?? active.id) : null
+    if (!clubId) {
+      setCanAdd(false)
+      return
+    }
+    let live = true
+    void readPeopleCapabilities(supabase, clubId).then((c) => live && setCanAdd(c.invite || c.joinCodes || c.assignTeam))
+    return () => {
+      live = false
+    }
+  }, [active])
   useFocusEffect(
     useCallback(() => {
       void load()
@@ -85,7 +102,7 @@ export function ClubHome() {
 
   return (
     <>
-      <ClubHomeHero clubName={club.name ?? active?.label ?? "Your club"} crestUrl={club.crestUrl} teams={data?.overview.teams.length ?? null} upcoming={data?.overview.snapshot.upcoming ?? null} />
+      <ClubHomeHero clubName={club.name ?? active?.label ?? "Your club"} crestUrl={club.crestUrl} teams={data?.overview.teams.length ?? null} upcoming={data?.overview.snapshot.upcoming ?? null} onAddToClub={canAdd ? () => router.push("/admin/people/add" as never) : undefined} />
 
       <HomeAttention />
 
@@ -117,9 +134,9 @@ export function ClubHome() {
           <View style={{ paddingHorizontal: space.lg }}>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
               <PhotoTile label="Clubhouse" caption="People, teams and club info" icon={<House size={18} color="#fff" />} image={tileClubhouse} onPress={() => router.push("/clubhouse" as never)} />
-              <PhotoTile label="Pitch Allocation" caption="Assign fixtures to pitches" icon={<MapPin size={18} color="#fff" />} image={tilePitchAllocation} onPress={() => router.push("/admin/pitch-allocation" as never)} />
+              <PhotoTile label="Arena" caption="Venues, pitches and activity" icon={<MapPin size={18} color="#fff" />} image={tileArena} onPress={() => router.push({ pathname: "/admin/arena" as never, params: { returnTo: "/" } })} />
               <PhotoTile label="Rugby Hub" caption="Resources, guidance and more" icon={<BookOpen size={18} color="#fff" />} image={tileRugbyHub} onPress={() => router.push("/hub" as never)} />
-              <PhotoTile label="Admin Console" caption="Manage your club" icon={<SlidersHorizontal size={18} color="#fff" />} image={tileAdminConsole} onPress={() => router.push("/admin" as never)} />
+              <PhotoTile label="Admin Console" caption="Manage your club" icon={<SlidersHorizontal size={18} color="#fff" />} image={tileAdminConsole} onPress={() => router.push({ pathname: "/admin" as never, params: { returnTo: "/" } })} />
             </View>
           </View>
 
@@ -173,7 +190,7 @@ const HERO_HEIGHT = 300
  * shown at 9pm. The crest and context switcher stay in the forest app header above; this hero carries
  * no identity chrome of its own, only the club's name and what the page is for.
  */
-function ClubHomeHero({ clubName, crestUrl, teams, upcoming }: { clubName: string; crestUrl: string | null; teams: number | null; upcoming: number | null }) {
+function ClubHomeHero({ clubName, crestUrl, teams, upcoming, onAddToClub }: { clubName: string; crestUrl: string | null; teams: number | null; upcoming: number | null; onAddToClub?: () => void }) {
   return (
     <View style={{ height: HERO_HEIGHT, backgroundColor: surface.forest, overflow: "hidden" }}>
       <Image source={heroPhoto} accessible={false} contentFit="cover" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
@@ -184,6 +201,24 @@ function ClubHomeHero({ clubName, crestUrl, teams, upcoming }: { clubName: strin
       <View style={{ position: "absolute", top: space.lg, left: space.lg }}>
         <ClubCrest clubName={clubName} url={crestUrl} size={40} />
       </View>
+      {/* ADD TO CLUB, INTEGRATED INTO THE HERO (People & Invitations): the club's one front door for
+          bringing people in -- players, staff, volunteers, club administrators -- placed where the club's
+          own name is, in the bright green kept for primary actions. Forest ink on pitch green holds 6:1. */}
+      {onAddToClub && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add to Club"
+          accessibilityHint="Invite players, staff, volunteers or club administrators"
+          onPress={onAddToClub}
+          style={({ pressed }) => ({ position: "absolute", top: space.lg, right: space.lg, minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.lg, borderRadius: radius.pill, backgroundColor: colour.pitch600, borderWidth: 1, borderColor: "rgba(255,255,255,0.35)", opacity: pressed ? 0.88 : 1 })}
+        >
+          <Plus size={18} color={colour.forest950} strokeWidth={2.6} />
+          {/* A control floating over the photograph, so its words grow only so far: unbounded, at the
+              largest text sizes it spread across the hero and covered the club's own name. The label is
+              spoken in full either way. */}
+          <Text maxFontSizeMultiplier={1.4} style={[type.smallMedium, { color: colour.forest950, fontFamily: "Inter_600SemiBold", fontSize: 15 }]}>Add to Club</Text>
+        </Pressable>
+      )}
       <View style={{ flex: 1, padding: space.lg, justifyContent: "flex-end", gap: 6 }}>
         <Text style={[type.overline, { color: "rgba(255,255,255,0.82)" }]}>{timeOfDayGreeting().toUpperCase()}</Text>
         <Text accessibilityRole="header" numberOfLines={2} style={{ fontFamily: type.title.fontFamily, fontSize: 28, lineHeight: 32, color: "#fff" }}>
@@ -252,11 +287,11 @@ function PhotoTile({ label, caption, icon, image, onPress }: { label: string; ca
  * the named defect). The crest is gone from this card entirely -- it was never the team's own identity,
  * only the club's, repeated once per team regardless of which side it was. The photograph is the
  * team's own real cover where the club has set one (`resolveTeamCover`, unchanged), or the deterministic
- * category-appropriate stand-in (`demoTeamCoverAsset`) -- never invented, never a second data source.
+ * category-appropriate stand-in (`teamFallbackAsset`) -- never invented, never a second data source.
  * Counts are real and authorised, exactly as before; only the tile's picture has changed.
  */
 function TeamPhotoCard({ row, today, onPress }: { row: ClubTeamSummary; today: string; onPress: () => void }) {
-  const image = demoTeamCoverAsset(row.team)
+  const image = teamFallbackAsset(row.team)
   return (
     <Pressable
       accessibilityRole="button"
@@ -330,7 +365,7 @@ const feedCard = {
 } as const
 
 function FeedNoticeCard({ notice, onPress }: { notice: ClubNotice; onPress: () => void }) {
-  const fallback = require("../../assets/editorial/rugby-community.jpg")
+  const fallback = libraryAsset("rugby-team-community-01")
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`${notice.priorityLabel} announcement. ${notice.title}`} onPress={onPress} style={({ pressed }) => [feedCard, { opacity: pressed ? 0.94 : 1 }]}>
       <View style={{ height: 100, backgroundColor: colour.forest900 }}>
@@ -352,7 +387,7 @@ function FeedNoticeCard({ notice, onPress }: { notice: ClubNotice; onPress: () =
 }
 
 function FeedArticleCard({ article, onPress }: { article: ClubNewsCard; onPress: () => void }) {
-  const fallback = fallbackFor(article.categoryLabel)
+  const fallback = newsFallbackImage(article.categoryLabel)
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`${article.categoryLabel}. ${article.title}`} onPress={onPress} style={({ pressed }) => [feedCard, { opacity: pressed ? 0.94 : 1 }]}>
       <View style={{ height: 100, backgroundColor: colour.forest900 }}>

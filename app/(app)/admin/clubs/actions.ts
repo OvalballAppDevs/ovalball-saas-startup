@@ -1,5 +1,8 @@
 "use server"
 
+import { resolveAddress, suggestAddresses } from "@/lib/address-lookup/lookup"
+import type { AddressResolveResult, AddressSuggestResult } from "@ovalball/contracts/address"
+
 import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
@@ -272,4 +275,25 @@ function csvEscape(value: string): string {
     return `"${value.replace(/"/g, '""')}"`
   }
   return value
+}
+
+/**
+ * CANONICAL ADDRESS SEARCH FOR THE CLUB DIRECTORY (Site Admin).
+ *
+ * Same shared service and mapping as every other surface. The authorization boundary is the one this
+ * module already enforces for directory writes -- searching reveals nothing, and the write is checked
+ * separately.
+ */
+export async function lookupDirectoryAddress(query: string, sessionToken: string): Promise<AddressSuggestResult> {
+  const supabase = await createClient()
+  const auth = await requireSiteAdmin(supabase, ["full", "club_data"])
+  if (!auth.ok) return { status: "invalid_query", reason: auth.error }
+  return suggestAddresses(query, sessionToken)
+}
+
+export async function resolveDirectoryAddressForClub(placeId: string, sessionToken: string): Promise<AddressResolveResult> {
+  const supabase = await createClient()
+  const auth = await requireSiteAdmin(supabase, ["full", "club_data"])
+  if (!auth.ok) return { status: "invalid_query", reason: auth.error }
+  return resolveAddress(placeId, sessionToken)
 }

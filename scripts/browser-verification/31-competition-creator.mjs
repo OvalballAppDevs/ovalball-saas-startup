@@ -119,7 +119,10 @@ async function chooseClub(slot, typed, optionName) {
   await page.keyboard.type(typed, { delay: 25 })
   const option = page.getByRole("option", { name: optionName })
   await option.first().waitFor({ state: "visible" })
-  await page.keyboard.press("Enter")
+  // Choose THE club named, not whichever the search happens to list first. Pressing Enter took the
+  // top option, and the review world now has two clubs whose names start "Ovalball UAT R" (Riverside
+  // RFC sorts first), so the run quietly picked a club with no Under 12 Boys and stalled on the team.
+  await option.first().click()
 }
 
 const beforeTyping = catalogueRequests

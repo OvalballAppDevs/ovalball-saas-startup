@@ -59,12 +59,12 @@ function seed() {
   const team = sql(`select t.id from public.teams t where t.club_id = '${club}' and t.display_name = 'Under 12 Boys'`)
   const membership = sql(`insert into public.club_memberships (club_id, user_id, role, status)
                           values ('${club}', '${userId}', 'CLUB_ADMIN', 'active') returning id`)
-  sql(`insert into public.team_permissions (membership_id, team_id, permission) values ('${membership}', '${team}', 'coach')`)
+  sql(`insert into testing.team_roles (membership_id, team_id, role_key) values ('${membership}', '${team}', 'COACH')`)
 }
 
 function cleanup() {
   if (!userId) return
-  sql(`delete from public.team_permissions where membership_id in (select id from public.club_memberships where user_id = '${userId}')`)
+  sql(`delete from testing.team_roles where membership_id in (select id from public.club_memberships where user_id = '${userId}')`)
   sql(`delete from public.club_memberships where user_id = '${userId}'`)
   sql(`delete from public.profiles where id = '${userId}'`)
   sql(`delete from auth.users where id = '${userId}'`)

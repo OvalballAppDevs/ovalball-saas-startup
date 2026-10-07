@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-import { lookupAddress, updateDirectoryFields, updateProvenance, type DirectoryFieldsInput, type ProvenanceInput } from "./actions"
+import { lookupAddress, resolveDirectoryAddress, updateDirectoryFields, updateProvenance, type DirectoryFieldsInput, type ProvenanceInput } from "./actions"
 import { ADMIN_VERIFICATION_STATUS_LABELS } from "./verification-status"
 import { AddressLookupField } from "@/components/address/address-lookup-field"
 import { RugbyCodeCorrectionDialog } from "./rugby-code-correction-dialog"
@@ -134,8 +134,17 @@ export function DirectoryForm({
         <div className="sm:col-span-2">
           <AddressLookupField
             search={lookupAddress}
-            onSelect={(picked) =>
-              setForm((f) => ({ ...f, address: picked.address, town: picked.town, county: picked.county || f.county, postcode: picked.postcode }))
+            resolve={resolveDirectoryAddress}
+            onResolve={(a) =>
+              setForm((f) => ({
+                ...f,
+                // The directory's single free-text address line takes the building/street Google
+                // confirmed. Curated research is only replaced by a deliberate selection, never blanked.
+                address: [a.line1, a.line2].filter(Boolean).join(", ") || f.address,
+                town: a.town ?? f.town,
+                county: a.county ?? f.county,
+                postcode: a.postcode ?? f.postcode,
+              }))
             }
           />
         </div>

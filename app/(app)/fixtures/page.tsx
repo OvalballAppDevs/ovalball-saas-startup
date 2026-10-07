@@ -8,6 +8,7 @@ import { canManageClubFixturesAnywhere, getSessionContext, isClubAdminAnywhere }
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/server"
+import { fullTeamLabel } from "@/lib/teams/compact-label"
 
 import { ExportClubFixturesButton } from "./export-button"
 import { NonOvalballRow, type NonOvalballRowData } from "./non-ovalball-row"
@@ -264,8 +265,15 @@ export default async function FixturesPage({ searchParams }: { searchParams: Pro
     const siteAdminCreatorIds = new Set((creatorSiteAdmins ?? []).map((a) => a.user_id))
 
     for (const r of namedIdentityRequests ?? []) {
-      const genderLabel = r.target_team_gender === "girls" ? "Girls " : ""
-      const identityLabel = `${genderLabel}${r.target_team_age_group}${r.target_team_squad_designation ? ` ${r.target_team_squad_designation}` : ""}`
+      // The team they were asked for, in the one display form ("Under 12 Boys", "Under 12 Girls B"): a
+      // hand-built "U12" said nothing about whether a boys side was meant, and "Girls U12" is the compact
+      // form kept for dense surfaces.
+      const identityLabel = fullTeamLabel({
+        category: "junior",
+        ageGroup: r.target_team_age_group,
+        gender: r.target_team_gender,
+        squadDesignation: r.target_team_squad_designation,
+      })
       // Resolved server-side, once, at render time -- the client component
       // only ever handles the interactive mutation (accept/decline via the
       // one atomic accept_fixture_request_with_team_action), never its own

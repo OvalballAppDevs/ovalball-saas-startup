@@ -119,8 +119,8 @@ sql(`insert into public.teams (club_id, display_name, slug, category, age_group,
 // setup gate cannot engage for them -- by design. Testing the bounded screen
 // with a context-less persona would have been asserting something the product
 // never promised.
-sql(`insert into public.team_permissions (membership_id, team_id, permission)
-     select cm.id, '${teamId}', 'coach' from public.club_memberships cm
+sql(`insert into testing.team_roles (membership_id, team_id, role_key)
+     select cm.id, '${teamId}', 'COACH' from public.club_memberships cm
       where cm.club_id = '${clubId}' and cm.user_id = '${coach.id}'`)
 
 function teardown() {
@@ -135,7 +135,7 @@ function teardown() {
     }
   }
   const ids = [founder.id, coach.id, member.id, guardian.id].map((i) => `'${i}'`).join(",")
-  tidy(`delete from public.team_permissions tp using public.club_memberships cm where tp.membership_id = cm.id and cm.club_id = '${clubId}'`)
+  tidy(`delete from testing.team_roles tp using public.club_memberships cm where tp.membership_id = cm.id and cm.club_id = '${clubId}'`)
   tidy(`delete from public.club_articles where club_id = '${clubId}'`)
   tidy(`delete from public.club_pitches where club_id = '${clubId}'`)
   tidy(`delete from public.venues where club_id = '${clubId}'`)

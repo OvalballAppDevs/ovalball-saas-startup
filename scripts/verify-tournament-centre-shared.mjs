@@ -94,9 +94,27 @@ const CANONICAL_PAGES = [
   "app/(app)/tournaments/[tournamentId]/edit/page.tsx",
   "app/(app)/tournaments/new/page.tsx",
 ]
+// AN ADDRESS IS NOT AN IMPLEMENTATION. Named, never pattern-matched, so the category cannot quietly grow --
+// and each must render NOTHING: it resolves an address the product already hands out to the canonical page
+// (or a 404) and stops. A file here that draws anything at all is a second implementation and fails below.
+const ADDRESS_ONLY_PAGES = [
+  // Every tournament result notification carries `/tournaments/result/<gameId>` (`notificationHref`); the
+  // phone renders the one shared game screen there, the website opens the game's tournament. It was a 404 on
+  // the website for five notification types (integration audit).
+  "app/(app)/tournaments/result/[gameId]/page.tsx",
+]
 for (const f of appFiles) {
   const rel = relative(ROOT, f)
   if (!/\/tournaments\//.test(rel) || !/\/page\.tsx$/.test(rel)) continue
+  if (ADDRESS_ONLY_PAGES.includes(rel)) {
+    const src = readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+    const rendersSomething = /<[A-Za-z]/.test(src) || /return\s*\(/.test(src)
+    const onlyResolves = /\bredirect\(/.test(src) && /from "next\/navigation"/.test(src)
+    if (rendersSomething || !onlyResolves) {
+      failures.push(`${rel} is listed as an address but renders something or does not redirect. An address resolves to the canonical page and stops.`)
+    }
+    continue
+  }
   if (!CANONICAL_PAGES.includes(rel)) {
     failures.push(`Extra Tournament route: ${rel}. One tournament is one canonical route plus its create and manage pages.`)
   }
@@ -185,9 +203,13 @@ for (const f of [...appFiles, ...componentFiles]) {
 // ---------------------------------------------------------------
 // 8. THE SAME-TOURNAMENT OVERLAP EXCEPTION STAYS SCOPED.
 // ---------------------------------------------------------------
-const conflictFile = join(ROOT, "lib/pitch-allocation/tournament-conflicts.ts")
+// THE CANONICAL IMPLEMENTATION, which CA-M11.1 moved into the shared package so the website and the
+// phone decide a conflict with the same code. `lib/pitch-allocation/*.ts` are now one-line re-export
+// shims; this guard was still reading those shims, so it had stopped inspecting the rule it exists to
+// protect -- the rule was intact, the check was looking at the wrong file.
+const conflictFile = join(ROOT, "packages/contracts/src/pitch-allocation/tournament-conflicts.ts")
 if (!existsSync(conflictFile)) {
-  failures.push("lib/pitch-allocation/tournament-conflicts.ts is missing -- the sibling-overlap exception has no home.")
+  failures.push("packages/contracts/src/pitch-allocation/tournament-conflicts.ts is missing -- the sibling-overlap exception has no home.")
 } else {
   const src = readFileSync(conflictFile, "utf8")
   if (!/siblingReservations/.test(src)) {
@@ -201,7 +223,7 @@ if (!existsSync(conflictFile)) {
     failures.push("tournament-conflicts.ts tests `kind === \"tournament\"`. The overlap exception is same-PARENT only, never kind-based.")
   }
 }
-const occupancy = readFileSync(join(ROOT, "lib/pitch-allocation/occupancy.ts"), "utf8")
+const occupancy = readFileSync(join(ROOT, "packages/contracts/src/pitch-allocation/occupancy.ts"), "utf8")
 if (!/tournamentId !== null && b\.tournamentId !== null/.test(occupancy)) {
   failures.push("occupancy.ts's siblingReservations no longer requires BOTH sides to be tournaments -- a non-tournament could be waved through.")
 }
@@ -228,6 +250,55 @@ if (existsSync(weekBoard)) {
   const src = readFileSync(weekBoard, "utf8")
   if (!/tournamentCentreHref/.test(src)) {
     failures.push("week-board.tsx no longer exposes tournamentCentreHref. A tournament on the Calendar must open Tournament Centre.")
+  }
+}
+
+// ---------------------------------------------------------------
+// 11. TOURNAMENT PLANNING DRAWS ITSELF WITH THE SHARED COMPONENTS.
+//
+// The approved Planning mock-ups are the visual specification, and the shapes in them -- the card, the
+// button, the pale-blue note -- already exist in `apps/mobile/src/components/ui.tsx`. A screen that
+// declares its own `function Card(...)` looks right on the day it is written and drifts the moment the
+// shared one changes, which is exactly how this screen came to differ from its own mock-up once.
+//
+// This does not police the DESIGN -- a script cannot see a screenshot. It polices the one structural
+// cause of drift: a second implementation of something the component system already owns.
+// ---------------------------------------------------------------
+const PLANNING_SCREENS = [
+  "apps/mobile/app/(tabs)/admin/tournaments/plan/[tournamentId].tsx",
+  "apps/mobile/app/(tabs)/admin/tournaments/plan/draft/[tournamentId].tsx",
+  "apps/mobile/src/tournaments/planning-home.tsx",
+]
+for (const rel of PLANNING_SCREENS) {
+  const file = join(ROOT, rel)
+  if (!existsSync(file)) {
+    failures.push(`${rel} is missing. Planning Home, the four-step wizard and the Generated Draft Plan are one flow.`)
+    continue
+  }
+  const src = readFileSync(file, "utf8")
+  for (const shared of ["Card", "Button", "InfoNote", "StatusPill", "SectionHeading", "EmptyState"]) {
+    if (new RegExp(`^function ${shared}\\(`, "m").test(src)) {
+      failures.push(`${rel} declares its own ${shared}(). Use the one in src/components/ui.tsx -- a visually approximate copy is how this screen drifted from the approved mock-up.`)
+    }
+  }
+  if (!/from "(\.\.\/)+src\/components\/ui"|from "\.\.\/components\/ui"/.test(src)) {
+    failures.push(`${rel} does not import the shared component system at all.`)
+  }
+}
+
+// GENERATE IS NOT PUBLISH. This check used to forbid any Publish control at all, because publication did
+// not exist yet and "a button that looks ready and refuses is worse than no button". Publication now
+// exists (publish_tournament_plan, 20270720), refused by the server's own readiness, so the rule that
+// remains is the one that matters: a Publish control is offered only when the SERVER says the plan is
+// ready (readiness.readyToPublish, through primaryReadinessAction), and it asks before it publishes.
+const draftScreen = join(ROOT, "apps/mobile/app/(tabs)/admin/tournaments/plan/draft/[tournamentId].tsx")
+if (existsSync(draftScreen)) {
+  const src = readFileSync(draftScreen, "utf8")
+  if (/label="Publish/.test(src) && !(/primaryReadinessAction\(readiness\)|readyToPublish/.test(src) && /ConfirmPublish/.test(src))) {
+    failures.push("The Generated Draft Plan offers Publish without the server's readiness and a confirmation. A Publish button must appear only when the plan is ready, and ask first.")
+  }
+  if (!/Time not assigned|gameWhen/.test(src)) {
+    failures.push("The Generated Draft Plan no longer says when a time is unassigned. An invented kick-off puts a side on the wrong pitch.")
   }
 }
 

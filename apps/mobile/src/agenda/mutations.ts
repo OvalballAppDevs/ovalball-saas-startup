@@ -109,6 +109,49 @@ export async function updateKickoff(
 }
 
 /**
+ * EDIT MATCH DETAILS, AS ONE SAVE. Details, kick-off, meet time and the ground go through their own governed
+ * writers inside ONE server transaction (`save_match_details`), so the whole form saves or none of it does,
+ * and each person the changes affect is told ONCE -- not once per writer (integration audit).
+ */
+export async function saveMatchDetails(
+  supabase: Client,
+  fixtureId: string,
+  patch: {
+    details?: Record<string, string | null>
+    kickoff?: { date: string; time: string | null }
+    meetTime?: string | null
+    facilities?: Record<string, string | null>
+  }
+): Promise<MutationResult> {
+  const body: Record<string, unknown> = {}
+  if (patch.details && Object.keys(patch.details).length > 0) body.details = patch.details
+  if (patch.kickoff) body.kickoff = { date: patch.kickoff.date, time: patch.kickoff.time ?? "" }
+  if (patch.meetTime !== undefined) body.meet_time = patch.meetTime ?? ""
+  if (patch.facilities) body.facilities = patch.facilities
+  const { error } = await supabase.rpc("save_match_details", { p_fixture_id: fixtureId, p_patch: body as never })
+  return error ? failed(error, "You can't change this match's details.") : { ok: true }
+}
+
+/**
+ * AGREEING to the kick-off the other club proposed. Not an edit: `update_fixture_kickoff` treats the
+ * other club submitting exactly the proposed date and time as agreement -- it applies it and tells both
+ * clubs. Named separately from `updateKickoff` because answering a proposal is a decision taken on the
+ * fixture, the same kind of thing as declining it, and never a way to set a time of one's own.
+ */
+export async function acceptKickoffChange(
+  supabase: Client,
+  fixtureId: string,
+  proposed: { date: string; time: string | null }
+): Promise<MutationResult> {
+  const { error } = await supabase.rpc("update_fixture_kickoff", {
+    p_fixture_id: fixtureId,
+    p_kickoff_date: proposed.date,
+    p_kickoff_time: (proposed.time ?? null) as unknown as string,
+  })
+  return error ? failed(error, "You can't answer this kick-off change.") : { ok: true }
+}
+
+/**
  * Withdrawing or refusing a proposed kick-off change.
  *
  * The other half of the amendment story: a club that has been offered a new time can decline it, and

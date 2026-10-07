@@ -175,7 +175,12 @@ function Count({ value, tone }: { value: number; tone: string }) {
  */
 function toGridEvent(item: AgendaItem) {
   return {
-    id: item.key,
+    // A TOURNAMENT IS IDENTIFIED BY THE TOURNAMENT, not by the row. The loader
+    // expands a multi-day festival onto each day it runs, so a key that carried
+    // the date would make the grid count one weekend as three tournaments -- the
+    // exact error the per-EVENT counting rule exists to prevent for a club event
+    // spanning a week.
+    id: item.kind === "tournament" ? item.eventId : item.key,
     kind: item.kind,
     date: item.date,
     time: item.time,

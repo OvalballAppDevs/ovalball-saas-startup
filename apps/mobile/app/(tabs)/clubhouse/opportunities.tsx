@@ -24,12 +24,14 @@ import { fullTeamLabel } from "@ovalball/contracts/teams/compact-label"
 import { readClubTeams, type ClubTeam } from "@ovalball/contracts/club/teams"
 
 import { supabase } from "../../../src/auth/supabase"
+import { friendly } from "../../../src/errors/translate"
 import { useAppContexts } from "../../../src/context/contexts"
 import { Button, CardSkeleton, ErrorState } from "../../../src/components/ui"
 import { ChoiceField, DateField, Field, TextField, TimeField } from "../../../src/components/form"
-import { ChevronRight, Megaphone } from "../../../src/components/icons"
+import { Megaphone } from "../../../src/components/icons"
 import { ClubCrest, ClubhouseEmptyState } from "../../../src/clubhouse/components"
 import { colour, radius, space, TOUCH_TARGET, type } from "../../../src/design/tokens"
+import { OvalballDetailHeader } from "../../../src/components/app-header"
 
 const GAME_TYPE_OPTIONS = ["Friendly", "League Fixture", "Cup Fixture", "Scheduled Match"] as const
 
@@ -92,22 +94,7 @@ export default function LookingForOpposition() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <View style={{ paddingTop: insets.top + space.sm, paddingBottom: space.sm, paddingHorizontal: space.md, flexDirection: "row", alignItems: "center", gap: space.xs }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={() => router.back()}
-          hitSlop={8}
-          style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
-        >
-          <View style={{ transform: [{ rotate: "180deg" }] }}>
-            <ChevronRight size={22} color={colour.ink} />
-          </View>
-        </Pressable>
-        <Text accessibilityRole="header" style={[type.heading, { color: colour.ink, flex: 1 }]}>
-          Looking for Opposition
-        </Text>
-      </View>
+      <OvalballDetailHeader title="Looking for Opposition" onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.md }} showsVerticalScrollIndicator={false}>
         {!teamId && clubTeams === null && <CardSkeleton lines={2} />}
@@ -319,7 +306,7 @@ function DiscoverCard({
                   await withdrawFixtureOpportunityResponse(supabase, opportunity.myResponseId as string)
                   await onChanged()
                 } catch (caught) {
-                  onError(caught instanceof Error ? caught.message : "Could not withdraw this response.")
+                  onError(friendly(caught, "Could not withdraw this response.").message)
                 } finally {
                   setBusy(false)
                 }
@@ -343,7 +330,7 @@ function DiscoverCard({
                     setRespondOpen(false)
                     await onChanged()
                   } catch (caught) {
-                    onError(caught instanceof Error ? caught.message : "Could not send this response.")
+                    onError(friendly(caught, "Could not send this response.").message)
                   } finally {
                     setBusy(false)
                   }
@@ -385,7 +372,7 @@ function MineCard({
       try {
         setResponses(await readFixtureOpportunityResponses(supabase, opportunity.id))
       } catch (caught) {
-        onError(caught instanceof Error ? caught.message : "Could not load responses.")
+        onError(friendly(caught, "Could not load responses.").message)
       }
     }
   }
@@ -407,7 +394,7 @@ function MineCard({
       setResponsesOpen(false)
       await onChanged()
     } catch (caught) {
-      onError(caught instanceof Error ? caught.message : "Could not decide this response.")
+      onError(friendly(caught, "Could not decide this response.").message)
     } finally {
       setBusy(false)
     }
@@ -459,7 +446,7 @@ function MineCard({
                   await cancelFixtureOpportunity(supabase, opportunity.id, opportunity.updatedAt)
                   await onChanged()
                 } catch (caught) {
-                  onError(caught instanceof Error ? caught.message : "Could not cancel this listing.")
+                  onError(friendly(caught, "Could not cancel this listing.").message)
                 } finally {
                   setBusy(false)
                 }
@@ -581,7 +568,7 @@ function PublishForm({
                 })
                 await onPublished()
               } catch (caught) {
-                onError(caught instanceof Error ? caught.message : "Could not publish this listing.")
+                onError(friendly(caught, "Could not publish this listing.").message)
               } finally {
                 setBusy(false)
               }

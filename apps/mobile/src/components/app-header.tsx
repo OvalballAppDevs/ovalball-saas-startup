@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { Pressable, Text, View } from "react-native"
+import { Pressable, Text, View, type StyleProp, type TextStyle } from "react-native"
+import Animated, { type AnimatedStyle } from "react-native-reanimated"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 
@@ -257,9 +258,12 @@ export function AppHeader({
  * THE OTHER HALF OF THE SAME SYSTEM -- a detail/flow screen's own header (owner chrome pass): back,
  * a title, an optional legitimate action, on the SAME forest ground and the SAME status-bar handling
  * as `AppHeader`, so a tap from a root screen into a fixture, a request or any other detail never drops
- * from forest into an accidental white bar. Not a copy: every screen that has been hand-copying this
- * back-chevron block (31 of them, at last count) is a candidate to move onto this one component, not a
- * reason to invent a second version of it -- but that migration is its own pass, not tonight's.
+ * from forest into an accidental white bar. Not a copy: the screens that hand-copied this back-chevron
+ * block on a white bar (Teams, Fixture Requests, Support, Profile, Children & Family, the message
+ * composer and its people and documents, the Clubhouse's partnerships, referral and opportunities) moved
+ * onto this one component in the integration audit. What still draws its own does so for a reason of its
+ * own: a conversation's header carries the person, the Clubhouse map is an immersive surface, and a club
+ * page and the Find a Fixture flow sit their back control on the forest hero itself.
  *
  * NEVER THE ROOT IDENTITY HEADER'S CONTENT. A detail screen is "where am I, how do I leave", not "who
  * am I and what am I standing in" -- copying `AppHeader`'s avatar/context/switcher onto every fixture
@@ -270,6 +274,9 @@ export function OvalballDetailHeader({
   onBack,
   tone = "forest",
   rightAction,
+  backLabel = "Back",
+  overlay,
+  identity,
 }: {
   title: string
   onBack: () => void
@@ -277,9 +284,26 @@ export function OvalballDetailHeader({
   tone?: "chalk" | "forest"
   /** A single legitimate action this specific screen needs beside its title -- never a second identity block. */
   rightAction?: React.ReactNode
+  /** What Back is read out as, where the screen knows where it returns to ("Back to Messages"). */
+  backLabel?: string
+  /**
+   * OVER A HERO PHOTOGRAPH -- for a screen whose APPROVED mock-up floats its back control on the photograph
+   * (Arena Home), the same header with no bar of its own at rest. `backdrop` is the forest ground the screen
+   * fades in as its hero scrolls away (filling the header, `surface.forest`), and `titleStyle` fades the
+   * title with it -- so the hero's own words are the only title while the hero is on screen, and the bar is
+   * the same forest bar as everywhere else once it is not. Never a white bar: the photograph runs under the
+   * status bar and the backdrop is forest, so the top of the screen is one continuous dark surface.
+   */
+  overlay?: { backdrop: React.ReactNode; titleStyle?: StyleProp<AnimatedStyle<StyleProp<TextStyle>>> }
+  /**
+   * A CONVERSATION'S HEADER: who it is with, beside their picture, and one live line under the name
+   * ("Online", "Ffion is typing…", "12 people"). The title then sits beside the picture rather than
+   * centred, the way every messenger reads -- same forest bar, same back control, same single action.
+   */
+  identity?: { avatar: React.ReactNode; subtitle?: string | null; subtitleTone?: "default" | "live"; onPress?: () => void; accessibilityHint?: string }
 }) {
   const insets = useSafeAreaInsets()
-  const onForestGround = tone === "forest"
+  const onForestGround = tone === "forest" || !!overlay
   const ink = onForestGround ? onForest.primary : colour.ink
 
   return (
@@ -290,17 +314,18 @@ export function OvalballDetailHeader({
           paddingTop: insets.top + space.sm,
           paddingBottom: space.sm,
           paddingHorizontal: space.md,
-          backgroundColor: onForestGround ? surface.forest : colour.chalk,
-          borderBottomWidth: 1,
-          borderBottomColor: onForestGround ? onForest.line : colour.line,
+          ...(overlay
+            ? { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }
+            : { backgroundColor: onForestGround ? surface.forest : colour.chalk, borderBottomWidth: 1, borderBottomColor: onForestGround ? onForest.line : colour.line }),
           flexDirection: "row",
           alignItems: "center",
           gap: space.xs,
         }}
       >
+        {overlay?.backdrop}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={backLabel}
           onPress={onBack}
           hitSlop={8}
           style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
@@ -314,12 +339,42 @@ export function OvalballDetailHeader({
             centred whether the right side carries nothing, a single icon or a wider control, rather than
             drifting toward whichever side is narrower. Touches pass through it to nothing, since there is
             never anything tappable behind the title itself. */}
+        {identity ? (
+          <Pressable
+            accessibilityRole={identity.onPress ? "button" : "header"}
+            accessibilityLabel={[title, identity.subtitle].filter(Boolean).join(". ")}
+            accessibilityHint={identity.accessibilityHint}
+            disabled={!identity.onPress}
+            onPress={identity.onPress}
+            style={({ pressed }) => ({ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: space.sm, opacity: pressed ? 0.75 : 1 })}
+          >
+            {identity.avatar}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={[type.heading, { color: ink, fontSize: 17 }]}>
+                {title}
+              </Text>
+              {!!identity.subtitle && (
+                <Text
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={1.3}
+                  style={[type.caption, { color: identity.subtitleTone === "live" ? (onForestGround ? colour.mint300 : colour.rugby700) : onForestGround ? onForest.secondary : colour.inkMuted, marginTop: 1 }]}
+                >
+                  {identity.subtitle}
+                </Text>
+              )}
+            </View>
+          </Pressable>
+        ) : (
         <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, top: insets.top + space.sm, bottom: space.sm, alignItems: "center", justifyContent: "center", paddingHorizontal: TOUCH_TARGET + space.xl }}>
-          <Text accessibilityRole="header" numberOfLines={1} style={[type.heading, { color: ink, textAlign: "center" }]}>
+          {/* A BAR TITLE GROWS ONLY SO FAR, as iOS's own navigation bar titles do: the bar keeps its height,
+              and at the largest text sizes an unbounded title was cut off by it. The page's own heading
+              below grows in full. */}
+          <Animated.Text accessibilityRole="header" numberOfLines={1} maxFontSizeMultiplier={1.3} style={[type.heading, { color: ink, textAlign: "center" }, overlay?.titleStyle]}>
             {title}
-          </Text>
+          </Animated.Text>
         </View>
-        <View style={{ flex: 1 }} />
+        )}
+        {!identity && <View style={{ flex: 1 }} />}
         {rightAction}
       </View>
     </>

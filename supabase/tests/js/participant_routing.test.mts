@@ -1,47 +1,44 @@
 /**
- * P3 — A PARTICIPANT NEVER ARRIVES AT ADMINISTRATION.
+ * P3 -- A PARTICIPANT NEVER ARRIVES AT ADMINISTRATION. Rewritten for the Match Centre consolidation
+ * (owner brief, 2026-10-03).
  *
- * The defect this suite exists for: `/fixtures/<id>` is the canonical address for
- * one physical fixture on BOTH clients -- it is what the website routes to, what
- * `notificationHref` emits for every fixture notification, what a shared link
- * carries and what expo-router restores after the app is killed -- and on this
- * client it had become the FIXTURE CONSOLE. So every canonical way into a fixture
- * put a parent in fixture administration. Fixing one list's `onPress` could never
- * have been enough, because the address itself was the defect.
+ * The original defect: `/fixtures/<id>` is the canonical address for one physical fixture on BOTH
+ * clients -- what the website routes to, what every fixture notification carries, what a shared link
+ * holds and what expo-router restores -- and it had become a FIXTURE CONSOLE, so every way into a
+ * fixture put a parent in fixture administration. P3 fixed it with two addresses: a participant one
+ * that could not draw administration, and a canonical one that asked the server and chose between the
+ * Match Centre and the console.
  *
- * TWO LAYERS ARE ASSERTED HERE, and they are independent on purpose.
+ * THE CONSOLIDATION REMOVES THE SECOND SURFACE INSTEAD. There is one Match Centre for every viewer at
+ * the canonical address; Fixture Detail and Edit Fixture are sections and sheets inside it; each
+ * control is drawn from the server's per-fixture answer for this viewer, and every write is re-checked
+ * by the database. So the protection this suite pins is now:
  *
- *   LAYER A, the projection: a participant is sent to an address that CANNOT draw
- *   administration, whichever entry point they came from.
+ *   LAYER A, the projection: every entry point -- a list, a notification, a deep link, an older
+ *   address -- reaches the one Match Centre, at the section it names, and nothing administrative.
  *
- *   LAYER B, the guard: the canonical address decides from the server's own
- *   per-fixture `can_manage_fixture`, and the console has no address of its own --
- *   so a typed URL, a restored stack or a link from outside cannot reach it.
+ *   LAYER B, the structure: the canonical address draws only the Match Centre; the console, Fixture
+ *   Detail and Edit Fixture no longer exist; every older address is a redirect through the one route
+ *   table; and the Match Centre's management controls are gated on the server's answer.
  *
- * Layer B's server half is proved in SQL and in the RED run, not here. What is
- * proved here is the structure: that there is exactly one deciding route, that it
- * asks the server, and that no route file imports administration except that one.
+ * Layer B's server half -- that a parent cannot move a kick-off whatever the client draws -- is proved
+ * in SQL (match_centre_consolidation.sql and the fixture suites), not here.
  */
 
 import assert from "node:assert/strict"
-import { readFileSync, readdirSync, statSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
 
 import type { AgendaItem } from "@ovalball/contracts"
 
-import {
-  agendaIntent,
-  narrowIntentForContext,
-  routeForAgendaItem,
-  routeForIntent,
-} from "../../../apps/mobile/src/links/destinations"
+import { agendaIntent, routeForAgendaItem, routeForHref, routeForIntent } from "../../../apps/mobile/src/links/destinations"
 import { resolveIntent } from "../../../apps/mobile/src/links/intents"
 
 const APP = "apps/mobile/app/(tabs)"
-const PARTICIPANT_ROUTE = "/fixtures/[fixtureId]/match-centre"
-const CANONICAL_ROUTE = "/fixtures/[fixtureId]"
+const MATCH_CENTRE = "/fixtures/[fixtureId]"
 const TRAINING_ROUTE = "/calendar/training/[sessionId]"
+const MC_DIR = "apps/mobile/src/fixtures/match-centre"
 
 const PARTICIPANTS = ["parent", "family", "player"] as const
 const STAFF = ["team", "club", "site_admin", "governing"] as const
@@ -63,106 +60,65 @@ const training = () =>
 
 // ------------------------------------------------- LAYER A: every entry point
 
-test("a parent's match goes to the participant address, from every in-app list", () => {
-  // Home, Fixtures, the Calendar (grid, week list and week sheet), Needs Attention,
-  // Next Up and This Week all call this one function -- asserted structurally below.
-  for (const kind of PARTICIPANTS) {
-    assert.deepEqual(routeForAgendaItem(fixture(), kind), {
-      pathname: PARTICIPANT_ROUTE,
-      params: { fixtureId: "fx-1" },
-    })
-  }
-})
-
-test("a parent's training goes to the Training Centre", () => {
-  for (const kind of PARTICIPANTS) {
-    assert.deepEqual(routeForAgendaItem(training(), kind), {
-      pathname: TRAINING_ROUTE,
-      params: { sessionId: "ts-1" },
-    })
-  }
-})
-
-test("a notification about a fixture is narrowed before it is routed", () => {
-  // `notificationHref` emits `/fixtures/<id>` for fixture_attendance_invitation and
-  // its reminder -- the two a parent actually receives. Unnarrowed that is the
-  // deciding address; narrowed it is the address that cannot draw administration.
-  const intent = resolveIntent("ovalball://fixtures/fx-1")
-  assert.deepEqual(intent, { kind: "FIXTURE", fixtureId: "fx-1" })
-  for (const kind of PARTICIPANTS) {
-    assert.deepEqual(routeForIntent(narrowIntentForContext(intent, kind)), {
-      pathname: PARTICIPANT_ROUTE,
-      params: { fixtureId: "fx-1" },
-    })
-  }
-})
-
-test("a deep link to a fixture is narrowed the same way", () => {
-  for (const url of [
-    "ovalball://fixtures/fx-1",
-    "exp://192.168.1.5:8081/--/fixtures/fx-1",
-    "https://ovalball.co.uk/fixtures/fx-1",
-  ]) {
-    const narrowed = narrowIntentForContext(resolveIntent(url), "parent")
-    assert.deepEqual(routeForIntent(narrowed), { pathname: PARTICIPANT_ROUTE, params: { fixtureId: "fx-1" } })
-  }
-})
-
-test("an explicit participant link stays participant for everybody", () => {
-  const intent = resolveIntent("ovalball://fixtures/fx-1/match-centre")
-  assert.deepEqual(intent, { kind: "MATCH_CENTRE", fixtureId: "fx-1" })
+test("everybody's match goes to the one Match Centre, from every in-app list", () => {
+  // Home, Fixtures, the Calendar (grid, week list and week sheet), Needs Attention, Next Up and This
+  // Week all call this one function -- asserted structurally below.
   for (const kind of [...PARTICIPANTS, ...STAFF]) {
-    assert.deepEqual(routeForIntent(narrowIntentForContext(intent, kind)), {
-      pathname: PARTICIPANT_ROUTE,
-      params: { fixtureId: "fx-1" },
-    })
+    assert.deepEqual(routeForAgendaItem(fixture(), kind), { pathname: MATCH_CENTRE, params: { fixtureId: "fx-1" } })
   }
 })
 
-test("narrowing only ever narrows, and touches nothing that is not a fixture", () => {
-  for (const intent of [
-    { kind: "TRAINING", sessionId: "ts-1" },
-    { kind: "MESSAGES" },
-    { kind: "MESSAGE_THREAD", conversationId: "c-1", conversationKind: "direct" },
-    { kind: "CALENDAR", date: null },
-    { kind: "MATCH_CENTRE", fixtureId: "fx-1" },
-  ] as const) {
+test("everybody's training goes to the Training Centre", () => {
+  for (const kind of [...PARTICIPANTS, ...STAFF]) {
+    assert.deepEqual(routeForAgendaItem(training(), kind), { pathname: TRAINING_ROUTE, params: { sessionId: "ts-1" } })
+  }
+})
+
+test("a notification lands on the exact section it is about", () => {
+  const cases: Array<[string, Record<string, string>]> = [
+    ["/fixtures/fx-1", { fixtureId: "fx-1" }],
+    ["/fixtures/fx-1?tab=attendance", { fixtureId: "fx-1", tab: "attendance" }],
+    ["/fixtures/fx-1?tab=arena", { fixtureId: "fx-1", tab: "arena" }],
+    ["/fixtures/fx-1?tab=changing-room", { fixtureId: "fx-1", tab: "changing-room" }],
+    ["/fixtures/fx-1?tab=rewards", { fixtureId: "fx-1", tab: "rewards" }],
+    ["/fixtures/fx-1?tab=overview", { fixtureId: "fx-1" }],
+    // An unrecognised section is Overview, never a dead end.
+    ["/fixtures/fx-1?tab=nonsense", { fixtureId: "fx-1" }],
+    ["/fixtures/fx-1/result", { fixtureId: "fx-1", tab: "result" }],
+  ]
+  for (const [href, params] of cases) {
     for (const kind of [...PARTICIPANTS, ...STAFF, null]) {
-      assert.deepEqual(narrowIntentForContext(intent, kind), intent)
+      assert.deepEqual(routeForHref(href, kind), { pathname: MATCH_CENTRE, params }, `${href} in a ${kind ?? "no"} context`)
     }
   }
 })
 
-test("a fixture intent with no resolved context is left to the deciding address", () => {
-  // A link can arrive before the context has loaded. Holding it would risk dropping
-  // it; routing it is safe because the canonical address asks the server itself.
-  assert.deepEqual(narrowIntentForContext({ kind: "FIXTURE", fixtureId: "fx-1" }, null), {
-    kind: "FIXTURE",
-    fixtureId: "fx-1",
+test("a deep link to a fixture, from any client, reaches the same Match Centre", () => {
+  for (const url of [
+    "ovalball://fixtures/fx-1",
+    "exp://192.168.1.5:8081/--/fixtures/fx-1",
+    "https://ovalball.co.uk/fixtures/fx-1",
+    "ovalball://fixtures/fx-1/match-centre",
+    "https://ovalball.co.uk/fixtures/fx-1/match-centre",
+  ]) {
+    assert.deepEqual(routeForIntent(resolveIntent(url)), { pathname: MATCH_CENTRE, params: { fixtureId: "fx-1" } }, url)
+  }
+  assert.deepEqual(routeForIntent(resolveIntent("https://ovalball.co.uk/fixtures/fx-1/edit")), {
+    pathname: MATCH_CENTRE,
+    params: { fixtureId: "fx-1", edit: "details" },
+  })
+  assert.deepEqual(routeForIntent(resolveIntent("https://ovalball.co.uk/fixtures/fx-1?tab=attendance")), {
+    pathname: MATCH_CENTRE,
+    params: { fixtureId: "fx-1", tab: "attendance" },
   })
 })
 
-// ------------------------------------------------------------ staff behaviour
-
-test("staff are sent to the canonical address, which asks rather than assumes", () => {
-  // NOT a grant. A team manager who has not been delegated `fixture.fixture.edit`
-  // lands on the Match Centre exactly as a parent does, because the route asks
-  // `get_match_centre_capabilities` for this viewer and this fixture.
-  for (const kind of STAFF) {
-    assert.deepEqual(routeForAgendaItem(fixture(), kind), {
-      pathname: CANONICAL_ROUTE,
-      params: { fixtureId: "fx-1" },
-    })
-  }
-})
-
-test("staff training goes to the same one Training Centre", () => {
-  for (const kind of STAFF) {
-    assert.deepEqual(routeForAgendaItem(training(), kind), {
-      pathname: TRAINING_ROUTE,
-      params: { sessionId: "ts-1" },
-    })
-  }
+test("every older fixture destination converges on the Match Centre, never a surface of its own", () => {
+  assert.deepEqual(routeForIntent({ kind: "MATCH_CENTRE", fixtureId: "fx-1" }), { pathname: MATCH_CENTRE, params: { fixtureId: "fx-1" } })
+  assert.deepEqual(routeForIntent({ kind: "FIXTURE_RESULT", fixtureId: "fx-1" }), { pathname: MATCH_CENTRE, params: { fixtureId: "fx-1", tab: "result" } })
+  assert.deepEqual(routeForIntent({ kind: "ADD_RESULT", fixtureId: "fx-1" }), { pathname: MATCH_CENTRE, params: { fixtureId: "fx-1", tab: "result" } })
+  // Editing is a sheet inside the Match Centre, drawn only where the server says this viewer may edit.
+  assert.deepEqual(routeForIntent({ kind: "EDIT_FIXTURE", fixtureId: "fx-1" }), { pathname: MATCH_CENTRE, params: { fixtureId: "fx-1", edit: "details" } })
 })
 
 test("no participant event resolves to any bulk or administrative fixture surface", () => {
@@ -178,15 +134,12 @@ test("no participant event resolves to any bulk or administrative fixture surfac
   }
 })
 
-test("the intent and the route are one table", () => {
-  assert.deepEqual(routeForIntent(agendaIntent(fixture(), "parent")), {
-    pathname: PARTICIPANT_ROUTE,
-    params: { fixtureId: "fx-1" },
-  })
-  assert.deepEqual(routeForIntent(agendaIntent(fixture(), "team")), {
-    pathname: CANONICAL_ROUTE,
-    params: { fixtureId: "fx-1" },
-  })
+test("the intent and the route are one table, and no context chooses a fixture's address", () => {
+  for (const kind of [...PARTICIPANTS, ...STAFF]) {
+    assert.deepEqual(agendaIntent(fixture(), kind), { kind: "FIXTURE", fixtureId: "fx-1" })
+  }
+  const table = readFileSync("apps/mobile/src/links/destinations.ts", "utf8").replace(/\/\*[\s\S]*?\*\//g, "")
+  assert.doesNotMatch(table, /isFamilyFacingContext|narrowIntentForContext/, "a context is choosing between fixture surfaces again")
 })
 
 // ---------------------------------------------------- LAYER B: the structure
@@ -201,42 +154,60 @@ function routeFiles(dir = APP, acc: string[] = []): string[] {
   return acc
 }
 
-test("Fixture Detail has no route of its own outside the canonical gate; Edit Fixture is its own explicit address", () => {
-  // OWNER DECISION (physical review correction pass): the former all-in-one console split into Fixture
-  // Detail (read/overview) and Edit Fixture (the mutation form, its own destination). The same
-  // protection applies to Fixture Detail as applied to the console it replaced: there is no URL for it
-  // outside the one canonical gate. Edit Fixture, by contrast, IS meant to be its own pushable address
-  // (reached from Fixture Detail's own "Edit Fixture" button), so it is exempted from this specific
-  // check and asserted instead by the routing table / EDIT_FIXTURE intent tests.
-  const detailImporters = routeFiles().filter((f) => /fixture-detail-screen/.test(readFileSync(f, "utf8")))
-  assert.deepEqual(
-    detailImporters,
-    [`${APP}/fixtures/[fixtureId]/index.tsx`],
-    "a route other than the canonical fixture address can draw Fixture Detail"
-  )
-  const editImporters = routeFiles().filter((f) => /edit-fixture-screen/.test(readFileSync(f, "utf8")))
-  assert.deepEqual(editImporters, [`${APP}/fixtures/[fixtureId]/edit.tsx`], "Edit Fixture has exactly its own route")
-})
-
-test("the canonical fixture address decides from the server, not from a role", () => {
-  const gate = readFileSync(`${APP}/fixtures/[fixtureId]/index.tsx`, "utf8")
-  assert.match(gate, /loadFixtureSurface/, "the canonical address no longer resolves a surface")
-  const surface = readFileSync("apps/mobile/src/fixtures/surface.ts", "utf8")
-  assert.match(surface, /get_match_centre_capabilities/, "the surface is decided without asking the server")
-  assert.match(surface, /can_manage_fixture/, "the decision is not the canonical per-fixture capability")
-  // AND IT FAILS TOWARDS THE PARTICIPANT: an error, an absent row and a false all
-  // give the surface with fewer powers.
-  assert.match(surface, /if \(error \|\| !data\) return "participant"/)
-  for (const wrong of [/active\.kind/, /isFamilyFacingContext/, /role/i]) {
-    assert.ok(!wrong.test(surface), `the surface decision consults ${wrong} instead of the capability`)
+test("the retired fixture surfaces are gone, not just unrouted", () => {
+  for (const retired of [
+    "apps/mobile/src/fixtures/fixture-detail-screen.tsx",
+    "apps/mobile/src/fixtures/edit-fixture-screen.tsx",
+    "apps/mobile/src/fixtures/surface.ts",
+    "apps/mobile/src/fixtures/match-centre.tsx",
+    "apps/mobile/src/components/fixture-hero.tsx",
+  ]) {
+    assert.ok(!existsSync(retired), `${retired} still exists`)
+  }
+  for (const file of [...routeFiles(), ...sourceFiles("apps/mobile/src")]) {
+    const body = readFileSync(file, "utf8")
+    assert.doesNotMatch(body, /fixture-detail-screen|edit-fixture-screen|fixtures\/surface"|fixture-console/, `${file} imports a retired fixture surface`)
   }
 })
 
-test("the participant route cannot draw administration, because it does not import it", () => {
-  const route = readFileSync(`${APP}/fixtures/[fixtureId]/match-centre.tsx`, "utf8")
-  assert.match(route, /from "\.\.\/\.\.\/\.\.\/\.\.\/src\/fixtures\/match-centre"/)
-  assert.ok(!/fixture-console/.test(route), "the participant route imports the console")
-  assert.ok(!/mutations/.test(route), "the participant route imports fixture mutations")
+test("the canonical fixture address draws the one Match Centre and nothing else", () => {
+  const route = readFileSync(`${APP}/fixtures/[fixtureId]/index.tsx`, "utf8")
+  assert.match(route, /import \{ MatchCentre \} from "\.\.\/\.\.\/\.\.\/\.\.\/src\/fixtures\/match-centre"/)
+  assert.match(route, /export default MatchCentre/)
+  const imports = route.match(/^import .*$/gm) ?? []
+  assert.equal(imports.length, 1, `the canonical address imports more than the Match Centre: ${imports.join(" | ")}`)
+})
+
+test("every older fixture address is a redirect through the one route table", () => {
+  for (const [file, kind] of [
+    ["match-centre", "MATCH_CENTRE"],
+    ["result", "FIXTURE_RESULT"],
+    ["add-result", "ADD_RESULT"],
+    ["edit", "EDIT_FIXTURE"],
+  ] as const) {
+    const source = readFileSync(`${APP}/fixtures/[fixtureId]/${file}.tsx`, "utf8")
+    assert.match(source, /<Redirect href=\{routeForIntent\(\{ kind: "/, `${file} does not redirect through the route table`)
+    assert.ok(source.includes(`kind: "${kind}"`), `${file} does not resolve as ${kind}`)
+    assert.doesNotMatch(source, /src\/fixtures|supabase|mutations|<View|<Text/, `${file} draws something of its own`)
+  }
+})
+
+test("the Match Centre's management controls are drawn from the server's answer, never a role", () => {
+  const screen = readFileSync(`${MC_DIR}/index.tsx`, "utf8")
+  // `canManageFixture` is `get_match_centre_viewer`'s answer for this viewer and this fixture; the
+  // edit and cancel capabilities are the canonical resolver's (`loadFixtureAuthority`).
+  assert.match(readFileSync("apps/mobile/src/match-centre/load.ts", "utf8"), /get_match_centre_viewer/)
+  assert.match(screen, /const canEdit = Boolean\(view\?\.canManageFixture && authority\?\.edit\)/)
+  assert.match(screen, /const canCancel = Boolean\(view\?\.canManageFixture && authority\?\.cancel\)/)
+  for (const file of readdirSync(MC_DIR).filter((f) => f.endsWith(".tsx"))) {
+    const source = readFileSync(join(MC_DIR, file), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")
+    // The ACTIVE context's kind may never pick what is drawn. (The Result section does read the
+    // person's contexts to know which club is theirs -- identity, lifted verbatim from the canonical
+    // Match Result -- and the server still decides every result action.)
+    for (const wrong of [/isFamilyFacingContext/, /role === "/, /active\??\.kind ===/, /kind === "parent"/, /kind === "guardian"/]) {
+      assert.ok(!wrong.test(source), `${file} decides by ${wrong} instead of the server's answer`)
+    }
+  }
 })
 
 test("no screen builds a fixture or training path by hand any more", () => {
@@ -283,7 +254,10 @@ test("every editable field in the Training Centre is gated on the server's own a
   const gate = screen.indexOf("{session.canManage && (")
   assert.ok(screen.indexOf("<CancelSessionButton") > gate, "the cancel control is mounted outside the gate")
   assert.ok(screen.indexOf("<TrainingOperations") > gate, "the edit sheets are mounted outside the gate")
-  assert.match(screen, /!cancelled && <CancelSessionButton/, "a cancelled session can still be cancelled")
+  // `!cancelled` must stand between the gate and the control. Additional conjuncts are allowed
+  // because they can only narrow it -- the screen now also requires `canEditSchedule` -- but removing
+  // `!cancelled` still fails here, which is the invariant this line exists for.
+  assert.match(screen, /!cancelled &&[^<]*<CancelSessionButton/, "a cancelled session can still be cancelled")
   // And a row that is not editable draws no press target and no chevron at all,
   // rather than a control that fails after being tapped.
   assert.match(screen, /if \(!editable \|\| !onPress\) return content/)
@@ -357,8 +331,7 @@ test("a participant screen's Back goes to its own surface, never to whichever na
   assert.ok(!/router\.canGoBack\(\)/.test(back), "canGoBack() is the router's answer, and the router lets the tabs pop")
   for (const [file, surface] of [
     ["apps/mobile/app/(tabs)/calendar/training/[sessionId].tsx", "/calendar"],
-    ["apps/mobile/src/fixtures/match-centre.tsx", "/fixtures"],
-    ["apps/mobile/src/fixtures/fixture-detail-screen.tsx", "/fixtures"],
+    ["apps/mobile/src/fixtures/match-centre/index.tsx", "/fixtures"],
   ] as const) {
     const source = readFileSync(file, "utf8")
     assert.ok(!/=> router\.back\(\)/.test(source), `${file} still calls back() with nowhere to go`)

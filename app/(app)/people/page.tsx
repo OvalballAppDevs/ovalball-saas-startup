@@ -10,7 +10,8 @@ import { getSessionContext } from "@/lib/app-context/session-context"
 import { readClubPeople, readPeopleCapabilities } from "@ovalball/contracts/club/people"
 import { createClient } from "@/lib/supabase/server"
 import { describeIntendedOutcome, invitationExpiryLabel, outcomeLines } from "@/lib/invitations/share"
-import { clubRoleLabel, teamPermissionLabel } from "@/lib/permissions/role-labels"
+import { clubRoleLabel } from "@/lib/permissions/role-labels"
+import { roleDisplayLabel } from "@ovalball/contracts/role-labels"
 
 import { invitationStaffRoleOptions } from "./actions"
 import { InviteForm } from "./invite-form"
@@ -114,7 +115,7 @@ export default async function PeoplePage({
       email: p.email ?? "",
       clubRole: (p.role ?? "BASIC_USER") as PersonRowData["clubRole"],
       state: p.state,
-      teamRoles: p.teamRoles.map((t) => ({ teamName: t.teamDisplayName, permission: teamPermissionLabel(t.permission) })),
+      teamRoles: p.teamRoles.map((t) => ({ teamName: t.teamDisplayName, permission: roleDisplayLabel(t.roleKey, t.title) })),
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
 

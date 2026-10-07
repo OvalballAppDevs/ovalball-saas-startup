@@ -12,6 +12,7 @@
 // a redirect is a courtesy and the boundary has to hold without it.
 
 import { execFileSync } from "node:child_process"
+import fs from "node:fs"
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
 import { ensureFixtureWorld } from "./fixture-world.mjs"
 
@@ -30,6 +31,68 @@ const world = ensureFixtureWorld(sql, { tag: "s20" })
 
 const TAG = `PERSONA-${Date.now()}`
 
+// THIS RUN'S OWN TEAM MANAGER AND MEMBER. uat.team.manager has a password a person set, and now runs three
+// teams; uat.team.admin holds a Coach role on Under 12 Boys, and a Coach may request a fixture. Neither can
+// stand for its row any more, so each row is played by somebody made for it and removed afterwards.
+const RUN = Math.random().toString(36).slice(2, 7)
+const PEOPLE = "uat.s20.%@ovalball.test"
+const MANAGER = `uat.s20.manager.${RUN}@ovalball.test`
+const MEMBER = `uat.s20.member.${RUN}@ovalball.test`
+
+function env(name) {
+  if (process.env[name]) return process.env[name]
+  try {
+    return fs.readFileSync(new URL("../../.env.local", import.meta.url), "utf8").match(new RegExp(`^${name}=(.*)$`, "m"))?.[1]?.trim() ?? ""
+  } catch {
+    return ""
+  }
+}
+const API = env("NEXT_PUBLIC_SUPABASE_URL") || "http://127.0.0.1:54321"
+const SERVICE_KEY = env("SUPABASE_SERVICE_ROLE_KEY")
+
+/** An adult who signs in with the shared UAT password, an active member of the review club. */
+async function member(email, first, surname) {
+  const res = await fetch(`${API}/auth/v1/admin/users`, {
+    method: "POST",
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: env("UAT_BROWSER_PASSWORD"), email_confirm: true }),
+  })
+  const id = (await res.json()).id
+  if (!id) throw new Error(`could not create ${email}: HTTP ${res.status}`)
+  sql(`update public.profiles set first_name = '${first}', surname = '${surname}', date_of_birth = '1984-02-09', setup_state = 'COMPLETE' where id = '${id}'`)
+  sql(`insert into public.club_memberships (club_id, user_id, role, status) values ('${world.clubId}', '${id}', 'BASIC_USER', 'active')`)
+  return id
+}
+
+/** Everything about this suite's people, history included (which only an operator session may remove). */
+function teardownPeople() {
+  sql(`do $$
+  declare
+    v_people uuid[] := array(select id from auth.users where email like '${PEOPLE}');
+    v_records uuid[];
+  begin
+    perform set_config('ovalball.maintenance', 'on', true);
+    v_records := v_people
+      || array(select id from public.club_memberships where user_id = any(v_people))
+      || array(select id from public.role_assignments where user_id = any(v_people));
+    delete from public.notifications where user_id = any(v_people);
+    delete from public.role_assignments where user_id = any(v_people);
+    delete from public.club_memberships where user_id = any(v_people);
+    delete from public.audit_log where changed_by = any(v_people) or actor_user_id = any(v_people) or record_id = any(v_records);
+    delete from public.profiles where id = any(v_people);
+    delete from auth.users where id = any(v_people);
+    delete from public.audit_log where record_id = any(v_records);
+    delete from public.security_events where actor_user_id = any(v_people) or subject_user_id = any(v_people);
+  end $$;`)
+}
+
+teardownPeople()
+const u12 = sql(`select id from public.teams where club_id = '${world.clubId}' and age_group = 'U12' and gender = 'boys' and squad_designation is null`)
+const managerId = await member(MANAGER, "Morgan", "Manager")
+sql(`insert into testing.team_roles (membership_id, team_id, role_key)
+       select id, '${u12}', 'TEAM_MANAGER' from public.club_memberships where club_id = '${world.clubId}' and user_id = '${managerId}'`)
+await member(MEMBER, "Nell", "Member")
+
 const PERSONAS = [
   { email: "uat.coach@ovalball.test", name: "Club Admin", mayPlan: true, mayCreateMany: true },
   // NOT "true". The planner plans ONE CLUB'S season, and every club-scoped
@@ -44,16 +107,12 @@ const PERSONAS = [
   // Bulk planning is club administration. A team's own staff create single
   // fixtures through Request a Fixture and never reach the Planner, however
   // many teams they run (fixture_bulk_planning_authority.sql).
-  { email: "uat.team.manager@ovalball.test", name: "Team Manager", mayPlan: false, mayCreateMany: false, mayRequestOne: true },
-  // TEAM ADMIN IS NOT A ROLE ANY MORE. The identity/auth programme retired it
-  // as a visible primary role; team administration became a scoped capability
-  // bundle assignable to a Team Manager or a Coach. This identity kept its
-  // legacy name and holds no team-scoped fixture authority, so it is offered
-  // Request a Fixture exactly as any other ordinary member is -- which is to
-  // say, not at all. The row is kept rather than deleted precisely because the
-  // retirement is worth asserting: if a "Team Admin" ever regains single-fixture
-  // authority by virtue of its name, this fails.
-  { email: "uat.team.admin@ovalball.test", name: "Legacy Team Admin identity (role retired)", mayPlan: false, mayCreateMany: false, mayRequestOne: false },
+  { email: MANAGER, name: "Team Manager", mayPlan: false, mayCreateMany: false, mayRequestOne: true },
+  // NO TEAM ROLE, NO SINGLE FIXTURES. This row was the legacy "Team Admin" identity, which held no
+  // team-scoped fixture authority. Team Admin is now only an add-on to a Coach or Team Manager seat
+  // (TEAM_ADMINISTRATION), and that identity now holds a Coach role on Under 12 Boys, so the question is
+  // asked of a member of the same club who holds no team role at all.
+  { email: MEMBER, name: "Club member with no team role", mayPlan: false, mayCreateMany: false, mayRequestOne: false },
   { email: "uat.adult.player@ovalball.test", name: "Adult player", mayPlan: false, mayCreateMany: false, mayRequestOne: false },
   { email: "uat.player.self@ovalball.test", name: "Self-managing player", mayPlan: false, mayCreateMany: false },
   { email: "uat.guardian.one@ovalball.test", name: "Guardian", mayPlan: false, mayCreateMany: false, mayRequestOne: false },
@@ -62,143 +121,150 @@ const PERSONAS = [
 
 const browser = await launch()
 
-for (const persona of PERSONAS) {
+try {
+  for (const persona of PERSONAS) {
+    const ctx = await newContext(browser, { width: 1280, height: 900 })
+    const page = await ctx.newPage()
+    try {
+      await signIn(page, persona.email)
+    } catch (e) {
+      record(`${persona.name}: session could be established`, false, String(e).slice(0, 120))
+      await ctx.close()
+      continue
+    }
+
+    await page.goto(`${APP}/fixtures/planner`, { waitUntil: "domcontentloaded" })
+    await page.waitForLoadState("networkidle").catch(() => {})
+    const landed = page.url().includes("/fixtures/planner")
+
+    if (persona.mayPlan === true) {
+      record(`${persona.name} reaches the planner`, landed, page.url())
+    } else if (persona.mayPlan === false) {
+      record(`${persona.name} is NOT given the planner`, !landed, `sent to ${page.url()}`)
+    } else {
+      // Deliberately not asserted either way: whether a team-scoped role may
+      // plan is a CLUB'S decision through fixture.create, not something this
+      // suite should hardcode an opinion about. What is asserted below is
+      // that the screen and the server agree about whatever the club decided.
+      record(`${persona.name}: club decides -- ${landed ? "reaches" : "does not reach"} the planner`, true, page.url())
+    }
+
+    // THE SCREEN AND THE SERVER MUST AGREE.
+    //
+    // A page that shows the Create button to somebody the server will refuse
+    // is a page that wastes their afternoon; a page that hides it from
+    // somebody the server would allow is a page that lies about their job.
+    if (landed) {
+      const blockedNotice = (await page.locator("body").innerText()).includes("needs the Import Fixtures permission")
+      const dbSaysMany = sql(`select internal.has_capability('fixture.import','club',
+        (select club_id from public.club_memberships where user_id=(select id from auth.users where email='${persona.email}') and status='active' limit 1),
+        null)`)
+      // has_capability runs here as the postgres superuser rather than as the
+      // person, so it is read only as a sanity signal, never as the verdict.
+      record(`${persona.name}: the screen states its own limit rather than failing on submit`,
+        !blockedNotice || blockedNotice, `mass notice shown: ${blockedNotice}, capability probe: ${dbSaysMany || "n/a"}`)
+    }
+
+    // ---------------------------------------------------------------------
+    // THE BOUNDARY WITHOUT THE UI. A refused persona asks the server action
+    // directly, exactly as a hand-written request would.
+    // ---------------------------------------------------------------------
+    // SINGLE FIXTURES ARE TEAM STAFF'S JOB. Refused the bulk tools, a team's
+    // own staff still find Request a Fixture on /fixtures, and it opens for
+    // their own team; a family context never gets it.
+    if (persona.mayRequestOne !== undefined) {
+      await page.goto(`${APP}/fixtures`, { waitUntil: "domcontentloaded" }).catch(() => {})
+      await page.waitForLoadState("networkidle").catch(() => {})
+      const button = page.locator("main").getByText("Request a Fixture", { exact: true })
+      const shown = (await button.count()) > 0
+      record(`${persona.name}: ${persona.mayRequestOne ? "is offered" : "is not offered"} Request a Fixture`, shown === persona.mayRequestOne, page.url())
+      if (persona.mayRequestOne && shown) {
+        await button.first().click()
+        await page.waitForURL(/\/fixtures\/new/, { timeout: 15000 }).catch(() => {})
+        const teams = await page.locator('input[type="checkbox"]').count()
+        record(`${persona.name}: Request a Fixture opens with their own team to choose`, page.url().includes("/fixtures/new") && teams > 0, `${page.url()} -- ${teams} team(s)`)
+      }
+      for (const route of ["/fixtures/import", "/fixtures/competitions", "/fixtures/competitions/new"]) {
+        await page.goto(`${APP}${route}`, { waitUntil: "domcontentloaded" }).catch(() => {})
+        await page.waitForLoadState("networkidle").catch(() => {})
+        record(`${persona.name} is NOT given ${route}`, !page.url().endsWith(route), `sent to ${page.url()}`)
+      }
+    }
+
+    if (persona.mayPlan === false) {
+      await page.goto(`${APP}/fixtures`, { waitUntil: "domcontentloaded" }).catch(() => {})
+      const created = Number(sql(`select count(*) from public.fixtures where notes = '${TAG}-${persona.name}'`))
+      record(`${persona.name} created nothing by any route`, created === 0)
+    }
+
+    await ctx.close()
+  }
+
+  // ---------------------------------------------------------------------
+  // PASTE GRANTS NOTHING. The same block of text, from the same clipboard,
+  // in the hands of somebody without the authority, must do nothing at all.
+  // ---------------------------------------------------------------------
   const ctx = await newContext(browser, { width: 1280, height: 900 })
   const page = await ctx.newPage()
-  try {
-    await signIn(page, persona.email)
-  } catch (e) {
-    record(`${persona.name}: session could be established`, false, String(e).slice(0, 120))
-    await ctx.close()
-    continue
-  }
+  await signIn(page, "uat.adult.player@ovalball.test")
+  const direct = await page.evaluate(async (appUrl) => {
+    // A bare POST to the planner route, carrying a season. No session
+    // privilege is asserted beyond whatever this person actually holds.
+    const response = await fetch(`${appUrl}/fixtures/planner`, {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: "01/01/2029\t11:00\t10:00\tH\tUnder 12 Boys\tAberaeron Rugby Football Club",
+    })
+    return response.status
+  }, APP)
+  record("a raw POST carrying a pasted season is not a way in", direct >= 400 || direct === 200,
+    `HTTP ${direct} (the route renders or refuses; it never creates)`)
 
-  await page.goto(`${APP}/fixtures/planner`, { waitUntil: "domcontentloaded" })
-  await page.waitForLoadState("networkidle").catch(() => {})
-  const landed = page.url().includes("/fixtures/planner")
-
-  if (persona.mayPlan === true) {
-    record(`${persona.name} reaches the planner`, landed, page.url())
-  } else if (persona.mayPlan === false) {
-    record(`${persona.name} is NOT given the planner`, !landed, `sent to ${page.url()}`)
-  } else {
-    // Deliberately not asserted either way: whether a team-scoped role may
-    // plan is a CLUB'S decision through fixture.create, not something this
-    // suite should hardcode an opinion about. What is asserted below is
-    // that the screen and the server agree about whatever the club decided.
-    record(`${persona.name}: club decides -- ${landed ? "reaches" : "does not reach"} the planner`, true, page.url())
-  }
-
-  // THE SCREEN AND THE SERVER MUST AGREE.
-  //
-  // A page that shows the Create button to somebody the server will refuse
-  // is a page that wastes their afternoon; a page that hides it from
-  // somebody the server would allow is a page that lies about their job.
-  if (landed) {
-    const blockedNotice = (await page.locator("body").innerText()).includes("needs the Import Fixtures permission")
-    const dbSaysMany = sql(`select internal.has_capability('fixture.import','club',
-      (select club_id from public.club_memberships where user_id=(select id from auth.users where email='${persona.email}') and status='active' limit 1),
-      null)`)
-    // has_capability runs here as the postgres superuser rather than as the
-    // person, so it is read only as a sanity signal, never as the verdict.
-    record(`${persona.name}: the screen states its own limit rather than failing on submit`,
-      !blockedNotice || blockedNotice, `mass notice shown: ${blockedNotice}, capability probe: ${dbSaysMany || "n/a"}`)
-  }
+  const leaked = Number(sql("select count(*) from public.fixtures where kickoff_date = '2029-01-01'"))
+  record("nothing was created by the raw POST", leaked === 0, `${leaked} fixtures on that date`)
 
   // ---------------------------------------------------------------------
-  // THE BOUNDARY WITHOUT THE UI. A refused persona asks the server action
-  // directly, exactly as a hand-written request would.
+  // THE CAPABILITY IS A CLUB'S TO WITHHOLD, AND WITHHOLDING IT WORKS.
   // ---------------------------------------------------------------------
-  // SINGLE FIXTURES ARE TEAM STAFF'S JOB. Refused the bulk tools, a team's
-  // own staff still find Request a Fixture on /fixtures, and it opens for
-  // their own team; a family context never gets it.
-  if (persona.mayRequestOne !== undefined) {
-    await page.goto(`${APP}/fixtures`, { waitUntil: "domcontentloaded" }).catch(() => {})
-    await page.waitForLoadState("networkidle").catch(() => {})
-    const button = page.locator("main").getByText("Request a Fixture", { exact: true })
-    const shown = (await button.count()) > 0
-    record(`${persona.name}: ${persona.mayRequestOne ? "is offered" : "is not offered"} Request a Fixture`, shown === persona.mayRequestOne, page.url())
-    if (persona.mayRequestOne && shown) {
-      await button.first().click()
-      await page.waitForURL(/\/fixtures\/new/, { timeout: 15000 }).catch(() => {})
-      const teams = await page.locator('input[type="checkbox"]').count()
-      record(`${persona.name}: Request a Fixture opens with their own team to choose`, page.url().includes("/fixtures/new") && teams > 0, `${page.url()} -- ${teams} team(s)`)
-    }
-    for (const route of ["/fixtures/import", "/fixtures/competitions", "/fixtures/competitions/new"]) {
-      await page.goto(`${APP}${route}`, { waitUntil: "domcontentloaded" }).catch(() => {})
-      await page.waitForLoadState("networkidle").catch(() => {})
-      record(`${persona.name} is NOT given ${route}`, !page.url().endsWith(route), `sent to ${page.url()}`)
-    }
-  }
+  const coachId = sql("select id from auth.users where email='uat.coach@ovalball.test'")
+  const clubId = sql(`select club_id from public.club_memberships where user_id='${coachId}' and status='active' limit 1`)
+  // set_capability_override demands a real actor -- a bare psql call has no
+  // auth.uid() and is refused, which is the correct behaviour and not
+  // something to route around. So the override is applied AS the Full Site
+  // Admin, the same way the SQL suites do it.
+  const adminId = sql("select id from auth.users where email='uat.fullsiteadmin@ovalball.test'")
+  sql(`do $$ begin
+    perform set_config('request.jwt.claims', json_build_object('sub','${adminId}','role','authenticated')::text, true);
+    perform public.set_capability_override('${coachId}','fixture.import','club','${clubId}',null,'deny','planner persona matrix');
+  end $$;`)
 
-  if (persona.mayPlan === false) {
-    await page.goto(`${APP}/fixtures`, { waitUntil: "domcontentloaded" }).catch(() => {})
-    const created = Number(sql(`select count(*) from public.fixtures where notes = '${TAG}-${persona.name}'`))
-    record(`${persona.name} created nothing by any route`, created === 0)
-  }
+  const denied = await newContext(browser, { width: 1280, height: 900 })
+  const deniedPage = await denied.newPage()
+  await signIn(deniedPage, "uat.coach@ovalball.test")
+  await deniedPage.goto(`${APP}/fixtures/planner`, { waitUntil: "domcontentloaded" })
+  await deniedPage.waitForLoadState("networkidle").catch(() => {})
+  const deniedBody = await deniedPage.locator("body").innerText()
 
-  await ctx.close()
+  record("withholding Import Fixtures still leaves one-at-a-time creation",
+    deniedPage.url().includes("/fixtures/planner"), deniedPage.url())
+  record("withholding Import Fixtures is stated on the screen, before any work is typed",
+    deniedBody.includes("needs the Import Fixtures permission") || !deniedBody.includes("Create"),
+    deniedBody.includes("needs the Import Fixtures permission") ? "the limit is named up front" : "no mass control offered")
+
+  // Restore: the override is this script's, and it does not outlive it. The
+  // database stores it under the canonical key (fixture.import.run), whatever
+  // key it was written with, so it is found by this run's reason, not its key.
+  sql(`delete from public.capability_overrides where user_id='${coachId}'
+    and capability_key in ('fixture.import', 'fixture.import.run') and reason='planner persona matrix'`)
+  record("QA cleanup removed only this run's own override",
+    Number(sql(`select count(*) from public.capability_overrides where reason='planner persona matrix'`)) === 0)
+} finally {
+  world.cleanup()
+  teardownPeople()
+  await browser.close()
 }
 
-// ---------------------------------------------------------------------
-// PASTE GRANTS NOTHING. The same block of text, from the same clipboard,
-// in the hands of somebody without the authority, must do nothing at all.
-// ---------------------------------------------------------------------
-const ctx = await newContext(browser, { width: 1280, height: 900 })
-const page = await ctx.newPage()
-await signIn(page, "uat.adult.player@ovalball.test")
-const direct = await page.evaluate(async (appUrl) => {
-  // A bare POST to the planner route, carrying a season. No session
-  // privilege is asserted beyond whatever this person actually holds.
-  const response = await fetch(`${appUrl}/fixtures/planner`, {
-    method: "POST",
-    headers: { "content-type": "text/plain" },
-    body: "01/01/2029\t11:00\t10:00\tH\tUnder 12 Boys\tAberaeron Rugby Football Club",
-  })
-  return response.status
-}, APP)
-record("a raw POST carrying a pasted season is not a way in", direct >= 400 || direct === 200,
-  `HTTP ${direct} (the route renders or refuses; it never creates)`)
+record("Z this run's Team Manager and member are gone, with their memberships and roles",
+  sql(`select count(*) from auth.users where email like '${PEOPLE}'`) === "0")
 
-const leaked = Number(sql("select count(*) from public.fixtures where kickoff_date = '2029-01-01'"))
-record("nothing was created by the raw POST", leaked === 0, `${leaked} fixtures on that date`)
-
-// ---------------------------------------------------------------------
-// THE CAPABILITY IS A CLUB'S TO WITHHOLD, AND WITHHOLDING IT WORKS.
-// ---------------------------------------------------------------------
-const coachId = sql("select id from auth.users where email='uat.coach@ovalball.test'")
-const clubId = sql(`select club_id from public.club_memberships where user_id='${coachId}' and status='active' limit 1`)
-// set_capability_override demands a real actor -- a bare psql call has no
-// auth.uid() and is refused, which is the correct behaviour and not
-// something to route around. So the override is applied AS the Full Site
-// Admin, the same way the SQL suites do it.
-const adminId = sql("select id from auth.users where email='uat.fullsiteadmin@ovalball.test'")
-sql(`do $$ begin
-  perform set_config('request.jwt.claims', json_build_object('sub','${adminId}','role','authenticated')::text, true);
-  perform public.set_capability_override('${coachId}','fixture.import','club','${clubId}',null,'deny','planner persona matrix');
-end $$;`)
-
-const denied = await newContext(browser, { width: 1280, height: 900 })
-const deniedPage = await denied.newPage()
-await signIn(deniedPage, "uat.coach@ovalball.test")
-await deniedPage.goto(`${APP}/fixtures/planner`, { waitUntil: "domcontentloaded" })
-await deniedPage.waitForLoadState("networkidle").catch(() => {})
-const deniedBody = await deniedPage.locator("body").innerText()
-
-record("withholding Import Fixtures still leaves one-at-a-time creation",
-  deniedPage.url().includes("/fixtures/planner"), deniedPage.url())
-record("withholding Import Fixtures is stated on the screen, before any work is typed",
-  deniedBody.includes("needs the Import Fixtures permission") || !deniedBody.includes("Create"),
-  deniedBody.includes("needs the Import Fixtures permission") ? "the limit is named up front" : "no mass control offered")
-
-// Restore: the override is this script's, and it does not outlive it. The
-// database stores it under the canonical key (fixture.import.run), whatever
-// key it was written with, so it is found by this run's reason, not its key.
-sql(`delete from public.capability_overrides where user_id='${coachId}'
-  and capability_key in ('fixture.import', 'fixture.import.run') and reason='planner persona matrix'`)
-record("QA cleanup removed only this run's own override",
-  Number(sql(`select count(*) from public.capability_overrides where reason='planner persona matrix'`)) === 0)
-
-world.cleanup()
-await browser.close()
 summarise()

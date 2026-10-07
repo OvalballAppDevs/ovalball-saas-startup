@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { Pressable, Text, View } from "react-native"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
-import { accessEventSentence } from "@ovalball/contracts/club/access-history"
+import { accessEventSentence, accessReasonText } from "@ovalball/contracts/club/access-history"
 import { groupsForScope } from "@ovalball/contracts/club/permission-groups"
 import { personName, readClubPerson, type ClubPerson } from "@ovalball/contracts/club/people"
 import {
@@ -252,7 +252,7 @@ export default function PersonPermissionsScreen() {
                     <Text style={[type.caption, { color: colour.inkMuted }]}>
                       by {h.actorName} · {formatDate(h.at)}
                     </Text>
-                    {h.reason && <Text style={[type.caption, { color: colour.inkSubtle }]}>{h.reason}</Text>}
+                    {h.reason && <Text style={[type.caption, { color: colour.inkSubtle }]}>{accessReasonText(h.reason)}</Text>}
                   </View>
                 ))}
               </Card>

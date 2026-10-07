@@ -143,10 +143,12 @@ test("invitations are the canonical architecture and the read model carries no s
   // the hashes are never read and nothing is stored or logged.
   assert.doesNotMatch(inv, /code_hmac|token_sha256|AsyncStorage|SecureStore|console\./, "no secret stored, hashed column read, or logged")
   assert.match(inv, /token: row\?\.token \?\? null/, "the token is returned once, to be shown")
-  // CA-M11.1: the form lives in its own sheet with the website's inputs; an R refusal holds the form and steps up.
-  const sheet = code(join(MOBILE, "src/invitations/invite-staff-sheet.tsx"))
+  // People & Invitations: the form is the one invitation flow (src/people/invite-flow.tsx), opened from Home's Add to
+  // Club, People and a team's Staff tab alike; an R refusal holds the form in memory and steps up.
+  const sheet = code(join(MOBILE, "src/people/invite-flow.tsx"))
   assert.match(sheet, /inviteClubStaff\(supabase/)
   assert.match(sheet, /isRecentAuthRefusal\(cause\)/, "an R-gated invitation steps up rather than failing")
+  assert.match(sheet, /pathname: "\/step-up", params: \{ returnTo \}/, "and comes back to Review to be confirmed again")
   const people = code(join(MOBILE, "app/(tabs)/admin/people/index.tsx"))
   assert.match(people, /pathname: "\/step-up", params: \{ returnTo: "\/admin\/people" \}/)
   assert.match(people, /onStepUp=/, "the decision sheet still steps up")
@@ -157,7 +159,14 @@ test("pitch allocation is its own authority on the phone: a native board behind 
   assert.match(venues, /allocate: allowed\.has\("venue\.pitch_allocation\.manage"\)/)
   const screen = code(join(MOBILE, "app/(tabs)/admin/venues/index.tsx"))
   assert.match(screen, /caps\.allocate/)
-  assert.match(screen, /\/admin\/pitch-allocation/, "CA-M11.1: the board is native")
+  // CA-M11.1: the board is native. Since the Arena pass it is Arena Planning's Pitches view; the old
+  // /admin/pitch-allocation address redirects there, so Venues opens Arena Planning and the board is the same.
+  assert.match(screen, /\/admin\/pitch-allocation|\/admin\/arena\/planning/, "CA-M11.1: the board is native")
+  assert.match(code(join(MOBILE, "app/(tabs)/admin/pitch-allocation/index.tsx")), /<Redirect href=\{\{ pathname: "\/admin\/arena\/planning", params \}/, "the old address still reaches the board")
+  // ARENA PLANNING REBUILD: the board's authority is the day's (get_arena_day's canManage), which the server derives
+  // from the board's own key -- internal.arena_can_manage is venue.pitch_allocation.manage -- not fixture edit.
+  assert.match(code(join(MOBILE, "src/arena/planning-screen.tsx")), /<PitchBoard[\s\S]{0,200}canManage=\{day\.canManage\}/, "the board is still behind its own capability")
+  assert.match(read("supabase/migrations/20270738000000_arena_plans_the_estate.sql"), /function internal\.arena_can_manage[\s\S]{0,400}internal\.can\('venue\.pitch_allocation\.manage'/, "and that capability is the board's own key")
   assert.doesNotMatch(screen, /fixture\.fixture\.edit|fixtureEdit/, "allocation is not inferred from fixture edit")
 })
 

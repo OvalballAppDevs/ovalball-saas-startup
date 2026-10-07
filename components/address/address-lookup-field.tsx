@@ -4,119 +4,97 @@ import { useCallback, useRef, useState } from "react"
 
 import { Autocomplete } from "@/components/ui/autocomplete"
 
-import type { AddressCandidate, AddressLookupResult } from "@/lib/address-lookup/lookup"
+import { type AddressResolveResult, type AddressSuggestResult, type AddressSuggestion, type CanonicalAddress, normalisePostcode, userMessageForFailure } from "@ovalball/contracts/address"
 
 /**
- * Type -> suggestions -> explicit selection -> populate. Never applies
- * anything on its own: onSelect fills the form fields the same way typing
- * would, so the caller's own Save action remains the only thing that writes.
+ * THE SITEWIDE CANONICAL LOCATION SEARCH -- web. Type -> postcode suggestions -> explicit selection
+ * -> resolve -> populate. It never applies anything on its own: `onResolve` fills the form fields the
+ * same way typing would, so the caller's own Save action remains the only thing that writes.
  *
- * Previously this was a text box plus a Search BUTTON: nothing happened
- * until you clicked it, which is the "address entry is buggy / suggestions
- * don't appear" report. It now searches automatically after three
- * characters and a debounce, through the shared Autocomplete primitive --
- * the same one Site Admin's club lookup uses, so the two behave identically
- * and there is one implementation to keep accessible.
+ * POSTCODE-FIRST, BECAUSE THAT IS WHAT CAN BE ANSWERED HONESTLY. The provider is postcodes.io, which
+ * holds no Royal Mail / PAF property records. The list below therefore contains real POSTCODES, never
+ * invented houses, and picking one resolves its true geography and coordinates. The building name and
+ * street stay Ovalball's own data, confirmed by the person in the fields beside this control.
  *
- * Provider-agnostic and caller-scoped: `search` is passed in rather than
- * imported, so each caller supplies its own authorization boundary around
- * lib/address-lookup/lookup.ts (Site Admin's club_directory editor and Club
- * Admin's venue editor need different checks around the same provider).
+ * NO CREDENTIAL EXISTS ANYWHERE IN THIS PATH. postcodes.io is public and keyless, so there is no
+ * "not configured" state to surface and nothing to keep out of the browser. The search still goes
+ * through a server action so that one normalisation, one validation and one failure vocabulary apply
+ * -- shared with mobile via `@ovalball/contracts/address`.
  *
- * The provider is server-only and its key never reaches the browser. When
- * no key is configured the provider reports `not_configured`, and this
- * surfaces that as an honest hint pointing at manual entry rather than an
- * empty list that looks like "no such address".
+ * Caller-scoped: `search`/`resolve` are passed in rather than imported, so each caller supplies its
+ * own authorization boundary (Site Admin's club_directory editor and Club Admin's venue editor need
+ * different checks around the same service).
  */
 export function AddressLookupField({
   search,
-  onSelect,
+  resolve,
+  onResolve,
 }: {
-  search: (query: string) => Promise<AddressLookupResult>
-  onSelect: (address: {
-    /** line1..line3 joined -- for callers writing the single legacy column. */
-    address: string
-    /** The provider's own structured lines, for callers with structured columns. */
-    line1: string
-    line2: string
-    town: string
-    county: string
-    postcode: string
-  }) => void
+  search: (query: string, sessionToken: string) => Promise<AddressSuggestResult>
+  resolve: (placeId: string, sessionToken: string) => Promise<AddressResolveResult>
+  onResolve: (address: CanonicalAddress) => void
 }) {
   const [hint, setHint] = useState<string | null>(null)
-  // Held in a ref so setting it does not re-run the debounce effect.
-  const lastStatus = useRef<AddressLookupResult["status"] | null>(null)
+  const [resolving, setResolving] = useState(false)
+  // One Google billing session per search, reused by every keystroke and the final resolve.
+  const sessionToken = useRef(`${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`)
 
   const runSearch = useCallback(
-    async (query: string): Promise<AddressCandidate[]> => {
-      const result = await search(query)
-      lastStatus.current = result.status
-
+    async (query: string): Promise<AddressSuggestion[]> => {
+      const result = await search(query, sessionToken.current)
       if (result.status === "ok") {
-        setHint(null)
-        return result.candidates
+        // A bare postcode legitimately finds the street, not the houses -- Places is a place search,
+        // not a Royal Mail address file. Say what to do next rather than looking broken.
+        setHint(normalisePostcode(query) ? "That postcode finds the street. Add a house number or building name to pick the exact property." : null)
+        return result.suggestions
       }
-      if (result.status === "not_configured") {
-        setHint("Address lookup isn't connected in this environment — enter the address manually below.")
-        return []
-      }
-      if (result.status === "country_not_supported") {
-        setHint(result.reason)
-        return []
-      }
-      setHint(result.message)
+      setHint(userMessageForFailure(result))
       return []
     },
     [search]
   )
 
+  async function handleSelect(placeId: string) {
+    setResolving(true)
+    setHint(null)
+    try {
+      const result = await resolve(placeId, sessionToken.current)
+      if (result.status === "ok") {
+        onResolve(result.address)
+        // A new selection ends the billing session; the next search starts a fresh one.
+        sessionToken.current = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+        setHint(result.address.postcodeSource === "reverse_geocoded" ? `Postcode ${result.address.postcode} was found from the map location — please check it.` : null)
+        return
+      }
+      setHint(userMessageForFailure(result))
+    } finally {
+      setResolving(false)
+    }
+  }
+
   return (
     <div className="rounded-lg border border-dashed border-ink/15 p-4">
       <p className="text-sm font-medium text-ink">Look up address</p>
       <p className="mt-1 mb-2 text-xs text-ink-muted">
-        Start typing a postcode or address — suggestions appear as you type. Nothing is applied
-        until you pick one.
+        Start typing a building name, street or postcode — suggestions appear as you type. Picking one fills in the full address and the map. Nothing is applied until you pick one.
       </p>
 
-      <Autocomplete<AddressCandidate>
-        label="Postcode or address"
-        placeholder="e.g. BB11 or 1 Belvedere Road…"
+      <Autocomplete<AddressSuggestion>
+        label="Address or postcode"
+        placeholder="e.g. 23 Rosehill Road, Burnley"
         minChars={3}
-        hint={hint ?? undefined}
-        // When the hint is carrying a real explanation -- the provider is
-        // not connected, the country is unsupported, the provider errored --
-        // "No addresses found for that search." contradicts it: it reads as
-        // "that address does not exist" when the truth is that nothing was
-        // searched. The hint is the honest message in those states.
-        emptyMessage={hint ? "" : "No addresses found for that search."}
+        hint={resolving ? "Confirming address…" : (hint ?? undefined)}
+        emptyMessage={hint ? "" : "We couldn't find that address."}
         onSearch={runSearch}
-        optionKey={(c) => [c.line1, c.line2, c.postcode].filter(Boolean).join("|")}
-        optionLabel={(c) => [c.line1, c.line2, c.town, c.postcode].filter(Boolean).join(", ")}
-        renderOption={(c) => (
+        optionKey={(s) => s.placeId}
+        optionLabel={(s) => s.label}
+        renderOption={(s) => (
           <>
-            <span className="block truncate">{[c.line1, c.line2].filter(Boolean).join(", ")}</span>
-            <span className="block truncate text-xs text-ink-muted">
-              {[c.town, c.county, c.postcode].filter(Boolean).join(", ")}
-            </span>
+            <span className="block truncate">{s.primary}</span>
+            {s.secondary && <span className="block truncate text-xs text-ink-muted">{s.secondary}</span>}
           </>
         )}
-        onSelect={(c) =>
-          onSelect({
-            // Both shapes are handed over, and the caller picks. `address`
-            // is the joined line for whoever still writes the single legacy
-            // `venues.address` column; line1/line2 are the provider's own
-            // components, for callers writing the structured columns added
-            // in 20261016000000. Nothing is thrown away here -- line3 is
-            // rare and folds into line2 rather than being dropped.
-            address: [c.line1, c.line2, c.line3].filter(Boolean).join(", "),
-            line1: c.line1,
-            line2: [c.line2, c.line3].filter(Boolean).join(", "),
-            town: c.town,
-            county: c.county ?? "",
-            postcode: c.postcode,
-          })
-        }
+        onSelect={(s) => void handleSelect(s.placeId)}
       />
     </div>
   )

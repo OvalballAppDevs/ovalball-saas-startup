@@ -82,3 +82,16 @@ export function matchCentreStatus(fixture: {
 export function matchStatusPresentation(status: MatchCentreStatus): MatchStatusPresentation {
   return PRESENTATION[status]
 }
+
+/**
+ * WHETHER A FIXTURE HAS A RESULT TO SHOW -- the one rule every surface asks (integration audit).
+ *
+ * A result is there once the result workflow says so (`result_status` other than `none`) AND both scores are
+ * recorded. Two nulls are not nil-nil, and a pair of numbers on a row the workflow says has no result is not
+ * a result either. Match Centre already read it this way; the agenda showed any two numbers, and the web
+ * Calendar waited for a `confirmed` status the column never holds -- so the same Saturday had a score on one
+ * screen and none on another.
+ */
+export function fixtureHasResult(row: { result_status?: string | null; home_score: number | null; away_score: number | null }): boolean {
+  return !!row.result_status && row.result_status !== "none" && typeof row.home_score === "number" && typeof row.away_score === "number"
+}

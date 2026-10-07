@@ -12,12 +12,16 @@
  * describe one.
  */
 
+import type { MessageReaction } from "./messenger-reactions"
+
 export interface ThreadAttachment {
   id: string
   filename: string
   mimeType: string
   sizeBytes: number
   signedUrl: string | null
+  /** A voice note's length (audio/mp4 only). Absent on a surface that has not asked for it. */
+  durationMs?: number | null
 }
 
 export interface ThreadDocumentShare {
@@ -36,6 +40,21 @@ export interface ThreadContactCard {
   clubName: string
   teamName: string | null
   telephone: string
+}
+
+/**
+ * THE MESSAGE BEING ANSWERED, as a quote above a reply.
+ *
+ * Read through the same RLS as the reply itself, so a quote can never show more than the reader may
+ * see. A parent that has since been deleted quotes as deleted -- its original words are never carried
+ * forward by being replied to.
+ */
+export interface ThreadReplyQuote {
+  id: string
+  senderName: string
+  isOwn: boolean
+  excerpt: string
+  isDeleted: boolean
 }
 
 export interface ThreadMessage {
@@ -68,4 +87,12 @@ export interface ThreadMessage {
   attachment: ThreadAttachment | null
   documentShare: ThreadDocumentShare | null
   contactCard: ThreadContactCard | null
+  /** The message this one answers, or null. Absent entirely on a surface that has not asked for it. */
+  replyTo?: ThreadReplyQuote | null
+  /** Most-used first. Empty where nobody has reacted. */
+  reactions?: MessageReaction[]
+  /** The sender's own send reference, so a sending client can match its pending bubble to the stored message. Only ever present on my own messages. */
+  clientMessageId?: string | null
+  /** A match update's own match ("Sat 17 Oct"), because one conversation covers every fixture against a side. */
+  matchDay?: string | null
 }

@@ -1,9 +1,11 @@
 import { Pressable, Text, View } from "react-native"
+import { Image } from "expo-image"
 
 import type { FamilyMember } from "@ovalball/contracts"
 import {
   projectParticipantMatch,
   projectParticipantTraining,
+  projectParticipantTournament,
   sideLabel,
   type AgendaItem,
   type FamilyProjection,
@@ -14,8 +16,10 @@ import {
 import { ATTENDANCE_STATE_WORDS, attendanceStateShape } from "@ovalball/contracts/availability"
 
 import { AVAILABILITY_ICONS } from "../../availability/presentation"
+import { coverPhotoSource } from "../../media/stock-assets"
+import { KNOCKOUT_RED } from "../../tournaments/knockout-planning"
 import { ClubCrest, PersonAvatar } from "../identity"
-import { ChevronRight, Clock, MapPin, OvalIcon, Users } from "../icons"
+import { CalendarDays, ChevronRight, Clock, MapPin, OvalIcon, Trophy, Users } from "../icons"
 import { TOUCH_TARGET, colour, eventTone, radius, space, surface, type } from "../../design/tokens"
 
 /**
@@ -189,6 +193,104 @@ export function ParticipantTrainingCard({
   )
 }
 
+/**
+ * ONE TOURNAMENT, ON THE CALENDAR -- built to the supplied design.
+ *
+ * The row the mock-up specifies, in its order:
+ *
+ *   09:00    [the tournament's own photograph]   Ovalball UAT Festival        >
+ *   14:30                                        (trophy) Tournament . U12
+ *                                                Hosted by Ovalball UAT RUFC
+ *                                                (pin) Ovalball UAT Ground
+ *
+ * THE HOURS ARE STACKED, start over finish, because that is what a family is deciding around -- how
+ * long they are at a field for. Where no finish was recorded the column simply shows the start; it is
+ * never filled in from the last game or the last pitch booking, both of which are empty before the
+ * organiser publishes a plan.
+ *
+ * THE THUMBNAIL IS THE TOURNAMENT'S OWN COVER, resolved through the same `resolveTournamentCover`
+ * chain as the tournament list card and the detail hero, and drawn with the one library resolver (`coverPhotoSource`)
+ * which is the one place that knows how to turn a stock key or an unset cover into a bundled asset.
+ * A festival with no photograph falls back to the canonical Ovalball default rather than a blank tile.
+ *
+ * NO COLOURED BANNER. A match and a session carry one; the design does not give a tournament one, and
+ * the trophy beside "Tournament . U12" is what distinguishes the row.
+ */
+export function ParticipantTournamentCard({
+  item,
+  family,
+  onPress,
+  siblings,
+}: {
+  item: AgendaItem
+  family: FamilyProjection
+  onPress: () => void
+  siblings?: { member: FamilyMember; attendance: AgendaItem["attendance"] }[]
+}) {
+  const tournament = projectParticipantTournament(item, family)
+
+  return (
+    <CardFrame spoken={tournament.spoken} cancelled={tournament.cancelled} accent={eventTone.tournament.accent} onPress={onPress}>
+      <View style={{ padding: space.lg, flexDirection: "row", alignItems: "flex-start", gap: space.md }}>
+        {/* THE HOURS, STACKED. Fixed width so the photograph and the text start on the same
+            vertical line as every other row's content in the day sheet. */}
+        <View style={{ width: 46 }}>
+          <Text style={[type.smallMedium, { color: colour.ink }]}>{tournament.start ?? "--:--"}</Text>
+          {!!tournament.end && <Text style={[type.smallMedium, { color: colour.inkMuted }]}>{tournament.end}</Text>}
+        </View>
+
+        <Image
+          source={coverPhotoSource("TOURNAMENT", tournament.cover)}
+          style={{ width: 56, height: 46, borderRadius: radius.sm, backgroundColor: colour.chalk }}
+          // The photograph is decoration beside a row that already names the tournament in full; the
+          // spoken label on the card carries every fact.
+          accessible={false}
+          contentFit="cover"
+        />
+
+        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+          <Text numberOfLines={2} style={[type.bodyMedium, { color: colour.ink, fontSize: 15 }]}>
+            {tournament.title}
+          </Text>
+          {/* THE TYPE AND THE COMPETITION, then the day as its OWN line. Appending "Day 1 of 2" to the
+              same line pushed the grade off the end of a narrow phone, and the grade is the fact that
+              tells a parent of two which child this belongs to -- it must never be the part that is
+              truncated. */}
+          {/* THE FORMAT MARK, AND ONLY THE FORMAT MARK. A cup is distinguished by the accent on this
+              one line -- the same trophy in the same place, in the knockout red, naming the format.
+              The card, its cover, its spacing, its attendance and where it goes are identical. */}
+          <Practical
+            icon={<Trophy size={13} color={tournament.knockout ? KNOCKOUT_RED : colour.inkMuted} />}
+            tint={tournament.knockout ? KNOCKOUT_RED : undefined}
+            text={tournament.typeLine}
+          />
+          {!!tournament.day && <Practical icon={<CalendarDays size={13} color={colour.inkMuted} />} text={tournament.day} />}
+          {/* NO ICON ON THIS LINE, and the club's name in full. The design puts a trophy on the type
+              line and a pin on the venue, and leaves the host as plain text -- three marks in a stack
+              of three lines is a column of icons rather than a hierarchy. The name is allowed two
+              lines because "Hosted by Preston Grasshoppers RFC" truncated to "Preston Grasshopp..."
+              fails at the one job the line has. */}
+          {!!tournament.hostedBy && (
+            <Text numberOfLines={2} style={[type.caption, { color: colour.inkMuted }]}>
+              {tournament.hostedBy}
+            </Text>
+          )}
+          {!!tournament.venue && <Practical icon={<MapPin size={13} color={colour.inkMuted} />} text={tournament.venue} />}
+          {!!tournament.cancelled && (
+            <Text style={[type.caption, { color: colour.danger, fontFamily: "Inter_600SemiBold" }]}>Cancelled</Text>
+          )}
+        </View>
+
+        <ChevronRight size={16} color={colour.inkSubtle} />
+      </View>
+
+      {siblings && siblings.length > 1
+        ? siblings.map((s) => <ChildStrip key={s.member.playerId} child={s.member} attendance={s.attendance} word={attendanceWordFor(s.attendance)} />)
+        : <ChildStrip child={tournament.child} attendance={tournament.attendance} word={tournament.attendanceWord} />}
+    </CardFrame>
+  )
+}
+
 function attendanceWordFor(attendance: AgendaItem["attendance"]): string {
   return attendance ? ATTENDANCE_STATE_WORDS[attendance] : "Still to answer"
 }
@@ -339,7 +441,7 @@ function SideColumn({ side, size, expanded }: { side: MatchSide | null; size: nu
   )
 }
 
-function Practical({ icon, text, strong = false }: { icon: React.ReactNode; text: string; strong?: boolean }) {
+function Practical({ icon, text, strong = false, tint }: { icon: React.ReactNode; text: string; strong?: boolean; tint?: string }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 5, flexShrink: 1 }}>
       {icon}
@@ -347,7 +449,7 @@ function Practical({ icon, text, strong = false }: { icon: React.ReactNode; text
         numberOfLines={1}
         style={[
           strong ? type.smallMedium : type.caption,
-          { color: strong ? colour.ink : colour.inkMuted, flexShrink: 1 },
+          { color: tint ?? (strong ? colour.ink : colour.inkMuted), flexShrink: 1 },
         ]}
       >
         {text}

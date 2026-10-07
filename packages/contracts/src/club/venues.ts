@@ -5,14 +5,20 @@ import type { Database } from "../database"
 type Client = SupabaseClient<Database>
 
 /**
- * CLUB VENUES AND PITCHES, for both clients (CA-M2).
+ * CLUB VENUES, PITCHES AND CHANGING ROOMS, for both clients (CA-M2, Venue Detail mock-up).
  *
  * READS are the tables under RLS, exactly what the website's Lookup Administration page reads
- * (`venues_select` = venue.venue.view; `club_pitches_select`). WRITES are the canonical operations:
- * `save_club_venue` (one transaction: name, directions, address, default), `set_venue_active`,
- * `set_default_venue`, and the pitch operations `create_club_pitch`, `rename_club_pitch`,
- * `set_club_pitch_active`, `set_club_pitch_venue`. There is no delete anywhere in the product:
- * a venue or pitch is deactivated and keeps every fixture, session and history row that points at it.
+ * (`venues_select` = venue.venue.view; `club_pitches_select`; `venue_changing_rooms_select`). WRITES
+ * are the canonical operations: `save_club_venue` (one transaction: name, directions, address,
+ * default, catering/changing-rooms facilities), `set_venue_active`, `set_default_venue`, the pitch
+ * operations `create_club_pitch`, `rename_club_pitch`, `set_club_pitch_description`,
+ * `set_club_pitch_configuration`, `set_club_pitch_active`, `set_club_pitch_venue`, and the changing
+ * room operations `create_venue_changing_room`, `update_venue_changing_room`,
+ * `set_venue_changing_room_active`. There is no delete anywhere in the product: a venue, pitch or
+ * changing room is deactivated and keeps every fixture, session and history row that points at it.
+ * Turning a venue's Changing Rooms Available off deactivates its existing rooms rather than deleting
+ * them (`save_club_venue`'s own guard) -- the same rule, applied where a boolean toggle can otherwise
+ * orphan child rows.
  *
  * THE PIN IS NOT A CLIENT'S TO SET. Coordinates come from the postcode through the platform's
  * geocoding step; a client shows a map only for `geocode_status = 'success'` and otherwise offers
@@ -34,6 +40,11 @@ export interface ClubVenue {
   latitude: number | null
   longitude: number | null
   geocodeStatus: string
+  /** `venue-cover.ts`'s own two source columns -- resolve with `resolveVenueCover`, never read raw. */
+  coverImagePath: string | null
+  coverStockKey: string | null
+  cateringAvailable: boolean
+  changingRoomsAvailable: boolean
 }
 
 export interface ClubPitch {
@@ -52,29 +63,51 @@ export interface ClubPitch {
   layout: "full_only" | "two_halves" | "four_quarters"
   /** GENERATED at the database from `layout` -- how many fixtures this pitch can genuinely host at once. */
   laneCount: number
+  /** `pitch-cover.ts`'s own two source columns -- resolve with `resolvePitchCover`, never read raw. */
+  coverImagePath: string | null
+  coverStockKey: string | null
+}
+
+export interface VenueChangingRoom {
+  id: string
+  venueId: string
+  displayName: string
+  roomType: "full_size" | "smaller" | "match_officials"
+  active: boolean
+  sortOrder: number
+  /** `changing-room-cover.ts`'s own two source columns -- resolve with `resolveChangingRoomCover`. */
+  coverImagePath: string | null
+  coverStockKey: string | null
 }
 
 export interface ClubVenues {
   venues: ClubVenue[]
   pitches: ClubPitch[]
+  changingRooms: VenueChangingRoom[]
 }
 
 export async function readClubVenues(supabase: Client, clubId: string): Promise<ClubVenues> {
-  const [{ data: venues, error: ve }, { data: pitches, error: pe }] = await Promise.all([
+  const [{ data: venues, error: ve }, { data: pitches, error: pe }, { data: changingRooms, error: ce }] = await Promise.all([
     supabase
       .from("venues")
-      .select("id, name, address_line_1, address_line_2, town, county, postcode, country, directions, active, is_default_home, latitude, longitude, geocode_status")
+      .select("id, name, address_line_1, address_line_2, town, county, postcode, country, directions, active, is_default_home, latitude, longitude, geocode_status, cover_image_path, cover_stock_key, catering_available, changing_rooms_available")
       .eq("club_id", clubId)
       .order("is_default_home", { ascending: false })
       .order("name"),
     supabase
       .from("club_pitches")
-      .select("id, display_name, description, active, sort_order, venue_id, physical_size_category, custom_length_m, custom_width_m, layout, lane_count")
+      .select("id, display_name, description, active, sort_order, venue_id, physical_size_category, custom_length_m, custom_width_m, layout, lane_count, cover_image_path, cover_stock_key")
+      .eq("club_id", clubId)
+      .order("sort_order"),
+    supabase
+      .from("venue_changing_rooms")
+      .select("id, venue_id, display_name, room_type, active, sort_order, cover_image_path, cover_stock_key")
       .eq("club_id", clubId)
       .order("sort_order"),
   ])
   if (ve) throw ve
   if (pe) throw pe
+  if (ce) throw ce
   return {
     venues: (venues ?? []).map((v) => ({
       id: v.id,
@@ -91,6 +124,10 @@ export async function readClubVenues(supabase: Client, clubId: string): Promise<
       latitude: v.latitude == null ? null : Number(v.latitude),
       longitude: v.longitude == null ? null : Number(v.longitude),
       geocodeStatus: v.geocode_status,
+      coverImagePath: v.cover_image_path,
+      coverStockKey: v.cover_stock_key,
+      cateringAvailable: v.catering_available,
+      changingRoomsAvailable: v.changing_rooms_available,
     })),
     pitches: (pitches ?? []).map((p) => ({
       id: p.id,
@@ -104,6 +141,18 @@ export async function readClubVenues(supabase: Client, clubId: string): Promise<
       customWidthM: p.custom_width_m == null ? null : Number(p.custom_width_m),
       layout: p.layout as ClubPitch["layout"],
       laneCount: p.lane_count,
+      coverImagePath: p.cover_image_path,
+      coverStockKey: p.cover_stock_key,
+    })),
+    changingRooms: (changingRooms ?? []).map((r) => ({
+      id: r.id,
+      venueId: r.venue_id,
+      displayName: r.display_name,
+      roomType: r.room_type as VenueChangingRoom["roomType"],
+      active: r.active,
+      sortOrder: r.sort_order,
+      coverImagePath: r.cover_image_path,
+      coverStockKey: r.cover_stock_key,
     })),
   }
 }
@@ -118,12 +167,42 @@ export interface VenueInput {
   postcode: string
   country: string
   setDefault: boolean
+  /** Omit (undefined) to leave the venue's current facility flags untouched -- `save_club_venue`
+   * coalesces against the existing value, never a hard default, so a caller with no UI for these
+   * (web's venue form, today) never silently resets a Club Admin's own choice. */
+  cateringAvailable?: boolean
+  changingRoomsAvailable?: boolean
+  /** A precise, provider-selected pin -- see AddressLookup. Omit to leave coordinates as they are
+   * (an existing pin, or whatever the async postcode geocoder later resolves for a brand new one). */
+  latitude?: number | null
+  longitude?: number | null
+  addressProviderRef?: string | null
 }
 
-export const EMPTY_VENUE_INPUT: VenueInput = { name: "", directions: "", line1: "", line2: "", town: "", county: "", postcode: "", country: "United Kingdom", setDefault: false }
+export const EMPTY_VENUE_INPUT: VenueInput = { name: "", directions: "", line1: "", line2: "", town: "", county: "", postcode: "", country: "United Kingdom", setDefault: false, cateringAvailable: true, changingRoomsAvailable: true, latitude: null, longitude: null, addressProviderRef: null }
 
 export function venueInputFrom(v: ClubVenue): VenueInput {
-  return { name: v.name, directions: v.directions ?? "", line1: v.addressLine1 ?? "", line2: v.addressLine2 ?? "", town: v.town ?? "", county: v.county ?? "", postcode: v.postcode ?? "", country: v.country ?? "United Kingdom", setDefault: v.isDefaultHome }
+  return {
+    name: v.name,
+    directions: v.directions ?? "",
+    line1: v.addressLine1 ?? "",
+    line2: v.addressLine2 ?? "",
+    town: v.town ?? "",
+    county: v.county ?? "",
+    postcode: v.postcode ?? "",
+    country: v.country ?? "United Kingdom",
+    setDefault: v.isDefaultHome,
+    cateringAvailable: v.cateringAvailable,
+    changingRoomsAvailable: v.changingRoomsAvailable,
+    // Deliberately NOT v.latitude/v.longitude: re-opening an existing venue for editing must not
+    // silently resend its own current pin as if it were a fresh AddressLookup selection --
+    // `saveClubVenue`'s `?? undefined` turns this null into "omit the parameter", so a save that
+    // touches nothing else leaves the existing pin and its true provenance (postcodes.io or
+    // getaddress.io, whichever it really was) untouched. A genuine re-selection sets these itself.
+    latitude: null,
+    longitude: null,
+    addressProviderRef: null,
+  }
 }
 
 /** What the server will refuse, said before the round trip. The operation is the authority. */
@@ -146,6 +225,11 @@ export async function saveClubVenue(supabase: Client, clubId: string, venueId: s
     p_postcode: input.postcode,
     p_country: input.country,
     p_set_default: input.setDefault,
+    p_catering_available: input.cateringAvailable ?? undefined,
+    p_changing_rooms_available: input.changingRoomsAvailable ?? undefined,
+    p_latitude: input.latitude ?? undefined,
+    p_longitude: input.longitude ?? undefined,
+    p_provider_ref: input.addressProviderRef ?? undefined,
   })
   if (error) throw error
   return data as string
@@ -177,6 +261,11 @@ export async function setClubPitchActive(supabase: Client, pitchId: string, acti
   if (error) throw error
 }
 
+export async function setClubPitchDescription(supabase: Client, pitchId: string, description: string): Promise<void> {
+  const { error } = await supabase.rpc("set_club_pitch_description", { p_pitch_id: pitchId, p_description: description })
+  if (error) throw error
+}
+
 /** Grounds & Pitches' own draft shape for editing a pitch's physical size and split layout. */
 export interface PitchConfigurationInput {
   physicalSizeCategory: ClubPitch["physicalSizeCategory"]
@@ -185,7 +274,7 @@ export interface PitchConfigurationInput {
   layout: ClubPitch["layout"]
 }
 
-export function pitchConfigurationInputFrom(p: ClubPitch): PitchConfigurationInput {
+export function pitchConfigurationInputFrom(p: Pick<ClubPitch, "physicalSizeCategory" | "customLengthM" | "customWidthM" | "layout">): PitchConfigurationInput {
   return { physicalSizeCategory: p.physicalSizeCategory, customLengthM: p.customLengthM == null ? "" : String(p.customLengthM), customWidthM: p.customWidthM == null ? "" : String(p.customWidthM), layout: p.layout }
 }
 
@@ -265,5 +354,45 @@ export function venueErrorMessage(error: unknown, fallback: string): string {
  */
 export async function requestVenueGeocoding(supabase: Client, venueId: string): Promise<void> {
   const { error } = await supabase.rpc("request_venue_geocoding", { p_venue_id: venueId })
+  if (error) throw error
+}
+
+const SIZE_LABEL: Record<ClubPitch["physicalSizeCategory"], string> = { full: "Full size", three_quarter: "Three-quarter size", half: "Half size", custom: "Custom size" }
+const LAYOUT_SUFFIX: Record<ClubPitch["layout"], string> = { full_only: "", two_halves: ", split into two halves", four_quarters: ", split into four quarters" }
+
+/** "Full size pitch" / "Half size pitch, split into two halves" -- the one summary line Venue Detail's
+ * Pitches tab and Edit Pitch both show, so they can never disagree (mirrors the Add Venue wizard's own
+ * `pitchSummaryLabel`, over the canonical `ClubPitch` shape rather than the wizard's draft shape). */
+export function clubPitchSummaryLabel(p: Pick<ClubPitch, "physicalSizeCategory" | "layout" | "customLengthM" | "customWidthM">): string {
+  if (p.physicalSizeCategory === "custom") {
+    const dims = p.customLengthM && p.customWidthM ? ` (${p.customLengthM}m x ${p.customWidthM}m)` : ""
+    return `Custom size pitch${dims}`
+  }
+  return `${SIZE_LABEL[p.physicalSizeCategory]} pitch${LAYOUT_SUFFIX[p.layout]}`
+}
+
+const ROOM_TYPE_LABEL: Record<VenueChangingRoom["roomType"], string> = {
+  full_size: "Full size changing room",
+  smaller: "Smaller changing room",
+  match_officials: "Match officials changing",
+}
+
+export function venueChangingRoomTypeLabel(roomType: VenueChangingRoom["roomType"]): string {
+  return ROOM_TYPE_LABEL[roomType]
+}
+
+export async function createVenueChangingRoom(supabase: Client, clubId: string, venueId: string, displayName: string, roomType: VenueChangingRoom["roomType"], coverStockKey: string | null): Promise<string> {
+  const { data, error } = await supabase.rpc("create_venue_changing_room", { p_club_id: clubId, p_venue_id: venueId, p_display_name: displayName, p_room_type: roomType, p_cover_stock_key: coverStockKey ?? undefined })
+  if (error) throw error
+  return data as string
+}
+
+export async function updateVenueChangingRoom(supabase: Client, changingRoomId: string, displayName: string, roomType: VenueChangingRoom["roomType"]): Promise<void> {
+  const { error } = await supabase.rpc("update_venue_changing_room", { p_changing_room_id: changingRoomId, p_display_name: displayName, p_room_type: roomType })
+  if (error) throw error
+}
+
+export async function setVenueChangingRoomActive(supabase: Client, changingRoomId: string, active: boolean): Promise<void> {
+  const { error } = await supabase.rpc("set_venue_changing_room_active", { p_changing_room_id: changingRoomId, p_active: active })
   if (error) throw error
 }

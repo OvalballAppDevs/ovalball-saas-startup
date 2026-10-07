@@ -12,6 +12,7 @@ import { footprintLabel, matchFootprintFor } from "@/lib/pitch-allocation/footpr
 import { fixtureOccupiedWindow } from "@/lib/pitch-allocation/occupancy"
 import { detectResourceConflicts, trainingCardTitle, type TrainingOccupancy } from "@/lib/pitch-allocation/training-conflicts"
 import { detectTournamentConflicts, occupantsFromFixtures } from "@/lib/pitch-allocation/tournament-conflicts"
+import { detectEventConflicts } from "@/lib/pitch-allocation/event-conflicts"
 import type { AllocationFixture, PitchOption } from "@/lib/pitch-allocation/types"
 
 import { allocateFixture, createPitchAllocationProposal, discardPitchAllocationProposal, getProposal, type ProposalItemView } from "./actions"
@@ -540,15 +541,21 @@ export function PitchAllocationBoard({
       })),
       occupantsFromFixtures(board.fixtures, { warmUpMinutes: board.policy.warmUpMinutes, packUpMinutes: board.policy.packUpMinutes })
     )
+    // AN EVENT'S EXPLICIT PITCH holds against a fixture -- the same mirror of the server's rule.
+    const fromEvents = detectEventConflicts(board.fixtures, board.clubEvents, board.pitches, {
+      warmUpMinutes: board.policy.warmUpMinutes,
+      packUpMinutes: board.policy.packUpMinutes,
+    })
     return {
       fixture: [
         ...fixtureOnly,
         ...fromTraining.map((c) => ({ ...c, severity: c.severity as "hard" | "warning" })),
         ...fromTournament.filter((c) => !fixtureOnly.some((e) => e.fixtureId === c.fixtureId)),
+        ...fromEvents.filter((c) => !fixtureOnly.some((e) => e.fixtureId === c.fixtureId) && !fromTournament.some((e) => e.fixtureId === c.fixtureId)),
       ],
       training: trainingConflicts,
     }
-  }, [board.fixtures, board.pitches, board.trainingSessions, board.tournaments, board.policy.warmUpMinutes, board.policy.packUpMinutes])
+  }, [board.fixtures, board.pitches, board.trainingSessions, board.tournaments, board.clubEvents, board.policy.warmUpMinutes, board.policy.packUpMinutes])
 
   function navigateNow(nextDate: string) {
     router.push(`/calendar/pitch-allocation?date=${nextDate}`)

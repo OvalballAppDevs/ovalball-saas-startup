@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "./database"
 import type { SessionContext } from "./session-context"
 import { resolvePersonalAvatarUrls } from "./personal-avatar"
+import { canonicalRoleLabel } from "./role-labels"
 
 /**
  * WHO A GROUP CONVERSATION IS ACTUALLY BETWEEN.
@@ -167,14 +168,6 @@ export interface ConversationParticipants {
   left: boolean
 }
 
-const CLUB_ROLE_LABEL: Record<string, string> = { CLUB_ADMIN: "Club Admin", FIXTURE_SECRETARY: "Fixtures Admin" }
-const TEAM_PERMISSION_LABEL: Record<string, string> = {
-  team_admin: "Team Admin",
-  coach: "Coach",
-  manager: "Manager",
-  view_only: "Parent/Player",
-}
-
 export async function loadConversationParticipants(
   supabase: SupabaseClient<Database>,
   kind: GroupConversationKind,
@@ -182,108 +175,88 @@ export async function loadConversationParticipants(
   parties: ConversationParties,
   viewerId: string
 ): Promise<ConversationParticipants> {
-  const clubIds = parties.clubIds
-  const teamIds = parties.teams.map((t) => t.id)
   const column = kind === "request" ? "fixture_request_id" : "fixture_id"
 
-  const [officials, teamOfficials, added, subscriptions] = await Promise.all([
-    clubIds.length
-      ? supabase
-          .from("club_memberships")
-          .select("user_id, role, club_id, clubs(club_directory(name))")
-          .in("club_id", clubIds)
-          .in("role", ["CLUB_ADMIN", "FIXTURE_SECRETARY"])
-          .eq("status", "active")
-      : Promise.resolve({ data: [] as never[] }),
-    teamIds.length
-      ? supabase
-          .from("team_permissions")
-          .select("permission, team_id, club_memberships!inner(user_id, status, club_id, clubs(club_directory(name)))")
-          .in("team_id", teamIds)
-          .in("permission", ["team_admin", "coach", "manager"])
-          .eq("club_memberships.status", "active")
-      : Promise.resolve({ data: [] as never[] }),
-    // A club conversation has no explicit-participant table of its own; the two tables below are keyed
-    // by fixture or request, so they are simply not asked for one.
+  // THE SERVER SAYS WHO IS IN IT (`conversation_people`, 20270735). These used to be three reads of
+  // `club_memberships` and `team_permissions` across BOTH clubs -- tables a person may read only for their own
+  // club, mostly only their own row -- so a coach saw herself and nobody else: not the other club's coach who
+  // had just written, not even her own Club Admin. The viewer's own subscription is still read here: it is
+  // their row, and it is what the mute and leave controls show.
+  const [people, mine] = await Promise.all([
+    readConversationPeople(supabase, kind, id, parties),
     kind === "club"
-      ? Promise.resolve({ data: [] as { user_id: string }[] })
-      : supabase.from("fixture_conversation_participants").select("user_id").eq(column, id),
-    kind === "club"
-      ? Promise.resolve({ data: [] as { user_id: string; muted: boolean; left_at: string | null }[] })
-      : supabase.from("fixture_conversation_subscriptions").select("user_id, muted, left_at").eq(column, id),
+      ? Promise.resolve({ data: null as { muted: boolean; left_at: string | null } | null })
+      : supabase.from("fixture_conversation_subscriptions").select("muted, left_at").eq(column, id).eq("user_id", viewerId).maybeSingle(),
   ])
 
-  const seen = new Set<string>()
-  const participants: ConversationParticipant[] = []
-  const add = (userId: string, roleLabel: string, clubId: string, clubName: string) => {
-    if (!userId || seen.has(userId)) return
-    seen.add(userId)
-    participants.push({ userId, name: "", roleLabel, clubId, clubName, avatarUrl: null, lastActiveAt: null, isMe: userId === viewerId })
-  }
-
-  for (const row of officials.data ?? []) {
-    add(row.user_id, CLUB_ROLE_LABEL[row.role] ?? row.role, row.club_id, row.clubs?.club_directory?.name ?? "Ovalball")
-  }
-  for (const row of teamOfficials.data ?? []) {
-    const membership = row.club_memberships as unknown as
-      | { user_id: string; club_id: string; clubs: { club_directory: { name: string } | null } | null }
-      | null
-    if (!membership) continue
-    add(
-      membership.user_id,
-      TEAM_PERMISSION_LABEL[row.permission ?? ""] ?? (row.permission ?? "Member"),
-      membership.club_id,
-      membership.clubs?.club_directory?.name ?? "Ovalball"
-    )
-  }
-
-  // EXPLICITLY ADDED PEOPLE. Their club comes from their own active membership rather than being
-  // assumed from the conversation's clubs -- `add_fixture_conversation_participant` has already
-  // constrained it to one of them, so reading it back is cheap and cannot be wrong.
-  const addedIds = (added.data ?? []).map((r) => r.user_id).filter((uid) => !seen.has(uid))
-  const { data: addedMemberships } =
-    addedIds.length && clubIds.length
-      ? await supabase
-          .from("club_memberships")
-          .select("user_id, club_id, clubs(club_directory(name))")
-          .in("user_id", addedIds)
-          .in("club_id", clubIds)
-          .eq("status", "active")
-      : { data: [] as never[] }
-  for (const membership of addedMemberships ?? []) {
-    add(membership.user_id, "Added to conversation", membership.club_id, membership.clubs?.club_directory?.name ?? "Ovalball")
-  }
-
-  // NAMES THROUGH THE SECURITY DEFINER RPC, not a table read. `profiles_select_self_or_admin` blocks
-  // an ordinary member from selecting somebody else's profile row, so a plain query here would return
-  // nothing and every participant would be called "Ovalball user" -- which is exactly the failure this
-  // module was written to end.
-  const { data: profiles } =
-    seen.size && clubIds.length
-      ? await supabase.rpc("get_conversation_participant_names", { p_user_ids: [...seen], p_club_ids: clubIds })
-      : { data: [] as never[] }
-
-  const avatars = await resolvePersonalAvatarUrls(supabase, (profiles ?? []).map((p) => p.avatar_storage_path))
-  const byId = new Map((profiles ?? []).map((p) => [p.user_id, p]))
-  for (const participant of participants) {
-    const profile = byId.get(participant.userId)
-    participant.name = [profile?.first_name, profile?.surname].filter(Boolean).join(" ") || "Ovalball user"
-    participant.lastActiveAt = profile?.last_active_at ?? null
-    participant.avatarUrl = profile?.avatar_storage_path ? (avatars.get(profile.avatar_storage_path) ?? null) : null
-  }
-
-  const left = new Set((subscriptions.data ?? []).filter((s) => s.left_at !== null).map((s) => s.user_id))
-  const mine = (subscriptions.data ?? []).find((s) => s.user_id === viewerId)
+  const avatars = await resolvePersonalAvatarUrls(supabase, people.map((p) => p.avatar_storage_path))
+  const participants: ConversationParticipant[] = people
+    // SOMEBODY WHO LEFT IS NOT LISTED; the server still names them so their earlier messages keep a name.
+    .filter((p) => !p.left_conversation)
+    .map((p) => ({
+      userId: p.user_id,
+      name: [p.first_name, p.surname].filter(Boolean).join(" ") || "Ovalball user",
+      roleLabel: conversationRoleLabel(p.role_kind, p.role_key),
+      clubId: p.club_id,
+      // No party club (somebody added who holds no membership there) is no club -- never "Ovalball", which is not one.
+      clubName: p.club_name ?? "",
+      avatarUrl: p.avatar_storage_path ? (avatars.get(p.avatar_storage_path) ?? null) : null,
+      lastActiveAt: p.last_active_at ?? null,
+      isMe: p.user_id === viewerId,
+    }))
 
   return {
     // ALPHABETICAL, AND PRESENCE NEVER REORDERS ANYBODY. A list that rearranges itself as people come
     // online is a list you cannot scan twice.
-    participants: participants
-      .filter((p) => !left.has(p.userId))
-      .sort((a, b) => a.name.localeCompare(b.name, "en-GB", { sensitivity: "base" })),
-    muted: mine?.muted ?? false,
-    left: left.has(viewerId),
+    participants: participants.sort((a, b) => a.name.localeCompare(b.name, "en-GB", { sensitivity: "base" })),
+    muted: mine.data?.muted ?? false,
+    left: Boolean(mine.data?.left_at),
   }
+}
+
+/** One row of `conversation_people`: who, at which club, standing how. */
+export interface ConversationPerson {
+  user_id: string
+  first_name: string | null
+  surname: string | null
+  avatar_storage_path: string | null
+  last_active_at: string | null
+  club_id: string
+  club_name: string | null
+  /** "club" (a Club Admin or Fixtures Secretary), "team" (a team official) or "added". */
+  role_kind: string
+  /** A canonical role key -- CLUB_ADMIN, FIXTURES_SECRETARY, COACH, TEAM_MANAGER, TEAM_ADMINISTRATION -- or null when added. */
+  role_key: string | null
+  left_conversation: boolean
+}
+
+/**
+ * Everybody a group conversation is between, from the server -- or nobody, when the caller is not party to
+ * it. Keyed the way the thread itself is: the shared conversation id for a fixture or club thread, the
+ * request's own id for a request.
+ */
+export async function readConversationPeople(
+  supabase: SupabaseClient<Database>,
+  kind: GroupConversationKind,
+  id: string,
+  parties: Pick<ConversationParties, "conversationId">
+): Promise<ConversationPerson[]> {
+  const { data, error } = await supabase.rpc(
+    "conversation_people",
+    kind === "request" ? { p_fixture_request_id: id } : { p_conversation_id: parties.conversationId ?? id }
+  )
+  if (error) return []
+  return (data ?? []) as ConversationPerson[]
+}
+
+/**
+ * A conversation role in the app's one vocabulary. The server returns CANONICAL role keys (CLUB_ADMIN,
+ * FIXTURES_SECRETARY, COACH, TEAM_MANAGER, TEAM_ADMINISTRATION), named by `role_definitions.label` verbatim
+ * (`canonicalRoleLabel`) -- never a second set of words.
+ */
+export function conversationRoleLabel(kind: string, key: string | null): string {
+  if (kind === "added") return "Added to conversation"
+  return key ? canonicalRoleLabel(key) : "Member"
 }
 
 /**

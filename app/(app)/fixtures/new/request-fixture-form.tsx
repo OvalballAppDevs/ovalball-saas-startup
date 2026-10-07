@@ -6,6 +6,7 @@ import Link from "next/link"
 import { describeArrangeFixtureHost } from "@ovalball/contracts"
 
 import { FIXTURE_TYPE_OPTIONS, fixtureTypeLabel, type StoredGameType } from "@/lib/fixtures/fixture-type"
+import { fullTeamLabel } from "@/lib/teams/compact-label"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -225,7 +226,7 @@ export function RequestFixtureForm({
           vs {opponent?.name}
           {targetTeam && selectedTeams.length === 1 ? ` ${targetTeam.displayName}` : ""}
           {namedIdentity
-            ? ` ${namedIdentity.gender === "girls" ? "Girls " : ""}${namedIdentity.ageGroup}${namedIdentity.squad.trim() ? ` ${namedIdentity.squad.trim()}` : ""}`
+            ? ` ${fullTeamLabel({ category: "junior", ageGroup: namedIdentity.ageGroup, gender: namedIdentity.gender, squadDesignation: namedIdentity.squad.trim() || null })}`
             : ""}
         </h2>
         {namedIdentity && (

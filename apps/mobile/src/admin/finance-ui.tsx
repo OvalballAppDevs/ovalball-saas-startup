@@ -11,6 +11,7 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
 
 const TONES: Record<ObligationTone, { bg: string; fg: string }> = {
   positive: { bg: colour.successSurface, fg: colour.forest800 },
+  moving: { bg: colour.mint100, fg: colour.rugby700 },
   caution: { bg: colour.warningSurface, fg: colour.warning },
   danger: { bg: colour.dangerSurface, fg: colour.danger },
   neutral: { bg: "rgba(16,21,18,0.05)", fg: colour.inkMuted },
@@ -102,7 +103,7 @@ export function Notice({ notice }: { notice: { tone: "ok" | "error"; text: strin
 
 export function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={label} onPress={onPress} style={{ minHeight: 40, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: on ? colour.forest800 : colour.lineStrong, backgroundColor: on ? colour.forest800 : colour.surface, justifyContent: "center" }}>
+    <Pressable accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={label} onPress={onPress} style={{ minHeight: TOUCH_TARGET, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: on ? colour.forest800 : colour.lineStrong, backgroundColor: on ? colour.forest800 : colour.surface, justifyContent: "center" }}>
       <Text style={[type.small, { color: on ? colour.onForest : colour.ink }]}>{label}</Text>
     </Pressable>
   )

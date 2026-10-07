@@ -5,7 +5,8 @@ import { shiftDays } from "../agenda/window"
 import type { Database } from "../database"
 import { projectTeamAttention, type TeamAttentionItem, ATTENTION_INCOMPLETE_WITHIN_DAYS } from "./attention"
 import { noTeamAuthority, readTeamAuthority, type TeamAuthority } from "./authority"
-import { loadTeamSubscriptions } from "./subscriptions"
+import { loadTeamMembershipBoard } from "../membership/board"
+import { needsActionCount } from "../membership/operate"
 
 type Client = SupabaseClient<Database>
 
@@ -71,7 +72,7 @@ export async function loadTeamOverview(supabase: Client, clubId: string, teamId:
   const [authority, agenda, history, players, staff, pending] = await Promise.all([
     readTeamAuthority(supabase, clubId, teamId).catch(() => noTeamAuthority()),
     loadAgenda(supabase, scope, window, { includeTraining: true }),
-    loadAgenda(supabase, scope, past, { includeTraining: false }),
+    loadAgenda(supabase, scope, past, { includeTraining: false, includeTournaments: false }),
     supabase.from("player_team_memberships").select("id", { count: "exact", head: true }).eq("team_id", teamId).eq("status", "active"),
     supabase.from("team_permissions").select("id", { count: "exact", head: true }).eq("team_id", teamId),
     supabase.from("player_team_memberships").select("id", { count: "exact", head: true }).eq("team_id", teamId).eq("status", "pending"),
@@ -118,16 +119,26 @@ export async function loadTeamOverview(supabase: Client, clubId: string, teamId:
     authority.resultRecord
       ? supabase
           .from("fixtures")
-          .select("id, kickoff_date, result_submitted_by_club_id")
+          .select("id, kickoff_date, result_status, result_submitted_by_club_id, result_amendment_proposed_by_club_id")
           .or(`owning_team_id.eq.${teamId},opponent_team_id.eq.${teamId}`)
-          .eq("result_status", "awaiting_confirmation")
-      : Promise.resolve({ data: [] as { id: string; kickoff_date: string; result_submitted_by_club_id: string | null }[] }),
+          .in("result_status", ["awaiting_confirmation", "amendment_pending", "disputed"])
+      : Promise.resolve({ data: [] as ResultRow[] }),
     authority.callupRequest
       ? supabase.from("fixture_player_call_up").select("id", { count: "exact", head: true }).eq("source_team_id", teamId).eq("status", "requested")
       : Promise.resolve({ count: 0 }),
     authority.rosterManage ? supabase.rpc("team_age_grade_attention", { p_team_id: teamId }) : Promise.resolve({ data: [] as unknown[] }),
-    authority.subscriptionView ? loadTeamSubscriptions(supabase, teamId).catch(() => null) : Promise.resolve(null),
+    // The one membership standing: exactly the squad's "Need action" -- Action needed, Overdue, Not set up and
+    // Due (a Direct Debit the family has still to finish or start) -- so the home and the Memberships page it
+    // opens can never give two different counts. A month simply waiting for its collection day is Collecting.
+    authority.subscriptionView
+      ? loadTeamMembershipBoard(supabase, teamId)
+          .then((b) => ({ attentionCount: b.programmeEnabled ? needsActionCount(b.counts) : 0, programmeExists: b.programmeEnabled }))
+          .catch(() => null)
+      : Promise.resolve(null),
   ])
+
+  // ---- One more live job, read from its own record (notification correctness pass) ----------------
+  const tournamentResults = authority.resultRecord ? await tournamentResultsWaitingOn(supabase, teamId) : []
 
   const incompleteFixtures = upcoming
     .filter((i) => i.kind === "fixture" && isOn(i) && i.date <= horizon)
@@ -152,14 +163,13 @@ export async function loadTeamOverview(supabase: Client, clubId: string, teamId:
     kickoffProposals: ((proposals.data ?? []) as { id: string; kickoff_date: string; kickoff_amendment_proposed_by_club_id: string | null }[])
       .filter((f) => f.kickoff_amendment_proposed_by_club_id !== clubId)
       .map((f) => ({ fixtureId: f.id, dateIso: f.kickoff_date })),
-    resultConfirmations: ((results.data ?? []) as { id: string; kickoff_date: string; result_submitted_by_club_id: string | null }[])
-      .filter((f) => f.result_submitted_by_club_id !== clubId)
-      .map((f) => ({ fixtureId: f.id, dateIso: f.kickoff_date })),
+    resultConfirmations: resultsWaitingOn(clubId, (results.data ?? []) as ResultRow[]),
     incomingRequests: ((incoming.data ?? []) as { id: string }[]).map((r) => ({ requestId: r.id })),
     pendingJoinRequests: pending.count ?? 0,
     callUpsAwaiting: ("count" in callUps ? callUps.count : 0) ?? 0,
     subscriptionsNeedingAttention: subscriptions ? subscriptions.attentionCount : null,
-    ageGradeAttention: ((ageGrade as { data?: unknown[] | null }).data ?? []).length,
+    tournamentResultConfirmations: tournamentResults,
+    ageGradeAttention: ageGradeNeedingTeam(((ageGrade as { data?: { status: string }[] | null }).data ?? []) as { status: string }[]),
   })
 
   return {
@@ -174,3 +184,62 @@ export async function loadTeamOverview(supabase: Client, clubId: string, teamId:
     attention,
   }
 }
+
+/**
+ * A RESULT IS THIS CLUB'S JOB while the next move is theirs: the OTHER club submitted a score
+ * (confirm or dispute it), the OTHER club proposed changing a final one (agree or dispute), or the two
+ * scores disagree (either club may submit the score it believes). Read from the fixture's own columns
+ * every time, so the job disappears the moment the result is final -- never because a notification
+ * was read or dismissed.
+ */
+export type ResultJobState = "awaiting" | "amendment" | "disputed"
+interface ResultRow {
+  id: string
+  kickoff_date: string
+  result_status: string | null
+  result_submitted_by_club_id: string | null
+  result_amendment_proposed_by_club_id: string | null
+}
+export function resultsWaitingOn(clubId: string | null, rows: ResultRow[]): { fixtureId: string; dateIso: string; state: ResultJobState }[] {
+  const out: { fixtureId: string; dateIso: string; state: ResultJobState }[] = []
+  for (const f of rows) {
+    if (f.result_status === "awaiting_confirmation" && f.result_submitted_by_club_id !== clubId) out.push({ fixtureId: f.id, dateIso: f.kickoff_date, state: "awaiting" })
+    else if (f.result_status === "amendment_pending" && f.result_amendment_proposed_by_club_id !== clubId) out.push({ fixtureId: f.id, dateIso: f.kickoff_date, state: "amendment" })
+    else if (f.result_status === "disputed") out.push({ fixtureId: f.id, dateIso: f.kickoff_date, state: "disputed" })
+  }
+  return out
+}
+
+/**
+ * AN AGE-GRADE ROW IS THE TEAM'S JOB only while the team can do something about it: a player outside
+ * the team's grade with no dispensation asked for yet, or a player with no date of birth recorded.
+ * Once a dispensation is REQUESTED the decision belongs to the club and the governing body, so it
+ * leaves the team's list -- which is what makes the job clear when the manager has done their part.
+ * Season or register problems are not something a team can fix and are not counted as its job.
+ */
+export const TEAM_ACTIONABLE_AGE_GRADE_STATUSES = new Set(["OUTSIDE_AGE_GRADE", "AGE_EVIDENCE_REQUIRED"])
+export function ageGradeNeedingTeam(rows: { status: string }[]): number {
+  return rows.filter((r) => TEAM_ACTIONABLE_AGE_GRADE_STATUSES.has(r.status)).length
+}
+
+/**
+ * TOURNAMENT GAMES WAITING ON THIS TEAM: the other side submitted a score and this team has not
+ * confirmed or contested it. Read from `tournament_games` itself, so the job ends with the state.
+ */
+export async function tournamentResultsWaitingOn(supabase: Client, teamId: string): Promise<{ gameId: string; dateIso: string }[]> {
+  const { data: sides } = await supabase.from("tournament_participants").select("id").eq("team_id", teamId)
+  const ids = (sides ?? []).map((s) => s.id)
+  if (ids.length === 0) return []
+  const list = ids.join(",")
+  const { data } = await supabase
+    .from("tournament_games")
+    .select("id, game_date, result_submitted_by_participant_id")
+    .or(`side_a_id.in.(${list}),side_b_id.in.(${list})`)
+    .eq("result_status", "awaiting_confirmation")
+  return (data ?? [])
+    .filter((g) => !ids.includes(g.result_submitted_by_participant_id ?? ""))
+    .map((g) => ({ gameId: g.id, dateIso: g.game_date ?? "" }))
+}
+
+// No team stage: a dispensation onto this team is decided by the club's Safeguarding Officer or a Club Admin
+// (20270742000000), so nothing here counts dispensations "awaiting the team".

@@ -258,16 +258,23 @@ and enforced nowhere; the invite link is returned to the inviting client.
 
 ### 2.3 Subscriptions & Payments · GoCardless · Finance — RED
 
-**(a) Club configuration a Club Admin edits** (`/club/settings/subscriptions`)
+**(a) Club configuration a Club Admin edits** (`/club/settings/subscriptions`; phone: `admin/subscriptions/setup` and `/settings`) — rebuilt by Club Memberships Part 1 (`20270748000000`–`20270750000000`); both clients use `packages/contracts/src/membership/setup.ts`
 
 | Function | Read | Write (RPC) | Tables | Capability | Audit | Validation |
 |---|---|---|---|---|---|---|
-| Programme (enabled, collection day, first-payment policy, platform fee mode) | direct `club_subscription_programmes` / `_pricing`; `get_gocardless_connection_status` | `configure_subscription_programme` | programmes, `finance_audit_log` | `finance.subscription.configure` (RPC key `club.subscription.configure` mapped) | `programme_configured`, `first_payment_policy_changed` | day 1–28; enumerations |
-| Price change (append-only, effective-dated) | `current_subscription_price` | `set_subscription_price` | `club_subscription_pricing`, audit | configure | `price_changed` | amount > 0, effective ≥ today; existing subscribers untouched |
+| Setup state (connection, settings, memberships, terms, readiness) | `membership_setup_state` | — | — | configure, connect, view or `site.commercial.view` | — | no token or organisation id in the answer |
+| Ovalball's terms (proposed wording) | (in setup state) | `accept_club_membership_terms` | `club_membership_terms_acceptances`, audit | configure or connect | `membership_terms_accepted` | version must be current |
+| Collection day, first payment, who pays Ovalball's 2.5% | (in setup state) | `save_membership_settings` | programmes, audit | configure | `programme_configured` and friends | day 1–28; creates the programme switched OFF; reaches new enrolments only (snapshots) |
+| Memberships: name, monthly price (≥ £1), teams | (in setup state); price history `club_subscription_pricing` | `create_/rename_/archive_membership_product`, `set_membership_product_price`, `set_membership_product_teams` | `membership_products`, `membership_product_teams`, pricing, audit | configure | each audited | one membership per team; archive refuses holders and the last one of an active programme |
+| A player's membership when their teams differ (owner-locked: higher price; club can switch) | — | `set_player_membership_product` | `membership_player_products` | `finance.enrolment.manage` | audited with a reason | refused while a Direct Debit is live; surface arrives with the Membership Board (Part 2) |
+| Switch on / resume | (readiness) | `activate_membership_programme` — the ONLY way on | programmes, audit | configure | `programme_activated` / `programme_resumed` | re-derives terms, connected + verified, fee choice, a priced membership with a team |
+| Pause new memberships (reason required) | — | `pause_membership_programme` — the ONLY way off | programmes, audit | configure | `programme_paused` | existing members keep paying |
+| Legacy programme door | — | `configure_subscription_programme` | programmes | configure | yes | settings only: refuses any change to whether memberships are on (22023); no client calls it |
 | Sibling discount rule (2nd–6th) | `get_sibling_discount_rules` | `configure_sibling_discount_rule` | `club_subscription_sibling_rules`, audit | configure | `sibling_discount_rule_changed` | ordinal ≥ 2; pct 0–100 |
-| First-payment worked example | `preview_first_payment_illustrative` | — | — | **none** (granted to `authenticated`, no capability check — a price oracle) | — | — |
-| Connect GoCardless | — | `<a href="/api/gocardless/oauth/start?clubId">` → provider OAuth → `/api/gocardless/oauth/callback` → `store_gocardless_connection` | `gocardless_merchant_connections` | `finance.gocardless.connect` (route) ; RPC checks capability | trigger | `state` cookie CSRF, `requireSession` on both routes |
-| Disconnect (reason required) | `get_active_subscription_impact` (not rendered) | `disconnect_gocardless(club, reason)` | `gocardless_merchant_connections.disconnected_at/by` | `finance.gocardless.connect` | **none** (no finance audit row, no security event) | soft; live provider subscriptions keep collecting — copy warns, code does not prevent |
+| Worked example and money receipt | `membership_first_payment_example` | — | — | price readers only | — | the generator's own rules |
+| Connect GoCardless (website) | — | `/api/gocardless/oauth/start` → GoCardless → callback → `store_gocardless_connection` | `gocardless_merchant_connections` | `finance.gocardless.connect`; terms must be agreed | trigger | state cookie, `requireSession` on both routes |
+| Connect GoCardless (phone) | — | `/api/gocardless/oauth/app/start` → `/begin` (one-time token) → GoCardless → callback (cookie = state, one-time return handoff) → `/finish` (starter + handoff) | `internal.gocardless_connect_intents`, connections | as above, with the person's own bearer token | intent ending recorded | no code or token ever reaches the phone |
+| Disconnect (reason required) | `get_active_subscription_impact` (shown on the phone and the website) | `disconnect_gocardless` (website action; phone via `/api/gocardless/connection/disconnect`), then the token is revoked at GoCardless | connections, revocation queue | `finance.gocardless.connect` | — | live provider subscriptions keep collecting — the confirmation says so |
 
 **(b) Family payment state a Club Admin reads** (`/club/finance`): direct
 selects on `membership_obligations`, `gocardless_payments`,

@@ -169,7 +169,7 @@ export async function loadTeamProfile(supabase: Client, clubId: string, teamId: 
   const window = seasonRow ? { startIso: seasonRow.starts_on, endIso: seasonRow.ends_on, order: "asc" as const, label: "this season" } : teamAgendaWindows(todayIso).upcoming
   const [agenda, history] = await Promise.all([
     loadAgenda(supabase, scope, window, { includeTraining: true }),
-    loadAgenda(supabase, scope, teamAgendaWindows(todayIso).past, { includeTraining: false }),
+    loadAgenda(supabase, scope, teamAgendaWindows(todayIso).past, { includeTraining: false, includeTournaments: false }),
   ])
   const upcoming = seasonRow ? agenda.items.filter((i) => i.date >= todayIso) : agenda.items
   const nextUp = upcoming.find(isOn) ?? null

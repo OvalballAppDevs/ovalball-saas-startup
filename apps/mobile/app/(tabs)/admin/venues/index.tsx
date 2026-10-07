@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react"
 import { Pressable, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
-import { readClubVenues, readVenueCapabilities, venueAddressLine, type ClubVenues, type VenueCapabilities } from "@ovalball/contracts/club/venues"
+import { Image } from "expo-image"
+import { readClubVenues, readVenueCapabilities, venueAddressLine, type ClubVenue, type ClubVenues, type VenueCapabilities } from "@ovalball/contracts/club/venues"
+import { resolveVenueCover } from "@ovalball/contracts/venue-cover"
 
 import { AdminScreen } from "../../../../src/admin/screen"
 import { useAdminCentreAccess } from "../../../../src/admin/access"
@@ -12,6 +14,10 @@ import { webUrl } from "../../../../src/config/environment"
 import { Button, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../../../src/components/ui"
 import { friendly, logDetail, type FriendlyError } from "../../../../src/errors/translate"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
+import { coverPhotoSource, libraryAsset } from "../../../../src/media/stock-assets"
+import { IllustrativeTag } from "../../../../src/media/media-picker"
+
+const VENUE_HERO = libraryAsset("venue-dusk-01")
 
 /**
  * VENUES -- the club's grounds, natively (CA-M2). The website's Lookup Administration, as a list:
@@ -63,12 +69,24 @@ export default function VenuesScreen() {
   const pitchCount = (venueId: string) => (data?.pitches ?? []).filter((p) => p.venueId === venueId && p.active).length
 
   return (
-    <AdminScreen section="Venues" onRefresh={() => void load()} refreshing={false}>
-      <View style={{ gap: space.xs }}>
-        <Text accessibilityRole="header" style={[type.display, { color: colour.ink }]}>
-          Venues
-        </Text>
-        <Text style={[type.body, { color: colour.inkMuted }]}>Where the club plays and trains. A ground is deactivated, never deleted, so every fixture that was played there keeps its place.</Text>
+    <AdminScreen section="Venues & Pitches" onRefresh={() => void load()} refreshing={false}>
+      {/*
+        THE APPROVED MOCK-UP'S PHOTOGRAPHIC HERO, as content rather than as this screen's own top
+        chrome: `AdminScreen`'s dark header bar (back button, club crest, section name) is shared by
+        every Admin Centre section, and swapping it for a photo here alone would read as a different
+        product on this one screen rather than matching the mock-up's intent within it. This banner is
+        the deliberate reconciliation -- reuses `venue-dusk-01` (Venues stock library) rather than
+        generating a dedicated Home hero.
+      */}
+      <View style={{ height: 160, borderRadius: radius.lg, overflow: "hidden" }}>
+        <Image source={VENUE_HERO} accessible={false} contentFit="cover" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
+        <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(7,28,20,0.5)" }} />
+        <View style={{ flex: 1, justifyContent: "flex-end", padding: space.lg }}>
+          <Text accessibilityRole="header" style={[type.title, { color: colour.chalk }]}>
+            Venues & Pitches
+          </Text>
+          <Text style={[type.small, { color: "rgba(248,250,247,0.85)" }]}>Manage all your club venues and pitches.</Text>
+        </View>
       </View>
 
       {loading && !data && (
@@ -82,18 +100,18 @@ export default function VenuesScreen() {
       {data && (
         <>
           {caps.manageVenues && <Button label="Add Venue" variant="secondary" onPress={() => router.push("/admin/venues/new")} />}
-          {/* PITCH ALLOCATION IS ITS OWN AUTHORITY (CA-M4, CA-M10) AND NOW A NATIVE BOARD (CA-M11.1):
+          {/* PITCH ALLOCATION IS ITS OWN AUTHORITY (CA-M4, CA-M10), A NATIVE BOARD (CA-M11.1) AND NOW ARENA PLANNING:
               offered behind venue.pitch_allocation.view / .manage alone -- never fixture edit. */}
           {(caps.allocate || caps.viewAllocation) && (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Pitch allocation. Which side is on which pitch, day by day"
-              onPress={() => router.push("/admin/pitch-allocation" as never)}
+              accessibilityLabel="Arena Planning. Which side is on which pitch and in which room, day by day"
+              onPress={() => router.push("/admin/arena/planning" as never)}
               style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 4, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, opacity: pressed ? 0.92 : 1 })}
             >
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[type.smallMedium, { color: colour.ink }]}>Pitch Allocation</Text>
-                <Text style={[type.caption, { color: colour.inkMuted }]}>Which side is on which pitch, day by day</Text>
+                <Text style={[type.smallMedium, { color: colour.ink }]}>Arena Planning</Text>
+                <Text style={[type.caption, { color: colour.inkMuted }]}>Which side is on which pitch and in which room, day by day</Text>
               </View>
               <ChevronRight size={15} color={colour.inkSubtle} />
             </Pressable>
@@ -102,14 +120,14 @@ export default function VenuesScreen() {
           {active.length > 0 && (
             <Group title="Grounds">
               {active.map((v) => (
-                <VenueRow key={v.id} name={v.name} line={venueAddressLine(v) || "No address recorded"} pitches={pitchCount(v.id)} isDefault={v.isDefaultHome} onPress={() => router.push(`/admin/venues/${v.id}` as never)} />
+                <VenueRow key={v.id} venue={v} pitches={pitchCount(v.id)} onPress={() => router.push(`/admin/venues/${v.id}` as never)} />
               ))}
             </Group>
           )}
           {inactive.length > 0 && (
             <Group title="Deactivated">
               {inactive.map((v) => (
-                <VenueRow key={v.id} name={v.name} line={venueAddressLine(v) || "No address recorded"} pitches={pitchCount(v.id)} isDefault={false} muted onPress={() => router.push(`/admin/venues/${v.id}` as never)} />
+                <VenueRow key={v.id} venue={v} pitches={pitchCount(v.id)} muted onPress={() => router.push(`/admin/venues/${v.id}` as never)} />
               ))}
             </Group>
           )}
@@ -128,18 +146,26 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   )
 }
 
-function VenueRow({ name, line, pitches, isDefault, muted = false, onPress }: { name: string; line: string; pitches: number; isDefault: boolean; muted?: boolean; onPress: () => void }) {
+function VenueRow({ venue, pitches, muted = false, onPress }: { venue: ClubVenue; pitches: number; muted?: boolean; onPress: () => void }) {
+  const cover = resolveVenueCover({ supabase, coverImagePath: venue.coverImagePath, coverStockKey: venue.coverStockKey })
+  const photo = coverPhotoSource("VENUE", cover, venue.id)
+  const line = venueAddressLine(venue) || "No address recorded"
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${name}. ${line}. ${pitches} active ${pitches === 1 ? "pitch" : "pitches"}${isDefault ? ". Home ground" : ""}${muted ? ". Deactivated" : ""}`}
+      accessibilityLabel={`${venue.name}. ${line}. ${pitches} active ${pitches === 1 ? "pitch" : "pitches"}${venue.isDefaultHome ? ". Primary" : ""}${muted ? ". Deactivated" : ""}`}
       onPress={onPress}
       style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 16, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md, paddingHorizontal: space.lg, backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent", opacity: muted ? 0.7 : 1 })}
     >
+      {/* A library stand-in says so, as on every surface that shows a ground (Arena, Venue Detail, Match Centre). */}
+      <View style={{ width: 56, height: 56, borderRadius: radius.md, overflow: "hidden" }}>
+        <Image source={photo} accessible={false} contentFit="cover" style={{ width: "100%", height: "100%" }} />
+        {!venue.coverImagePath && <IllustrativeTag size="small" />}
+      </View>
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-          <Text style={[type.smallMedium, { color: colour.ink, flexShrink: 1 }]}>{name}</Text>
-          {isDefault && <StatusPill label="Home Ground" tone="positive" />}
+          <Text style={[type.smallMedium, { color: colour.ink, flexShrink: 1 }]}>{venue.name}</Text>
+          {venue.isDefaultHome && <StatusPill label="Primary" tone="positive" />}
         </View>
         <Text style={[type.caption, { color: colour.inkMuted }]} numberOfLines={2}>
           {line}

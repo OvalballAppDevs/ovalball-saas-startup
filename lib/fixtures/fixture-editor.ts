@@ -6,7 +6,6 @@ import { dateWithinAnySeason, type SeasonRow } from "@/lib/calendar/season-windo
 import { fullTeamLabel } from "@/lib/teams/compact-label"
 import type { Database } from "@/types/database.types"
 
-import { callUpdateFixtureSchedule } from "./update-fixture-schedule"
 import { suggestOppositionTeam, type MatchableTeam, type OppositionSuggestion } from "./opposition-match"
 import type { ClubGrounds } from "./venue-defaults"
 
@@ -399,42 +398,41 @@ export async function saveFixtureEditor(supabase: Supabase, fixtureId: string, p
     }
   }
 
-  // 3. Details: home/away first, because the venue belongs to the home club.
+  // 3-5. DETAILS, SCHEDULE AND MEET TIME, AS ONE SAVE (`save_match_details`): the same governed writers in the
+  //      same order -- home/away first, because the venue belongs to the home club; then date, kick-off, ground
+  //      and pitch through update_fixture_schedule (a kick-off change on a shared fixture becomes a proposal);
+  //      then the meet time, which must not be later than the kick-off -- in ONE transaction. All of it saves or
+  //      none of it does, and each person the change affects is told once. As separate requests, a Home/Away
+  //      switch told the other club's staff twice: "now at their ground", then "where the match is".
   const details: Record<string, string | null> = {}
   if (patch.homeAway !== undefined && patch.homeAway !== cur.homeAway) details.home_away = patch.homeAway
   if (patch.gameType !== undefined && norm(patch.gameType) !== norm(cur.gameType)) details.game_type = patch.gameType
   if (patch.status !== undefined && patch.status !== cur.status) details.status = patch.status
   if (patch.notes !== undefined && norm(patch.notes) !== norm(cur.notes)) details.notes = patch.notes
   if (patch.venueText !== undefined && norm(patch.venueText) !== norm(cur.venueAddress)) details.venue_text = patch.venueText
-  if (Object.keys(details).length > 0) {
-    const { error } = await supabase.rpc("update_fixture_details", { p_fixture_id: fixtureId, p_patch: details })
-    if (error) fail("details", error.message)
-    else result.saved.push(...Object.keys(details))
-  }
-
-  // 4. Schedule: date, kick-off, venue and pitch, in one atomic writer that
-  //    turns a kick-off change on a shared fixture into a proposal.
-  const schedule: Parameters<typeof callUpdateFixtureSchedule>[2] = {}
-  if (patch.kickoffDate !== undefined && patch.kickoffDate !== cur.kickoffDate) schedule.kickoffDate = patch.kickoffDate
-  if (patch.kickoffTime !== undefined && time5(patch.kickoffTime) !== time5(cur.kickoffTime)) schedule.kickoffTime = patch.kickoffTime
   const homeAwayChanged = details.home_away !== undefined
-  if (patch.venueId !== undefined && (patch.venueId !== cur.venueId || homeAwayChanged)) schedule.venueId = patch.venueId
-  if (patch.pitchId !== undefined && (patch.pitchId !== cur.pitchId || homeAwayChanged)) schedule.pitchId = patch.pitchId
-  if (Object.keys(schedule).length > 0 && !result.errors.some((e) => e.field === "details" && homeAwayChanged)) {
-    const r = await callUpdateFixtureSchedule(supabase, fixtureId, schedule, "fixture_editor")
-    if (!r.ok) fail("schedule", r.error)
-    else {
-      result.saved.push("schedule")
-      if (r.kickoffProposed) result.notices.push("The new date and kick-off have been sent to the other club to agree.")
+  const schedule: Record<string, string | null> = {}
+  if (patch.kickoffDate !== undefined && patch.kickoffDate !== cur.kickoffDate) schedule.date = patch.kickoffDate
+  if (patch.kickoffTime !== undefined && time5(patch.kickoffTime) !== time5(cur.kickoffTime)) schedule.time = patch.kickoffTime ?? ""
+  if (patch.venueId !== undefined && (patch.venueId !== cur.venueId || homeAwayChanged)) schedule.venue_id = patch.venueId ?? ""
+  if (patch.pitchId !== undefined && (patch.pitchId !== cur.pitchId || homeAwayChanged)) schedule.pitch_id = patch.pitchId ?? ""
+  const meetChanged = patch.meetTime !== undefined && time5(patch.meetTime) !== time5(cur.meetTime)
+  const body: Record<string, unknown> = {}
+  if (Object.keys(details).length > 0) body.details = details
+  if (Object.keys(schedule).length > 0) body.schedule = { ...schedule, source: "fixture_editor" }
+  // null clears the meet time; the writer accepts it.
+  if (meetChanged) body.meet_time = patch.meetTime ?? ""
+  if (Object.keys(body).length > 0) {
+    const { data, error } = await supabase.rpc("save_match_details", { p_fixture_id: fixtureId, p_patch: body as never })
+    if (error) {
+      // Nothing in this part was saved; the server's sentence names what was refused.
+      fail(body.schedule ? "schedule" : body.details ? "details" : "meetTime", error.message)
+    } else {
+      result.saved.push(...Object.keys(details))
+      if (body.schedule) result.saved.push("schedule")
+      if (meetChanged) result.saved.push("meetTime")
+      if ((data as { kickoffProposed?: boolean } | null)?.kickoffProposed) result.notices.push("The new date and kick-off have been sent to the other club to agree.")
     }
-  }
-
-  // 5. Meet time -- after kick-off, which it must not be later than.
-  if (patch.meetTime !== undefined && time5(patch.meetTime) !== time5(cur.meetTime)) {
-    // null clears the meet time; the writer accepts it.
-    const { error } = await supabase.rpc("update_fixture_meet_time", { p_fixture_id: fixtureId, p_meet_time: patch.meetTime } as never)
-    if (error) fail("meetTime", error.message)
-    else result.saved.push("meetTime")
   }
 
   // 6. Competition.

@@ -197,8 +197,8 @@ sql(`insert into public.club_memberships (club_id, user_id, role, status) values
   ('${ids.clubA}', '${people.teamAdmin.id}', 'BASIC_USER', 'active'),
   ('${ids.clubA}', '${people.newCoach.id}', 'BASIC_USER', 'active'),
   ('${ids.clubA}', '${people.multi.id}', 'CLUB_ADMIN', 'active');
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.teamA}', 'team_admin' from public.club_memberships where club_id = '${ids.clubA}' and user_id = '${people.teamAdmin.id}';
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.teamA}', 'TEAM_ADMINISTRATION' from public.club_memberships where club_id = '${ids.clubA}' and user_id = '${people.teamAdmin.id}';
 insert into public.site_admins (user_id, status, admin_role) values ('${people.readOnly.id}', 'active', 'read_only'), ('${people.clubData.id}', 'active', 'club_data'), ('${people.ovalball.id}', 'active', 'full');`)
 ids.player = one(`insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
   values ('Robin', 'Multi ${TAG}', (current_date - interval '15 years')::date, 'MALE', '${people.multi.id}') returning id`)

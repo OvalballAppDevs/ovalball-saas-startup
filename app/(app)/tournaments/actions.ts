@@ -135,33 +135,51 @@ export async function removeTournamentOpponentAction(tournamentId: string, oppon
   return { ok: true }
 }
 
+/**
+ * A GAME IS BETWEEN TWO SIDES, AND NEITHER OF THEM IS SPECIAL.
+ *
+ * This used to take `entryId` and `opponentId`, which were two different kinds
+ * of thing: the host's own entry, and a row recording who that entry was playing.
+ * The model it expressed was "the host plays somebody", so a game between two
+ * VISITING clubs -- the ordinary case at a festival the host is running rather
+ * than playing in -- could not be written down at all. 20270605 replaced it with
+ * two participant ids, which the database checks are in the same tournament, at
+ * the same age group, on a day the tournament actually runs.
+ *
+ * Both ids here are `tournament_participants.id`. The caller already holds them:
+ * an entry's own `id` is its participant id, and an opponent row carries the
+ * other side's as `participantId`.
+ */
 export async function saveTournamentGameAction(
   tournamentId: string,
   input: {
     gameId: string | null
-    entryId: string
-    opponentId: string
+    sideAId: string
+    sideBId: string
+    ageGroup: string
     gameDate: string
     startTime: string | null
     durationMinutes: number | null
     pitchId: string | null
     status?: string
-    ourScore?: number | null
-    opponentScore?: number | null
+    sideAScore?: number | null
+    sideBScore?: number | null
   }
 ): Promise<TournamentResult<string>> {
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("save_tournament_game", {
-    p_entry_id: input.entryId,
+    p_tournament_id: tournamentId,
+    p_side_a_id: input.sideAId,
+    p_side_b_id: input.sideBId,
+    p_age_group: input.ageGroup,
     p_game_id: input.gameId ?? undefined,
-    p_opponent_id: input.opponentId,
     p_game_date: input.gameDate,
     p_start_time: input.startTime ?? undefined,
     p_duration_minutes: input.durationMinutes ?? undefined,
     p_pitch_id: input.pitchId ?? undefined,
     p_status: input.status ?? "SCHEDULED",
-    p_our_score: input.ourScore ?? undefined,
-    p_opponent_score: input.opponentScore ?? undefined,
+    p_side_a_score: input.sideAScore ?? undefined,
+    p_side_b_score: input.sideBScore ?? undefined,
   })
   if (error || !data) return { ok: false, error: error ? present(error) : "Something went wrong. Please try again." }
   refresh(tournamentId)
@@ -244,6 +262,35 @@ export async function respondTournamentInvitation(
 ): Promise<TournamentResult> {
   const supabase = await createClient()
   const { error } = await supabase.rpc("respond_tournament_invitation", { p_participant_id: participantId, p_accept: accept })
+  if (error) return { ok: false, error: present(error) }
+  refresh(tournamentId)
+  return { ok: true }
+}
+
+/**
+ * A FAMILY'S ANSWER TO A TOURNAMENT.
+ *
+ * Thin on purpose. `respond_to_tournament_attendance` owns every decision --
+ * that the player is in a side that is actually entered, and that this caller
+ * may answer for them at all, through the one shared
+ * `internal.resolve_attendance_response_source`. There is no staff override
+ * anywhere in Ovalball attendance and this introduces none: a coach cannot
+ * answer for a child here any more than they can for a fixture.
+ *
+ * ONE ANSWER PER TOURNAMENT, however many days it runs and however many games
+ * the side plays. The RPC's own unique key is what enforces that, not this.
+ */
+export async function respondToTournamentAttendance(
+  tournamentId: string,
+  playerId: string,
+  status: "ATTENDING" | "CANNOT_ATTEND" | "UNSURE"
+): Promise<TournamentResult> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("respond_to_tournament_attendance", {
+    p_tournament_id: tournamentId,
+    p_player_id: playerId,
+    p_status: status,
+  })
   if (error) return { ok: false, error: present(error) }
   refresh(tournamentId)
   return { ok: true }

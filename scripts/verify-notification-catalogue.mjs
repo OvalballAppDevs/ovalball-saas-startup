@@ -2,7 +2,7 @@
 /**
  * A NOTIFICATION HAS TO BE REGISTERED, AND IT HAS TO GO SOMEWHERE.
  *
- * Ovalball has one notification system, and it makes three separate promises
+ * Ovalball has one notification system, and it makes four separate promises
  * about every type it emits:
  *
  *   1. the type is REGISTERED (public.notification_types), so it belongs to a
@@ -10,12 +10,22 @@
  *   2. the topic it claims EXISTS (public.notification_topics), so the
  *      account page can render it;
  *   3. pressing the notification LANDS ON THE THING IT IS ABOUT, because
- *      notificationHref names a destination for it.
+ *      notificationHref names a destination for it;
+ *   4. if it ASKS something of the person (ASKING_TYPES), the app can
+ *      eventually say the job is DONE, because notificationAttentionId pairs
+ *      it to live state -- never a type-string guess (notificationPriority's
+ *      "needs_action" band is decorative and proves nothing by itself).
  *
- * All three were broken at once when this guard was written. Twenty-five
- * emitted types were registered nowhere -- `fixture_cancelled` among them --
- * and forty-five types fell through notificationHref's default to /dashboard.
- * A parent tapped "Fixture cancelled" and arrived on a dashboard.
+ * All three of the first were broken at once when this guard was written.
+ * Twenty-five emitted types were registered nowhere -- `fixture_cancelled`
+ * among them -- and forty-five types fell through notificationHref's default
+ * to /dashboard. A parent tapped "Fixture cancelled" and arrived on a
+ * dashboard. Promise 4 was added later (notifications platform programme,
+ * Phase H): ten of seventeen ASKING_TYPES were permanently stuck reporting
+ * "unknown" -- not wrong, just never confirmable -- because nothing paired
+ * them. gocardless_payment_failed was one of them; its payload was missing
+ * the id the pairing needed, so even a type with code FOR it could never
+ * actually resolve. Fixed at the producer, not worked around here.
  *
  * WHY A FILE GUARD WHEN THE DATABASE ALREADY HAS A FOREIGN KEY.
  *
@@ -341,7 +351,9 @@ for (const { file, source } of migrations) {
           if (char === "(") depth++
           if (char === ")") depth--
           if (depth === 0 && char === ";") break
-          if (depth === 0 && /\s/.test(char) && /^\s+from\s/i.test(rest.slice(i, i + 6))) break
+          // `is [not] distinct from` is a comparison, not the select list's FROM: a select list may compare
+          // values (`case when v_pitch is distinct from t.pitch_id ...`) without ending.
+          if (depth === 0 && /\s/.test(char) && /^\s+from\s/i.test(rest.slice(i, i + 6)) && !/\bis\s+(not\s+)?distinct$/i.test(body.trimEnd())) break
           body += char
         }
         expressions = splitTopLevel(body)
@@ -565,6 +577,66 @@ for (const type of [...routed].sort()) {
 //    true without anybody noticing.
 for (const item of unresolved) {
   problems.push(`Unresolved notification emitter -- ${item}`)
+}
+
+// ---------------------------------------------------------------------------
+// G. EVERY ACTIONABLE TYPE CAN EVENTUALLY BE CONFIRMED DONE.
+//
+// ASKING_TYPES (packages/contracts/src/notifications/feed.ts) is the list that says a type is asking
+// the recipient for something, not merely telling them news. For each one, notificationAttentionId
+// must pair it to the live attention projection -- or it must be named here, with a reason, as a
+// DELIBERATE, visible exemption. Silence is not an exemption: a type that is neither paired nor
+// listed fails this check, which is what stops an eighteenth unconfirmable "needs action" type from
+// accumulating the way the first ten did, unnoticed, one feature at a time.
+//
+// An exemption here is a statement that the live-state projection it would need does not exist yet --
+// never a judgment that the type does not deserve one. Remove an entry the day its projection ships.
+// ---------------------------------------------------------------------------
+const FEED_FILE = "packages/contracts/src/notifications/feed.ts"
+const UNPAIRED_ASKING_TYPES_EXEMPT = new Set([
+  // Each needs a live-state projection that does not exist yet, not a client-side guess bolted onto
+  // notificationAttentionId to make this check pass. Build the projection, then pair, then remove.
+  "fixture_call_up_requested", // the FAMILY side of a call-up has no attention row yet (only the team-staff "N call-ups awaiting" one does)
+  "player_eligibility_approval_required", // age-grade decisions have a staff-side attention item (`age_grade`); nothing pairs the family-facing ask yet
+  "tournament_invitation_received", // tournament applications/invitations have no attention projection at all yet (notifications platform programme Phase G/future)
+  "competition_match_verification_requested", // no Competition Match attention projection exists
+  "player_information_requested", // no attention projection for an open information request exists
+  "season_transition_needs_attention", // season rollover has no attention projection
+  // (safeguarding_dispensation_requested left this list with 20270742000000: the club's Needs Attention now
+  // projects each dispensation waiting for this person's decision, from dispensation_decisions_waiting.)
+])
+const feedSource = readFileSync(join(root, FEED_FILE), "utf8")
+const askingMatch = feedSource.match(/ASKING_TYPES\s*=\s*new Set\(\[([\s\S]*?)\]\)/)
+const askingTypes = askingMatch
+  ? [...askingMatch[1].matchAll(/["']([a-z0-9_]+)["']/gi)].map((m) => m[1].toLowerCase())
+  : []
+if (!askingMatch) {
+  problems.push(`${FEED_FILE}: no \`ASKING_TYPES = new Set([...])\` found. If it moved or was renamed, move this guard with it.`)
+}
+const attentionIdMatch = feedSource.match(/function notificationAttentionId[\s\S]*?switch\s*\(type\)\s*{([\s\S]*?)\n}/)
+const paired = new Set(
+  attentionIdMatch ? [...attentionIdMatch[1].matchAll(/case\s+["']([a-z0-9_]+)["']\s*:/gi)].map((m) => m[1].toLowerCase()) : []
+)
+if (!attentionIdMatch) {
+  problems.push(`${FEED_FILE}: no \`notificationAttentionId\` switch found. If it moved or was renamed, move this guard with it.`)
+}
+for (const type of askingTypes) {
+  if (paired.has(type) || UNPAIRED_ASKING_TYPES_EXEMPT.has(type)) continue
+  problems.push(
+    `\`${type}\` is in ASKING_TYPES (it asks the recipient for something) but notificationAttentionId has no ` +
+      `case for it, and it is not in this script's UNPAIRED_ASKING_TYPES_EXEMPT list. Either pair it to a real ` +
+      `attention projection, or add it to the exemption list with a reason -- it must not be silently unconfirmable.`
+  )
+}
+// The exemption list itself may only shrink, exactly like the consumer-drift baseline elsewhere in
+// this estate: an entry that is no longer in ASKING_TYPES, or that notificationAttentionId now pairs,
+// has to be deleted here rather than left as stale permission nobody is using.
+for (const type of UNPAIRED_ASKING_TYPES_EXEMPT) {
+  if (!askingTypes.includes(type)) {
+    problems.push(`UNPAIRED_ASKING_TYPES_EXEMPT names \`${type}\`, which is no longer in ASKING_TYPES. Delete the entry.`)
+  } else if (paired.has(type)) {
+    problems.push(`UNPAIRED_ASKING_TYPES_EXEMPT names \`${type}\`, but notificationAttentionId now pairs it. Delete the entry -- the exemption list may only shrink.`)
+  }
 }
 
 if (problems.length > 0) {

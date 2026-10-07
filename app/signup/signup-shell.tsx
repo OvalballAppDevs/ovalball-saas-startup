@@ -3,6 +3,8 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+
+import { safeNextPath, welcomeWithNext } from "@/lib/auth/safe-next"
 import { useEffect, useRef, useState } from "react"
 
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
@@ -31,6 +33,7 @@ import {
 import { completeAuthenticatedSignup } from "./complete-authenticated-signup"
 import { AuthSecurityCheck } from "@/components/auth/auth-security-check"
 import { hasAllRequiredConsents } from "@/lib/legal/required-consents"
+import { referralSlugFrom } from "@ovalball/contracts/clubhouse/referral-link"
 
 const DEFAULT_STEP: SignupStep = "account"
 
@@ -106,6 +109,10 @@ export function SignupShell({
   // their provider proved the address -- so the wizard opens on details
   // rather than asking them to retype something they cannot change here.
   const step = isSignupStep(stepParam) ? stepParam : isAuthenticated ? "details" : DEFAULT_STEP
+
+  // ARRIVED THROUGH A CLUB'S REFERRAL LINK (/r/<slug> -> /signup?ref=<slug>): read once, when the wizard opens,
+  // because moving between steps rewrites the address. It travels with the answers, server-side, and grants nothing.
+  const [referralSlug] = useState(() => referralSlugFrom(searchParams.get("ref")))
 
   const [formState, setFormState] = useState<SignupFormState>(() => {
     const prefillEmail = authenticatedEmail ?? searchParams.get("email")
@@ -191,8 +198,8 @@ export function SignupShell({
     // straight away; an email visitor has none yet, so the payload rides
     // on the magic link and is written by /auth/callback.
     const result = isAuthenticated
-      ? await completeAuthenticatedSignup(formState)
-      : await submitSignup(formState, humanToken)
+      ? await completeAuthenticatedSignup(formState, referralSlug)
+      : await submitSignup(formState, humanToken, referralSlug, safeNextPath(searchParams.get("next")))
 
     // Unconditional, and before the branches: the attempt spent the token whether it succeeded or
     // failed. The old code cleared it only on success, which is the defect.
@@ -201,7 +208,7 @@ export function SignupShell({
     if (result.ok) {
       if (isAuthenticated) {
         // Nothing to check an inbox for -- the account exists now.
-        window.location.assign("/welcome")
+        window.location.assign(welcomeWithNext(safeNextPath(searchParams.get("next"))))
         return
       }
       setSubmitStatus("sent")

@@ -1,211 +1,264 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Linking, Text, TextInput, View } from "react-native"
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
+import { Text, View } from "react-native"
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
+import { STANDING_LABEL, STANDING_ORDER, loadClubMembershipBoard, type ClubMembershipBoard, type MembershipRow, type MembershipStanding } from "@ovalball/contracts/membership/board"
 import {
-  canRetryPayment,
-  canWaiveObligation,
-  currentBillingPeriod,
-  FINANCE_WEB_PATHS,
-  filterObligationRows,
-  financeErrorMessage,
-  isBillingPeriod,
-  loadFinanceDashboard,
-  MEMBER_FILTERS,
-  REVIEW_REASON_LABEL,
-  setObligationExemption,
-  type FinanceDashboard,
-  type FinanceObligationRow,
-  type MemberFilter,
-} from "@ovalball/contracts/club/finance"
+  MEMBER_SEGMENTS,
+  NO_MEMBER_FILTERS,
+  activeFilterCount,
+  filterMembers,
+  memberGroups,
+  memberTeamOptions,
+  segmentCounts,
+  type MemberFilters,
+  type MemberSegment,
+} from "@ovalball/contracts/membership/operate"
 
 import { AdminScreen } from "../../../../src/admin/screen"
 import { useAdminCentreAccess } from "../../../../src/admin/access"
 import { useFinanceAuthority } from "../../../../src/admin/finance-authority"
-import { Chip, MonthSelector, NavRow, Notice, ObligationRow } from "../../../../src/admin/finance-ui"
-import { ReasonSheet, type ReasonAsk } from "../../../../src/admin/reason-sheet"
-import { resumedAsk, usePendingIntent } from "../../../../src/admin/pending-intent"
 import { supabase } from "../../../../src/auth/supabase"
-import { webUrl } from "../../../../src/config/environment"
-import { Search } from "../../../../src/components/icons"
-import { Button, Card, CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
+import { Button, CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
 import { friendly, logDetail, type FriendlyError } from "../../../../src/errors/translate"
-import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
+import { FoldedGroup } from "../../../../src/membership/board-ui"
+import { DropdownChip, MemberRow, PickerSheet, SearchField, SegmentedTabs, type PickerOption } from "../../../../src/membership/running-ui"
+import { ActionGroup } from "../../../../src/people/ui"
+import { colour, space, type } from "../../../../src/design/tokens"
 
 /**
- * MEMBERS -- who owes what this period, natively (CA-M11.1).
+ * MEMBERS -- every member's standing this month, and who needs action (Club Memberships Part 2).
  *
- * The website's subscriber table over the same canonical obligation rows, with OVERDUE derived by the same
- * rule. Statuses are shown verbatim from the domain vocabulary, never collapsed to yes/no. Search and the
- * filters are presentation over one read. Every row opens the membership.
+ * The club's view of the one membership standing the server derives (`club_membership_board`): All, Up to Date or
+ * Need Action, then a search and three filters that wrap rather than scroll out of sight (Team, Status, Membership),
+ * each a list in a sheet. Members are grouped by standing in the order the work comes; the settled groups fold away
+ * unless they are what was asked for. Every row opens that member's page. Segments, filters and groups are the shared
+ * contract's (`membership/operate`), so the web and the phone cannot count anybody differently.
  *
- * WAIVE is the web's `set_obligation_exemption` with a recorded reason, offered where the web offers it
- * (`finance.enrolment.manage`, on a row not already settled or excused). RETRY is a provider write that
- * needs the club's merchant token, held only by the web server -- so the row hands off to the membership
- * page on the website rather than pretending. Nothing here holds a token.
+ * Reading needs `finance.subscription.view` at the club. The month's ledger -- who owes what, Waive, Retry,
+ * Generate and Export -- is Payments; an old link that asked this screen for a ledger filter or month goes there.
  */
-export default function MembersScreen() {
-  const router = useRouter()
+export default function MembersRoute() {
   const params = useLocalSearchParams<{ filter?: string; month?: string }>()
-  const { clubId, refresh: refreshAccess } = useAdminCentreAccess()
+  // THE LEDGER USED TO LIVE AT THIS ADDRESS, with `filter` and `month`: such a link still lands on the ledger.
+  if (params.filter || params.month) {
+    const forward: Record<string, string> = {}
+    if (params.filter) forward.filter = String(params.filter)
+    if (params.month) forward.month = String(params.month)
+    return <Redirect href={{ pathname: "/admin/subscriptions/payments", params: forward } as never} />
+  }
+  return <MembersScreen />
+}
+
+const SEGMENTS = new Set<string>(MEMBER_SEGMENTS.map((s) => s.key))
+const STANDINGS = new Set<string>(STANDING_ORDER)
+
+function presetFilters(p: { teamId?: string; segment?: string; standing?: string; membershipId?: string }): MemberFilters {
+  return {
+    ...NO_MEMBER_FILTERS,
+    segment: p.segment && SEGMENTS.has(p.segment) ? (p.segment as MemberSegment) : "all",
+    teamId: p.teamId ? String(p.teamId) : null,
+    standing: p.standing && STANDINGS.has(p.standing) && p.standing !== "ENDED" ? (p.standing as MembershipStanding) : null,
+    membershipId: p.membershipId ? String(p.membershipId) : null,
+  }
+}
+
+const memberCount = (n: number) => `${n} ${n === 1 ? "member" : "members"}`
+
+function MembersScreen() {
+  const router = useRouter()
+  const params = useLocalSearchParams<{ teamId?: string; segment?: string; standing?: string; membershipId?: string }>()
+  const { clubId } = useAdminCentreAccess()
   const { loading: authorityLoading, authority, refresh: refreshAuthority } = useFinanceAuthority(clubId)
-  const [period, setPeriod] = useState(isBillingPeriod(params.month) ? params.month : currentBillingPeriod())
-  const [filter, setFilter] = useState<MemberFilter>(MEMBER_FILTERS.some((f) => f.key === params.filter) ? (params.filter as MemberFilter) : "all")
-  const [query, setQuery] = useState("")
-  const [dashboard, setDashboard] = useState<FinanceDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [board, setBoard] = useState<ClubMembershipBoard | null>(null)
   const [error, setError] = useState<FriendlyError | null>(null)
-  const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null)
-  const [ask, setAsk] = useState<ReasonAsk | null>(null)
-  const pending = usePendingIntent("finance:members")
+  const [refreshing, setRefreshing] = useState(false)
+  const [filters, setFilters] = useState<MemberFilters>(() => presetFilters(params))
+  const [picker, setPicker] = useState<"team" | "status" | "membership" | null>(null)
   const generation = useRef(0)
 
+  // A link into this screen (a team on Teams, the overview) chooses the filters it was opened with.
+  useEffect(() => {
+    setFilters(presetFilters({ teamId: params.teamId, segment: params.segment, standing: params.standing, membershipId: params.membershipId }))
+  }, [params.teamId, params.segment, params.standing, params.membershipId])
+
   const load = useCallback(async () => {
-    if (!clubId || authorityLoading || !authority.view) {
-      if (!authorityLoading) setLoading(false)
-      return
-    }
+    if (!clubId || authorityLoading || !authority.view) return
     const gen = ++generation.current
     setError(null)
-    setLoading(true)
     try {
-      const board = await loadFinanceDashboard(supabase, clubId, period)
-      if (gen !== generation.current) return
-      setDashboard(board)
+      const next = await loadClubMembershipBoard(supabase, clubId)
+      if (gen === generation.current) setBoard(next)
     } catch (cause) {
       const translated = friendly(cause, "the club's members")
-      logDetail("admin:subscriptions:members", translated)
+      logDetail("admin:memberships:members", translated)
       if (gen === generation.current) setError(translated)
-    } finally {
-      if (gen === generation.current) setLoading(false)
     }
-  }, [clubId, authorityLoading, authority.view, period])
+  }, [clubId, authorityLoading, authority.view])
 
-  useEffect(() => {
-    void load()
-  }, [load])
   useFocusEffect(
     useCallback(() => {
       void load()
-      const resume = pending.take()
-      if (resume) setAsk(resumedAsk(resume))
-    }, [load, pending])
+    }, [load])
   )
 
-  const rows = useMemo(() => (dashboard ? filterObligationRows(dashboard.rows, filter, query) : []), [dashboard, filter, query])
+  const refresh = useCallback(async () => {
+    setRefreshing(true)
+    await Promise.all([refreshAuthority(), load()])
+    setRefreshing(false)
+  }, [refreshAuthority, load])
 
-  function waive(row: FinanceObligationRow) {
-    setAsk({
-      title: `Waive ${row.playerName}'s payment for this period?`,
-      body: "The obligation is marked waived and excluded from what is outstanding. The reason is recorded in the club's finance audit.",
-      confirmLabel: "Waive",
-      reason: "required",
-      onConfirm: async (reason) => {
-        await setObligationExemption(supabase, row.obligationId, "WAIVED", reason)
-        setNotice({ tone: "ok", text: `${row.playerName}'s payment waived.` })
-        await load()
-      },
-    })
-  }
+  const rows = useMemo(() => board?.rows ?? [], [board])
+  // THE SEGMENT COUNTS FOLLOW THE OTHER FILTERS: "Need Action 2" beside Under 12 Boys is about Under 12 Boys.
+  const counts = useMemo(() => segmentCounts(filterMembers(rows, { ...filters, segment: "all" })), [rows, filters])
+  const shown = useMemo(() => filterMembers(rows, filters), [rows, filters])
+  const groups = useMemo(() => memberGroups(shown), [shown])
+  const filtered = activeFilterCount(filters) > 0
+  // Settled groups fold away -- unless a settled standing is exactly what was asked for.
+  const fold = filters.segment === "all" && filters.standing === null
 
-  function retryOnWeb(row: FinanceObligationRow) {
-    if (!webUrl) return
-    void Linking.openURL(`${webUrl}${FINANCE_WEB_PATHS.membership(row.payerSubscriptionId)}`)
-  }
+  const teamOptions = useMemo<PickerOption[]>(
+    () => memberTeamOptions(rows).map((t) => ({ id: t.id, label: t.name, detail: memberCount(rows.filter((r) => r.standing !== "ENDED" && (r.teams ?? []).some((x) => x.id === t.id)).length) })),
+    [rows]
+  )
+  const statusOptions = useMemo<PickerOption[]>(
+    () =>
+      STANDING_ORDER.filter((s) => s !== "ENDED")
+        .map((s) => ({ s, n: rows.filter((r) => r.standing === s).length }))
+        .filter(({ s, n }) => n > 0 || filters.standing === s)
+        .map(({ s, n }) => ({ id: s, label: STANDING_LABEL[s], detail: memberCount(n) })),
+    [rows, filters.standing]
+  )
+  const membershipOptions = useMemo<PickerOption[]>(
+    () => (board?.memberships ?? []).map((m) => ({ id: m.id, label: m.name, detail: memberCount(rows.filter((r) => r.standing !== "ENDED" && r.membership?.id === m.id).length) })),
+    [board, rows]
+  )
+
+  const teamName = filters.teamId ? (teamOptions.find((t) => t.id === filters.teamId)?.label ?? "Chosen team") : null
+  const membershipName = filters.membershipId ? (membershipOptions.find((m) => m.id === filters.membershipId)?.label ?? "Chosen membership") : null
+  const running = !!board?.programme && (board.programme.enabled || board.programme.activatedAt !== null)
+
+  const open = (row: MembershipRow) => router.push({ pathname: "/admin/subscriptions/member/[playerId]", params: { playerId: row.playerId } } as never)
+  const clearFilters = () => setFilters((f) => ({ ...NO_MEMBER_FILTERS, segment: f.segment }))
 
   return (
-    <AdminScreen section="Members" onRefresh={() => void Promise.all([refreshAuthority(), load()])} refreshing={false}>
-      <View style={{ gap: space.xs }}>
-        <Text accessibilityRole="header" style={[type.display, { color: colour.ink }]}>
-          Members
-        </Text>
-        <Text style={[type.body, { color: colour.inkMuted }]}>Who owes what for the period, from the club's own ledger. Statuses are the record's own words.</Text>
-      </View>
+    <AdminScreen section="Members" onRefresh={() => void refresh()} refreshing={refreshing}>
+      {!authorityLoading && !authority.view && <EmptyState title="Not for you at this club" body="Seeing the club's members needs the finance view permission at this club. If that has changed, pull to refresh." />}
 
-      {!authorityLoading && !authority.view && <EmptyState title="Not for you at this club" body="Seeing members' payment status needs the finance view permission at this club." />}
+      {(authorityLoading || (authority.view && !board && !error)) && (
+        <View style={{ gap: space.md }}>
+          <CardSkeleton lines={2} />
+          <CardSkeleton lines={4} />
+        </View>
+      )}
 
-      {authority.view && (
+      {error && <ErrorState message={error.message} onRetry={() => void load()} offline={error.retryable} />}
+
+      {board && !running && <EmptyState title="The club doesn't collect membership through Ovalball yet" body="Once Club Memberships are set up, each player's standing appears here." />}
+
+      {board && running && (
         <>
-          <MonthSelector period={period} onChange={setPeriod} />
+          <SegmentedTabs
+            label="Members"
+            value={filters.segment}
+            onChange={(segment) => setFilters((f) => ({ ...f, segment }))}
+            tabs={MEMBER_SEGMENTS.map((s) => ({ key: s.key, label: s.label, count: counts[s.key] }))}
+          />
 
-          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: TOUCH_TARGET, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.surface }}>
-            <Search size={18} color={colour.inkSubtle} />
-            <TextInput accessibilityLabel="Search members" value={query} onChangeText={setQuery} placeholder="Search by player name" placeholderTextColor={colour.inkSubtle} autoCapitalize="none" autoCorrect={false} returnKeyType="search" style={[type.body, { flex: 1, minHeight: TOUCH_TARGET, color: colour.ink }]} />
-          </View>
-
-          <View accessibilityRole="radiogroup" accessibilityLabel="Filter members" style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-            {MEMBER_FILTERS.map((f) => (
-              <Chip key={f.key} label={f.label} on={filter === f.key} onPress={() => setFilter(f.key)} />
-            ))}
-          </View>
-
-          <Notice notice={notice} />
-
-          {loading && !dashboard && (
-            <View style={{ gap: space.md }}>
-              <CardSkeleton lines={2} />
-              <CardSkeleton lines={2} />
+          <View style={{ gap: space.sm }}>
+            <SearchField value={filters.query} onChange={(query) => setFilters((f) => ({ ...f, query }))} placeholder="Search members" label="Search members" />
+            {/* THE FILTERS WRAP, never scroll sideways: a chosen filter must always be in view. */}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.sm }}>
+              <DropdownChip label="Team" value={teamName} anyLabel="all teams" onPress={() => setPicker("team")} />
+              <DropdownChip label="Status" value={filters.standing ? STANDING_LABEL[filters.standing] : null} anyLabel="any status" onPress={() => setPicker("status")} />
+              {(board.memberships.length > 1 || filters.membershipId) && <DropdownChip label="Membership" value={membershipName} anyLabel="all memberships" onPress={() => setPicker("membership")} />}
+              {filtered && <Button label="Clear Filters" variant="quiet" onPress={clearFilters} />}
             </View>
-          )}
-          {error && <ErrorState message={error.message} onRetry={() => void load()} offline={error.retryable} />}
+            {(filtered || filters.segment !== "all") && shown.length > 0 && (
+              <Text style={[type.caption, { color: colour.inkSubtle }]}>{`${shown.length} of ${memberCount(segmentCounts(rows).all)}`}</Text>
+            )}
+          </View>
 
-          {filter === "attention" && dashboard && dashboard.review.length > 0 && (
-            <Card style={{ padding: 0, overflow: "hidden", borderColor: colour.warning }}>
-              <View style={{ padding: space.lg, paddingBottom: space.sm }}>
-                <Text accessibilityRole="header" style={[type.heading, { color: colour.warning }]}>
-                  Memberships Needing Review
-                </Text>
+          {rows.length === 0 && <EmptyState title="No members yet" body="Each player's membership appears here once they are in a team with a membership." />}
+
+          {rows.length > 0 && shown.length === 0 && (
+            filtered ? (
+              <View style={{ gap: space.sm }}>
+                <EmptyState title="Nobody matches these filters." body="Try a different team, status or name." />
+                <Button label="Clear Filters" variant="secondary" onPress={clearFilters} />
               </View>
-              {dashboard.review.map((item, i) => (
-                <NavRow key={`${item.payerSubscriptionId}-${item.reason}`} first={i === 0} label={item.playerName} caption={REVIEW_REASON_LABEL[item.reason] ?? item.reason} onPress={() => router.push(`/admin/subscriptions/membership/${item.payerSubscriptionId}` as never)} />
-              ))}
-            </Card>
-          )}
-
-          {dashboard && !loading && rows.length === 0 && (
-            dashboard.rows.length === 0 ? (
-              <EmptyState title="No obligations for this period yet" body={authority.enrolmentManage ? "Generate this month's obligations from the overview once members are enrolled." : "Obligations appear once they have been generated for the period."} />
+            ) : filters.segment === "up_to_date" ? (
+              <EmptyState title="Nobody is up to date yet this month" body="A member is up to date once this month's payment has been collected." />
             ) : (
-              <EmptyState title="Nobody matches" body={query ? "Try a different name." : "Nobody is in this state for the period."} />
+              <EmptyState title="Nobody needs action" body="Every member is up to date, or their payment is on its way." />
             )
           )}
 
-          {dashboard && rows.length > 0 && (
-            <View style={{ gap: space.sm }}>
-              <Text style={[type.caption, { color: colour.inkSubtle }]}>
-                {rows.length} of {dashboard.rows.length} {dashboard.rows.length === 1 ? "obligation" : "obligations"}
-              </Text>
-              <Card style={{ padding: 0, overflow: "hidden" }}>
-                {rows.map((row, i) => {
-                  const offerWaive = authority.enrolmentManage && canWaiveObligation(row.status)
-                  const offerRetry = authority.paymentAct && canRetryPayment(row)
-                  return (
-                    <ObligationRow key={row.obligationId} row={row} first={i === 0} onPress={() => router.push(`/admin/subscriptions/membership/${row.payerSubscriptionId}` as never)}>
-                      {(offerWaive || offerRetry) && (
-                        <View style={{ flexDirection: "row", gap: space.sm, paddingHorizontal: space.lg, paddingBottom: space.md }}>
-                          {offerRetry && <Button label="Retry on the Website" variant="quiet" onPress={() => retryOnWeb(row)} accessibilityHint="Retrying a payment uses the club's GoCardless connection, which lives on the Ovalball website" />}
-                          {offerWaive && <Button label="Waive" variant="quiet" onPress={() => waive(row)} />}
-                        </View>
-                      )}
-                    </ObligationRow>
-                  )
-                })}
-              </Card>
-            </View>
-          )}
+          {groups.map((group) => {
+            const list = (
+              <ActionGroup>
+                {group.rows.map((row, i) => (
+                  <MemberRow key={row.playerId} row={row} first={i === 0} context="club" hint="Opens their membership" onPress={() => open(row)} />
+                ))}
+              </ActionGroup>
+            )
+            if (group.settled && fold) {
+              return (
+                <FoldedGroup key={group.standing} label={STANDING_LABEL[group.standing]} count={group.rows.length}>
+                  {list}
+                </FoldedGroup>
+              )
+            }
+            return (
+              <View key={group.standing} style={{ gap: space.sm }}>
+                <Text accessibilityRole="header" style={[type.smallMedium, { color: colour.inkMuted }]}>
+                  {STANDING_LABEL[group.standing]} · {group.rows.length}
+                </Text>
+                {list}
+              </View>
+            )
+          })}
+
+          <PickerSheet
+            visible={picker === "team"}
+            title="Team"
+            hint="Members of one team. A player in two teams is in both."
+            options={teamOptions}
+            allLabel="All Teams"
+            value={filters.teamId}
+            onClose={() => setPicker(null)}
+            onApply={(teamId) => {
+              setFilters((f) => ({ ...f, teamId }))
+              setPicker(null)
+            }}
+          />
+          <PickerSheet
+            visible={picker === "status"}
+            title="Status"
+            hint="This month's standing."
+            options={statusOptions}
+            allLabel="Any Status"
+            value={filters.standing}
+            onClose={() => setPicker(null)}
+            onApply={(standing) => {
+              setFilters((f) => ({ ...f, standing: standing as MembershipStanding | null }))
+              setPicker(null)
+            }}
+          />
+          <PickerSheet
+            visible={picker === "membership"}
+            title="Membership"
+            hint="The membership a member holds, or would hold from their team."
+            options={membershipOptions}
+            allLabel="All Memberships"
+            value={filters.membershipId}
+            onClose={() => setPicker(null)}
+            onApply={(membershipId) => {
+              setFilters((f) => ({ ...f, membershipId }))
+              setPicker(null)
+            }}
+          />
         </>
       )}
-
-      <ReasonSheet
-        ask={ask}
-        onClose={() => setAsk(null)}
-        onRefused={() => void Promise.all([refreshAccess(), refreshAuthority()])}
-        onStepUp={(reason) => {
-          if (ask) pending.hold(ask, reason)
-          setAsk(null)
-          router.push({ pathname: "/step-up", params: { returnTo: "/admin/subscriptions/members" } } as never)
-        }}
-        errorMessage={(cause) => financeErrorMessage(cause, friendly(cause, "this change").message)}
-      />
     </AdminScreen>
   )
 }

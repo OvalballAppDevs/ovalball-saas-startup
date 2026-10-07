@@ -28,6 +28,7 @@ import { ChevronDown, ChevronRight, LayoutGrid, MapPin, Search, SlidersHorizonta
 import { colour, elevation, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
 import { ClubCrest, DistanceChips, NetworkPill } from "../../../src/clubhouse/components"
 import { resolveInitialMode, type ClubhouseMapMode } from "../../../src/clubhouse/entry-mode"
+import { applyDetailPreviewOverlay, applyPreviewOverlay, type PreviewDetail, type PreviewMarker } from "../../../src/clubhouse/research-preview-overlay"
 
 /**
  * EXPLORE THE MAP — the club-discovery view of Clubhouse, pushed from Clubhouse Home's own "Explore
@@ -70,7 +71,7 @@ export default function ExploreMap() {
   const viewerClubId = active?.clubId ?? (active?.kind === "club" ? active.id : null)
   const viewerTeamId = active?.kind === "team" ? active.id : null
 
-  const [markers, setMarkers] = useState<ClubMapMarker[] | null>(null)
+  const [markers, setMarkers] = useState<PreviewMarker[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<ClubhouseFilter>(initialFilter)
@@ -81,7 +82,7 @@ export default function ExploreMap() {
   // entirely inside `ClubhouseMap` below (an honest "needs a development build" message), never by
   // silently swapping which mode the screen opens in or hiding the way back to it.
   const [mode, setMode] = useState<ClubhouseMapMode>(() => resolveInitialMode(params))
-  const [selected, setSelected] = useState<ClubMapMarker | null>(null)
+  const [selected, setSelected] = useState<PreviewMarker | null>(null)
   const [distanceSheetOpen, setDistanceSheetOpen] = useState(false)
   const [sort, setSort] = useState<"nearest" | "name">("nearest")
   // The floating search+filter chrome's own measured height (physical-review correction) -- see the
@@ -93,7 +94,7 @@ export default function ExploreMap() {
     setError(null)
     try {
       const rows = await readClubhouseMarkers(supabase, viewerClubId, viewerTeamId)
-      setMarkers(rows)
+      setMarkers(applyPreviewOverlay(rows))
     } catch {
       setError("Couldn't load the club network. Check your connection and try again.")
     }
@@ -490,8 +491,8 @@ function ClubhouseMap({
   origin,
   selectedDirectoryId,
 }: {
-  markers: ClubMapMarker[]
-  onSelect: (m: ClubMapMarker) => void
+  markers: PreviewMarker[]
+  onSelect: (m: PreviewMarker) => void
   origin: ClubMapMarker | null
   selectedDirectoryId: string | null
 }) {
@@ -521,8 +522,8 @@ function ClubhouseList({
   onSwitchToMap,
   teamSummaryByClubId,
 }: {
-  markers: ClubMapMarker[]
-  onSelect: (m: ClubMapMarker) => void
+  markers: PreviewMarker[]
+  onSelect: (m: PreviewMarker) => void
   /** Real only when the viewer's own club is geocoded -- see `findDistanceOrigin`. Threaded down to
    * each row so a genuinely calculable distance renders as tertiary metadata (physical-review
    * correction: "Nearest" was previously offered/sortable with no distance ever shown per row). */
@@ -575,7 +576,7 @@ function ClubListRow({
   onPress,
   teamSummary,
 }: {
-  marker: ClubMapMarker
+  marker: PreviewMarker
   origin: ClubMapMarker | null
   onPress: () => void
   teamSummary?: ClubTeamSummary
@@ -619,6 +620,7 @@ function ClubListRow({
         )}
         <View style={{ flexDirection: "row", gap: space.xs, marginTop: 2 }}>
           <NetworkPill marker={marker} />
+          {marker.isPreview && <StatusPill label="Preview: pending research" tone="caution" />}
         </View>
       </View>
       <ChevronRight size={18} color={colour.inkSubtle} />
@@ -645,7 +647,7 @@ function ClubSheet({
   origin,
   teamSummaryByClubId,
 }: {
-  marker: ClubMapMarker | null
+  marker: PreviewMarker | null
   onClose: () => void
   viewerClubId: string | null
   viewerTeamId: string | null
@@ -655,7 +657,7 @@ function ClubSheet({
   teamSummaryByClubId: Map<string, ClubTeamSummary>
 }) {
   const router = useRouter()
-  const [detail, setDetail] = useState<ClubDetail | null>(null)
+  const [detail, setDetail] = useState<PreviewDetail | null>(null)
   const teamSummary = marker?.clubId ? teamSummaryByClubId.get(marker.clubId) : undefined
 
   useEffect(() => {
@@ -663,7 +665,7 @@ function ClubSheet({
     if (!marker) return
     let live = true
     void readClubDetail(supabase, marker, viewerClubId, viewerTeamId).then((d) => {
-      if (live) setDetail(d)
+      if (live) setDetail(applyDetailPreviewOverlay(d, marker.directoryId))
     })
     return () => {
       live = false
@@ -700,6 +702,7 @@ function ClubSheet({
                 confidence" to an ordinary user. Only shown when the pin is genuinely the less-precise
                 kind; a venue-precedence location says nothing extra, because it is the trustworthy case. */}
             {marker.locationPrecision === "postcode" && <StatusPill label="Approximate location" tone="neutral" />}
+            {marker.isPreview && <StatusPill label="Preview: pending research" tone="caution" />}
           </View>
 
           {!detail && <CardSkeleton lines={2} />}

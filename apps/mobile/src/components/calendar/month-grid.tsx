@@ -91,6 +91,8 @@ export function CalendarDay({
     isToday ? "today" : null,
     marks?.fixture ? "matches" : null,
     marks?.training ? "training" : null,
+    marks?.tournament ? "a tournament" : null,
+    marks?.event ? "an event" : null,
     marks?.cancelled ? "something cancelled" : null,
     busy ? null : "nothing on",
   ]

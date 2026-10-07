@@ -1,5 +1,7 @@
 "use client"
 
+import { AddressLookupField } from "@/components/address/address-lookup-field"
+import { lookupSignupAddress, resolveSignupAddress } from "../actions"
 import { FormField } from "../form-field"
 import { FormSelect } from "../form-select"
 import { COUNTRY_OPTIONS, type PersonalDetails } from "@/lib/signup/types"
@@ -65,6 +67,28 @@ export function PersonalDetailsStep({ value, onChange }: PersonalDetailsStepProp
         <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
           Your address <span className="normal-case text-ink-muted">(optional)</span>
         </p>
+
+        {/* THE SAME canonical address search every other Ovalball surface uses -- same component,
+            same server-side provider, same `mapGooglePlace` mapping. Sign-up gets no parser of its
+            own. The structured fields below remain as post-selection confirmation, exactly as the
+            venue forms treat them. */}
+        <div className="mt-4">
+          <AddressLookupField
+            search={lookupSignupAddress}
+            resolve={resolveSignupAddress}
+            onResolve={(a) =>
+              onChange({
+                ...value,
+                addressLine1: a.line1 ?? value.addressLine1,
+                addressLine2: a.line2 ?? "",
+                town: a.town ?? value.town,
+                county: a.county ?? value.county,
+                postcode: a.postcode ?? value.postcode,
+                country: a.country || value.country,
+              })
+            }
+          />
+        </div>
 
         <div className="mt-4 flex flex-col gap-4">
           <FormField

@@ -73,7 +73,7 @@ function seed() {
   sql(`insert into public.club_memberships (club_id, user_id, role, status) values ('${ids.club}','${ids.ca}','CLUB_ADMIN','active'),('${ids.club}','${ids.mb}','BASIC_USER','active')`)
   const mt = one(`insert into public.club_memberships (club_id, user_id, role, status) values ('${ids.club}','${ids.tm}','BASIC_USER','active') returning id`)
   const mc = one(`insert into public.club_memberships (club_id, user_id, role, status) values ('${ids.club}','${ids.co}','BASIC_USER','active') returning id`)
-  sql(`insert into public.team_permissions (membership_id, team_id, permission) values ('${mt}','${ids.team}','manager'),('${mc}','${ids.team}','coach')`)
+  sql(`insert into testing.team_roles (membership_id, team_id, role_key) values ('${mt}','${ids.team}','TEAM_MANAGER'),('${mc}','${ids.team}','COACH')`)
   // The Safeguarding Officer uses the role Slice 2 already models -- no 4G machinery is created.
   const ms = one(`insert into public.club_memberships (club_id, user_id, role, status) values ('${ids.club}','${ids.so}','BASIC_USER','active') returning id`)
   sql(`insert into public.role_assignments (club_id, user_id, membership_id, role_key, state, source, confirmation_state, granted_by)
@@ -155,7 +155,7 @@ begin
   delete from public.team_conversations where team_id = '${ids.team}';
   delete from public.fixtures where owning_team_id = '${ids.team}';
   delete from public.notifications where user_id = any(v_people);
-  delete from public.team_permissions where membership_id in (select id from public.club_memberships where club_id='${ids.club}');
+  delete from testing.team_roles where membership_id in (select id from public.club_memberships where club_id='${ids.club}');
   delete from public.role_assignments where club_id = '${ids.club}';
   delete from public.club_memberships where club_id = '${ids.club}';
   delete from public.teams where club_id = '${ids.club}';

@@ -20,7 +20,8 @@ export interface OfficerData {
   contactName: string
   contactEmail: string
   status: "not_invited" | "invite_sent" | "active" | "inactive"
-  pendingInvitationId: string | null
+  /** The open invitation, from the canonical issuer or (older rows) the legacy table. */
+  pendingInvitation: { id: string; legacy: boolean } | null
 }
 
 const STATUS_LABEL: Record<OfficerData["status"], string> = {
@@ -164,8 +165,8 @@ export function OfficerRow({
               Resend Invite
             </Button>
           )}
-          {canManageContact && officer.status === "invite_sent" && officer.pendingInvitationId && (
-            <RevokeInviteButton invitationId={officer.pendingInvitationId} disabled={working} />
+          {canManageContact && officer.status === "invite_sent" && officer.pendingInvitation && (
+            <RevokeInviteButton invitation={officer.pendingInvitation} disabled={working} />
           )}
           {/* Offered for a pending officer too, not only an accepted one.
               The server has always had the email fallback for exactly that
@@ -215,14 +216,14 @@ export function OfficerRow({
   )
 }
 
-function RevokeInviteButton({ invitationId, disabled }: { invitationId: string; disabled: boolean }) {
+function RevokeInviteButton({ invitation, disabled }: { invitation: { id: string; legacy: boolean }; disabled: boolean }) {
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleRevoke() {
     setWorking(true)
     setError(null)
-    const result = await revokeSafeguardingOfficerInvitation(invitationId)
+    const result = await revokeSafeguardingOfficerInvitation(invitation)
     setWorking(false)
     if (!result.ok) setError(result.error)
   }

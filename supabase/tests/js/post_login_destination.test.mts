@@ -2,7 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 
-import { AUTHENTICATED_HOME, DEFAULT_NEXT_PATH, safeNextPath } from "@/lib/auth/safe-next"
+import { AUTHENTICATED_HOME, DEFAULT_NEXT_PATH, safeNextPath, welcomeWithNext } from "@/lib/auth/safe-next"
 
 /**
  * WHERE A SUCCESSFULLY AUTHENTICATED PERSON ENDS UP (Slice 6, §10A).
@@ -116,4 +116,17 @@ test("there is one destination decision, not one per surface", () => {
       `${file} must take the destination from lib/auth/safe-next.ts rather than repeating it`
     )
   }
+})
+
+// M11 (Club Admin audit remediation): an invitation opened before an account existed is resumed after sign-up.
+test("welcomeWithNext carries a safe invitation destination through sign-up", () => {
+  assert.equal(welcomeWithNext("/join?invite=abc"), `/welcome?next=${encodeURIComponent("/join?invite=abc")}`)
+})
+
+test("welcomeWithNext never carries an unsafe or pointless destination", () => {
+  assert.equal(welcomeWithNext(null), "/welcome")
+  assert.equal(welcomeWithNext("https://evil.example/join"), "/welcome")
+  assert.equal(welcomeWithNext("//evil.example"), "/welcome")
+  assert.equal(welcomeWithNext("/dashboard"), "/welcome")
+  assert.equal(welcomeWithNext("/welcome?next=/join"), "/welcome")
 })

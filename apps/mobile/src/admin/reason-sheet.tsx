@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Modal, Pressable, Text, TextInput, View } from "react-native"
+import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { isRecentAuthRefusal } from "@ovalball/contracts/club/permissions"
 
@@ -32,6 +32,13 @@ export interface ReasonAsk {
   reason: "required" | "optional" | "none"
   /** A reason typed before a step-up, put back so it is not typed twice. */
   initialReason?: string
+  /** The field's own name where it is not a reason -- e.g. "Governing Body's Reference". Defaults to Reason. */
+  fieldLabel?: string
+  placeholder?: string
+  /** The server's own limit for this field. Defaults to 500. */
+  maxLength?: number
+  /** One line, not a paragraph (a reference number). */
+  singleLine?: boolean
   onConfirm: (reason: string) => Promise<void>
 }
 
@@ -85,6 +92,9 @@ export function ReasonSheet({
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={busy ? undefined : onClose}>
+      {/* THE SHEET RISES WITH THE KEYBOARD, as the field sheet's does: typing a reason used to put the keyboard
+          over the reason itself and over the button that confirms it (found revoking a join code). */}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
       <Pressable accessibilityLabel="Close" onPress={busy ? undefined : onClose} style={{ flex: 1, backgroundColor: "rgba(16,21,18,0.45)" }} />
       <View style={[{ backgroundColor: colour.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: space.lg, paddingBottom: insets.bottom + space.lg, gap: space.md }, elevation.sheet]}>
         <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]}>
@@ -98,17 +108,19 @@ export function ReasonSheet({
         )}
         {ask.reason !== "none" && (
           <View style={{ gap: 6 }}>
-            <Text style={[type.smallMedium, { color: colour.ink }]}>{ask.reason === "required" ? "Reason" : "Reason (optional)"}</Text>
+            <Text style={[type.smallMedium, { color: colour.ink }]}>
+              {ask.reason === "required" ? <>{ask.fieldLabel ?? "Reason"}<Text style={{ color: colour.danger }}> *</Text></> : `${ask.fieldLabel ?? "Reason"} (Optional)`}
+            </Text>
             <TextInput
-              accessibilityLabel="Reason"
+              accessibilityLabel={ask.fieldLabel ?? "Reason"}
               value={reason}
               onChangeText={setReason}
               editable={!busy}
-              multiline
-              maxLength={500}
-              placeholder={ask.reason === "required" ? "Recorded with the change" : "Recorded with the change, if given"}
+              multiline={!ask.singleLine}
+              maxLength={ask.maxLength ?? 500}
+              placeholder={ask.placeholder ?? (ask.reason === "required" ? "Recorded with the change" : "Recorded with the change, if given")}
               placeholderTextColor={colour.inkSubtle}
-              style={[type.body, { minHeight: 72, padding: space.md, textAlignVertical: "top", borderRadius: radius.md, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.surface, color: colour.ink }]}
+              style={[type.body, { minHeight: ask.singleLine ? TOUCH_TARGET : 72, padding: space.md, textAlignVertical: ask.singleLine ? "center" : "top", borderRadius: radius.md, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.surface, color: colour.ink }]}
             />
           </View>
         )}
@@ -122,6 +134,7 @@ export function ReasonSheet({
           <Button label={ask.confirmLabel} onPress={() => void confirm()} busy={busy} disabled={needsReason} style={{ flex: 2 }} />
         </View>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }

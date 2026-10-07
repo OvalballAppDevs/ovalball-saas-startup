@@ -242,10 +242,10 @@ sql(`insert into public.club_memberships (club_id, user_id, role, status) values
   ('${ids.club}', '${people.coach.id}', 'BASIC_USER', 'active'),
   ('${ids.club}', '${people.otherCoach.id}', 'BASIC_USER', 'active'),
   ('${ids.club}', '${people.secretary.id}', 'FIXTURE_SECRETARY', 'active');
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'coach' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.coach.id}';
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.otherTeam}', 'coach' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.otherCoach.id}';`)
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'COACH' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.coach.id}';
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.otherTeam}', 'COACH' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.otherCoach.id}';`)
 const childDob = one(`select (current_date - interval '11 years 3 months')::date`)
 ids.child = one(`insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Charlie', 'Family ${TAG}', '${childDob}', 'MALE') returning id`)
 sql(`insert into public.player_team_memberships (player_id, team_id, status) values ('${ids.child}', '${ids.team}', 'active');

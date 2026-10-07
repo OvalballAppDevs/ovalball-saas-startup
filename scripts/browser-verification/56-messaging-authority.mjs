@@ -95,7 +95,7 @@ begin
   delete from public.club_pitches where club_id = any(v_clubs);
   delete from public.venues where club_id = any(v_clubs);
   delete from public.notifications where user_id = any(v_people);
-  delete from public.team_permissions where membership_id in (select id from public.club_memberships where club_id = any(v_clubs));
+  delete from testing.team_roles where membership_id in (select id from public.club_memberships where club_id = any(v_clubs));
   delete from public.role_assignments where club_id = any(v_clubs);
   delete from public.club_memberships where club_id = any(v_clubs);
   delete from public.club_setup_state where club_id = any(v_clubs);
@@ -198,13 +198,13 @@ sql(`insert into public.club_memberships (club_id, user_id, role, status) values
   ('${ids.club}','${people.coach.id}','BASIC_USER','active'),
   ('${ids.club}','${people.officer.id}','BASIC_USER','active'),
   ('${ids.farClub}','${people.farAdmin.id}','CLUB_ADMIN','active');
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'manager' from public.club_memberships where club_id='${ids.club}' and user_id='${people.manager.id}';
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team2}', 'manager' from public.club_memberships where club_id='${ids.club}' and user_id='${people.manager2.id}';`)
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'TEAM_MANAGER' from public.club_memberships where club_id='${ids.club}' and user_id='${people.manager.id}';
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team2}', 'TEAM_MANAGER' from public.club_memberships where club_id='${ids.club}' and user_id='${people.manager2.id}';`)
 
-sql(`insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'coach' from public.club_memberships where club_id='${ids.club}' and user_id='${people.coach.id}';`)
+sql(`insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'COACH' from public.club_memberships where club_id='${ids.club}' and user_id='${people.coach.id}';`)
 
 // A Safeguarding Officer using the role Slice 2 ALREADY models -- role_assignments carries
 // confirmation_state and the SAFEGUARDING_OFFICER constraint. No 4G nomination, confirmation or

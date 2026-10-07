@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { buildGoCardlessAuthorizeUrl } from "@/lib/payments/gocardless/oauth"
+import type { ConnectNoticeCode } from "@/lib/payments/gocardless/connect-notices"
 import { requireSession, sessionRefusal } from "@/lib/auth/require-session"
 import { createClient } from "@/lib/supabase/server"
 
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic"
 
 const STATE_COOKIE = "gc_oauth_state"
 const CLUB_COOKIE = "gc_oauth_club_id"
+/** The page shows CONNECT_NOTICES.terms for "terms" -- the same sentence the app's start route returns. */
 
 /**
  * Starts the server-side OAuth2 flow. A Club Admin never sees or handles
@@ -40,6 +42,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "You are not authorised to connect GoCardless for this club." }, { status: 403 })
   }
 
+  // TERMS FIRST (20270748000000). A club agrees how Club Memberships work, and what Ovalball's fee is, before
+  // any GoCardless account is attached to it -- the same rule the app's start enforces in the database
+  // (start_gocardless_connect_intent). Asked as the caller, of the one read the settings page itself uses.
+  const { data: setup, error: setupError } = await supabase.rpc("membership_setup_state", { p_club_id: clubId })
+  const termsAccepted = (setup as { terms?: { accepted?: boolean } } | null)?.terms?.accepted === true
+  if (setupError || !termsAccepted) {
+    if (setupError) console.error("[gocardless oauth] membership_setup_state failed:", setupError.code)
+    const refused = new URL("/club/settings/subscriptions", request.url)
+    refused.searchParams.set("gc_error", (setupError ? "terms_check" : "terms") satisfies ConnectNoticeCode)
+    return NextResponse.redirect(refused)
+  }
+
   let authorizeUrl: string
   try {
     const state = randomBytes(24).toString("hex")
@@ -51,7 +65,11 @@ export async function GET(request: NextRequest) {
     response.cookies.set(CLUB_COOKIE, clubId, { httpOnly: true, secure: true, sameSite: "lax", maxAge: 600, path: "/api/gocardless/oauth" })
     return response
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error."
-    return NextResponse.redirect(new URL(`/club/settings/subscriptions?gc_error=${encodeURIComponent(message)}`, request.url))
+    // The configuration's own error names environment variables; it is logged for whoever runs the site and never
+    // put in a URL, where it would reach the address bar, history and any referrer.
+    console.error("[gocardless oauth] start unavailable:", error instanceof Error ? error.message : error)
+    const url = new URL("/club/settings/subscriptions", request.url)
+    url.searchParams.set("gc_error", "unavailable" satisfies ConnectNoticeCode)
+    return NextResponse.redirect(url)
   }
 }

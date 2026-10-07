@@ -95,8 +95,8 @@ test("no capability is decided on the device", () => {
     */
     const DECIDED_HERE = new RegExp(
       [
-        // a role name compared against, anywhere
-        String.raw`(role|roleLabel|permission)\s*===\s*["'][A-Za-z_ ]+["']`,
+        // The role-name shape is checked SEPARATELY below, because it needs case sensitivity and
+        // this regex carries /i.
         // the selected context deciding an action
         String.raw`(active|context)\.kind\s*===\s*["']\w+["']\s*(&&|\?)\s*\w*(can|allow|edit|manage|delete)`,
         // the one explicit historical shape
@@ -105,6 +105,19 @@ test("no capability is decided on the device", () => {
       "i"
     )
     assert.ok(!DECIDED_HERE.test(src), `${file} looks like it decides authority from a role or the selected context`)
+
+    /*
+      A ROLE NAME COMPARED AGAINST -- case SENSITIVE, deliberately.
+
+      An ACCESSIBILITY role is not authority: `role === "radio"` in a shared control is React Native
+      telling VoiceOver what a thing IS. The combined pattern above carries /i, so a case-insensitive
+      "screaming snake" class still matched "radio" and reported a presentational component as deciding
+      who may do what -- the kind of false positive that gets a guard switched off rather than fixed.
+      Ovalball's role names are SCREAMING_SNAKE (CLUB_ADMIN, TEAM_MANAGER, COACH); the a11y vocabulary
+      is lower case. Checking case keeps every real one and drops every a11y one.
+    */
+    const ROLE_NAME_DECIDES = /(role|roleLabel|permission)\s*===\s*["'][A-Z][A-Z_ ]{2,}["']/
+    assert.ok(!ROLE_NAME_DECIDES.test(src), `${file} decides authority by comparing a role name`)
   }
 })
 
@@ -162,12 +175,47 @@ test("a person's picture and a club's crest cannot be substituted for one anothe
   // route chooses between.
   const MAY_DRAW_A_KIT = new Set([
     "src/components/rugby-kit.tsx",
-    "src/fixtures/match-centre.tsx",
+    // The Match Centre's hero since the consolidation (2026-10-03): the shirt and the crest are two
+    // separate components side by side (`RugbyKit`, `ClubCrest`); a side with no recorded colours gets
+    // `KitPlaceholder`, never its badge.
+    "src/fixtures/match-centre/hero.tsx",
+    // CA-M7 Team Home: the kit sits BESIDE the team's name, small, while the club's crest is carried by
+    // the shared AppHeader above it -- the file's own comment says exactly that ("the club is the crest
+    // in the header"). It is the Match Centre's reasoning applied to a team's own page: a child
+    // recognises the shirt faster than a badge. Admitted here because it is an addition to the
+    // identity, which is what this rule allows, and not a stand-in for one, which is what it forbids.
+    "src/team/home.tsx",
+    // The tournament team row, whose own file draws the kit and the crest as two SEPARATE components --
+    // `TeamKit` beside the name and `ClubCrest` with its own initial fallback, documented there as
+    // "never tinted or substituted". A club with no recorded colours gets a neutral outlined shirt
+    // rather than borrowing anything from the badge.
+    "src/tournaments/team-row.tsx",
+    // Club Branding: the screen on which a club CHOOSES its playing colours. The kit is the subject of
+    // the page, not a stand-in for anything -- the crest has its own control on the same screen.
+    "app/(tabs)/admin/branding.tsx",
   ])
   for (const file of FILES) {
     if (MAY_DRAW_A_KIT.has(file)) continue
     const src = strip(read(file))
     assert.ok(!/RugbyKit|kitUrl|kit_config/.test(src), `${file} reaches for a kit`)
+  }
+
+  /*
+    AND THE ALLOW-LIST IS NOT A LOOPHOLE.
+
+    A named surface may DRAW a kit; it still may not use one INSTEAD of an identity. The shape that
+    would do that is a fallback -- a crest or an avatar on one side of a ternary or a `??` and a kit on
+    the other -- so that is refused everywhere, including in the files named above. Membership of a
+    list was never the rule; "a kit may never stand in for a person's picture or a club's crest" is,
+    and until now nothing actually checked it.
+  */
+  for (const file of FILES) {
+    const src = strip(read(file))
+    const substitution =
+      /(ClubCrest|PersonAvatar|crestUrl|avatarUrl|logo_storage_path)[^\n]{0,160}\?[^\n]{0,160}RugbyKit/.test(src) ||
+      /RugbyKit[^\n]{0,160}:[^\n]{0,160}(ClubCrest|PersonAvatar)/.test(src) ||
+      /(crestUrl|avatarUrl)[^\n]{0,40}\?\?[^\n]{0,120}RugbyKit/.test(src)
+    assert.ok(!substitution, `${file} falls back to a kit where an identity picture belongs`)
   }
 
   // And the kit component itself may not know what a person or a club is.
@@ -195,6 +243,44 @@ test("contexts come from the shared reader, and nothing reimplements them", () =
   }
 })
 
+/*
+  THE TRANSLATORS A CATCH MAY HAND A FAILURE TO.
+
+  `friendly` is the general one. Beside it sit a few DOMAIN translators, each of which exists because a
+  domain has its own deliberate `raise exception` messages that are already written for people -- they
+  surface `error.message` for a closed set of Ovalball's own SQLSTATEs (42501, 22023, 23514, P0001,
+  P0002) and fall back to a supplied sentence for anything else, so a PostgREST or JWT failure can
+  never reach a screen through them.
+
+  The SHAPE is matched rather than a list of names, and the list is then pinned below: a new
+  `somethingErrorMessage` is admitted by the shape, and immediately fails the pin until somebody has
+  looked at it. That is the review step the original rule was reaching for.
+*/
+const TRANSLATOR = /\b\w*(ErrorMessage|Problem)\(/
+
+test("every domain error translator is gated on Ovalball's own failure codes", () => {
+  const KNOWN = [
+    "packages/contracts/src/team/media.ts",
+    "apps/mobile/src/errors/translate.ts",
+    // Club Memberships setup (20270748000000): the doors raise sentences written for a person under 42501/22023/
+    // 23505/23514/P0002/55000, and anything that names a table, column or constraint falls back.
+    "packages/contracts/src/membership/setup.ts",
+  ]
+  let gated = 0
+  for (const file of KNOWN) {
+    const src = readFileSync(file, "utf8")
+    if (/\b\w*(ErrorMessage|Problem)\s*\(/.test(src)) {
+      assert.match(
+        src,
+        /42501|PGRST|jwt expired/i,
+        `${file} defines an error translator that does not recognise the platform's own failures`
+      )
+      gated += 1
+    }
+  }
+  assert.ok(gated >= 1, "no domain error translator was found to check")
+})
+
 test("a person is never shown a raw database or auth error", () => {
   const translate = strip(read("src/errors/translate.ts"))
   assert.match(translate, /PGRST|jwt expired|42501/i, "the error translator does not recognise the platform's own failures")
@@ -213,7 +299,43 @@ test("a person is never shown a raw database or auth error", () => {
     for (const [, binding, body] of catches) {
       const name = binding.trim().split(/[:\s]/)[0]
       if (!name) continue
-      assert.match(body, /friendly\(/, `${file} catches ${name} without translating it`)
+      /*
+        OR IT HANDS THE FAILURE TO AN INJECTED TRANSLATOR.
+
+        A reusable component that performs somebody else's action cannot know what to call the failure,
+        so it takes an `errorMessage` mapper and calls that -- `src/admin/decision-sheet.tsx` is the
+        pattern. The original rule pinned the PRODUCER on the grounds that "if every catch hands its
+        error to friendly, no raw text exists to be rendered", and an injected mapper satisfies that
+        reasoning while failing its regex.
+        The teeth are not lost: every mapper PASSED to one of these is checked below, which is a place
+        nothing looked at all before.
+      */
+      // friendlyAction (errors/translate.ts) is friendly() with the action's verb -- the same translator.
+      const translated = /friendly(Action)?\(/.test(body) || TRANSLATOR.test(body)
+      assert.ok(translated, `${file} catches ${name} without translating it`)
+    }
+
+    // AND EVERY INJECTED MAPPER ROUTES THROUGH THE CANONICAL TRANSLATOR. A component may delegate what
+    // to call a failure; it may not let a caller hand it raw text.
+    // One level of nesting, so `{(cause) => f(cause, `x ${y}`)}` is read whole and `{problem}` stops
+    // at its own brace instead of swallowing the rest of the tag.
+    for (const [, mapper] of src.matchAll(/errorMessage=\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g)) {
+      const expr = mapper.trim()
+      // A bare identifier is a mapper DEFINED IN THIS FILE -- `errorMessage={problem}` where
+      // `const problem = useCallback((cause) => handoverProblem(cause, "this placement"))`. It is
+      // resolved by checking that binding's own definition, which is the only honest way to follow it
+      // without a type checker: an inline arrow is read directly, a named one is read where it is bound.
+      const inline = /friendly\(|\b\w*(ErrorMessage|Problem)\s*\(/.test(expr)
+      const named =
+        /^[A-Za-z_$][\w$]*$/.test(expr) &&
+        new RegExp(`(const|function)\\s+${expr}\\b[^\\n]*(\\n[^\\n]*){0,3}`).test(src) &&
+        /friendly\(|\b\w*(ErrorMessage|Problem)\s*\(/.test(
+          src.slice(src.search(new RegExp(`(const|function)\\s+${expr}\\b`))).slice(0, 400)
+        )
+      assert.ok(
+        inline || named,
+        `${file} passes an error mapper (${expr.slice(0, 40)}) that does not go through the canonical translator`
+      )
     }
     // And no raw failure is interpolated into a string a person could read.
     assert.ok(

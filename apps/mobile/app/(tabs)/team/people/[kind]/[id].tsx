@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { Text, View } from "react-native"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
-import { removeTeamAccess } from "@ovalball/contracts/club/people"
+import { readTeamStaff, revokeTeamStaffRole } from "@ovalball/contracts/team/staff"
 import { approveTeamPlaceRequest, archiveTeamPlayer, declineTeamPlaceRequest, readTeamPeople, restoreTeamPlayer, teamPeopleErrorMessage, type TeamPerson } from "@ovalball/contracts/team/people"
 import { loadStaffPlayers, type StaffPlayer } from "@ovalball/contracts/team/players"
 
@@ -215,7 +215,12 @@ export default function TeamPersonScreen() {
               destructive: true,
               reason: "optional",
               onConfirm: async (reason) => {
-                await removeTeamAccess(supabase, person.rowId, reason)
+                // EVERY ROLE THEY HOLD ON THIS SIDE, ONE AT A TIME (People & Invitations): the old seat-clear
+                // ended Coach, Team Manager and Team Admin together and left a First Aider's or a Volunteer's
+                // role behind. Each role ends through transition_role_assignment, the one additive path.
+                const staff = await readTeamStaff(supabase, teamId!)
+                const theirs = staff.find((m) => m.personId === person.personId)
+                for (const role of theirs?.roles ?? []) await revokeTeamStaffRole(supabase, role.assignmentId, reason)
                 router.back()
               },
             })

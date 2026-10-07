@@ -95,13 +95,14 @@ export type AssignTeamMemberResult = { ok: true; teamPermissionId: string } | { 
 export async function assignTeamMember(
   teamId: string,
   membershipId: string,
-  permission: "team_admin" | "coach" | "manager"
+  roleKey: string
 ): Promise<AssignTeamMemberResult> {
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc("set_team_access", {
+  // ADDITIVE (People & Invitations): assign_role gives one more role; nothing the person holds is replaced.
+  const { data, error } = await supabase.rpc("assign_role", {
     p_membership_id: membershipId,
+    p_role_key: roleKey,
     p_team_id: teamId,
-    p_permission: permission,
   })
   if (error || !data) return { ok: false, error: error?.message ?? "Could not assign." }
   revalidatePath(`/teams/${teamId}`)
@@ -109,10 +110,10 @@ export async function assignTeamMember(
   return { ok: true, teamPermissionId: data }
 }
 
-/** remove_team_access is the boundary: it ends the person's roles on this team. */
-export async function removeTeamMember(teamId: string, teamPermissionId: string): Promise<TeamActionResult> {
+/** One role ends -- the assignment named -- through transition_role_assignment; nothing else changes. */
+export async function removeTeamMember(teamId: string, assignmentId: string): Promise<TeamActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("remove_team_access", { p_team_permission_id: teamPermissionId })
+  const { error } = await supabase.rpc("transition_role_assignment", { p_assignment_id: assignmentId, p_to_state: "REVOKED", p_allow_no_club_admin: false })
   if (error) return { ok: false, error: error.message }
   revalidatePath(`/teams/${teamId}`)
   revalidatePath("/people")
@@ -163,11 +164,12 @@ export async function approveTeamJoinRequest(teamId: string, membershipId: strin
   return { ok: true }
 }
 
-export async function declineTeamJoinRequest(teamId: string, membershipId: string): Promise<TeamActionResult> {
+export async function declineTeamJoinRequest(teamId: string, membershipId: string, reason?: string): Promise<TeamActionResult> {
   const supabase = await createClient()
   const { error } = await supabase.rpc("reject_pending_team_membership", {
     p_membership_id: membershipId,
-    p_reason: "Declined from Team People.",
+    // A team code's card asks the decider why, as the phone does; the older request rows still record this.
+    p_reason: reason?.trim() || "Declined from Team People.",
   })
   if (error) return { ok: false, error: error.message }
   revalidatePath(`/teams/${teamId}`)

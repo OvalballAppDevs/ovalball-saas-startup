@@ -105,6 +105,15 @@ async function writeAs(page, token, table, body) {
   )
 }
 
+// THE LEGACY GUARDIAN INVITATIONS THIS DATABASE ALREADY HOLDS -- read before anything runs, so the check at
+// the end asks "did this run leave them exactly as it found them", which is the rule (Phase 2 O.5: a pending
+// legacy invitation keeps its token until it expires). It used to assert there was exactly one, which was
+// true of production and never of a local database, so the rule was only ever tested where nobody runs this.
+const legacySnapshot = () =>
+  sql(`select coalesce(string_agg(id::text || ':' || status || ':' || (token is not null)::text, ',' order by id), '')
+         from public.guardian_invitations where status = 'pending'`)
+const legacyBefore = legacySnapshot()
+
 const browser = await launch()
 const pageErrors = []
 
@@ -221,9 +230,11 @@ try {
 record("cleanup: this run created nothing that survives",
   sql(`select count(*) from public.access_invitations where invited_email_normalised like 's17.browser.%'`) === "0" &&
     sql(`select count(*) from public.invitations`) === "0")
-// The one real pending legacy guardian invitation is review/production data belonging to a person.
-// It is read here and never written, and Phase 2 O.5 says it keeps its token until it expires.
-record("cleanup: the live legacy guardian invitation is untouched",
-  sql(`select count(*) from public.guardian_invitations where status = 'pending' and token is not null`) === "1")
+// A pending legacy guardian invitation is somebody's data (in production there is one real one). This run
+// reads them and never writes them, and Phase 2 O.5 says each keeps its token until it expires.
+const legacyAfter = legacySnapshot()
+record("cleanup: every pending legacy guardian invitation is exactly as this run found it",
+  legacyAfter === legacyBefore,
+  `${legacyBefore ? legacyBefore.split(",").length : 0} pending before, ${legacyAfter ? legacyAfter.split(",").length : 0} after`)
 
 process.exit(summarise() ? 0 : 1)

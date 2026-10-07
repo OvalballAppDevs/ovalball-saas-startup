@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Slot, useRouter, useSegments } from "expo-router"
+import { Slot, useNavigationContainerRef, useRouter, useSegments } from "expo-router"
 import * as Linking from "expo-linking"
 import { StatusBar } from "expo-status-bar"
 import * as SplashScreen from "expo-splash-screen"
@@ -14,12 +14,15 @@ import { SessionProvider, useSession } from "../src/auth/session"
 import { supabase } from "../src/auth/supabase"
 import { setEntranceNotice } from "../src/auth/entrance-notice"
 import { hasJoinSecret, holdJoinSecret } from "../src/onboarding/join-secret"
-import { narrowIntentForContext, routeForIntent } from "../src/links/destinations"
+import { routeForIntent } from "../src/links/destinations"
 import { resolveIntent, type LinkIntent } from "../src/links/intents"
 import { ContextProvider, useAppContexts } from "../src/context/contexts"
 import { FamilyProvider } from "../src/family/family"
 import { colour } from "../src/design/tokens"
 import { LaunchCanvas } from "../src/components/launch"
+import { ForegroundBannerHost } from "../src/components/foreground-banner"
+import { useNotificationRouting } from "../src/notifications/push"
+import { PushPrePrompt } from "../src/notifications/push-pre-prompt"
 
 void SplashScreen.preventAutoHideAsync()
 
@@ -59,17 +62,11 @@ void SplashScreen.preventAutoHideAsync()
 function useIncomingLinks() {
   const { beginRecovery, refreshAssurance, status } = useSession()
   /*
-    THE VIEWER'S OWN CONTEXT, so an incoming link can be narrowed before it is
-    routed. A fixture link is canonical -- `/fixtures/<id>` is what the website,
-    an email and a future push payload all carry -- and it resolves to the address
-    that decides by authority. For a parent or a player it is narrowed here to the
-    participant address, which cannot draw administration at all.
-
-    A link that arrives before the context has resolved is NOT held for it: the
-    canonical address is authority-aware on its own, so routing it immediately is
-    correct and narrowing is the second of two protections rather than the only one.
+    A FIXTURE LINK IS CANONICAL -- `/fixtures/<id>` is what the website, an email and
+    a push payload all carry -- and it opens the one Match Centre for everybody. The
+    Match Centre asks the server what THIS viewer may see and do, so a link that
+    arrives before the context has resolved is routed immediately rather than held.
   */
-  const { active } = useAppContexts()
   const router = useRouter()
   const segments = useSegments()
   const handled = useRef(new Set<string>())
@@ -90,10 +87,10 @@ function useIncomingLinks() {
       //
       // A CALENDAR anchor is carried in the intent and ignored by the route: the
       // Calendar opens on today, which is the right default for a tap with no date.
-      const route = routeForIntent(narrowIntentForContext(intent, active?.kind ?? null))
+      const route = routeForIntent(intent)
       if (route) router.push(route as never)
     },
-    [router, active]
+    [router]
   )
 
   const handle = useCallback(
@@ -152,21 +149,12 @@ function useIncomingLinks() {
         return
       }
 
-      if (
-        intent.kind === "MESSAGES" ||
-        intent.kind === "MESSAGE_THREAD" ||
-        intent.kind === "FIXTURES" ||
-        intent.kind === "FIXTURE" ||
-        intent.kind === "MATCH_CENTRE" ||
-        intent.kind === "TRAINING" ||
-        intent.kind === "CALENDAR" ||
-        intent.kind === "RUGBY_HUB" ||
-        intent.kind === "NEWS" ||
-        intent.kind === "CLUB_ARTICLE" ||
-        intent.kind === "CLUB_ARTICLE_BY_SLUG" ||
-        intent.kind === "CLUB_ANNOUNCEMENT" ||
-        intent.kind === "TEAM"
-      ) {
+      // EVERY ROUTABLE LINK IS DELIVERED, exactly as a push tap on the same href is (`routeForHref`, below
+      // in the Gate). This was a hand-kept list, written before events and tournaments had links, and it
+      // silently dropped them: an event invitation opened from an email, or a shared Event Centre link,
+      // landed on Home. The route table is the one authority on what is routable; each screen still
+      // decides, through the server, whether this person may see what it opens.
+      if (routeForIntent(intent)) {
         if (status === "signed-in") deliver(intent)
         else pending.current = intent
       }
@@ -174,14 +162,17 @@ function useIncomingLinks() {
     [beginRecovery, refreshAssurance, router, status, deliver, segments]
   )
 
-  // The held intent is delivered once the session is real -- and cleared either way, so it cannot
-  // fire again later in a context where it no longer makes sense.
+  // The held intent is delivered once the session is real AND the person is inside the app -- and cleared
+  // either way, so it cannot fire again later in a context where it no longer makes sense. Delivering on
+  // "signed-in" alone pushed the screen from the sign-in route in the same moment the gate replaced that
+  // route with the tabs, so the link was lost and the person landed on Home: the very thing holding it is for.
+  const inApp = segments[0] === "(tabs)"
   useEffect(() => {
-    if (status !== "signed-in" || !pending.current) return
+    if (status !== "signed-in" || !inApp || !pending.current) return
     const intent = pending.current
     pending.current = null
     deliver(intent)
-  }, [status, deliver])
+  }, [status, inApp, deliver])
 
   useEffect(() => {
     // Cold start: the URL that launched the app.
@@ -198,7 +189,12 @@ function Gate() {
   const { status } = useSession()
   const segments = useSegments()
   const router = useRouter()
+  const navigation = useNavigationContainerRef()
   useIncomingLinks()
+  // A PUSH TAP RESOLVES THE SAME WAY AN IN-APP NOTIFICATION TAP DOES (`routeForHref`) -- the same one
+  // route table `useIncomingLinks`'s own `deliver` applies to every other kind of incoming link.
+  const { active } = useAppContexts()
+  useNotificationRouting(active?.kind ?? null)
   // `settled` trails `status` by the length of the fade, so the canvas is unmounted only after it has
   // finished fading -- not the moment the status changes, which would snap.
   const [settled, setSettled] = useState(false)
@@ -238,8 +234,14 @@ function Gate() {
     else if (status === "signed-in" && hasJoinSecret() && !onJoin && !onStepUp) router.replace("/join")
     else if (status === "signed-in" && !inApp && !onStepUp && !onJoin) router.replace("/(tabs)")
     else if (status === "needs-mfa" && !onVerify) router.replace("/verify")
-    else if (status === "signed-out" && !onEntrance) router.replace("/welcome")
-  }, [status, segments, router])
+    // SIGNING OUT LEAVES NOTHING OF THE LAST PERSON BEHIND. Replacing one route kept every tab's stack, so
+    // the next person to sign in on this phone could step Back into the screens the last one had open --
+    // a coach's team events under a parent's account. The whole navigation tree is reset instead.
+    else if (status === "signed-out" && !onEntrance) {
+      if (navigation.isReady()) navigation.reset({ index: 0, routes: [{ name: "welcome" }] })
+      else router.replace("/welcome")
+    }
+  }, [status, segments, router, navigation])
 
   // THE CANVAS STAYS UNTIL THE DESTINATION IS DECIDED AND PAINTED. Rendering the Slot underneath it
   // from the first frame means the real screen is already laid out when the canvas fades, so the fade
@@ -248,6 +250,8 @@ function Gate() {
     <View style={{ flex: 1, backgroundColor: colour.forest950 }}>
       <Slot />
       {!settled && <LaunchCanvas fading={status !== "restoring"} />}
+      <ForegroundBannerHost />
+      <PushPrePrompt />
     </View>
   )
 }

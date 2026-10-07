@@ -93,3 +93,70 @@ export interface InvitationShareData {
   /** True after a resend: the previous link and code no longer work. */
   replacesPrevious?: boolean
 }
+
+// ---------------------------------------------------------------------------------------------------
+// ONE SHARE LAYER (People & Invitations, 2026-10-05)
+//
+// WhatsApp, Messages and Email are TRANSPORTS for the one canonical link -- never a different link
+// and never a record of their own. These build the words and the transport URLs from the link a
+// caller already has, so every surface (a staff invitation, a player's team link, a club referral)
+// sends the same thing the same way, and a test can hold the QR, the poster, the copied link and every
+// message to one URL.
+// ---------------------------------------------------------------------------------------------------
+
+/** What a share is for -- the words differ; the link is whatever the server issued. */
+export type ShareSubject =
+  | { kind: "INVITATION"; clubName: string; roleLine: string | null; placeName: string | null; inviteeName?: string | null }
+  | { kind: "TEAM_JOIN"; clubName: string; teamName: string; inviteeName?: string | null }
+  | { kind: "REFERRAL"; clubName: string; referredClubName?: string | null }
+
+/**
+ * The prefilled message. Human, short, and carrying the link once. Never an internal id.
+ *
+ *   "Ovalball UAT RUFC has invited you to join Women's 1st Team on Ovalball as Coach. Use this link to
+ *    accept your invitation: https://…/join?t=…"
+ */
+export function shareMessage(subject: ShareSubject, url: string): string {
+  const hello = "inviteeName" in subject && subject.inviteeName ? `Hi ${subject.inviteeName.split(" ")[0]}, ` : ""
+  switch (subject.kind) {
+    case "INVITATION": {
+      const where = subject.placeName ?? subject.clubName
+      const as = subject.roleLine ? ` as ${subject.roleLine}` : ""
+      const lead = `${subject.clubName} has invited you to join ${where} on Ovalball${as}.`
+      return `${hello}${lead} Use this link to accept your invitation: ${url}`
+    }
+    case "TEAM_JOIN": {
+      const lead = `${subject.clubName} has invited you to join ${subject.teamName} on Ovalball.`
+      return `${hello}${lead} Use this link to ask to join: ${url}`
+    }
+    case "REFERRAL":
+      return `${subject.clubName} uses Ovalball to run its rugby: teams, fixtures, training and people in one place. We think ${subject.referredClubName ?? "your club"} would like it too: ${url}`
+  }
+}
+
+/** The email subject line for the same share. */
+export function shareSubjectLine(subject: ShareSubject): string {
+  switch (subject.kind) {
+    case "INVITATION":
+      return `Your invitation to ${subject.placeName ?? subject.clubName} on Ovalball`
+    case "TEAM_JOIN":
+      return `Join ${subject.teamName} on Ovalball`
+    case "REFERRAL":
+      return `${subject.clubName} recommends Ovalball`
+  }
+}
+
+/** WhatsApp's own share link: opens WhatsApp with the message ready to send to whoever the person picks. */
+export function whatsappShareUrl(message: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(message)}`
+}
+
+/** Messages (SMS/iMessage) with the body filled in; the person picks the recipient. */
+export function smsShareUrl(message: string, platform: "ios" | "android" | "web" = "ios"): string {
+  return `sms:${platform === "ios" ? "&" : "?"}body=${encodeURIComponent(message)}`
+}
+
+/** The person's own mail app, addressed when the address is known. Ovalball sends nothing itself here. */
+export function emailShareUrl(message: string, subjectLine: string, to?: string | null): string {
+  return `mailto:${to ? encodeURIComponent(to) : ""}?subject=${encodeURIComponent(subjectLine)}&body=${encodeURIComponent(message)}`
+}

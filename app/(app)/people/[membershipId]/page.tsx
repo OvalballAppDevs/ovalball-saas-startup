@@ -8,8 +8,13 @@ import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } f
 import { workspaceLabel } from "@/lib/app-context/workspace-label"
 import { clubAdminMembershipAt, getSessionContext, isClubAdminAnywhere } from "@/lib/app-context/session-context"
 import { explainDecision, decisionRemedy, type AccessDecision } from "@ovalball/contracts/club/access-explanation"
-import { accessEventSentence } from "@ovalball/contracts/club/access-history"
+import { accessEventSentence, accessReasonText } from "@ovalball/contracts/club/access-history"
 import { GROUPS } from "@ovalball/contracts/club/permission-groups"
+import { FINANCE_WEB_PATHS } from "@ovalball/contracts/club/finance"
+import { readClubPerson } from "@ovalball/contracts/club/people"
+import { loadClubMembershipBoard, type MembershipRow } from "@ovalball/contracts/membership/board"
+import { StandingPill } from "@/components/membership/membership-board-parts"
+import { hasCapability } from "@/lib/permissions/has-capability"
 import { clubRoleLabel, teamPermissionLabel } from "@/lib/permissions/role-labels"
 import { CONFIRMABLE_ROLE_KEY, PENDING_CONFIRMATION_EXPLANATION, additionalRoleDescription, roleKeyLabel } from "@/lib/permissions/role-presentation"
 import { createClient } from "@/lib/supabase/server"
@@ -205,6 +210,14 @@ export default async function PersonAccessPage({ params }: { params: Promise<{ m
     reason: h.reason,
   }))
 
+  // MEMBERSHIP, FOR THE CLUB'S FINANCE VIEWERS ONLY (Club Memberships Part 2 section 26). Where this person IS a
+  // player here (People's own register says so: club_people puts a member's own player record on their row) or PAYS
+  // for a player here (the membership board's responsible payer), one line each: the standing, the membership and a
+  // way into Memberships. Never a copy of the finance screens, and nothing for somebody without the finance view.
+  const membershipLines = (await hasCapability(supabase, "finance.subscription.view", "club", { clubId }))
+    ? await personMemberships(supabase, clubId, membershipId, membership.user_id)
+    : []
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
       <Link href="/people" className="inline-flex items-center gap-1.5 text-sm font-medium text-forest-800 hover:text-forest-950">
@@ -245,6 +258,34 @@ export default async function PersonAccessPage({ params }: { params: Promise<{ m
           </p>
         </div>
       </section>
+
+      {membershipLines.length > 0 && (
+        <section className="mt-8" aria-labelledby="person-membership">
+          <h2 id="person-membership" className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">
+            Membership
+          </h2>
+          <ul className="mt-3 flex flex-col gap-2">
+            {membershipLines.map(({ row, own }) => (
+              <li key={row.playerId} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white px-4 py-3.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink">{own ? (row.membership?.name ?? "No membership covers them") : `${row.firstName} ${row.surname}`.trim()}</p>
+                  <p className="mt-0.5 text-xs text-ink-muted">{own ? "Their own membership" : `${row.membership?.name ?? "Membership"}, which they pay for`}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <StandingPill standing={row.standing} />
+                  <Link
+                    href={FINANCE_WEB_PATHS.member(row.playerId)}
+                    className="inline-flex min-h-11 items-center text-sm font-medium text-forest-800 underline underline-offset-4 hover:text-forest-950 sm:min-h-8"
+                  >
+                    Open in Memberships
+                    <span className="sr-only">{own ? "" : `: ${row.firstName} ${row.surname}`}</span>
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <AdditionalRoles
         membershipId={membership.id}
@@ -326,7 +367,7 @@ export default async function PersonAccessPage({ params }: { params: Promise<{ m
                 </p>
               </div>
               <p className="mt-0.5 text-xs text-ink-muted">
-                {[`by ${entry.by}`, entry.reason].filter(Boolean).join(" · ")}
+                {[`by ${entry.by}`, accessReasonText(entry.reason)].filter(Boolean).join(" · ")}
               </p>
             </li>
           ))}
@@ -334,4 +375,26 @@ export default async function PersonAccessPage({ params }: { params: Promise<{ m
       </section>
     </div>
   )
+}
+
+/**
+ * The memberships this person is part of at the club, from the existing readers only: People's register says whether
+ * their own account is a player here (`club_people` puts the player's record on the member's row), and the club's
+ * membership board says whom they pay for. A guardian who does not pay is not identified here: People's register does
+ * not carry guardianship, so no line is invented for them.
+ */
+async function personMemberships(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  clubId: string,
+  membershipId: string,
+  userId: string
+): Promise<{ row: MembershipRow; own: boolean }[]> {
+  const [person, board] = await Promise.all([
+    readClubPerson(supabase, clubId, membershipId).catch(() => null),
+    loadClubMembershipBoard(supabase, clubId).catch(() => null),
+  ])
+  if (!board?.programme) return []
+  const own = person?.playerId ? board.rows.find((r) => r.playerId === person.playerId) : undefined
+  const paysFor = board.rows.filter((r) => r.standing !== "ENDED" && r.payer?.userId === userId && r.payer.relationship === "guardian" && r.playerId !== own?.playerId)
+  return [...(own ? [{ row: own, own: true }] : []), ...paysFor.map((row) => ({ row, own: false }))]
 }

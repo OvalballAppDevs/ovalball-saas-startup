@@ -45,6 +45,7 @@ const OUTSIDER = "uat.unrelated@ovalball.test"
 
 const world = ensureFixtureWorld(sql, { tag: "s78" })
 const TAG = `STEP7-${Date.now()}`
+const RUN_STARTED_AT = new Date().toISOString()
 sql(`delete from public.fixtures where notes like 'STEP7-%'`)
 
 const clubId = world.clubId
@@ -110,6 +111,9 @@ function cleanup() {
   if (cleaned) return
   cleaned = true
   try {
+    // The notices this run's fixtures caused (moving a fixture to another pitch tells its team and families)
+    // go with them: they sat in persistent inboxes, the owner's included, about fixtures that no longer exist.
+    sql(`delete from public.notifications where data->>'fixture_id' in (select id::text from public.fixtures where notes like 'STEP7-%')`)
     sql(`delete from public.player_fixture_attendance where fixture_id in (select id from public.fixtures where notes like 'STEP7-%')`)
     sql(`delete from public.fixture_source_refs where fixture_id in (select id from public.fixtures where notes like 'STEP7-%')`)
     sql(`delete from public.fixtures where notes like 'STEP7-%'`)
@@ -402,9 +406,13 @@ if (squadSize > 0) {
   text = await bodyText()
   record("§I an authorised viewer is told how many are still to reply",
     /to reply|All replied/.test(text), text.split("\n").find((l) => /to reply|All replied/.test(l)) ?? "(absent)")
+  // The words are the canonical attendance vocabulary's (packages/contracts/src/availability/vocabulary.ts --
+  // "1 attending · 0 can't attend" since the one-availability-question work), so this asserts what the check
+  // is about -- every figure carries its word -- rather than one wording of it.
+  const breakdown = /\d+ [A-Za-z][A-Za-z' ]* · \d+ [A-Za-z][A-Za-z' ]*/
   record("§I and the breakdown is in words and numbers, never colour alone",
-    /\d+ in · \d+ out/.test(text.replace(/\s+/g, " ")) || /All replied/.test(text),
-    text.split("\n").find((l) => /\d in/.test(l)) ?? "(absent)")
+    breakdown.test(text.replace(/\s+/g, " ")) || /All replied/.test(text),
+    text.split("\n").find((l) => breakdown.test(l)) ?? "(absent)")
 } else {
   record("§I an authorised viewer is told how many are still to reply", false, "the seeded team has no roster to count")
 }
@@ -509,6 +517,9 @@ for (const [origin, fixtureId, tag, date] of [
 
   const week = sql(`select to_char(date_trunc('week', date '${date}')::date, 'YYYY-MM-DD')`)
   await go(`/calendar?view=season&week=${week}`)
+  // The Calendar draws its week after the page loads: wait for this fixture's link (or the timeout) before
+  // counting, so the check reads what is drawn rather than the instant before it was drawn.
+  await page.locator(`a[href*="${fixtureId}"]`).first().waitFor({ state: "attached", timeout: 20000 }).catch(() => {})
   record(`${origin} fixture is the same canonical fixture on the Calendar`,
     (await page.locator(`a[href*="${fixtureId}"]`).count()) > 0,
     `${await page.locator(`a[href*="${fixtureId}"]`).count()} reference(s) to ${fixtureId.slice(0, 8)}`)
@@ -563,7 +574,8 @@ for (const width of [390, 320]) {
 // =====================================================================
 cleanup()
 record("the suite leaves no fixture, pitch or team of its own behind",
-  sql("select count(*) from public.fixtures where notes like 'STEP7-%'") === "0")
+  sql("select count(*) from public.fixtures where notes like 'STEP7-%'") === "0" &&
+    sql(`select count(*) from public.notifications where created_at >= '${RUN_STARTED_AT}' and type = 'fixture_pitch_changed' and not exists (select 1 from public.fixtures f where f.id::text = data->>'fixture_id')`) === "0")
 
 await browser.close()
 process.exit(summarise() ? 0 : 1)

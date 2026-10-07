@@ -197,7 +197,9 @@ export function attendanceAttention(
         sounding like two.
       */
       label: availabilityQuestion(item.kind, options.viewerIsThePlayer ?? false, item.childFirstName ?? ""),
-      detail: eventDescription(item),
+      // WHICH DAY, FIRST. Two Tuesday-and-Thursday sessions at the same time and ground were two identical rows,
+      // "Can Ava make training? 18:00 · Ovalball UAT Ground", that read as one job listed twice.
+      detail: [dayLabel(item.date, todayIso), eventDescription(item)].filter(Boolean).join(" · ") || null,
       playerId: item.playerId,
       item,
       urgent: daysBetween(todayIso, item.date) <= URGENT_WITHIN_DAYS,
@@ -210,6 +212,15 @@ export function eventDescription(item: AgendaItem): string | null {
   // Training has no opposition and must never be given a fake one, so it is
   // described by when and where -- which is what a parent is actually asking.
   if (item.kind === "training") return [when, item.venue].filter(Boolean).join(" · ") || null
+  // A tournament is named, and says which day of itself this is. It has no
+  // opposition to describe it by, so the line below would describe it by nothing.
+  if (item.kind === "tournament") {
+    return (
+      [item.name, item.dayOfSpan ? `Day ${item.dayOfSpan.day} of ${item.dayOfSpan.of}` : null, when, item.venue]
+        .filter(Boolean)
+        .join(" · ") || null
+    )
+  }
   const opposition = item.them ? [item.them.clubName, item.them.teamName].filter(Boolean).join(" ") : null
   return [opposition ? `v ${opposition}` : null, item.homeAway === "Home" || item.homeAway === "Away" ? item.homeAway : null, when]
     .filter(Boolean)

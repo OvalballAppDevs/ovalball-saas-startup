@@ -52,6 +52,9 @@ export const TEAM_AUTHORITY_KEYS = {
   teamManage: "team.team.manage",
   pathwayRequest: "player.pathway.request",
   playerProfileView: "player.profile.view",
+  // Asking for an age-grade dispensation onto this team -- the team's own move on an age-grade job. The
+  // decision is never the team's: the club's Safeguarding Officer or a Club Admin makes it (20270742000000).
+  dispensationRequest: "fixture.dispensation.request",
 } as const
 
 export type TeamAuthorityKey = keyof typeof TEAM_AUTHORITY_KEYS

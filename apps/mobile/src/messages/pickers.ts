@@ -10,8 +10,10 @@ import { MAX_ATTACHMENT_BYTES, validateAttachment } from "./attachments"
  * TWO SOURCES, AND DELIBERATELY NOT A THIRD. There is no Files picker here, and that is the product
  * decision rather than an omission: a document in an Ovalball conversation comes from the club's own
  * library, which has an owner, a category and a revision, not from whatever happens to be on one
- * person's handset. `expo-document-picker` is not a dependency of this app, so the option cannot be
- * quietly restored by adding four lines to a menu.
+ * person's handset. The messenger may not import a device file picker at all -- `expo-document-picker`
+ * belongs to Team Documents and to nothing else, enforced by
+ * `scripts/verify-mobile-messenger-scope.mjs`'s owner list -- so the option cannot be quietly restored
+ * by adding four lines to a menu.
  *
  * Both sources end at the same place: a name, a MIME type, a size and some bytes, checked against the
  * canonical attachment rules BEFORE anything is uploaded. iOS will happily hand back a 48-megapixel

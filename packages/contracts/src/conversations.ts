@@ -5,6 +5,8 @@ import type { Database } from "./database"
 import { resolveClubLogoUrl } from "./club-logo"
 import { manageableTeams, type SessionContext } from "./session-context"
 
+const CLOSED_REQUEST = new Set(["cancelled", "declined", "expired"])
+
 export interface ConversationSummary {
   /** Which half of fixture_messages' exactly-one-of columns this thread keys off. */
   kind: "request" | "fixture"
@@ -71,6 +73,9 @@ export async function getConversationSummaries(
   const myTeamIdList = Array.from(myTeamIds)
 
   const summaries = new Map<string, ConversationSummary>()
+  // Which inbox row a fixture conversation belongs to, so messages and unread counts from any of its fixtures land
+  // on the one row.
+  const conversationKey = new Map<string, string>()
 
   const CLUB_LOGO_SELECT = "clubs(logo_storage_path, club_directory(name, logo_storage_path))"
 
@@ -127,9 +132,27 @@ export async function getConversationSummaries(
     const { data: fixtures } = await supabase
       .from("fixtures")
       .select(
-        `id, kickoff_date, status, owning_team_id, opponent_team_id, owning_team:teams!fixtures_owning_team_id_fkey(display_name, ${CLUB_LOGO_SELECT}), opponent_team:teams!fixtures_opponent_team_id_fkey(display_name, ${CLUB_LOGO_SELECT}), raw_opposition_text`
+        `id, conversation_id, kickoff_date, status, owning_team_id, opponent_team_id, owning_team:teams!fixtures_owning_team_id_fkey(display_name, ${CLUB_LOGO_SELECT}), opponent_team:teams!fixtures_opponent_team_id_fkey(display_name, ${CLUB_LOGO_SELECT}), raw_opposition_text`
       )
       .in("id", fixtureIds)
+
+    // ONE CONVERSATION PER OPPOSING TEAM (20270757): every fixture between the same two sides shares one
+    // conversation_id, so the inbox shows one row for it. The row opens through the side's NEXT fixture (or,
+    // when none is ahead, the most recent), which is also the date it shows.
+    const conversationIds = Array.from(new Set((fixtures ?? []).map((f) => f.conversation_id).filter((c): c is string => Boolean(c))))
+    const { data: siblings } =
+      conversationIds.length > 0
+        ? await supabase.from("fixtures").select("id, conversation_id, kickoff_date").in("conversation_id", conversationIds)
+        : { data: [] as { id: string; conversation_id: string | null; kickoff_date: string | null }[] }
+    const today = new Date().toISOString().slice(0, 10)
+    const representative = new Map<string, { id: string; kickoff_date: string | null }>()
+    for (const conversationId of conversationIds) {
+      const all = (siblings ?? []).filter((f) => f.conversation_id === conversationId)
+      const ahead = all.filter((f) => f.kickoff_date && f.kickoff_date >= today).sort((a, b) => (a.kickoff_date ?? "").localeCompare(b.kickoff_date ?? ""))
+      const behind = all.filter((f) => !f.kickoff_date || f.kickoff_date < today).sort((a, b) => (b.kickoff_date ?? "").localeCompare(a.kickoff_date ?? ""))
+      const chosen = ahead[0] ?? behind[0]
+      if (chosen) representative.set(conversationId, chosen)
+    }
 
     for (const f of fixtures ?? []) {
       const isOwner = myTeamIds.has(f.owning_team_id)
@@ -137,16 +160,19 @@ export async function getConversationSummaries(
       if (!isOwner && !isOpponent) continue
       const myTeam = isOwner ? f.owning_team : f.opponent_team
       const oppTeam = isOwner ? f.opponent_team : f.owning_team
-      summaries.set(`fixture:${f.id}`, {
+      const chosen = (f.conversation_id && representative.get(f.conversation_id)) || { id: f.id, kickoff_date: f.kickoff_date }
+      if (f.conversation_id) conversationKey.set(f.conversation_id, `fixture:${chosen.id}`)
+      if (summaries.has(`fixture:${chosen.id}`)) continue
+      summaries.set(`fixture:${chosen.id}`, {
         kind: "fixture",
-        id: f.id,
+        id: chosen.id,
         myClubName: clubNameFrom(myTeam?.clubs),
         myTeamDisplayName: myTeam?.display_name ?? "Team",
         myClubLogoUrl: logoUrlFrom(supabase, myTeam?.clubs),
         opponentClubName: oppTeam ? clubNameFrom(oppTeam.clubs) : (f.raw_opposition_text ?? "Opponent"),
         oppositionLabel: oppTeam?.display_name ?? f.raw_opposition_text,
         opponentClubLogoUrl: logoUrlFrom(supabase, oppTeam?.clubs),
-        date: f.kickoff_date,
+        date: chosen.kickoff_date,
         status: f.status,
         latestMessagePreview: null,
         latestMessageAt: null,
@@ -159,15 +185,15 @@ export async function getConversationSummaries(
   if (summaries.size === 0) return []
 
   const requestIds = Array.from(summaries.values()).filter((s) => s.kind === "request").map((s) => s.id)
-  const fixtureIdsForMessages = Array.from(summaries.values()).filter((s) => s.kind === "fixture").map((s) => s.id)
+  const conversationIdsForMessages = Array.from(conversationKey.keys())
 
   const { data: messages } = await supabase
     .from("fixture_messages")
-    .select("fixture_id, fixture_request_id, body, created_at, sender_user_id")
+    .select("fixture_id, fixture_request_id, conversation_id, body, created_at, sender_user_id, content_type")
     .or(
       [
         requestIds.length > 0 ? `fixture_request_id.in.(${requestIds.join(",")})` : null,
-        fixtureIdsForMessages.length > 0 ? `fixture_id.in.(${fixtureIdsForMessages.join(",")})` : null,
+        conversationIdsForMessages.length > 0 ? `conversation_id.in.(${conversationIdsForMessages.join(",")})` : null,
       ]
         .filter(Boolean)
         .join(",")
@@ -177,12 +203,13 @@ export async function getConversationSummaries(
   const latestSenderIds = new Set<string>()
   const latestByKey = new Map<string, { body: string; createdAt: string; senderId: string }>()
   for (const m of messages ?? []) {
-    const key = m.fixture_id ? `fixture:${m.fixture_id}` : `request:${m.fixture_request_id}`
+    const key = m.fixture_request_id ? `request:${m.fixture_request_id}` : m.conversation_id ? conversationKey.get(m.conversation_id) : undefined
+    if (!key) continue
     if (!latestByKey.has(key)) {
       // A preview line for an uncaptioned image says what it is. An empty
       // string here would render a conversation whose last message looks
       // like nothing happened.
-      latestByKey.set(key, { body: m.body ?? "Photo", createdAt: m.created_at, senderId: m.sender_user_id })
+      latestByKey.set(key, { body: m.body ?? (m.content_type === "audio" ? "Voice note" : "Photo"), createdAt: m.created_at, senderId: m.sender_user_id })
       latestSenderIds.add(m.sender_user_id)
     }
   }
@@ -221,14 +248,29 @@ export async function getConversationSummaries(
   // groups by the registry's own topic, so the two can no longer disagree.
   const { data: unread } = await supabase.rpc("my_unread_message_counts")
 
+  // Any fixture of a conversation counts towards its one row.
+  const fixtureToKey = new Map<string, string>()
+  for (const [key, summary] of summaries) if (summary.kind === "fixture") fixtureToKey.set(summary.id, key)
+  const { data: unreadFixtures } = await supabase.from("fixtures").select("id, conversation_id").in("conversation_id", conversationIdsForMessages.length > 0 ? conversationIdsForMessages : ["00000000-0000-0000-0000-000000000000"])
+  for (const f of unreadFixtures ?? []) {
+    const key = f.conversation_id ? conversationKey.get(f.conversation_id) : undefined
+    if (key) fixtureToKey.set(f.id, key)
+  }
+
   for (const row of unread ?? []) {
     const key = row.fixture_id
-      ? `fixture:${row.fixture_id}`
+      ? fixtureToKey.get(row.fixture_id)
       : row.fixture_request_id
         ? `request:${row.fixture_request_id}`
         : null
     const summary = key ? summaries.get(key) : undefined
     if (summary) summary.unreadCount += row.unread
+  }
+
+  // A request that ended (cancelled, declined, expired) with nothing said in it is not a conversation anybody
+  // needs in the inbox -- and it was the second, third and fourth row for the same opposing team.
+  for (const [key, summary] of summaries) {
+    if (summary.kind === "request" && CLOSED_REQUEST.has(summary.status) && !summary.latestMessageAt) summaries.delete(key)
   }
 
   return Array.from(summaries.values()).sort((a, b) => {

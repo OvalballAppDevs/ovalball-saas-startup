@@ -268,6 +268,16 @@ export default function ClubProfileScreen() {
             </Card>
           </View>
 
+          <View style={{ gap: space.sm }}>
+            <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]}>
+              Match Day
+            </Text>
+            <Card style={{ gap: space.sm }}>
+              <Text style={[type.small, { color: colour.inkMuted }]}>Which awards every team runs, and whether team pages show squads and photos.</Text>
+              <Button label="Awards & Public Pages" variant="secondary" onPress={() => router.push("/admin/match-day" as never)} />
+            </Card>
+          </View>
+
           <Card style={{ gap: space.lg }}>
             <Field label="About the Club" value={draft.bio} onChange={(v) => edit({ bio: v })} editable={canEdit} multiline placeholder="A short introduction shown on your club's public page." />
             <Field label="Website" value={draft.website} onChange={(v) => edit({ website: v })} editable={canEdit} keyboard="url" placeholder="https://" />

@@ -141,6 +141,12 @@ export async function markConversationRead(kind: ConversationKind, id: string): 
   } = await supabase.auth.getUser()
   if (!user) return
 
+  // A fixture thread now spans every match against that side (20270757): read it all at once, server-side.
+  if (kind === "fixture") {
+    await supabase.rpc("mark_fixture_conversation_read", { p_fixture_id: id })
+    return
+  }
+
   await supabase
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
@@ -150,7 +156,7 @@ export async function markConversationRead(kind: ConversationKind, id: string): 
     // had been read in the panel.
     .eq("type", kind === "direct" ? "new_direct_message" : "new_fixture_message")
     .is("read_at", null)
-    .contains("data", kind === "request" ? { fixture_request_id: id } : kind === "fixture" ? { fixture_id: id } : { club_conversation_id: id })
+    .contains("data", kind === "request" ? { fixture_request_id: id } : { club_conversation_id: id })
 }
 
 /**

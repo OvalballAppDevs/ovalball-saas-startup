@@ -113,14 +113,18 @@ const DEVELOPMENT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty"
  * Falls back to the UK-wide view exactly as before when no real origin exists (a team-context viewer,
  * or a club with no geocoded location yet).
  */
-export function ClubhouseMap({
+export function ClubhouseMap<M extends ClubMapMarker>({
   markers,
   onSelect,
   origin,
   selectedDirectoryId,
 }: {
-  markers: ClubMapMarker[]
-  onSelect: (m: ClubMapMarker) => void
+  // Generic over the marker shape rather than fixed to `ClubMapMarker`, so a caller holding a
+  // richer marker (the research-preview projection, which adds `isPreview`) gets that same shape
+  // back from `onSelect` instead of a widened one. The map itself reads nothing beyond
+  // `ClubMapMarker`; it simply hands the caller's own object back.
+  markers: M[]
+  onSelect: (m: M) => void
   origin?: ClubMapMarker | null
   /** The currently open sheet's own club, if any -- purely a paint signal (see `isSelected`'s own
    * doc comment in `buildClubMarkerFeatureCollection`), never an authority or a second selection store. */

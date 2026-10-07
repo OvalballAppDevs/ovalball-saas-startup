@@ -3,12 +3,13 @@ import "server-only"
 import type { SupabaseClient, User } from "@supabase/supabase-js"
 
 import { sendEmailEvent } from "@/lib/email/send"
-import type { Database } from "@/types/database.types"
+import type { Database, Json } from "@/types/database.types"
 import type { ClubSelection, PersonalDetails } from "@/lib/signup/types"
 import { getSiteUrl } from "@/lib/site-url"
 import { clearSignupBinding, readSignupFlowId, signupBindingMatches } from "@/lib/signup/signup-binding"
 import { hasCompletedProfile } from "@/lib/identity/profile-setup"
 import { policyAcknowledgements, termsAgreementVersion } from "@/lib/legal/required-consents"
+import { referralSlugFrom } from "@ovalball/contracts/clubhouse/referral-link"
 
 /**
  * Runs once, from /auth/callback, immediately after exchangeCodeForSession
@@ -95,7 +96,7 @@ export async function completeSignupIfNeeded(
  */
 function coercePayload(raw: unknown): SignupRecordsPayload | null {
   if (!raw || typeof raw !== "object") return null
-  const { personal, club, rugbyCode, termsVersion } = raw as Record<string, unknown>
+  const { personal, club, rugbyCode, termsVersion, referralSlug } = raw as Record<string, unknown>
   if (!personal || typeof personal !== "object") return null
   if (!club || typeof club !== "object" || !("kind" in club)) return null
   if (typeof termsVersion !== "string") return null
@@ -104,6 +105,7 @@ function coercePayload(raw: unknown): SignupRecordsPayload | null {
     club: club as ClubSelection,
     rugbyCode: typeof rugbyCode === "string" ? rugbyCode : null,
     termsVersion,
+    referralSlug: typeof referralSlug === "string" ? referralSlugFrom(referralSlug) : null,
   }
 }
 
@@ -112,6 +114,8 @@ export interface SignupRecordsPayload {
   club: ClubSelection
   rugbyCode: string | null
   termsVersion: string
+  /** The club whose referral link they signed up through, if any (One Referral Link per Club). */
+  referralSlug?: string | null
 }
 
 /**
@@ -190,18 +194,21 @@ export async function writeSignupRecords(
   }
 
   if (club.kind === "existing-unclaimed") {
-    const { data: claim, error } = await supabase.from("club_claims").insert({
-      directory_id: club.directory.id,
-      claimant_user_id: user.id,
-      claimed_role: club.role,
-      authority_declaration: club.authorityConfirmed
+    // THE ONE DOOR FOR A CLAIM (20270743000000). submit_club_claim is what the Clubhouse uses: three claims a
+    // day, a live session, the has-existing-admin flag and the claim.submitted event -- and it resolves the
+    // club's referral link itself, keeping it only when the referring club is active, is not this club, and
+    // this club is not yet on Ovalball. Signup used to write the row itself and skipped all of it.
+    const { data: claimId, error } = await supabase.rpc("submit_club_claim", {
+      p_directory_id: club.directory.id,
+      p_claimed_role: club.role,
+      p_authority_declaration: club.authorityConfirmed
         ? "I confirm that I have permission from this club to act on its behalf and to request administrative access to its Ovalball account."
         : "",
-      proposed_teams: club.teams as unknown as Database["public"]["Tables"]["club_claims"]["Insert"]["proposed_teams"],
+      p_referral_slug: payload.referralSlug ?? undefined,
+      p_proposed_teams: club.teams as unknown as Json,
     })
-    .select("id")
-    .single()
-    if (error) return { completed: false, error: `club_claims: ${error.message}` }
+    if (error || !claimId) return { completed: false, error: `club_claims: ${error?.message ?? "no claim was made"}` }
+    const claim = { id: claimId }
 
     // Due-diligence email to the configured Site Admin notification
     // destination -- distinct from the in-app notification every active
@@ -235,10 +242,11 @@ export async function writeSignupRecords(
     if (!club.directory.clubId) {
       return { completed: false, error: "club_join_requests: club is not actually activated on Ovalball yet." }
     }
-    const { error } = await supabase.from("club_join_requests").insert({
-      club_id: club.directory.clubId,
-      requesting_user_id: user.id,
-      requested_role: club.role,
+    // THE ONE DOOR FOR A JOIN REQUEST (20270743000000): always pending, from the person asking, citing no
+    // invitation; the table's trigger opens the pending membership exactly as a team code's request does.
+    const { error } = await supabase.rpc("request_club_membership", {
+      p_club_id: club.directory.clubId,
+      p_requested_role: club.role,
     })
     if (error) return { completed: false, error: `club_join_requests: ${error.message}` }
   } else if (club.kind === "not-found") {

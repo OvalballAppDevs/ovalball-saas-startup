@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { CLAIMABLE_ROLES, type ClaimableRole } from "@ovalball/contracts/clubhouse"
 
 import { submitClubClaim } from "./claim-actions"
+import { useReferralSlug } from "./use-referral-slug"
 
 const MIN_DECLARATION_LENGTH = 20
 
@@ -42,6 +43,8 @@ export function ClaimClubDialog({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  // Arrived through another club's referral link (/r/<slug> -> /clubhouse?ref=<slug>): say so with the claim.
+  const referralSlug = useReferralSlug()
 
   function reset() {
     setRole("")
@@ -61,7 +64,7 @@ export function ClaimClubDialog({
     }
     setSending(true)
     setError(null)
-    const result = await submitClubClaim(clubDirectoryId, role, declaration)
+    const result = await submitClubClaim(clubDirectoryId, role, declaration, referralSlug)
     setSending(false)
     if (!result.ok) {
       setError(result.error)

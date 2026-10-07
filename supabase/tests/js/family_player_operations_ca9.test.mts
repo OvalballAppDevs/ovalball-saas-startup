@@ -159,9 +159,14 @@ test("a family's lists collapse siblings onto one event and the Match Centre say
   assert.match(fixtures, /selectedPlayerId === null/, "only when reading all children")
   const calendar = code(join(MOBILE, "app/(tabs)/calendar/index.tsx"))
   assert.match(calendar, /siblingsFor\(item, day\.items\)/)
-  const mc = code(join(MOBILE, "src/fixtures/match-centre.tsx"))
+  // The Match Centre is a folder of sections since the consolidation (2026-10-03); read it whole.
+  const mcDir = join(MOBILE, "src/fixtures/match-centre")
+  const mc = readdirSync(mcDir).filter((f) => f.endsWith(".tsx")).map((f) => code(join(mcDir, f))).join("\n")
   assert.match(mc, /resultQualifier\(view\.resultStatus\)/, "the canonical result_status decides the wording")
-  assert.match(mc, /attendanceConfirmation\(\{/, "a fixture answer is confirmed in the same words as a training one")
+  // A FIXTURE answer is confirmed by the Attendance moment in the owner's own words ("Ava is attending
+  // against Preston Grasshoppers RFC.", brief 2026-10-03), which deliberately name the opponent; a
+  // training answer keeps `attendanceConfirmation`. Both come from shared contracts, never inline copy.
+  assert.match(mc, /attendanceMomentCopy\(\{/, "a fixture answer is confirmed in the owner's moment wording")
   assert.match(mc, /if \(loaded\.canManageFixture\) \{[\s\S]*loadOppositionContacts/, "opposition contacts are asked for only by the fixture's manager")
   const load = code(join(MOBILE, "src/match-centre/load.ts"))
   assert.match(load, /resultStatus: f\.result_status \?\? null/)

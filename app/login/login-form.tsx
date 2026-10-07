@@ -19,7 +19,7 @@ import {
   tokenForSubmission,
 } from "@/lib/auth/challenge-state"
 import { AuthDivider, SocialAuthButtons } from "@/components/auth/social-auth-buttons"
-import { mfaChallengePath, safeNextPath } from "@/lib/auth/safe-next"
+import { mfaChallengePath, safeNextPath, DEFAULT_NEXT_PATH } from "@/lib/auth/safe-next"
 import { hasAnyOAuthProvider } from "@/lib/auth/oauth-providers"
 import { REMEMBER_COOKIE_NAME } from "@/lib/supabase/remember-constants"
 
@@ -214,7 +214,7 @@ export function LoginForm({ turnstileSiteKey }: { turnstileSiteKey: string | nul
         <p className="text-sm text-ink-muted">
           Nothing after a few minutes? Check the spelling above, or{" "}
           <Link
-            href={`/signup?email=${encodeURIComponent(email)}`}
+            href={signupHref(email, searchParams.get("next"))}
             className="font-medium text-forest-800 underline underline-offset-2 hover:text-forest-950"
           >
             create an account
@@ -444,4 +444,15 @@ function Notice({ tone, children }: { tone: "info" | "danger"; children: React.R
       {children}
     </div>
   )
+}
+
+/**
+ * SIGN-UP KEEPS WHERE THE PERSON WAS GOING (M11): an invitation opened before an account existed is resumed after it
+ * does. Only a destination the one open-redirect guard accepts travels; the default is not carried.
+ */
+function signupHref(email: string, next: string | null): string {
+  const params = new URLSearchParams({ email })
+  const safe = next ? safeNextPath(next) : null
+  if (safe && safe !== DEFAULT_NEXT_PATH) params.set("next", safe)
+  return `/signup?${params.toString()}`
 }

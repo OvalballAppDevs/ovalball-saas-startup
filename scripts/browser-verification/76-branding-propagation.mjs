@@ -20,7 +20,7 @@
 
 import { execFileSync } from "node:child_process"
 
-import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, summarise, uploadStorageObject, removeStorageObject } from "./harness.mjs"
 
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saas-startup"
 const TAG = Math.random().toString(36).slice(2, 7)
@@ -53,6 +53,11 @@ sql(`insert into public.teams (club_id, display_name, slug, category, age_group,
      values ('${clubId}', 'Under 12 Boys', '${KEY}-u12', 'youth', 'U12', 'boys', 'union', true)`)
 sql(`insert into public.club_kits (club_id, variant, pattern, primary_colour, secondary_colour)
      values ('${clubId}', 'primary', 'HOOPS', '#123456', '#abcdef')`)
+
+// Both crests are REAL files, because a path with nothing behind it is a broken image -- and ClubAvatar
+// rightly shows a broken crest as the club's initials, which made S6BR-01 a race this suite usually lost.
+await uploadStorageObject("club-logos", DIRECTORY_CREST)
+await uploadStorageObject("club-logos", CLUB_CREST)
 
 function teardown() {
   const tidy = (q) => {
@@ -231,11 +236,15 @@ try {
   )
 } finally {
   teardown()
+  await removeStorageObject("club-logos", DIRECTORY_CREST)
+  await removeStorageObject("club-logos", CLUB_CREST)
   await browser.close()
 }
 
-record("S6BR-Z the suite leaves no club or directory row behind",
+record("S6BR-Z the suite leaves no club, directory row or crest file behind",
   sql(`select (select count(*) from public.clubs where slug = '${SLUG}')
-            + (select count(*) from public.club_directory where normalized_key = '${KEY}')`) === "0")
+            + (select count(*) from public.club_directory where normalized_key = '${KEY}')
+            + (select count(*) from storage.objects where bucket_id = 'club-logos'
+                 and name in ('${DIRECTORY_CREST}', '${CLUB_CREST}'))`) === "0")
 
 process.exit(summarise("Branding propagation") ? 0 : 1)

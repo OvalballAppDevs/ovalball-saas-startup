@@ -173,7 +173,7 @@ try {
   record("B2 and the answer is offered ON the row, not behind a navigation", hasInlineAnswer)
 
   if (hasInlineAnswer) {
-    await answerGroup.getByRole("button", { name: /^I'm Available/ }).click()
+    await answerGroup.getByRole("button", { name: /^I'm Attending/ }).click()
     await page.waitForTimeout(2000)
   }
 
@@ -192,7 +192,7 @@ try {
   // ------------------------------------------------------------------
   await go("/agenda")
   const afterReload = await page.getByRole("group", { name: new RegExp(`${childA.firstName}.*${TAG}`, "i") }).first()
-  const pressed = await afterReload.getByRole("button", { name: /^I'm Available/ }).getAttribute("aria-pressed").catch(() => null)
+  const pressed = await afterReload.getByRole("button", { name: /^I'm Attending/ }).getAttribute("aria-pressed").catch(() => null)
   record("C1 after a reload the chosen answer is still shown as chosen", pressed === "true", String(pressed))
 
   // ------------------------------------------------------------------
@@ -204,7 +204,7 @@ try {
 
   const answerB = page.getByRole("group", { name: new RegExp(`${childB.firstName}.*${TAG}`, "i") }).first()
   if ((await answerB.count()) > 0) {
-    await answerB.getByRole("button", { name: /^Not Available/ }).click()
+    await answerB.getByRole("button", { name: /^Can't Attend/ }).click()
     await page.waitForTimeout(2000)
   }
   const storedB2 = sql(`select status from public.player_fixture_attendance
@@ -276,7 +276,7 @@ try {
     await m.waitForLoadState("networkidle").catch(() => {})
     const overflow = await m.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     record(`G3 no horizontal overflow on the family agenda at ${width}px`, overflow <= 0, `${overflow}px over`)
-    const target = await m.getByRole("button", { name: /^I'm Available/ }).first().boundingBox().catch(() => null)
+    const target = await m.getByRole("button", { name: /^I'm Attending/ }).first().boundingBox().catch(() => null)
     record(`G4 and an answer stays a real target at ${width}px`,
       target === null || target.height >= 44, target ? `${Math.round(target.height)}px` : "(not offered)")
     await small.close()

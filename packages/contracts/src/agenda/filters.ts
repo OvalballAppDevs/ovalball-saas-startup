@@ -294,6 +294,9 @@ export function teamOptions(items: AgendaItem[]): { id: string; name: string }[]
       by trimming words off another label is a naming convention invented for a
       screen.
     */
+    // A row that belongs to no team -- a festival the club hosts without a side in it -- is not a team
+    // to filter by.
+    if (!item.teamId) continue
     if (!byId.has(item.teamId)) byId.set(item.teamId, item.us.compactName ?? item.us.teamName ?? "Team")
   }
   return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))

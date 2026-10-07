@@ -7,6 +7,16 @@ import "server-only"
  * https://postcodes.io/docs -- bulk endpoint accepts up to 100 postcodes
  * per request, so a full club_directory backfill is a handful of calls,
  * never one call per row.
+ *
+ * DELIBERATE SIBLING OF THE CANONICAL ADDRESS SERVICE, NOT A DUPLICATE OF IT.
+ * `lib/address-lookup/lookup.ts` and `supabase/functions/address-lookup`
+ * serve INTERACTIVE lookup: one postcode, a full normalised
+ * `CanonicalLocation`, a user-facing failure vocabulary. This module serves
+ * BATCH geocoding: many postcodes, coordinates only, no address fields at
+ * all -- so there is no normalisation, no precision label and no error
+ * wording here to share with them, and nothing that could drift out of
+ * step. It deliberately maps NOTHING to a town: see the contract header in
+ * `packages/contracts/src/address.ts` for why `admin_district` is not one.
  */
 
 const POSTCODES_IO_BASE_URL = "https://api.postcodes.io"

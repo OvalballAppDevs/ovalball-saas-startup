@@ -24,6 +24,7 @@
 // =====================================================================
 
 import { execFileSync } from "node:child_process"
+import fs from "node:fs"
 
 import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
 
@@ -37,14 +38,17 @@ const sql = (q) =>
 const CLUB_ADMIN = "uat.coach@ovalball.test"
 const INVITEE = `uat.s2.invitee.${TAG}@ovalball.test`
 const MEMBER = `uat.s2.member.${TAG}@ovalball.test`
+const MANAGER = `uat.s2.manager.${TAG}@ovalball.test`
 const APPLICANT = `uat.s2.applicant.${TAG}@ovalball.test`
 const MINE = `uat.s2.%.${TAG}@ovalball.test`
 
 const clubId = sql(`select c.id from public.clubs c join public.club_directory d on d.id = c.directory_id
                      where d.normalized_key = 'ovalball-uat-rufc' limit 1`)
 const adminId = sql(`select id from auth.users where email = '${CLUB_ADMIN}'`)
-const teamU12 = sql(`select id from public.teams where club_id = '${clubId}' and age_group = 'U12' and squad_designation is null limit 1`)
-const teamU16 = sql(`select id from public.teams where club_id = '${clubId}' and age_group = 'U16' and squad_designation is null limit 1`)
+// Named teams, not "the first U16 the database returns": the review club runs Under 16 Boys AND Under 16
+// Girls, so an unordered `limit 1` chose between them differently from one run to the next.
+const teamU12 = sql(`select id from public.teams where club_id = '${clubId}' and age_group = 'U12' and gender = 'boys' and squad_designation is null`)
+const teamU16 = sql(`select id from public.teams where club_id = '${clubId}' and age_group = 'U16' and gender = 'boys' and squad_designation is null`)
 
 /**
  * An adult fixture identity. The date of birth is not decoration: the O.1
@@ -73,9 +77,14 @@ function identity(email, first, last) {
 
 function teardown() {
   sql(`
+    -- The applicant's join request told every Club Admin of the club ("New join request"), the persistent
+    -- review personas included. Those notices are this run's too, so they go before the request they name.
+    delete from public.notifications n using public.club_join_requests r, auth.users u
+      where r.requesting_user_id = u.id and u.email like '${MINE}' and n.data ->> 'join_request_id' = r.id::text;
+    delete from public.notifications n using auth.users u where n.user_id = u.id and u.email like '${MINE}';
     delete from public.club_join_requests r using auth.users u
       where r.requesting_user_id = u.id and u.email like '${MINE}';
-    delete from public.team_permissions tp using public.club_memberships m, auth.users u
+    delete from testing.team_roles tp using public.club_memberships m, auth.users u
       where tp.membership_id = m.id and m.user_id = u.id and u.email like '${MINE}';
     delete from public.role_assignments ra using public.club_memberships m, auth.users u
       where ra.membership_id = m.id and m.user_id = u.id and u.email like '${MINE}';
@@ -108,6 +117,32 @@ sql(`
     '{}'::jsonb, null, null,
     jsonb_build_array(jsonb_build_object('id','${teamU12}','roles',jsonb_build_array('COACH')),
                       jsonb_build_object('id','${teamU16}','roles',jsonb_build_array('TEAM_MANAGER'))));`)
+
+// THIS SUITE'S OWN TEAM MANAGER, of Under 12 Boys. J and H used to sign in as uat.team.manager, which made
+// them depend on a persistent persona's password and team list -- both have drifted since. A person who
+// signs in needs a password, so this one is created through the Auth admin API with the shared UAT
+// browser password; their club membership and Team Manager role are written as the other fixtures are,
+// and teardown() removes them with everything else matching uat.s2.%.TAG.
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
+const API = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321"
+const PASSWORD = process.env.UAT_BROWSER_PASSWORD || (() => {
+  try {
+    return fs.readFileSync(new URL("../../.env.local", import.meta.url), "utf8").match(/^UAT_BROWSER_PASSWORD=(.*)$/m)?.[1]?.trim() ?? ""
+  } catch {
+    return ""
+  }
+})()
+const managerRes = await fetch(`${API}/auth/v1/admin/users`, {
+  method: "POST",
+  headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+  body: JSON.stringify({ email: MANAGER, password: PASSWORD, email_confirm: true }),
+})
+const managerId = (await managerRes.json()).id
+if (!managerId) throw new Error(`could not create ${MANAGER}: HTTP ${managerRes.status}`)
+sql(`update public.profiles set first_name = 'Morgan', surname = 'Manager${TAG}', date_of_birth = '1984-02-09', setup_state = 'COMPLETE' where id = '${managerId}'`)
+sql(`insert into public.club_memberships (club_id, user_id, role, status) values ('${clubId}', '${managerId}', 'BASIC_USER', 'active');
+     insert into testing.team_roles (membership_id, team_id, role_key)
+       select id, '${teamU12}', 'TEAM_MANAGER' from public.club_memberships where club_id = '${clubId}' and user_id = '${managerId}';`)
 
 const browser = await launch()
 
@@ -169,7 +204,8 @@ try {
   // D. Give an existing member a team role, without re-inviting them.
   // ------------------------------------------------------------------
   await page.locator("#team-access-team").selectOption(teamU16)
-  await page.locator("#team-access-role").selectOption("coach")
+  // The role options are the canonical role keys (D2 below already reads role_key = 'COACH').
+  await page.locator("#team-access-role").selectOption("COACH")
   await page.locator("#team-access-reason").fill("Stepping up to help with the U16 side.")
   await page.getByRole("button", { name: /^Give Team Role$/ }).click()
   // Wait for the PRODUCT CONDITION -- the role appearing in the held list --
@@ -185,7 +221,7 @@ try {
   let held = await heldText()
   record("D1 an existing member can be given a team role from the page about them", /Under 16 Boys/.test(held) && /Coach/.test(held), held.replace(/\s+/g, " "))
   record("D2 and it is a real team_permissions row, not a screen state",
-    sql(`select count(*) from public.team_permissions where membership_id = '${membershipId}' and team_id = '${teamU16}' and permission = 'coach'`) === "1")
+    sql(`select count(*) from testing.team_roles where membership_id = '${membershipId}' and team_id = '${teamU16}' and role_key = 'COACH'`) === "1")
 
   await page.getByRole("button", { name: /^Remove$/ }).first().click()
   await page
@@ -201,7 +237,7 @@ try {
   // ------------------------------------------------------------------
   const mainPerson = await page.locator("main").innerText()
   const explanations = (mainPerson.match(/, because /g) ?? []).length
-  record("E1 every permission this club decides carries the rule that decided it", explanations >= 10, `${explanations} explanations`)
+  record("E1 every role_key this club decides carries the rule that decided it", explanations >= 10, `${explanations} explanations`)
   record("E2 in product language, never a reason code", !/ROLE_BUNDLE|DEFAULT_DENY|EXPLICIT_/.test(mainPerson))
   // THE TOTAL IS READ, NOT WRITTEN DOWN. This assertion used to name the
   // catalogue's size -- "2 of 10 allowed" -- and Convergence Step 8 added a
@@ -237,7 +273,8 @@ try {
   // ------------------------------------------------------------------
   record("G1 the club role of a member can still be changed from the list",
     (await page.locator(`main select[aria-label^="Club-wide role"]`).count()) >= 2)
-  record("G2 a member can still be removed from the club", (await page.getByRole("button", { name: /^Remove$/ }).count()) >= 1)
+  record("G2 a member can still be removed from the club",
+    (await page.getByRole("button", { name: /^Remove from Club$/ }).count()) >= 1)
   record("G3 somebody can still be invited", (await page.getByRole("button", { name: /Invite someone/i }).count()) === 1)
   record("G4 and a join request can still be approved or declined",
     (await page.getByRole("button", { name: /^Approve$/ }).count()) >= 1 && (await page.getByRole("button", { name: /^Decline$/ }).count()) >= 1)
@@ -287,8 +324,9 @@ try {
   // ------------------------------------------------------------------
   const tmCtx = await newContext(browser, { width: 1440, height: 1000 })
   const tmPage = await tmCtx.newPage()
-  await signIn(tmPage, "uat.team.manager@ovalball.test")
-  await tmPage.goto(`${APP}/teams/${teamU12}`, { waitUntil: "domcontentloaded" })
+  await signIn(tmPage, MANAGER)
+  // The team's people -- and the control that assigns one -- moved to its People page on 2026-09-22.
+  await tmPage.goto(`${APP}/teams/${teamU12}/people`, { waitUntil: "domcontentloaded" })
   await tmPage.waitForLoadState("networkidle").catch(() => {})
   const teamText = await tmPage.locator("main").innerText()
   record("J1 an authorised Team Manager is offered the assign control on her own team",
@@ -306,7 +344,7 @@ try {
   // ------------------------------------------------------------------
   const plain = await newContext(browser, { width: 1440, height: 1000 })
   const plainPage = await plain.newPage()
-  await signIn(plainPage, "uat.team.manager@ovalball.test")
+  await signIn(plainPage, MANAGER)
   await plainPage.goto(`${APP}/people/${membershipId}`, { waitUntil: "domcontentloaded" })
   await plainPage.waitForLoadState("networkidle").catch(() => {})
   record("H1 a member who is not a club admin is sent away from another person's access page",

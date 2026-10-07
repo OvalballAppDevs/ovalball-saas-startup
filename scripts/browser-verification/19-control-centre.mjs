@@ -65,11 +65,21 @@ const bandLinks = await page.locator('a[href*="resultStatus=none"], a[href*="sta
 record("§75 the counts are routes into the fixtures they count", bandLinks >= 3, `${bandLinks} band links`)
 
 // And they must count the whole scope, not the page in front of them.
-const clubId = sql(`select club_id from public.club_memberships
-  where user_id=(select id from auth.users where email='uat.coach@ovalball.test') and status='active' limit 1`)
-const dbOutstanding = Number(sql(`select count(*) from public.admin_fixture_overview
-  where is_primary_mirror and (owning_club_id='${clubId}' or opponent_club_id='${clubId}')
-  and kickoff_date < current_date and result_status='none' and status <> 'Cancelled'`))
+// The club is the one the page is about, named -- not whichever of this person's clubs an unordered
+// `limit 1` returned. And admin_fixture_overview is CALLER-SCOPED (internal.viewable_fixture_teams /
+// viewable_fixture_clubs, since 20270614): read as the database owner it sees nothing, so the figure the
+// screen must match is the one this person may see, asked as them and rolled back.
+const clubId = sql(`select id from public.clubs where slug = 'ovalball-uat-rufc'`)
+const coachId = sql(`select id from auth.users where email = 'uat.coach@ovalball.test'`)
+const dbOutstanding = Number(
+  sql(`begin; set local role authenticated;
+       select set_config('request.jwt.claims', json_build_object('sub', '${coachId}', 'role', 'authenticated')::text, true) is not null;
+       select count(*) from public.admin_fixture_overview
+        where is_primary_mirror and (owning_club_id='${clubId}' or opponent_club_id='${clubId}')
+          and kickoff_date < current_date and result_status='none' and status <> 'Cancelled';
+       rollback;`)
+    .split("\n").map((l) => l.trim()).filter((l) => /^\d+$/.test(l)).pop() ?? "-1",
+)
 const shownOutstanding = Number(
   (body.match(/(\d[\d,]*)\s*\n?\s*played, with no result recorded/) ?? [])[1]?.replace(/,/g, "") ?? -1,
 )

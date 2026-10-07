@@ -1,3 +1,5 @@
+import { matchCentreHref } from "../match-centre/sections"
+
 /**
  * WHERE A NOTIFICATION TAKES YOU.
  *
@@ -30,6 +32,7 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
   const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined)
   const fixtureId = str(data.fixture_id)
   const trainingSessionId = str(data.training_session_id)
+  const trainingPlanId = str(data.training_plan_id)
   const tournamentId = str(data.tournament_id)
 
   switch (type) {
@@ -42,8 +45,11 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
       if (clubConversationId) return `/messages/club/${clubConversationId}`
       return "/messages"
     }
+    // A message from the team's staff to its families about one match -- an announcement or a
+    // reminder's note. It is read in that match's Changing Room, where every announcement the person
+    // was sent is listed; the staff conversation itself is not theirs to open.
     case "fixture_staff_message":
-      return fixtureId ? `/messages/fixture/${fixtureId}` : "/messages"
+      return fixtureId ? matchCentreHref(fixtureId, "changing-room") : "/messages"
     case "club_message_request_received":
     case "club_message_request_declined": {
       const clubConversationId = str(data.club_conversation_id)
@@ -67,24 +73,41 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     }
 
     // ---- Match Centre ---------------------------------------------------
-    // Everything about one physical game lands on that game. The invitation
-    // and the answer belong on the same surface as the venue and the squad.
+    // Everything about one physical game lands on that game's one Match Centre, at the section the
+    // notification is about (`?tab=`, which the website ignores and lands on its own page).
+    //
+    // Attendance: the invitation, a reminder, and a family's answer told to the side's staff.
     case "fixture_attendance_invitation":
     case "fixture_attendance_reminder":
+    case "fixture_availability_responded":
+      return fixtureId ? matchCentreHref(fixtureId, "attendance") : "/fixtures"
+    // Where: the pitch moved, or the changing rooms were allocated.
+    case "fixture_pitch_changed":
+    case "fixture_arrangements_changed":
+      return fixtureId ? matchCentreHref(fixtureId, "arena") : "/fixtures"
+    // When and whether: the overview, where the match details are.
     case "fixture_cancelled":
     case "fixture_cancelled_team_folded":
     case "fixture_details_changed":
     case "fixture_kickoff_changed":
     case "fixture_kickoff_change_proposed":
     case "fixture_kickoff_change_declined":
-    case "fixture_pitch_changed":
+    case "fixture_meet_time_changed":
+      return fixtureId ? matchCentreHref(fixtureId) : "/fixtures"
+    // Rewards: the parents' vote has opened, or a player has been given an award.
+    case "match_award_voting_open":
+    case "match_award_received":
+      return fixtureId ? matchCentreHref(fixtureId, "rewards") : "/fixtures"
+
+    // ---- A fixture's RESULT -----------------------------------------------
+    // Every result notification lands on the result itself -- the submitted score and, for whoever may,
+    // confirm or dispute -- never on fixture editing. The website has its own result page at this
+    // address; the app opens the Match Centre's Result section from it.
     case "fixture_result_final":
     case "fixture_result_disputed":
     case "fixture_result_awaiting_confirmation":
     case "fixture_result_amendment_proposed":
-    // CA-M8: a family's answer, told to the side's staff. The register is on the fixture.
-    case "fixture_availability_responded":
-      return fixtureId ? `/fixtures/${fixtureId}` : "/fixtures"
+      return fixtureId ? `/fixtures/${fixtureId}/result` : "/fixtures"
 
     // ---- Training Centre ------------------------------------------------
     case "training_session_cancelled":
@@ -94,6 +117,18 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "training_plan_cancelled":
     case "training_availability_responded":
       return trainingSessionId ? `/training/${trainingSessionId}` : "/calendar"
+
+    // ---- Training Planning ----------------------------------------------
+    // A PLAN IS NOT A SESSION. These two tell a team's staff that the plan behind their training has
+    // been created or re-scheduled, and they carry `training_plan_id` rather than a session id -- so
+    // they open Training Management, the canonical surface where a plan is read and changed, not a
+    // single occurrence of it. Without a case here both fell through to /dashboard, which is the one
+    // destination that answers nothing.
+    // The plan rides in the query: the website has one Training Management page and ignores it, and the
+    // app opens that plan's own screen.
+    case "training_plan_created":
+    case "training_plan_schedule_changed":
+      return trainingPlanId ? `/club/training?plan=${encodeURIComponent(trainingPlanId)}` : "/club/training"
 
     // ---- Tournament Centre ----------------------------------------------
     // These events already existed and already carried tournament_id; this
@@ -105,7 +140,33 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "tournament_host_claimed":
     case "tournament_venue_changed":
     case "team_created_from_tournament_invitation":
+    // M7 notifications programme Phase F: publication, applications and cancellation all land on the
+    // Centre -- the same address every other tournament-wide (not one-game) notification already uses.
+    case "tournament_schedule_published":
+    case "tournament_application_received":
+    case "tournament_application_decided":
+    case "tournament_cancelled":
+    // Phase G: a side advancing or learning its next opponent is about the DRAW, not a finished
+    // game -- the Centre, where the bracket lives, not the result screen.
+    case "tournament_side_advanced":
+    case "tournament_opponent_known":
       return tournamentId ? `/tournaments/${tournamentId}` : "/calendar"
+
+    // A RESULT NOTIFICATION LANDS ON THE GAME, not on the tournament. Every one of these says a
+    // HUMAN HAS SOMETHING TO DO about one specific score -- confirm it, answer a contest, settle a
+    // disagreement -- and a route to the festival leaves them to find it. The game screen re-checks
+    // who is asking and shows nothing to anybody who is neither side nor the organiser.
+    // A PUBLISHED GAME MOVING (20270721) lands on that game -- its time and pitch are on its own
+    // screen -- and a whole published schedule changing lands on the tournament.
+    case "tournament_schedule_changed":
+    case "tournament_result_awaiting_confirmation":
+    case "tournament_result_confirmed":
+    case "tournament_result_contested":
+    case "tournament_result_resolved": {
+      const gameId = str(data.tournament_game_id)
+      if (gameId) return `/tournaments/result/${gameId}`
+      return tournamentId ? `/tournaments/${tournamentId}` : "/calendar"
+    }
 
     // ---- Competition matches --------------------------------------------
     // A club is asked to confirm, and told of changes, in its competition
@@ -123,13 +184,25 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     }
 
     // ---- Fixture requests -----------------------------------------------
-    case "fixture_request_received":
+    // AN ACCEPTED REQUEST HAS BECOME A FIXTURE: it opens the fixture it created, not the request
+    // thread it came from. Without the fixture id it falls back to the thread like the others.
     case "fixture_request_accepted":
+      if (fixtureId) return `/fixtures/${fixtureId}`
+      return str(data.fixture_request_id) ? `/messages/request/${str(data.fixture_request_id)}` : "/fixtures"
+    case "fixture_request_received":
     case "fixture_request_declined":
     case "fixture_request_countered":
     case "team_created_from_fixture_request": {
       const requestId = str(data.fixture_request_id)
       return requestId ? `/messages/request/${requestId}` : "/fixtures"
+    }
+
+    // ---- Season Planner club days (20270761000000) ---------------------
+    // ONE notice for a whole club day, sent or answered, opens that club day -- never one request of it.
+    case "club_day_request_received":
+    case "club_day_responded": {
+      const groupId = str(data.group_id)
+      return groupId ? `/fixtures/club-day/${groupId}` : "/fixtures"
     }
 
     // ---- Looking for Opposition (Clubhouse Sections 15/16) --------------
@@ -148,10 +221,16 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "fixture_call_up_requested":
     case "fixture_call_up_decided":
     case "player_eligibility_approval_required":
+      return "/club/player-moves"
+    // A DISPENSATION opens its own record (20270742000000): the officer and the Club Admins decide there,
+    // and every officer told that a Club Admin decided lands on the immutable record of who, what and when.
+    // Everybody these reach may read it -- the server chose them from the people who may.
     case "safeguarding_dispensation_requested":
     case "safeguarding_dispensation_decided":
-    case "safeguarding_dispensation_revoked":
-      return "/club/player-moves"
+    case "safeguarding_dispensation_revoked": {
+      const dispensationId = str(data.dispensation_id)
+      return dispensationId ? `/dispensations/${dispensationId}` : "/club/player-moves"
+    }
 
     // ---- Partner clubs ---------------------------------------------------
     case "partner_request_received":
@@ -209,11 +288,25 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "safeguarding_threads_unattended":
       return "/club/settings/safeguarding"
 
-    // A guardian being told about their own child's call-up or age-grade approval is not a club
-    // administration notice -- it goes where the parent already looks after their children.
+    // A guardian being told about their own child's call-up is not a club administration notice -- it
+    // goes where the parent already looks after their children. A dispensation's outcome opens the record
+    // itself, which the family and whoever asked may both read: pending, approved, declined and why.
     case "safeguarding_guardian_call_up":
-    case "safeguarding_guardian_dispensation":
       return "/parent/children"
+    case "safeguarding_guardian_dispensation": {
+      const dispensationId = str(data.dispensation_id)
+      return dispensationId ? `/dispensations/${dispensationId}` : "/parent/children"
+    }
+    // Team codes place players (20270741000000). The team's approvers decide on the team's own people
+    // page; a parent answers their child's own request where both apps put it.
+    case "team_place_requested": {
+      const teamId = str(data.team_id)
+      return teamId ? `/teams/${teamId}/people` : "/people"
+    }
+    case "team_place_confirm_requested": {
+      const membershipId = str(data.membership_id)
+      return membershipId ? `/parent/team-requests?request=${encodeURIComponent(membershipId)}` : "/parent/team-requests"
+    }
     case "add_child_approved":
     case "add_child_declined":
     case "club_join_approved":
@@ -240,12 +333,30 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     case "gocardless_payment_failed":
     case "gocardless_membership_cancelled":
       return "/parent/children"
+    // A membership reminder (20270746000000) lands on the membership it is about: an adult player's own
+    // payments, or the child's subscription page for the parent or guardian it was sent to.
+    // So does the club ending the old payer's set-up so someone else can pay (20270753000000).
+    case "membership_reminder":
+    case "membership_payer_released": {
+      const playerId = str(data.player_id)
+      if (data.self === true || data.self === "true") return "/player/payments"
+      return playerId ? `/parent/players/${playerId}/subscription` : "/parent/children"
+    }
+    // The club telling a team's staff how many players need attention: that team's own membership view.
+    case "membership_team_attention": {
+      const teamId = str(data.team_id)
+      return teamId ? `/teams/${teamId}/subscriptions` : "/dashboard"
+    }
+    // GoCardless verified the club's account while it was setting up (20270752000000): where Activate is.
+    case "membership_gocardless_verified":
+      return "/club/settings/subscriptions"
 
     // ---- Ovalball's own billing, and Site Admin access -------------------
     case "platform_trial_ending_soon":
     case "platform_trial_ended":
     case "platform_referral_reward_earned":
-      return "/club/settings/ovalball-plan"
+      // The page is Ovalball Billing; "/ovalball-plan" never existed on the website and opened a 404.
+      return "/club/settings/ovalball-billing"
     case "site_admin_invitation_accepted":
     case "site_admin_commercial_access_changed":
     case "site_admin_competitions_access_changed":
@@ -259,6 +370,24 @@ export function notificationHref(type: string, data: Record<string, unknown>): s
     // ---- Historical linkage ----------------------------------------------
     case "historical_fixtures_linked":
       return "/fixtures"
+
+    // ---- Events (20270729) -- the Event Centre, at the section the notice is about -------------
+    case "event_invitation":
+    case "event_reminder":
+    case "event_waitlist_promoted": {
+      const eventId = str(data.event_id)
+      return eventId ? `/events/${eventId}?tab=attendance` : "/calendar"
+    }
+    case "event_announcement": {
+      const eventId = str(data.event_id)
+      return eventId ? `/events/${eventId}?tab=messages` : "/calendar"
+    }
+    case "event_updated":
+    case "event_postponed":
+    case "event_cancelled": {
+      const eventId = str(data.event_id)
+      return eventId ? `/events/${eventId}` : "/calendar"
+    }
 
     default:
       // Deliberately the dashboard rather than a guess. The structural guard

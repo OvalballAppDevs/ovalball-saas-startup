@@ -61,6 +61,13 @@ export interface AgendaRequest {
   anchor?: string
   direction?: Direction
   includeTraining?: boolean
+  /**
+   * Whether tournaments belong on this surface. Default true: a calendar is asked what is happening,
+   * and a festival is. The Fixtures list says false, because it is a list of MATCHES.
+   */
+  includeTournaments?: boolean
+  /** A list of matches asks for a tournament's published GAMES, one row each, rather than its days. */
+  tournamentGames?: boolean
   /** The device's today, passed in so a test can pin it and a screen cannot drift from it. */
   today?: string
 }
@@ -76,7 +83,11 @@ export async function readAgenda(
   const window = request.range
     ? { startIso: request.range.start, endIso: request.range.end, label: request.range.label ?? "", order: "asc" as const }
     : resolveWindow(request.mode ?? "upcoming", request.anchor ?? today, today, request.direction ?? "upcoming")
-  const result = await loadAgenda(supabase, scope, window, { includeTraining: request.includeTraining ?? true })
+  const result = await loadAgenda(supabase, scope, window, {
+    includeTraining: request.includeTraining ?? true,
+    includeTournaments: request.includeTournaments ?? true,
+    tournamentGames: request.tournamentGames ?? false,
+  })
   return { items: result.items, truncated: result.truncated, scope, label: window.label }
 }
 

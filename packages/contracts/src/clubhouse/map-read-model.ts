@@ -440,7 +440,7 @@ export type ClubhouseDistanceFilter = "any" | 10 | 25 | 50 | 100
  * `compatible_opponent_teams`/`compatible_opponent_identities` results already keyed by club), never
  * computed client-side from a name.
  */
-export function applyClubhouseFilter(markers: ClubMapMarker[], filter: ClubhouseFilter, compatibleClubIds: Set<string> | null): ClubMapMarker[] {
+export function applyClubhouseFilter<M extends ClubMapMarker>(markers: M[], filter: ClubhouseFilter, compatibleClubIds: Set<string> | null): M[] {
   if (filter === "all") return markers
   if (filter === "on_ovalball") return markers.filter((m) => m.networkState === "on_ovalball")
   if (filter === "partners") return markers.filter((m) => m.partnershipStatus === "active")
@@ -473,7 +473,7 @@ export function isClubhouseNetworkEmpty(markers: ClubMapMarker[] | null, filter:
  * band except "any" would otherwise be lying, so the filter becomes a no-op rather than hiding clubs
  * behind a control that cannot truthfully answer.
  */
-export function applyClubhouseDistanceFilter(markers: ClubMapMarker[], radius: ClubhouseDistanceFilter, origin: ClubMapMarker | null): ClubMapMarker[] {
+export function applyClubhouseDistanceFilter<M extends ClubMapMarker>(markers: M[], radius: ClubhouseDistanceFilter, origin: ClubMapMarker | null): M[] {
   if (radius === "any" || !origin) return markers
   return markers.filter((m) => {
     if (!m.hasLocation) return true

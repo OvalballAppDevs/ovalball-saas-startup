@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { Text, TextInput, View } from "react-native"
-import { useFocusEffect, useLocalSearchParams } from "expo-router"
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { aliasAllowed, clearTeamAlias, foldTeam, reactivateTeam, readClubTeams, readTeamCapabilities, setTeamAlias, teamErrorMessage, type ClubTeam, type TeamCapabilities } from "@ovalball/contracts/club/teams"
 
 import { AdminScreen } from "../../../../src/admin/screen"
@@ -26,6 +26,7 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/desig
 export default function TeamScreen() {
   const { teamId } = useLocalSearchParams<{ teamId: string }>()
   const { clubId, refresh: refreshAccess } = useAdminCentreAccess()
+  const router = useRouter()
   const [team, setTeam] = useState<ClubTeam | null>(null)
   const [caps, setCaps] = useState<TeamCapabilities>({ view: false, manage: false, lifecycle: false })
   const [loading, setLoading] = useState(true)
@@ -109,13 +110,19 @@ export default function TeamScreen() {
               Identity
             </Text>
             <Card style={{ gap: space.sm }}>
-              <Row label="Team Directory" value={team.canonicalKey ?? "Not mapped"} />
+              {/* The canonical identity by its derived display name -- never the internal directory key (L2). */}
+              <Row label="Team Directory" value={team.canonicalKey ? team.fullLabel : "Not mapped"} />
               <Row label="Age Grade" value={team.ageGroup ?? (team.category === "senior" ? "Open age" : "—")} />
               <Row label="Pathway" value={team.gender ? team.gender[0].toUpperCase() + team.gender.slice(1) : "Not recorded"} />
               <Row label="Squad" value={team.squadDesignation ?? "First side"} />
               <Row label="Rugby Code" value={CODE_LABEL[team.rugbyCode]} />
               <Text style={[type.caption, { color: colour.inkMuted, marginTop: space.xs }]}>Age grade and identity are progressed through Season Handover, not edited here. This is the identity Rugby Hub, Rules of Play and fixture matching read.</Text>
             </Card>
+            {/* NOT A DEAD END: the team's own page (people, fixtures, documents) and its fixtures are one tap away. */}
+            <View style={{ flexDirection: "row", gap: space.sm }}>
+              <Button label="Team Profile" variant="secondary" onPress={() => router.push({ pathname: "/teams/[teamId]", params: { teamId: team.id } } as never)} style={{ flex: 1 }} />
+              <Button label="Fixtures" variant="secondary" onPress={() => router.push({ pathname: "/fixtures", params: { teamId: team.id } } as never)} style={{ flex: 1 }} />
+            </View>
           </View>
 
           {aliasAllowed(team) && (

@@ -33,6 +33,10 @@ const status = JSON.parse(execFileSync("npx", ["supabase", "status", "-o", "json
 const API = status.API_URL
 const ANON_KEY = status.ANON_KEY
 const SERVICE_KEY = status.SERVICE_ROLE_KEY
+// signIn() signs in through the real password form, so this run's people carry the local UAT password.
+const PASSWORD = process.env.UAT_BROWSER_PASSWORD
+  || (fs.readFileSync(path.resolve(import.meta.dirname, "../../.env.local"), "utf8").split("\n").find((l) => l.startsWith("UAT_BROWSER_PASSWORD=")) ?? "").slice("UAT_BROWSER_PASSWORD=".length).trim().replace(/^["']|["']$/g, "")
+if (!PASSWORD) throw new Error("No UAT_BROWSER_PASSWORD in the environment or .env.local")
 
 const TAG = Date.now().toString(36).slice(-6)
 const people = {
@@ -47,7 +51,7 @@ async function createIdentity(person) {
   const res = await fetch(`${API}/auth/v1/admin/users`, {
     method: "POST",
     headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ email: person.email, email_confirm: true }),
+    body: JSON.stringify({ email: person.email, password: PASSWORD, email_confirm: true }),
   })
   const body = await res.json()
   if (!body.id) throw new Error(`could not create ${person.email}: HTTP ${res.status}`)
@@ -60,7 +64,7 @@ function cleanupTag(tag) {
   sql(`
 do $$
 declare
-  v_clubs uuid[] := array(select id from public.clubs where slug in ('uat-s4i-${tag}','uat-s4i-far-${tag}'));
+  v_clubs uuid[] := array(select id from public.clubs where slug in ('uat-s4i-${tag}','uat-s4i-far-${tag}','uat-s4i-third-${tag}'));
   v_people uuid[] := array(select id from auth.users where email like 'uat.slice4i.%.${tag}@ovalball.test');
   v_rollovers uuid[];
   v_records uuid[];
@@ -87,14 +91,14 @@ begin
   delete from public.age_grade_rollover_team_proposals where rollover_id = any(v_rollovers);
   delete from public.age_grade_rollovers where club_id = any(v_clubs);
   delete from public.notifications where user_id = any(v_people);
-  delete from public.team_permissions where membership_id in (select id from public.club_memberships where club_id = any(v_clubs));
+  delete from testing.team_roles where membership_id in (select id from public.club_memberships where club_id = any(v_clubs));
   delete from public.role_assignments where club_id = any(v_clubs);
   delete from public.club_memberships where club_id = any(v_clubs);
   delete from public.club_setup_state where club_id = any(v_clubs);
   delete from public.team_season_identity where team_id in (select id from public.teams where club_id = any(v_clubs));
   delete from public.teams where club_id = any(v_clubs);
   delete from public.clubs where id = any(v_clubs);
-  delete from public.club_directory where normalized_key in ('uat-s4i-${tag}','uat-s4i-far-${tag}');
+  delete from public.club_directory where normalized_key in ('uat-s4i-${tag}','uat-s4i-far-${tag}','uat-s4i-prospect-${tag}','uat-s4i-third-${tag}');
   delete from public.security_events where subject_user_id = any(v_people) or actor_user_id = any(v_people) or club_id = any(v_clubs);
   delete from public.audit_log where changed_by = any(v_people) or actor_user_id = any(v_people) or record_id = any(v_records);
   delete from public.profiles where id = any(v_people);
@@ -112,7 +116,10 @@ async function cleanup() {
   const left = one(`select (select count(*) from public.clubs where slug in ('uat-s4i-${TAG}','uat-s4i-far-${TAG}'))
     + (select count(*) from auth.users where email like 'uat.slice4i.%.${TAG}@ovalball.test')
     + (select count(*) from public.club_documents d join public.club_directory cd on cd.id = d.directory_id where cd.normalized_key like 'uat-s4i-%${TAG}')
-    + (select count(*) from public.notifications n join auth.users u on u.id = n.user_id where u.email like 'uat.slice4i.%.${TAG}@ovalball.test')`)
+    + (select count(*) from public.notifications n join auth.users u on u.id = n.user_id where u.email like 'uat.slice4i.%.${TAG}@ovalball.test')
+    + (select count(*) from public.club_directory where normalized_key in ('uat-s4i-${TAG}','uat-s4i-far-${TAG}','uat-s4i-prospect-${TAG}','uat-s4i-third-${TAG}'))
+    + (select count(*) from public.clubs where slug = 'uat-s4i-third-${TAG}')
+    + (select count(*) from public.club_ovalball_invitations where contact_email = 'referral-${TAG}@ovalball.test')`)
   const cacheDir = path.join(os.tmpdir(), "ovalball-uat-sessions")
   const cached = fs.existsSync(cacheDir) ? fs.readdirSync(cacheDir).filter((f) => f.includes(`.${TAG}@`)).length : 0
   record("Z1 cleanup: every club, identity, document, folder, handover, partnership, referral and history row this run created is gone", left === "0" && cached === 0, `remaining=${left} cached=${cached}`)
@@ -191,6 +198,12 @@ ids.club = one(`insert into public.clubs (directory_id, slug, status) values ('$
 ids.farDir = one(`insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
   values ('Slice Four I Far RUFC ${TAG}','Testham','Testshire','union','United Kingdom','England',true,'unverified','site_admin_manual','uat-s4i-far-${TAG}') returning id`)
 ids.farClub = one(`insert into public.clubs (directory_id, slug, status) values ('${ids.farDir}','uat-s4i-far-${TAG}','active') returning id`)
+// A third club on Ovalball that this club has no relationship with yet: the one it asks to partner, in the browser.
+// The Clubhouse hides directory rows that look like test fixtures (site_admin_manual + unverified), and a hidden
+// club has no profile page to press Make Partnership on -- so this one says plainly that it is a visible fixture.
+ids.thirdDir = one(`insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('Slice Four I Third RUFC ${TAG}','Testham','Testshire','union','United Kingdom','England',true,'suite_visible_fixture','site_admin_manual','uat-s4i-third-${TAG}') returning id`)
+ids.thirdClub = one(`insert into public.clubs (directory_id, slug, status) values ('${ids.thirdDir}','uat-s4i-third-${TAG}','active') returning id`)
 ids.team = one(`insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
   values ('${ids.club}','Under 12 Boys','uat-s4i-u12-${TAG}','youth','U12','boys','union',true) returning id`)
 ids.team18 = one(`insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
@@ -208,8 +221,15 @@ ids.doc = one(`insert into public.club_documents (club_id, folder_id, title, sto
   values ('${ids.club}','${ids.folder}','Safeguarding Policy ${TAG}','${ids.club}/policy-${TAG}.pdf','application/pdf',2048,'policy.pdf','other','${people.admin.id}') returning id`)
 ids.partnership = one(`insert into public.club_partnerships (requesting_club_id, partner_club_id, status, requested_by)
   values ('${ids.club}','${ids.farClub}','pending','${people.admin.id}') returning id`)
-ids.referral = one(`insert into public.club_ovalball_invitations (inviting_club_id, club_directory_id, contact_name, contact_email, invited_by)
-  values ('${ids.club}','${ids.farDir}','A Contact','referral-${TAG}@ovalball.test','${people.admin.id}') returning id`)
+// A club referred by name is a club NOT yet on Ovalball, invited through the one canonical writer -- which
+// records its referral in the same transaction. (This fixture once inserted the invitation alone, to a club
+// already on Ovalball; a run that died before cleanup left local invitation aa9d7850 with no referral.)
+ids.prospectDir = one(`insert into public.club_directory (name, town, county, rugby_code, country, nation, active, verification_status, source, normalized_key)
+  values ('Slice Four I Prospect RUFC ${TAG}','Testham','Testshire','union','United Kingdom','England',true,'unverified','site_admin_manual','uat-s4i-prospect-${TAG}') returning id`)
+ids.referral = one(`begin;
+  select set_config('request.jwt.claims', json_build_object('sub','${people.admin.id}','role','authenticated')::text, true);
+  select public.create_partner_invitation('${ids.club}','${ids.prospectDir}','A Contact','referral-${TAG}@ovalball.test');
+  commit;`)
 
 const browser = await launch()
 try {
@@ -326,6 +346,20 @@ try {
     record("D3 while an ordinary member of either club does not", (await partners("member")) === 0)
     record("D4 and another club cannot open a partnership in this club's name",
       (await writeAs(ctx.farAdmin.context, "club_partnerships", { requesting_club_id: ids.club, partner_club_id: ids.farClub, status: "pending", requested_by: people.farAdmin.id })) >= 400)
+    // 20270743000000: a club could write its OWN partnership directly -- ACTIVE, naming the other club's admin as
+    // having accepted it. The table now takes no direct write; asking is request_club_partnership's.
+    record("D4b and the club's own administrator cannot write an ACTIVE partnership with another club directly",
+      (await writeAs(ctx.admin.context, "club_partnerships", { requesting_club_id: ids.club, partner_club_id: ids.thirdClub, status: "active", requested_by: people.admin.id, responded_by: people.farAdmin.id })) >= 400
+        && one(`select count(*) from public.club_partnerships where requesting_club_id = '${ids.club}' and partner_club_id = '${ids.thirdClub}'`) === "0")
+    await open(ctx.admin.page, `/clubhouse/club/${ids.thirdDir}`)
+    const make = ctx.admin.page.getByRole("button", { name: "Make Partnership" })
+    await make.first().waitFor({ state: "visible", timeout: 30000 }).catch(() => {})
+    await make.first().click().catch(() => {})
+    await ctx.admin.page.waitForTimeout(2500)
+    record("D4c Make Partnership asks through the server: a pending request from the person who pressed it, nothing more",
+      one(`select status || '/' || (requested_by = '${people.admin.id}')::text || '/' || (responded_by is null)::text from public.club_partnerships
+            where requesting_club_id = '${ids.club}' and partner_club_id = '${ids.thirdClub}'`) === "pending/true/true",
+      one(`select count(*) from public.club_partnerships where requesting_club_id = '${ids.club}' and partner_club_id = '${ids.thirdClub}'`))
 
     const referrals = async (key) => (await readAs(ctx[key].context, `club_ovalball_invitations?id=eq.${ids.referral}&select=id`)).rows
     record("D5 the Club Admin sees the club's invitations to clubs not yet on Ovalball", (await referrals("admin")) === 1)

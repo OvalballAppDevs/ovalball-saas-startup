@@ -13,11 +13,10 @@ import { todayIso } from "../agenda/load"
 import { dateBlock, homeAwayLabel, kickoffLabel, opponentLine, relativeDate, resultOutcome, shortVenue, spokenAgendaItem } from "../agenda/presentation"
 import { routeForAgendaItem } from "../links/destinations"
 import { teamContextKeyFor } from "./context"
-import { demoTeamCoverAsset } from "./team-cover-demo"
-import { teamCoverPhotoSource } from "./cover-library"
 import { EditDescriptionSheet } from "./edit-description-sheet"
 import { StaffTab } from "./staff-tab"
 import { MediaTab } from "./media-tab"
+import { TeamPlaceRequestsSection } from "./place-requests"
 import { NotForYou } from "./screen"
 import { friendly, logDetail } from "../errors/translate"
 import { OvalballDetailHeader } from "../components/app-header"
@@ -29,6 +28,8 @@ import { pageFixtures } from "../agenda/fixture-list"
 import { Camera, CalendarDays, ChevronRight, Ellipsis, FileText, IdCard, KeyRound, MapPin, Search, SlidersHorizontal, UserPlus, Users } from "../components/icons"
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../components/ui"
 import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../design/tokens"
+import { mediaIsIllustrative, teamCoverMedia, teamCoverSource } from "../media/stock-assets"
+import { IllustrativeTag } from "../media/media-picker"
 
 type Tab = "overview" | "fixtures" | "squad" | "staff" | "media"
 const TABS: { key: Tab; label: string }[] = [
@@ -228,7 +229,7 @@ export function TeamProfileScreen({ teamId }: { teamId: string }) {
               {tab === "squad" && <SquadTab identity={identity} profile={profile} router={router} inThisTeamContext={inThisTeamContext} />}
               {tab === "staff" && (
                 <StaffTab
-                  identity={{ id: identity.id, clubId: identity.clubId }}
+                  identity={{ id: identity.id, clubId: identity.clubId, teamName: identity.fullLabel }}
                   rosterVisible={profile.people.rosterVisible}
                   canManageRoles={profile.authority.roleAssignTeam}
                 />
@@ -362,19 +363,21 @@ function teamMetaLine(identity: TeamProfileIdentity, season: string | null): str
  * THE TEAM'S PHOTOGRAPH (owner's Visual Correction Pass, Section 8; enlarged and realigned in Section
  * 1A): a real cover where the club has set one (`resolveTeamCover`, unchanged -- production truth still
  * runs real cover -> crest -> none), or the SAME deterministic, category-appropriate stand-in Club
- * Admin Home's Your Teams rail uses (`demoTeamCoverAsset`) -- one resolver, called from both places, so
+ * Admin Home's Your Teams rail uses (`teamFallbackAsset`) -- one resolver, called from both places, so
  * a team's card on Home and its own Profile cover are never two different pictures of the same side.
  * The crest is never the photograph: it is always drawn separately, as an identity badge over the
  * photo's bottom edge, exactly as it was before this pass -- just larger, to carry the parent-club
  * identity the way the approved mockup does.
  */
 function TeamCoverHero({ identity, profile, onOpenClub }: { identity: TeamProfileIdentity; profile: TeamProfile; onOpenClub?: () => void }) {
-  const photo = teamCoverPhotoSource(identity.cover, demoTeamCoverAsset(identity))
+  const photo = teamCoverSource(identity.cover, identity)
+  const illustrative = mediaIsIllustrative("TEAM", teamCoverMedia(identity.cover, identity))
   const metaLine = teamMetaLine(identity, profile.season?.label ?? null)
   return (
     <View style={{ height: 260, overflow: "hidden" }}>
       <Image source={photo} accessible={false} contentFit="cover" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
       <PhotoBottomShade />
+      {illustrative && <IllustrativeTag placement="top" />}
       <View style={{ flex: 1, padding: space.lg, flexDirection: "row", alignItems: "flex-end", gap: space.md }}>
         {!!identity.crestUrl && (
           <View style={{ width: 84, height: 84, borderRadius: radius.lg, backgroundColor: colour.chalk, alignItems: "center", justifyContent: "center" }}>
@@ -750,7 +753,6 @@ function SquadTab({
   const [problem, setProblem] = useState<string | null>(null)
   const [refused, setRefused] = useState(false)
   const [query, setQuery] = useState("")
-  const [addOpen, setAddOpen] = useState(false)
 
   const load = useCallback(async () => {
     setProblem(null)
@@ -809,6 +811,13 @@ function SquadTab({
 
   return (
     <View style={{ gap: space.md }}>
+      {/* WAITING FOR APPROVAL (team codes place players, 20270741000000): the approver's cards sit above
+          the squad they would join, for the people who may decide them -- the server says who that is. */}
+      {profile.authority.rosterManage && (
+        <View style={{ marginBottom: space.md }}>
+          <TeamPlaceRequestsSection teamId={identity.id} onChanged={() => void load()} />
+        </View>
+      )}
       <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
         <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>Squad</Text>
         <Text accessibilityLabel={`${players.length} players`} style={[type.title, { color: colour.ink }]}>{players.length}</Text>
@@ -844,15 +853,15 @@ function SquadTab({
         </View>
       )}
 
-      {canAdd && <Button label="Add Player" onPress={() => setAddOpen(true)} />}
-      <AddPlayerSheet
-        visible={addOpen}
-        onClose={() => setAddOpen(false)}
-        canManageRequests={profile.authority.rosterManage}
-        canManageCodes={profile.authority.joinCodeManage}
-        onJoinRequests={() => { setAddOpen(false); router.push("/team/settings/requests" as never) }}
-        onJoinCodes={() => { setAddOpen(false); router.push("/team/settings/join-codes" as never) }}
-      />
+      {/* ADD PLAYERS IS THE ONE FRONT DOOR (People & Invitations): the same screen Home's Add to Club opens,
+          with this team already chosen -- a personal link, the team's QR code, and the requests waiting --
+          never a second mechanism. The ids are this profile's own, never the switched context. */}
+      {canAdd && (
+        <Button
+          label="Add Players"
+          onPress={() => router.push({ pathname: "/team/add-players", params: { clubId: identity.clubId, teamId: identity.id, teamName: identity.fullLabel } } as never)}
+        />
+      )}
     </View>
   )
 }
@@ -904,43 +913,3 @@ function SquadRowSkeleton({ first }: { first: boolean }) {
  * independently and exactly as `Team Settings` itself already gates them -- this sheet invents no new
  * authority and no new membership mutation, it is only a shortcut into the two that already exist.
  */
-function AddPlayerSheet({
-  visible,
-  onClose,
-  canManageRequests,
-  canManageCodes,
-  onJoinRequests,
-  onJoinCodes,
-}: {
-  visible: boolean
-  onClose: () => void
-  canManageRequests: boolean
-  canManageCodes: boolean
-  onJoinRequests: () => void
-  onJoinCodes: () => void
-}) {
-  return (
-    <BottomSheet visible={visible} onClose={onClose} title="Add Player">
-      {canManageCodes && (
-        <Pressable accessibilityRole="button" accessibilityLabel="Join Codes. Share a code a family can use to ask to join" onPress={onJoinCodes} style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 12, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}>
-          <KeyRound size={20} color={colour.forest800} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={[type.smallMedium, { color: colour.ink }]}>Join Codes</Text>
-            <Text style={[type.caption, { color: colour.inkMuted }]}>Share a code a family can use to ask to join</Text>
-          </View>
-          <ChevronRight size={16} color={colour.inkSubtle} />
-        </Pressable>
-      )}
-      {canManageRequests && (
-        <Pressable accessibilityRole="button" accessibilityLabel="Join Requests. Players waiting to be let into the side" onPress={onJoinRequests} style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 12, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}>
-          <UserPlus size={20} color={colour.forest800} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={[type.smallMedium, { color: colour.ink }]}>Join Requests</Text>
-            <Text style={[type.caption, { color: colour.inkMuted }]}>Players waiting to be let into the side</Text>
-          </View>
-          <ChevronRight size={16} color={colour.inkSubtle} />
-        </Pressable>
-      )}
-    </BottomSheet>
-  )
-}

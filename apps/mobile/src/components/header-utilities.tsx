@@ -1,9 +1,12 @@
+import { useRef, useState } from "react"
 import { Pressable, Text, View } from "react-native"
 import { useRouter } from "expo-router"
 
 import type { UnreadCounts } from "@ovalball/contracts"
 
 import { Bell, CircleHelp, MessageSquare } from "./icons"
+import { NotificationQuickView, type QuickViewAnchor } from "./notification-quick-view"
+import { CompactMessenger } from "./messenger/compact-messenger"
 import { projectHeaderUtilities, type HeaderUtility } from "../context/header-projection"
 import { TOUCH_TARGET, colour, radius, surface, type } from "../design/tokens"
 
@@ -46,17 +49,52 @@ export function HeaderUtilities({
 }) {
   const router = useRouter()
   const onForestGround = tone === "forest"
+  const bellRef = useRef<View>(null)
+  const messagesRef = useRef<View>(null)
+  const [quickView, setQuickView] = useState<QuickViewAnchor | null>(null)
+  const [messenger, setMessenger] = useState<QuickViewAnchor | null>(null)
+
+  /**
+   * THE BELL OPENS A QUICK VIEW, NOT A PAGE -- the website's bell has always been a short window onto
+   * /notifications rather than a jump to it, and the app now behaves the same way. The full
+   * Notifications Centre is still one tap away, from the panel's own "View All Notifications".
+   */
+  function openQuickView() {
+    bellRef.current?.measureInWindow((x, y, width, height) => setQuickView({ x, y, width, height }))
+  }
+
+  /**
+   * MESSAGES OPENS THE COMPACT MESSENGER, in place: read, reply, react and share a Club Document without
+   * leaving the screen. The full Messages screen is one tap away from the panel's own footer.
+   */
+  function openMessenger() {
+    messagesRef.current?.measureInWindow((x, y, width, height) => setMessenger({ x, y, width, height }))
+  }
+
+  const utilities = projectHeaderUtilities(unread)
+  const messagesUtility = utilities.find((u) => u.key === "messages")
   return (
     <View style={{ flexDirection: "row", alignItems: "center" }}>
-      {projectHeaderUtilities(unread).map((utility) => (
+      {utilities.map((utility) => (
         <Utility
           key={utility.key}
+          ref={utility.key === "notifications" ? bellRef : utility.key === "messages" ? messagesRef : undefined}
           utility={utility}
           icon={ICON[utility.key]}
           onForestGround={onForestGround}
-          onPress={() => router.push(utility.href as never)}
+          onPress={
+            utility.key === "notifications" ? openQuickView : utility.key === "messages" ? openMessenger : () => router.push(utility.href as never)
+          }
         />
       ))}
+      <NotificationQuickView anchor={quickView} onForestGround={onForestGround} onClose={() => setQuickView(null)} />
+      <CompactMessenger
+        anchor={messenger}
+        onForestGround={onForestGround}
+        onClose={() => setMessenger(null)}
+        // The control is drawn again above the scrim; it carries the SAME badge, so opening the panel never hides the count.
+        badge={messagesUtility?.showBadge ? <Badge text={messagesUtility.badgeText} wide={messagesUtility.count > 9} ring={onForestGround ? surface.forest : colour.chalk} /> : null}
+      />
     </View>
   )
 }
@@ -73,11 +111,13 @@ const ICON: Record<string, (colourValue: string) => React.ReactNode> = {
 }
 
 function Utility({
+  ref,
   utility,
   icon,
   onPress,
   onForestGround,
 }: {
+  ref?: React.Ref<View>
   utility: HeaderUtility
   icon: (colour: string) => React.ReactNode
   onPress: () => void
@@ -85,6 +125,7 @@ function Utility({
 }) {
   return (
     <Pressable
+      ref={ref}
       accessibilityRole="button"
       accessibilityLabel={utility.accessibilityLabel}
       onPress={onPress}
@@ -117,7 +158,7 @@ function Utility({
  * happened. What it reads is decided by the projection, so that the rule can be
  * asserted without a renderer; this draws the text it is given.
  */
-function Badge({ text, wide, ring }: { text: string; wide: boolean; ring: string }) {
+export function Badge({ text, wide, ring }: { text: string; wide: boolean; ring: string }) {
   return (
     <View
       accessibilityElementsHidden

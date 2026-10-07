@@ -39,6 +39,12 @@ export async function createOneOffGoCardlessPayment(params: {
   accessToken: string
   mandateId: string
   amountMinor: number
+  /**
+   * Ovalball's fee on this payment, in pence: "The amount to be deducted from the payment as the OAuth app's
+   * fee" (https://docs.gocardless.com/docs/api-reference/payment). Worked out on the server (2.5%, half up) and
+   * never more than half the payment, as GoCardless requires.
+   */
+  appFeeMinor?: number
   currency: string
   description: string
   idempotencyKey: string
@@ -54,6 +60,7 @@ export async function createOneOffGoCardlessPayment(params: {
         amount: params.amountMinor,
         currency: params.currency,
         description: params.description,
+        ...(params.appFeeMinor ? { app_fee: params.appFeeMinor } : {}),
         links: { mandate: params.mandateId },
       },
     },

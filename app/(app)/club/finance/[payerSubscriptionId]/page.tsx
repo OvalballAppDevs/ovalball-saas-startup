@@ -2,6 +2,9 @@ import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 
+import { FINANCE_WEB_PATHS } from "@ovalball/contracts/club/finance"
+import { firstPaymentPolicyOptions } from "@ovalball/contracts/membership/setup"
+
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { formatMinorUnits } from "@/lib/payments/domain/money"
 import { isObligationOverdue } from "@/lib/payments/domain/dashboard-metrics"
@@ -17,6 +20,8 @@ const MANDATE_STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
   expired: "Expired",
   consumed: "Replaced by a newer mandate",
+  suspended_by_payer: "Suspended by the payer",
+  blocked: "Blocked by GoCardless",
 }
 
 const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
@@ -87,7 +92,7 @@ export default async function MembershipDetailPage({ params }: { params: Promise
 
   const { data: obligationsRaw } = await supabase
     .from("membership_obligations")
-    .select("id, billing_period, amount_due_minor, due_date, status, is_prorated, gocardless_payment_id")
+    .select("id, billing_period, amount_due_minor, due_date, membership_effective_date, status, is_prorated, gocardless_payment_id")
     .eq("payer_subscription_id", payerSubscriptionId)
     .order("billing_period", { ascending: false })
 
@@ -111,10 +116,17 @@ export default async function MembershipDetailPage({ params }: { params: Promise
   const { data: actionRequiredRaw } = detail.payer_status === "active" ? await supabase.rpc("get_finance_action_required", { p_club_id: detail.club_id }) : { data: [] }
   const actionRequiredReasons = (actionRequiredRaw ?? []).filter((r) => r.payer_subscription_id === payerSubscriptionId).map((r) => r.reason)
 
+  // The policy in words, never its stored value (the words do not depend on the collection day).
+  const firstPaymentPolicy = firstPaymentPolicyOptions(detail.programme_collection_day ?? 1).find((o) => o.value === detail.programme_first_payment_policy)?.label ?? "Not recorded"
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-8 md:py-12">
-      <Link href="/club/finance" className="inline-flex items-center gap-1 text-sm text-ink/60 hover:text-ink">
-        <ChevronLeft className="h-4 w-4" /> Back to Finance Dashboard
+      {/* Back to the member's own page in Memberships; the club is named, so a link from the phone lands right. */}
+      <Link
+        href={FINANCE_WEB_PATHS.member(detail.player_id, detail.club_id)}
+        className="inline-flex min-h-11 items-center gap-1 text-sm text-ink-muted outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-pitch-400/50 sm:min-h-8"
+      >
+        <ChevronLeft aria-hidden="true" className="h-4 w-4" /> {`Back to ${detail.player_first_name}'s Membership`}
       </Link>
 
       <h1 className="mt-4 font-display text-display-l text-ink">
@@ -128,7 +140,7 @@ export default async function MembershipDetailPage({ params }: { params: Promise
         <div className="mt-4 space-y-1 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
           {actionRequiredReasons.map((reason) => (
             <p key={reason} className="text-sm font-medium text-amber-900">
-              {REASON_LABEL[reason] ?? reason}
+              {REASON_LABEL[reason] ?? "Review membership."}
             </p>
           ))}
         </div>
@@ -163,15 +175,15 @@ export default async function MembershipDetailPage({ params }: { params: Promise
         </div>
         <div>
           <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">First-payment policy</p>
-          <p className="mt-1 text-sm text-ink">{detail.programme_first_payment_policy}</p>
+          <p className="mt-1 text-sm text-ink">{firstPaymentPolicy}</p>
         </div>
         <div>
           <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Direct Debit mandate</p>
-          <p className="mt-1 text-sm text-ink">{detail.mandate_status ? (MANDATE_STATUS_LABEL[detail.mandate_status] ?? detail.mandate_status) : "Not set up"}</p>
+          <p className="mt-1 text-sm text-ink">{detail.mandate_status ? (MANDATE_STATUS_LABEL[detail.mandate_status] ?? "Not known yet") : "Not set up"}</p>
         </div>
         <div>
           <p className="text-xs font-medium tracking-[0.04em] text-ink-muted uppercase">Recurring subscription</p>
-          <p className="mt-1 text-sm text-ink">{detail.subscription_status ? (SUBSCRIPTION_STATUS_LABEL[detail.subscription_status] ?? detail.subscription_status) : "Not yet active"}</p>
+          <p className="mt-1 text-sm text-ink">{detail.subscription_status ? (SUBSCRIPTION_STATUS_LABEL[detail.subscription_status] ?? "Not known yet") : "Not yet active"}</p>
         </div>
       </div>
 
@@ -205,8 +217,8 @@ export default async function MembershipDetailPage({ params }: { params: Promise
                       {o.is_prorated && <span className="mt-0.5 block text-[10px] font-normal text-ink-muted">Pro-rata</span>}
                     </td>
                     <td className="px-4 py-2.5 tabular-nums text-ink/60">{new Date(o.due_date).toLocaleDateString("en-GB")}</td>
-                    <td className="px-4 py-2.5 text-ink/80">{isObligationOverdue(o.status, o.due_date) ? OBLIGATION_STATUS_LABEL.OVERDUE : OBLIGATION_STATUS_LABEL[o.status] ?? o.status}</td>
-                    <td className="px-4 py-2.5 text-ink/80">{payment ? (PAYMENT_STATUS_LABEL[payment.status] ?? payment.status) : "—"}</td>
+                    <td className="px-4 py-2.5 text-ink/80">{isObligationOverdue(o.status, o.due_date, 5, new Date(), o.membership_effective_date) ? OBLIGATION_STATUS_LABEL.OVERDUE : OBLIGATION_STATUS_LABEL[o.status] ?? "Recorded"}</td>
+                    <td className="px-4 py-2.5 text-ink/80">{payment ? (PAYMENT_STATUS_LABEL[payment.status] ?? "Recorded by GoCardless") : "—"}</td>
                   </tr>
                 )
               })}

@@ -1,12 +1,15 @@
 import { CalendarDays, MessageSquare, ShieldCheck, Users } from "lucide-react"
 import { redirect } from "next/navigation"
 
+import { DEFAULT_NEXT_PATH, safeNextPath } from "@/lib/auth/safe-next"
+
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
 
 import { ownClaimMessages } from "./actions"
 import { ClaimConversation } from "./claim-conversation"
 import { createClient } from "@/lib/supabase/server"
 import { getPendingStatus } from "@/lib/signup/pending-status"
+import { myTeamRequestLine, readMyTeamRequests } from "@ovalball/contracts/team/team-code"
 
 import { AddChildForm } from "@/app/(app)/parent/children/add-child-form"
 import { RespondToGuardianRequest } from "@/app/(app)/parent/children/child-controls"
@@ -33,7 +36,7 @@ const LOCKED_AREAS = [
  * this page has nothing to bypass that with, because there is nothing on
  * the client that grants authority in the first place.
  */
-export default async function WelcomePage() {
+export default async function WelcomePage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -41,6 +44,14 @@ export default async function WelcomePage() {
 
   if (!user) {
     redirect("/signup")
+  }
+
+  // AN INVITATION OPENED BEFORE THE ACCOUNT EXISTED IS RESUMED NOW (M11) -- through the one open-redirect guard; the
+  // invitation itself still checks, on the server, that it was sent to this account's address.
+  const requested = (await searchParams).next
+  if (requested) {
+    const destination = safeNextPath(requested)
+    if (destination !== DEFAULT_NEXT_PATH && !destination.startsWith("/welcome")) redirect(destination)
   }
 
   const { data: profile } = await supabase
@@ -63,6 +74,11 @@ export default async function WelcomePage() {
   // existing child).
   const { data: requestRows } = await supabase.rpc("my_guardian_link_requests")
   const myRequests = (requestRows ?? []).filter((r) => r.status === "PENDING")
+
+  // A request made with a team's code that still waits (20270741000000): for somebody whose only link to
+  // Ovalball so far is that request -- a parent who has just added their child -- it is the answer to
+  // "what happens now", and the page must not tell them to add the child they have already added.
+  const teamRequests = await readMyTeamRequests(supabase).catch(() => [])
 
   // Approved (an active club_memberships row exists) or Site Admin: the
   // real authenticated product now exists behind /dashboard -- this page
@@ -167,6 +183,19 @@ export default async function WelcomePage() {
             relationship exists and the full app opens on its own. */}
         {status.kind === "no-request" && (
           <div className="mt-8 flex flex-col gap-8">
+            {teamRequests.length > 0 && (
+              <div>
+                <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Waiting for a decision</p>
+                <ul className="mt-3 flex flex-col gap-2">
+                  {teamRequests.map((r) => (
+                    <li key={r.membershipId} className="rounded-lg border border-ink/10 bg-white px-4 py-3.5 text-sm text-ink">
+                      {myTeamRequestLine(r)}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 max-w-md text-sm text-ink-muted">You&rsquo;ll get a notification as soon as it has been decided.</p>
+              </div>
+            )}
             {myRequests.length > 0 && (
               <div>
                 <p className="text-sm font-medium tracking-[0.04em] text-ink-muted uppercase">Awaiting verification</p>

@@ -5,7 +5,6 @@ import { join } from "node:path"
 
 import { ADMIN_CENTRE_SECTIONS } from "../../../packages/contracts/src/club/admin-centre"
 import { canOpenGuardiansPlayers, GUARDIANS_PLAYERS_KEYS, guardiansFromDirectory, guardiansPlayersErrorMessage, noGuardiansPlayersCapabilities, replacementInvitationLink, sameAgeGroup, type DirectoryPlayer } from "../../../packages/contracts/src/club/guardians-players"
-import { destinationForHref, destinationHref } from "../../../packages/contracts/src/navigation/destinations"
 import { resolveIntent } from "../../../apps/mobile/src/links/intents"
 import { routeForIntent } from "../../../apps/mobile/src/links/destinations"
 
@@ -58,9 +57,6 @@ test("the shared contract calls the operations the website's server actions call
     "decline_player_club_join_request",
     "request_player_call_up",
     "decide_player_call_up",
-    "request_player_dispensation",
-    "decide_player_dispensation",
-    "revoke_player_dispensation",
     "request_player_playing_pathway",
   ]
   for (const rpc of expected) {
@@ -78,7 +74,21 @@ test("the shared contract calls the operations the website's server actions call
   assert.match(code("app/(app)/club/settings/guardians/actions.ts"), /rpc\("remove_guardian_relationship", \{ p_guardian_id: guardianId, p_reason: reason \}\)/)
   assert.match(contract, /rpc\("remove_guardian_relationship", \{ p_guardian_id: guardianId, p_reason: reason\.trim\(\) \}\)/)
   assert.match(contract, /rpc\("approve_player_club_join_request", \{ p_request_id: requestId, p_team_id: teamId \}\)/)
-  assert.match(contract, /rpc\("decide_player_dispensation", \{[\s\S]*?p_stage: stage,[\s\S]*?\}\)/)
+  // DISPENSATIONS ARE ONE WORKFLOW (20270742000000) with ONE shared contract of their own: both apps ask,
+  // decide, withdraw and revoke through `team/dispensation.ts`, and the retired staged operations are gone
+  // from every client.
+  const dispensation = code("packages/contracts/src/team/dispensation.ts")
+  for (const rpc of ["request_dispensation", "decide_dispensation", "withdraw_dispensation", "revoke_player_dispensation", "record_dispensation_reference", "dispensation_register", "dispensation_record"]) {
+    assert.match(dispensation, new RegExp(`rpc\\("${rpc}"`), `the dispensation contract wraps ${rpc}`)
+  }
+  const webDispensations = code("app/(app)/dispensations/actions.ts")
+  for (const op of ["requestDispensation(", "decideDispensation(", "withdrawDispensation(", "revokeDispensation(", "recordDispensationReference("]) {
+    assert.ok(webDispensations.includes(op), `the website's dispensation actions call the shared ${op.slice(0, -1)}`)
+  }
+  assert.doesNotMatch(webDispensations, /\.rpc\(/, "the website's dispensation actions name no operation of their own")
+  for (const f of [CONTRACT, "app/(app)/club/player-moves/actions.ts", "app/(app)/dispensations/actions.ts", join(SCREENS, "moves.tsx")]) {
+    assert.doesNotMatch(code(f), /decide_player_dispensation|request_player_dispensation/, `${f} never names the retired staged operations`)
+  }
   // No table is written by any client: the operations are the only writes.
   const all = [contract, ...screens.map(code)].join("\n")
   assert.doesNotMatch(all, /\.from\("[a-z_]+"\)\s*\.\s*(insert|update|upsert|delete)\(/, "no client writes a table in this domain")
@@ -144,7 +154,8 @@ test("every R-class control goes through the confirmed sheet and the step-up pat
     "link-requests.tsx": [/approveGuardianLinkRequest\(/, /rejectGuardianLinkRequest\(/],
     "player/[playerId].tsx": [/removeGuardianRelationship\(/, /movePlayerTeamPlace\(/, /sendReplacementGuardianInvitation\(/],
     "duplicates.tsx": [/resolveDuplicateAsExisting\(/, /resolveDuplicateAsNew\(/],
-    "moves.tsx": [/decideClubCallUp\(/, /decideDispensation\(/, /revokeDispensation\(/],
+    // Dispensations are asked for here and decided on their own record (src/dispensation/record.tsx).
+    "moves.tsx": [/decideClubCallUp\(/, /requestDispensation\(/],
     "join-requests.tsx": [/approvePlayerJoinRequest\(/, /declinePlayerJoinRequest\(/],
   }
   for (const [file, ops] of Object.entries(rClass)) {
@@ -161,7 +172,8 @@ test("every R-class control goes through the confirmed sheet and the step-up pat
   assert.match(detail, /confirmLabel: "Remove Guardian",\s*destructive: true,\s*reason: "required"/)
   assert.match(detail, /confirmLabel: "Move to Another Side",\s*reason: "required"/)
   assert.match(code(join(SCREENS, "duplicates.tsx")), /Confirm Same Child/), assert.match(code(join(SCREENS, "duplicates.tsx")), /Confirm Different Child/)
-  assert.match(code(join(SCREENS, "moves.tsx")), /confirmLabel: "Revoke", destructive: true, reason: "required"/)
+  // Revoking a dispensation is confirmed on its record, destructively, and always carries a reason.
+  assert.match(code(join(MOBILE, "src/dispensation/record.tsx")), /confirmLabel: "Revoke Dispensation",\s*destructive: true,\s*reason: "required"/)
   // The step-up screen performs none of this domain's operations.
   const stepUp = code(join(MOBILE, "app/step-up.tsx"))
   assert.doesNotMatch(stepUp, /approve_guardian_link_request|remove_guardian_relationship|resolve_player_duplicate|decide_player_call_up|decide_player_dispensation|guardians-players/)
@@ -190,10 +202,13 @@ test("the squad picker is never pre-selected, the replacement link is the websit
 })
 
 test("the attention item for players asking to join lands on the native screen through the one resolver, and the website's addresses resolve natively", () => {
-  assert.match(code("packages/contracts/src/attention/club.ts"), /destination: \{ kind: "club_player_join_requests" \}/)
-  assert.doesNotMatch(code("packages/contracts/src/attention/club.ts"), /href: "\/club\/join-requests"/)
-  assert.deepEqual(destinationForHref("/club/join-requests"), { kind: "club_player_join_requests" })
-  assert.equal(destinationHref({ kind: "club_player_join_requests" }), "/club/join-requests")
+  // The attention item carries the plain canonical href directly (packages/contracts/src/attention/
+  // model.ts no longer derives it from a second, typed Destination vocabulary -- that layer was
+  // retired as dead weight nothing actually navigated through; resolveIntent/routeForIntent, exercised
+  // below, is the one resolver that was already doing the real work).
+  assert.match(code("packages/contracts/src/attention/club.ts"), /href: "\/club\/join-requests"/)
+  // "ovalball://club/join-requests" below exercises resolveIntent/routeForIntent end to end for the
+  // exact same href the attention item carries.
   const expected: Record<string, string> = {
     "ovalball://club/join-requests": "/admin/guardians/join-requests",
     "ovalball://guardian-requests": "/admin/guardians/link-requests",

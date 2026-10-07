@@ -97,8 +97,8 @@ begin
     (v_club, 'youth', 'U16', 'boys', 'union', true);
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_admin, 'CLUB_ADMIN', 'active'), (v_club, v_member, 'BASIC_USER', 'active');
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_coach, 'BASIC_USER', 'active') returning id into v_ms;
-  insert into public.team_permissions (membership_id, team_id, permission)
-    select v_ms, t.id, 'coach' from public.teams t where t.club_id = v_club and t.age_group = 'U12';
+  insert into testing.team_roles (membership_id, team_id, role_key)
+    select v_ms, t.id, 'COACH' from public.teams t where t.club_id = v_club and t.age_group = 'U12';
 
   -- A parent of one Under 12, an adult with their own player profile, and a member of two clubs.
   insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Uat', 'Clubhome Child ${TAG}', current_date - interval '11 years', 'MALE') returning id into v_child;
@@ -304,7 +304,7 @@ begin
   delete from public.player_team_memberships where player_id in (select id from public.players where surname like 'Clubhome %${TAG}');
   delete from public.players where surname like 'Clubhome %${TAG}';
   delete from public.site_admins where user_id in (select id from auth.users where email like 'uat.clubhome.%.${TAG}@ovalball.test');
-  delete from public.team_permissions where team_id in (select id from public.teams where club_id = any(v_clubs));
+  delete from testing.team_roles where team_id in (select id from public.teams where club_id = any(v_clubs));
   delete from public.club_memberships where club_id = any(v_clubs);
   delete from public.club_kits where club_id = any(v_clubs);
   delete from public.club_setup_state where club_id = any(v_clubs);

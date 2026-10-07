@@ -32,15 +32,16 @@ import { loadRecipients } from "../../../../src/messages/recipients"
 import { AvailabilityChoice } from "../../../../src/components/availability-choice"
 import { AvailabilityRegister, type RegisterEntry } from "../../../../src/components/availability-register"
 import {
-  EventHero,
   ParticipantActionCard,
   ParticipantSheet,
 } from "../../../../src/components/participant/event-hero"
+import { TrainingSessionHero } from "../../../../src/training/session-hero"
 import { exactDate, relativeDate, restOfDate } from "../../../../src/agenda/presentation"
 import { todayIso } from "../../../../src/agenda/load"
 import { friendly, logDetail } from "../../../../src/errors/translate"
 import { CalendarDays, ChevronRight, ClipboardList, Clock, MapPin, MessageSquare, Users } from "../../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
+import { bufferLabel, durationLabel } from "../../../../src/training-planning/create-plan/times-and-details-logic"
 import { TOUCH_TARGET, colour, onForest, radius, space, surface, type } from "../../../../src/design/tokens"
 
 /**
@@ -197,7 +198,7 @@ export default function TrainingCentre() {
          answer -- the difference is not ours to reveal -- and it is said on the
          screen it would have been said on, not on a different-looking one. */
       <View style={{ flex: 1, backgroundColor: surface.forest }}>
-        <EventHero
+        <TrainingSessionHero
           surfaceName="Training Centre"
           // NOT "Not available": that is the canonical word for an availability
           // ANSWER, and a hero saying it about the session itself would be the same
@@ -223,6 +224,15 @@ export default function TrainingCentre() {
 
   const cancelled = Boolean(session?.cancelledAt)
   const canEdit = Boolean(session?.canManage) && !cancelled
+  /*
+    A SESSION THAT HAS ALREADY HAPPENED KEEPS ITS OWN SCHEDULE. `override_training_session`
+    itself refuses a date/time/venue/pitch/warm-up/pack-up change once occurrence_date is in
+    the past (mirroring cancel_training_session's existing historical guard) -- this mirrors
+    that same boundary on the rows themselves, so a coach sees a read-only fact rather than a
+    control that would only fail server-side. Agenda and notes stay editable regardless of
+    date: recording what actually happened is administrative, not a schedule change.
+  */
+  const canEditSchedule = canEdit && Boolean(session && session.date >= today)
   const child = mine.length === 1 && !mine[0].isSelf ? mine[0].firstName : null
 
   return (
@@ -233,7 +243,7 @@ export default function TrainingCentre() {
             picture of this club's training, and somebody else's rugby on a page
             about your child is worse than none.
          ============================================================ */}
-      <EventHero
+      <TrainingSessionHero
         surfaceName="Training Centre"
         title="Training Session"
         eyebrow={[session?.teamLabel, child].filter(Boolean).join(" · ") || "Training"}
@@ -241,7 +251,10 @@ export default function TrainingCentre() {
           cancelled
             ? { label: "Cancelled", tone: "danger" }
             : session
-              ? { label: session.date >= today ? "Upcoming" : "Finished", tone: "calm" }
+              ? {
+                  label: (session.date >= today ? "Upcoming" : "Finished") + (session.isOverridden ? " · Edited" : ""),
+                  tone: "calm",
+                }
               : null
         }
         mark={<Users size={26} color={colour.pitch400} strokeWidth={1.9} />}
@@ -457,13 +470,20 @@ export default function TrainingCentre() {
               {session.canManage && (
                 <>
                   <Group title="When">
-                    <Row label="Date" value={exactDate(session.date)} editable={canEdit} onPress={() => setEditing("date")} />
+                    <Row label="Date" value={exactDate(session.date)} editable={canEditSchedule} onPress={() => setEditing("date")} />
                     <Row
                       label="Start"
                       value={session.startTime ?? "Not set"}
                       muted={!session.startTime}
-                      editable={canEdit}
+                      editable={canEditSchedule}
                       onPress={() => setEditing("start")}
+                    />
+                    <Row
+                      label="Duration"
+                      value={session.durationMinutes ? durationLabel(session.durationMinutes) : "Not set"}
+                      muted={!session.durationMinutes}
+                      editable={canEditSchedule}
+                      onPress={() => setEditing("duration")}
                     />
                     <Row
                       label="Ends"
@@ -478,15 +498,40 @@ export default function TrainingCentre() {
                       label="Venue"
                       value={session.venueName ?? "Not set"}
                       muted={!session.venueName}
-                      editable={canEdit}
+                      editable={canEditSchedule}
                       onPress={() => setEditing("venue")}
                     />
                     <Row
                       label="Pitch"
                       value={session.pitchName ?? "Not set"}
                       muted={!session.pitchName}
-                      editable={canEdit}
+                      editable={canEditSchedule}
                       onPress={() => setEditing("pitch")}
+                    />
+                    <Row
+                      label="Changing Room"
+                      value={!session.needsChangingRoom ? "Not needed" : session.changingRoomName ?? "Needed · Waiting for a room"}
+                      muted={!session.needsChangingRoom}
+                      editable={canEditSchedule}
+                      onPress={() => setEditing("room")}
+                      last
+                    />
+                  </Group>
+
+                  <Group title="Warm Up & Pack Up">
+                    <Row
+                      label="Warm Up"
+                      value={session.warmUpMinutes !== null ? bufferLabel(session.warmUpMinutes) : "None"}
+                      muted={!session.warmUpMinutes}
+                      editable={canEditSchedule}
+                      onPress={() => setEditing("warmUp")}
+                    />
+                    <Row
+                      label="Pack Up"
+                      value={session.packUpMinutes !== null ? bufferLabel(session.packUpMinutes) : "None"}
+                      muted={!session.packUpMinutes}
+                      editable={canEditSchedule}
+                      onPress={() => setEditing("packUp")}
                       last
                     />
                   </Group>
@@ -509,7 +554,7 @@ export default function TrainingCentre() {
                     />
                   </Group>
 
-                  {!cancelled && <CancelSessionButton onPress={() => setEditing("cancel")} />}
+                  {!cancelled && canEditSchedule && <CancelSessionButton onPress={() => setEditing("cancel")} />}
                   <TrainingOperations
                     session={session}
                     editing={editing}

@@ -16,6 +16,7 @@ import { Camera, ChevronRight, ExternalLink, Image as ImageIcon, Lock, X } from 
 import { Button, Card, CardSkeleton, ErrorState } from "../../../src/components/ui"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
+import { OvalballDetailHeader } from "../../../src/components/app-header"
 
 /**
  * PROFILE (CA-M9): who you are, on your phone.
@@ -114,16 +115,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <View style={{ paddingTop: insets.top + space.sm, paddingBottom: space.sm, paddingHorizontal: space.md, borderBottomWidth: 1, borderBottomColor: colour.line, flexDirection: "row", alignItems: "center", gap: space.xs }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} hitSlop={8} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
-          <View style={{ transform: [{ rotate: "180deg" }] }}>
-            <ChevronRight size={22} color={colour.ink} />
-          </View>
-        </Pressable>
-        <Text accessibilityRole="header" style={[type.heading, { color: colour.ink, flex: 1 }]}>
-          Profile
-        </Text>
-      </View>
+      <OvalballDetailHeader title="Profile" onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.lg }} keyboardShouldPersistTaps="handled">
         {problem && <ErrorState message={problem} onRetry={() => void load()} />}

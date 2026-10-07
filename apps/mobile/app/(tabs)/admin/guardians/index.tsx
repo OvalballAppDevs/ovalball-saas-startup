@@ -74,7 +74,8 @@ export default function GuardiansPlayersOverview() {
           joinRequests: joins.length,
           duplicates: duplicates.length,
           callUpsWaiting: c.callupApprove ? (moves?.callUps.filter((r) => r.canDecide && r.status === "requested").length ?? 0) : 0,
-          dispensationsWaiting: c.dispensationApproveClub ? (moves?.dispensations.filter((r) => r.status === "source_team_approved" || r.status === "club_approved" || (r.canDecideSourceTeam && r.status === "requested")).length ?? 0) : 0,
+          // One decision per dispensation, by the officer or a Club Admin -- and the server says whose it is.
+          dispensationsWaiting: moves?.dispensations.filter((r) => r.status === "requested" && !!r.viewer.decidesAs).length ?? 0,
         })
       } catch (cause) {
         const translated = friendly(cause, "guardians and players")
@@ -120,7 +121,7 @@ export default function GuardiansPlayersOverview() {
             {caps.joinRequestReview && <Row label="Players Asking to Join" caption="Choose which side each one joins" count={counts.joinRequests} onPress={() => go("join-requests")} />}
             {caps.duplicateResolve && <Row label="Possible Duplicate Players" caption="Is this the same child as one already here?" count={counts.duplicates} onPress={() => go("duplicates")} />}
             {caps.rosterManage && <Row label="Places to Confirm" caption="A parent added a child directly to a side" count={counts.pendingPlaces} onPress={() => router.push({ pathname: "/admin/guardians/players", params: { filter: "pending" } } as never)} />}
-            {(caps.callupApprove || caps.dispensationApproveClub) && <Row label="Player Moves to Decide" caption="Call-ups and dispensations at this club's stage" count={counts.callUpsWaiting + counts.dispensationsWaiting} onPress={() => go("moves")} />}
+            {(caps.callupApprove || caps.dispensationApproveClub) && <Row label="Player Moves to Decide" caption="Call-ups for this club, and dispensations waiting for your decision" count={counts.callUpsWaiting + counts.dispensationsWaiting} onPress={() => go("moves")} />}
           </Group>
 
           <Group title="Directory">

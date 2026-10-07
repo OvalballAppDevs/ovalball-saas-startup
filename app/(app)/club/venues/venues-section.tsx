@@ -17,6 +17,7 @@ import {
   createClubPitch,
   createVenue,
   lookupVenueAddress,
+  resolveVenueAddress,
   renameClubPitch,
   reorderClubPitches,
   setClubPitchActive,
@@ -151,6 +152,13 @@ function VenuesTab({
   const [county, setCounty] = useState("")
   const [country, setCountry] = useState("United Kingdom")
   const [postcode, setPostcode] = useState("")
+  // Set only when the address just came from picking an AddressLookupField suggestion -- left null
+  // for a manually-typed address (still resolved by the async postcode geocoder), and never reset by
+  // startEdit, since re-opening an existing venue for editing must not silently claim a fresh pin for
+  // an address nobody has actually re-selected.
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
+  const [providerRef, setProviderRef] = useState<string | null>(null)
   const [directions, setDirections] = useState("")
   const [setDefault, setSetDefault] = useState(false)
   const [pending, setPending] = useState(false)
@@ -168,6 +176,9 @@ function VenuesTab({
     setCounty("")
     setCountry("United Kingdom")
     setPostcode("")
+    setLatitude(null)
+    setLongitude(null)
+    setProviderRef(null)
     setDirections("")
     setSetDefault(false)
     setFormError(null)
@@ -182,6 +193,9 @@ function VenuesTab({
     setCounty(v.county ?? "")
     setCountry(v.country ?? "United Kingdom")
     setPostcode(v.postcode ?? "")
+    setLatitude(null)
+    setLongitude(null)
+    setProviderRef(null)
     setDirections(v.directions ?? "")
     setFormError(null)
   }
@@ -194,7 +208,7 @@ function VenuesTab({
       name,
       directions,
       setDefault,
-      address: { line1, line2, town, county, postcode, country },
+      address: { line1, line2, town, county, postcode, country, latitude, longitude, providerRef },
     })
     setPending(false)
     if (!result.ok) {
@@ -215,7 +229,7 @@ function VenuesTab({
       clubId,
       name,
       directions,
-      address: { line1, line2, town, county, postcode, country },
+      address: { line1, line2, town, county, postcode, country, latitude, longitude, providerRef },
     })
     setPending(false)
     if (!result.ok) {
@@ -293,12 +307,19 @@ function VenuesTab({
                 <div className="flex flex-col gap-3">
                   <AddressLookupField
                     search={lookupVenueAddress}
-                    onSelect={(picked) => {
-                      setLine1(picked.line1)
-                      setLine2(picked.line2)
-                      setTown(picked.town)
-                      setCounty(picked.county)
-                      setPostcode(picked.postcode)
+                    resolve={resolveVenueAddress}
+                    onResolve={(a) => {
+                      // A selected property fills the whole address: Google supplies the building, the street,
+                      // a real postal_town and the property's own coordinate. A field it did not return keeps
+                      // whatever the venue already had rather than being blanked.
+                      if (a.line1) setLine1(a.line1)
+                      setLine2(a.line2 ?? "")
+                      if (a.town) setTown(a.town)
+                      if (a.county) setCounty(a.county)
+                      if (a.postcode) setPostcode(a.postcode)
+                      setLatitude(a.latitude)
+                      setLongitude(a.longitude)
+                      setProviderRef(a.providerRef)
                     }}
                   />
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -435,12 +456,19 @@ function VenuesTab({
         <div className="rounded-lg border border-ink/10 bg-white p-4">
           <AddressLookupField
             search={lookupVenueAddress}
-            onSelect={(picked) => {
-              setLine1(picked.line1)
-              setLine2(picked.line2)
-              setTown(picked.town)
-              setCounty(picked.county)
-              setPostcode(picked.postcode)
+            resolve={resolveVenueAddress}
+            onResolve={(a) => {
+              // A selected property fills the whole address: Google supplies the building, the street,
+              // a real postal_town and the property's own coordinate. A field it did not return keeps
+              // whatever the venue already had rather than being blanked.
+              if (a.line1) setLine1(a.line1)
+              setLine2(a.line2 ?? "")
+              if (a.town) setTown(a.town)
+              if (a.county) setCounty(a.county)
+              if (a.postcode) setPostcode(a.postcode)
+              setLatitude(a.latitude)
+              setLongitude(a.longitude)
+              setProviderRef(a.providerRef)
             }}
           />
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">

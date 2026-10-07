@@ -129,7 +129,10 @@ export function FixtureListRow({
             {opponentLine(item)}
           </Text>
           <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>
-            {item.us.teamName ?? item.us.clubName}
+            {/* A TOURNAMENT GAME SAYS WHICH TOURNAMENT, AND WHERE IN IT -- the server's own stage label. */}
+            {item.tournamentGame
+              ? `${item.tournamentGame.tournamentName} · ${item.tournamentGame.stageLabel}`
+              : item.us.teamName ?? item.us.clubName}
           </Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
             {venue ? (

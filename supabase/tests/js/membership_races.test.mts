@@ -322,8 +322,11 @@ function seedAttendance() {
   const place = one(`insert into public.player_team_memberships (player_id, team_id, status) values ('${player}', '${ids.team}', 'active') returning id`)
   sql(`insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values ('${ids.parent}', '${player}', 'parent', 'active');`)
   fixtureDay += 1
-  const fixture = one(`insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, status, source)
-    values ('${ids.team}', 'Home', 'Race Opponent ${TAG}', current_date + ${fixtureDay}, '10:30', 'Booked', 'club_created') returning id`)
+  // Attendance opens six days out unless the team opens it earlier (Match Centre consolidation,
+  // 20270727). These races are about the move and the answer, not the window, so it is opened early --
+  // as staff may -- otherwise R20b's answer would be refused by the calendar rather than raced.
+  const fixture = one(`insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, status, source, attendance_opened_at)
+    values ('${ids.team}', 'Home', 'Race Opponent ${TAG}', current_date + ${fixtureDay}, '10:30', 'Booked', 'club_created', now()) returning id`)
   return { player, place, fixture }
 }
 

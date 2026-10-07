@@ -6,7 +6,28 @@ import type { AdminCentreSection } from "@ovalball/contracts/club/admin-centre"
 import { AdminScreen } from "../../../src/admin/screen"
 import { useAdminCentreAccess } from "../../../src/admin/access"
 import { webUrl } from "../../../src/config/environment"
-import { ChevronRight, ExternalLink, Landmark, SlidersHorizontal } from "../../../src/components/icons"
+import {
+  ArrowRightLeft,
+  CalendarDays,
+  ChevronRight,
+  Download,
+  Dumbbell,
+  ExternalLink,
+  FileText,
+  HeartHandshake,
+  IdCard,
+  KeyRound,
+  Landmark,
+  LayoutGrid,
+  MapPin,
+  Newspaper,
+  Receipt,
+  Shield,
+  Shirt,
+  SlidersHorizontal,
+  Trophy,
+  Users,
+} from "../../../src/components/icons"
 import { CardSkeleton, EmptyState } from "../../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
 
@@ -19,6 +40,36 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/t
  * so and opens the website's own page in the system browser -- the same job, the same authority,
  * never a WebView.
  */
+/**
+ * ONE PICTURE PER JOB. Each section names its own picture (`AdminCentreSection.icon`) beside its label and
+ * caption, so More and this landing draw a destination the same way; every row here used to wear the same
+ * building. The landing only looks the name up -- it knows nothing about any one section.
+ */
+const ICONS: Record<string, typeof Landmark> = {
+  ArrowRightLeft,
+  CalendarDays,
+  Download,
+  Dumbbell,
+  FileText,
+  HeartHandshake,
+  IdCard,
+  KeyRound,
+  Landmark,
+  LayoutGrid,
+  MapPin,
+  Newspaper,
+  Receipt,
+  Shield,
+  Shirt,
+  Trophy,
+  Users,
+}
+
+function sectionIcon(name: string, fallback: typeof Landmark) {
+  const Icon = ICONS[name] ?? fallback
+  return <Icon size={20} color={colour.forest800} strokeWidth={1.9} />
+}
+
 export default function AdminCentre() {
   const router = useRouter()
   const { loading, clubId, sections, refresh } = useAdminCentreAccess()
@@ -26,7 +77,7 @@ export default function AdminCentre() {
   const web = sections.filter((s) => !s.native)
 
   return (
-    <AdminScreen section="Admin Centre" onRefresh={() => void refresh()} refreshing={false}>
+    <AdminScreen section="Admin Centre" fallback="/" onRefresh={() => void refresh()} refreshing={false}>
       <View style={{ gap: space.xs }}>
         <Text accessibilityRole="header" style={[type.display, { color: colour.ink }]}>
           Admin Centre
@@ -47,7 +98,7 @@ export default function AdminCentre() {
       {native.length > 0 && (
         <Group title="In the App">
           {native.map((s) => (
-            <SectionRow key={s.key} section={s} icon={<Landmark size={20} color={colour.forest800} strokeWidth={1.9} />} onPress={() => router.push(`/admin/${s.key}` as never)} />
+            <SectionRow key={s.key} section={s} icon={sectionIcon(s.icon, Landmark)} onPress={() => router.push({ pathname: (s.appPath ?? `/admin/${s.key}`) as never, params: s.appPath ? { returnTo: "/admin" } : {} })} />
           ))}
         </Group>
       )}
@@ -55,7 +106,7 @@ export default function AdminCentre() {
       {web.length > 0 && (
         <Group title="On the Web Today">
           {web.map((s) => (
-            <SectionRow key={s.key} section={s} external icon={<SlidersHorizontal size={20} color={colour.forest800} strokeWidth={1.9} />} onPress={() => void Linking.openURL(`${webUrl}${s.webPath}`)} />
+            <SectionRow key={s.key} section={s} external icon={sectionIcon(s.icon, SlidersHorizontal)} onPress={() => void Linking.openURL(`${webUrl}${s.webPath}`)} />
           ))}
         </Group>
       )}

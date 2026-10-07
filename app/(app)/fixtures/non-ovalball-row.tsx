@@ -4,7 +4,7 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 
-import { declineFixtureRequest } from "./actions"
+import { withdrawFixtureRequest } from "./actions"
 
 export interface NonOvalballRowData {
   id: string
@@ -19,9 +19,8 @@ export interface NonOvalballRowData {
  * "Sent" or "Awaiting response" (there is no one on Ovalball to receive
  * or respond to anything). Recorded on the calendar, quietly, with
  * honest language and no accept/decline affordance -- only a way to
- * remove it if it was arranged in error. Reuses declineFixtureRequest,
- * the same underlying row-removal RPC an ordinary outgoing request
- * cancel already uses; the distinction here is purely presentational.
+ * remove it if it was arranged in error -- the requesting side withdrawing
+ * its own request (withdraw_fixture_request), never a "decline" nobody gave.
  */
 export function NonOvalballRow({ request }: { request: NonOvalballRowData }) {
   const [status, setStatus] = useState<"idle" | "working" | "done" | "error">("idle")
@@ -33,7 +32,7 @@ export function NonOvalballRow({ request }: { request: NonOvalballRowData }) {
   async function handleRemove() {
     setStatus("working")
     setError(null)
-    const result = await declineFixtureRequest(request.id)
+    const result = await withdrawFixtureRequest(request.id)
     if (result.ok) setStatus("done")
     else {
       setStatus("error")

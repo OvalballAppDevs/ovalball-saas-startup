@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { fullTeamLabel } from "@/lib/teams/compact-label"
 import type { Database } from "@/types/database.types"
 
 import type { RequestRowData } from "./request-row"
@@ -61,8 +62,15 @@ export async function getIncomingFixtureRequestsSummary(
     const siteAdminCreatorIds = new Set((creatorSiteAdmins ?? []).map((a) => a.user_id))
 
     for (const r of namedIdentityRequests ?? []) {
-      const genderLabel = r.target_team_gender === "girls" ? "Girls " : ""
-      const identityLabel = `${genderLabel}${r.target_team_age_group}${r.target_team_squad_designation ? ` ${r.target_team_squad_designation}` : ""}`
+      // The team they were asked for, in the one display form ("Under 12 Boys", "Under 12 Girls B"): a
+      // hand-built "U12" said nothing about whether a boys side was meant, and "Girls U12" is the compact
+      // form kept for dense surfaces.
+      const identityLabel = fullTeamLabel({
+        category: "junior",
+        ageGroup: r.target_team_age_group,
+        gender: r.target_team_gender,
+        squadDesignation: r.target_team_squad_designation,
+      })
       const { data: resolved } = await supabase.rpc("check_incoming_request_target", { p_request_id: r.id }).single()
       incoming.push({
         id: r.id,

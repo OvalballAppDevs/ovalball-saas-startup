@@ -239,9 +239,20 @@ export function spokenAgendaItem(item: AgendaItem, today: string): string {
   parts.push(
     item.kind === "training"
       ? "Training"
-      : `${item.homeAway === "Away" ? "Away to" : item.homeAway === "Home" ? "At home to" : "Against"} ${opponentFullName(item)}.`
+      : item.kind === "tournament" && item.tournamentGame
+        // ONE GAME OF A TOURNAMENT is a match: who against, then which tournament and which stage.
+        ? `Against ${opponentFullName(item)}. ${item.tournamentGame.tournamentName}, ${item.tournamentGame.stageLabel}.`
+      : item.kind === "tournament"
+        // A TOURNAMENT IS NAMED, NOT POSITIONED. It has no opposition and no home or
+        // away, so the sentence says which festival it is -- which is the fact a
+        // listener needs and the one a fixture's phrasing cannot carry.
+        ? `${item.name ?? "Tournament"}.`
+        : `${item.homeAway === "Away" ? "Away to" : item.homeAway === "Home" ? "At home to" : "Against"} ${opponentFullName(item)}.`
   )
-  if (item.kind === "training" && item.us.teamName) parts.push(`${item.us.teamName}.`)
+  if ((item.kind === "training" || item.kind === "tournament") && item.us.teamName) parts.push(`${item.us.teamName}.`)
+  // WHICH DAY OF THE FESTIVAL, spoken in full: a listener scrubbing a week needs to
+  // know this Sunday is the second day of something rather than a new event.
+  if (item.dayOfSpan) parts.push(`Day ${item.dayOfSpan.day} of ${item.dayOfSpan.of}.`)
   // ONE DATE, NOT TWO. "Fri 2 Oct, Friday, 2 October 2026" is the same day said twice, and a screen
   // reader reads every word of it. Inside the week the day word leads and the rest of the date
   // follows; beyond it the full date is said once, because that is the unambiguous form and there is

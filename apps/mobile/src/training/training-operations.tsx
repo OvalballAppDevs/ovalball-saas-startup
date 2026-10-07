@@ -3,6 +3,7 @@ import { Pressable, Text, View } from "react-native"
 
 import { supabase } from "../auth/supabase"
 import {
+  applyToAllFutureSessions,
   cancelTrainingSession,
   overrideTrainingSession,
   type TrainingResult,
@@ -11,6 +12,8 @@ import {
 import { loadPitchOptions, loadVenueOptions, type PitchOption, type VenueOption } from "../agenda/fixture-detail"
 import { exactDate } from "../agenda/presentation"
 import { CancelSheet, ChoiceSheet, DateSheet, TextSheet, TimeSheet } from "../components/field-sheet"
+import { ApplyChangesSheet } from "./apply-changes-sheet"
+import { BUFFER_OPTIONS, DURATION_OPTIONS } from "../training-planning/create-plan/times-and-details-logic"
 import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
 
 /**
@@ -44,7 +47,7 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
  */
 
 /** Which field a coach is editing, or null. Held by the screen so the rows can say so. */
-export type TrainingEdit = "date" | "start" | "venue" | "pitch" | "agenda" | "notes" | "cancel" | null
+export type TrainingEdit = "date" | "start" | "duration" | "venue" | "pitch" | "room" | "warmUp" | "packUp" | "agenda" | "notes" | "cancel" | null
 
 export function TrainingOperations({
   session,
@@ -107,6 +110,31 @@ export function TrainingOperations({
 
   const id = session.id
 
+  /**
+   * "APPLY CHANGES" -- offered only when this occurrence belongs to a recurring plan
+   * (`session.trainingPlanId`); a MANUAL one-off session has no plan to apply a "future" edit to, so it
+   * goes straight to the session-only path. Presented as `ApplyChangesSheet` (Step 7 correction --
+   * the same two destinations as before, `overrideTrainingSession` / `applyToAllFutureSessions`, now
+   * behind an Ovalball-styled sheet rather than the native `Alert.alert`).
+   */
+  const [pendingScope, setPendingScope] = useState<{ sessionOnly: () => Promise<TrainingResult>; allFuture: () => Promise<TrainingResult> } | null>(null)
+  const withScope = useCallback(
+    (sessionOnly: () => Promise<TrainingResult>, allFuture: () => Promise<TrainingResult>) => {
+      if (!session.trainingPlanId) {
+        void save(sessionOnly)
+        return
+      }
+      // THE FIELD SHEET MUST FINISH DISMISSING FIRST. iOS silently refuses to present a
+      // second native Modal while the first is still on screen, which left Save looking
+      // inert -- the scope sheet was being asked to appear over a still-open edit sheet.
+      // Closing the edit sheet, then giving its dismissal a moment to actually complete,
+      // is what lets ApplyChangesSheet's own Modal present afterwards.
+      onClose()
+      setTimeout(() => setPendingScope({ sessionOnly, allFuture }), 500)
+    },
+    [save, onClose, session.trainingPlanId]
+  )
+
   return (
     <>
       <DateSheet
@@ -124,7 +152,30 @@ export function TrainingOperations({
         onClose={onClose}
         saving={saving}
         problem={problem}
-        onSave={(startTime) => void save(() => overrideTrainingSession(supabase, id, { startTime }))}
+        onSave={(startTime) =>
+          withScope(
+            () => overrideTrainingSession(supabase, id, { startTime }),
+            () => applyToAllFutureSessions(supabase, session, { startTime: startTime ?? undefined })
+          )
+        }
+      />
+      <ChoiceSheet
+        visible={editing === "duration"}
+        title="Duration"
+        options={DURATION_OPTIONS.map((o) => ({ id: String(o.minutes), name: o.label }))}
+        value={session.durationMinutes !== null ? String(session.durationMinutes) : null}
+        emptyMessage="No duration options."
+        onClose={onClose}
+        saving={saving}
+        problem={problem}
+        onSave={(value) => {
+          if (!value) return
+          const durationMinutes = Number(value)
+          withScope(
+            () => overrideTrainingSession(supabase, id, { durationMinutes }),
+            () => applyToAllFutureSessions(supabase, session, { durationMinutes })
+          )
+        }}
       />
       <ChoiceSheet
         visible={editing === "venue"}
@@ -136,7 +187,12 @@ export function TrainingOperations({
         onClose={onClose}
         saving={saving}
         problem={problem}
-        onSave={(venueId) => void save(() => overrideTrainingSession(supabase, id, { venueId }))}
+        onSave={(venueId) =>
+          withScope(
+            () => overrideTrainingSession(supabase, id, { venueId }),
+            () => applyToAllFutureSessions(supabase, session, { venueId: venueId ?? undefined })
+          )
+        }
       />
       <ChoiceSheet
         visible={editing === "pitch"}
@@ -150,7 +206,69 @@ export function TrainingOperations({
         onClose={onClose}
         saving={saving}
         problem={problem}
-        onSave={(pitchId) => void save(() => overrideTrainingSession(supabase, id, { pitchId, venueId: session.venueId }))}
+        onSave={(pitchId) =>
+          withScope(
+            () => overrideTrainingSession(supabase, id, { pitchId, venueId: session.venueId }),
+            () => applyToAllFutureSessions(supabase, session, { pitchId: pitchId ?? undefined })
+          )
+        }
+      />
+      {/* "NEEDS A CHANGING ROOM" -- the team's request, for this session or the plan. Arena gives the room, one team
+          per room; saying No here gives any room back. */}
+      <ChoiceSheet
+        visible={editing === "room"}
+        title="Changing Room"
+        hint="Whether the team needs a changing room. Arena Planning gives it one; one team per room."
+        options={[{ id: "yes", name: "Needs a Changing Room" }, { id: "no", name: "No Changing Room" }]}
+        value={session.needsChangingRoom ? "yes" : "no"}
+        emptyMessage=""
+        onClose={onClose}
+        saving={saving}
+        problem={problem}
+        onSave={(value) => {
+          if (value === null) return
+          const needsChangingRoom = value === "yes"
+          withScope(
+            () => overrideTrainingSession(supabase, id, { needsChangingRoom }),
+            () => applyToAllFutureSessions(supabase, session, { needsChangingRoom })
+          )
+        }}
+      />
+      <ChoiceSheet
+        visible={editing === "warmUp"}
+        title="Warm Up (before)"
+        options={BUFFER_OPTIONS.map((o) => ({ id: String(o.minutes), name: o.label }))}
+        value={session.warmUpMinutes !== null ? String(session.warmUpMinutes) : null}
+        emptyMessage="No warm-up options."
+        onClose={onClose}
+        saving={saving}
+        problem={problem}
+        onSave={(value) => {
+          if (value === null) return
+          const warmUpMinutes = Number(value)
+          withScope(
+            () => overrideTrainingSession(supabase, id, { warmUpMinutes }),
+            () => applyToAllFutureSessions(supabase, session, { warmUpMinutes })
+          )
+        }}
+      />
+      <ChoiceSheet
+        visible={editing === "packUp"}
+        title="Pack Up / Cool Down (after)"
+        options={BUFFER_OPTIONS.map((o) => ({ id: String(o.minutes), name: o.label }))}
+        value={session.packUpMinutes !== null ? String(session.packUpMinutes) : null}
+        emptyMessage="No pack-up options."
+        onClose={onClose}
+        saving={saving}
+        problem={problem}
+        onSave={(value) => {
+          if (value === null) return
+          const packUpMinutes = Number(value)
+          withScope(
+            () => overrideTrainingSession(supabase, id, { packUpMinutes }),
+            () => applyToAllFutureSessions(supabase, session, { packUpMinutes })
+          )
+        }}
       />
       <TextSheet
         visible={editing === "agenda"}
@@ -178,6 +296,7 @@ export function TrainingOperations({
       />
       <CancelSheet
         visible={editing === "cancel"}
+        kind="training"
         summary={{
           teams: session.teamLabel ?? "Training",
           when: `${exactDate(session.date)}${session.startTime ? ` · ${session.startTime}` : ""}`,
@@ -186,6 +305,21 @@ export function TrainingOperations({
         saving={saving}
         problem={problem}
         onConfirm={(reason) => void save(() => cancelTrainingSession(supabase, id, reason))}
+      />
+      <ApplyChangesSheet
+        visible={pendingScope !== null}
+        dateLabel={exactDate(session.date)}
+        onClose={() => setPendingScope(null)}
+        onSessionOnly={() => {
+          const scope = pendingScope
+          setPendingScope(null)
+          if (scope) void save(scope.sessionOnly)
+        }}
+        onAllFuture={() => {
+          const scope = pendingScope
+          setPendingScope(null)
+          if (scope) void save(scope.allFuture)
+        }}
       />
     </>
   )

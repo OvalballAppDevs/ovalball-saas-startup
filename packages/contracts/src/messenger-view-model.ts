@@ -30,6 +30,10 @@ export interface MessengerRow {
   href: string
   /** The other party's crest, where one legitimately exists. */
   logoUrl: string | null
+  /** A direct conversation's other PERSON, by their own picture (never a crest). Absent means initials. */
+  avatarUrl?: string | null
+  /** The other person in a direct conversation, for presence and pictures. */
+  otherUserId?: string | null
   /** WHO. The club or organisation on the other side. */
   title: string
   /**
@@ -114,6 +118,11 @@ export function unreadLabel(count: number, noun = "unread message"): string {
  * agree on which conversation is "most recent" -- otherwise the panel's top
  * row is not the workspace's top row and the product looks broken.
  */
+/** Most recently received first; a conversation with nothing in it yet comes after every one that has messages. */
 export function byRecentActivity(a: MessengerRow, b: MessengerRow): number {
-  return (b.activityAt ?? "").localeCompare(a.activityAt ?? "")
+  const at = (row: MessengerRow) => {
+    const t = row.activityAt ? Date.parse(row.activityAt) : Number.NaN
+    return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t
+  }
+  return at(b) - at(a)
 }

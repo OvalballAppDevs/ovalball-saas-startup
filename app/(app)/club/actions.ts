@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
-import { searchUkAddresses, type AddressLookupResult } from "@/lib/address-lookup/lookup"
+import { resolveAddress, suggestAddresses } from "@/lib/address-lookup/lookup"
+import type { AddressResolveResult, AddressSuggestResult } from "@ovalball/contracts/address"
 import { clubProfileErrorMessage, deleteClubContact as deleteContactOperation, saveClubContact as saveContactOperation, updateClubProfile } from "@ovalball/contracts/club/profile"
 import { pitchConfigurationInputProblem, saveClubVenue as saveVenueOperation, setClubPitchConfiguration as setPitchConfigurationOperation, venueErrorMessage, type PitchConfigurationInput } from "@ovalball/contracts/club/venues"
 import { pitchConfigurationImpact, type PitchConfigurationImpact } from "@ovalball/contracts/pitch-allocation"
@@ -16,14 +17,25 @@ import { pitchConfigurationImpact, type PitchConfigurationImpact } from "@ovalba
  * (Club Admin or Site Admin of this specific club) is already enforced by
  * create_venue/update_venue at save time, not here.
  */
-export async function lookupVenueAddress(query: string): Promise<AddressLookupResult> {
+export async function lookupVenueAddress(query: string, sessionToken: string): Promise<AddressSuggestResult> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { status: "error", message: "You must be signed in." }
-  if (query.trim().length < 3) return { status: "ok", candidates: [] }
-  return searchUkAddresses(query)
+  if (!user) return { status: "invalid_query", reason: "You must be signed in." }
+  return suggestAddresses(query, sessionToken)
+}
+
+/** Second step: resolve one chosen suggestion into its full structured address + coordinates. Same
+ * authorization shape as lookupVenueAddress -- signed in is enough, the real write boundary is
+ * create_venue/update_venue/set_venue_address at save time. */
+export async function resolveVenueAddress(placeId: string, sessionToken: string): Promise<AddressResolveResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { status: "invalid_query", reason: "You must be signed in." }
+  return resolveAddress(placeId, sessionToken)
 }
 
 export type SaveClubProfileResult = { ok: true } | { ok: false; error: string }
@@ -325,6 +337,13 @@ export interface VenueAddressInput {
   county: string
   postcode: string
   country: string
+  /** Set only when this address came from picking an AddressLookupField suggestion moments earlier
+   * (resolveVenueAddress's own response, server-resolved, never hand-typed) -- omit/leave undefined
+   * for a manually-typed address, which still resolves through the async postcode geocoder exactly as
+   * before. */
+  latitude?: number | null
+  longitude?: number | null
+  providerRef?: string | null
 }
 
 /**
@@ -349,14 +368,23 @@ export async function createVenue(input: {
   // shared wrapper, so there is no choreography left to copy.
   let venueId: string
   try {
-    venueId = await saveVenueOperation(supabase, input.clubId, null, { ...input.address, name: input.name, directions: input.directions, setDefault: input.setDefault })
+    venueId = await saveVenueOperation(supabase, input.clubId, null, {
+      ...input.address,
+      name: input.name,
+      directions: input.directions,
+      setDefault: input.setDefault,
+      addressProviderRef: input.address.providerRef,
+    })
   } catch (error) {
     return { ok: false, error: venueErrorMessage(error, "The venue could not be saved. Please try again.") }
   }
 
-  // CA-M3: the pin is the PLATFORM's to derive. Recording the postcode enqueues a postcodes.io lookup
-  // through pg_net (venues_request_geocode) and the scheduled pass records the answer -- the same
-  // for a venue saved from the app. Nothing here, on either client, calls a geocoder.
+  // CA-M3: the pin is the PLATFORM's to derive, never hand-typed or fabricated client-side. When the
+  // address came from picking a suggestion (input.address.latitude/longitude set from
+  // resolveVenueAddress's own server-resolved response), that IS the platform deriving it -- just
+  // synchronously, through the same address-lookup server action the postcode text itself came from,
+  // rather than asynchronously through postcodes.io. Recording only a manually-typed postcode still
+  // enqueues the async postcodes.io lookup through pg_net (venues_request_geocode) exactly as before.
   void venueId
   revalidatePath("/club/venues")
   return { ok: true }
@@ -371,7 +399,13 @@ export async function updateVenue(input: {
 }): Promise<SaveClubProfileResult> {
   const supabase = await createClient()
   try {
-    await saveVenueOperation(supabase, input.clubId, input.id, { ...input.address, name: input.name, directions: input.directions, setDefault: false })
+    await saveVenueOperation(supabase, input.clubId, input.id, {
+      ...input.address,
+      name: input.name,
+      directions: input.directions,
+      setDefault: false,
+      addressProviderRef: input.address.providerRef,
+    })
   } catch (error) {
     return { ok: false, error: venueErrorMessage(error, "The venue could not be saved. Please try again.") }
   }

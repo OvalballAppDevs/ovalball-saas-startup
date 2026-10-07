@@ -63,3 +63,21 @@ export async function exchangeGoCardlessOAuthCode(code: string): Promise<GoCardl
   }
   return parsed as GoCardlessTokenResponse
 }
+
+/**
+ * Revokes a club's access token at GoCardless -- what disconnecting means at the provider. A GoCardless OAuth
+ * token is permanent until revoked and acts on the club's whole account, so a token Ovalball has let go of is
+ * revoked, not merely forgotten (20270744000000 queues it; token-revocation.ts drains the queue). A
+ * form-encoded POST to the connect host's /oauth/revoke with the partner app's credentials, per GoCardless's
+ * OAuth documentation. The token is never logged, and an error never carries it.
+ */
+export async function revokeGoCardlessToken(params: { environment: GoCardlessEnvironment; token: string }): Promise<void> {
+  const response = await fetch(`${getGoCardlessConnectBaseUrl(params.environment)}/oauth/revoke`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+    body: new URLSearchParams({ client_id: getGoCardlessClientId(), client_secret: getGoCardlessClientSecret(), token: params.token }).toString(),
+  })
+  if (!response.ok) {
+    throw new Error(`GoCardless token revocation failed: ${response.status}`)
+  }
+}

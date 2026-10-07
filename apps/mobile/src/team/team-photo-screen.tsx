@@ -7,8 +7,6 @@ import { loadTeamProfile, loadTeamProfileIdentity, type TeamProfileIdentity } fr
 import { teamMediaErrorMessage as pickErrorMessage, setTeamCover, uploadTeamCoverPhoto } from "@ovalball/contracts/team/media"
 
 import { supabase } from "../auth/supabase"
-import { demoTeamCoverAsset } from "./team-cover-demo"
-import { teamCoverPhotoSource } from "./cover-library"
 import { choosePhoto, readFileBytes, takePhoto } from "../messages/pickers"
 import { friendly, logDetail } from "../errors/translate"
 import { OvalballDetailHeader } from "../components/app-header"
@@ -16,6 +14,7 @@ import { PhotoBottomShade } from "../components/photo-gradient"
 import { Button, CardSkeleton, ErrorState } from "../components/ui"
 import { BookOpen, Camera, Image as ImageIcon } from "../components/icons"
 import { TOUCH_TARGET, colour, radius, space, surface, type } from "../design/tokens"
+import { teamCoverSource } from "../media/stock-assets"
 
 /**
  * EDIT TEAM PHOTO -- the ONE canonical cover editor (Section 5/Section 18 convergence), reached from
@@ -60,7 +59,7 @@ export function TeamPhotoScreen({ teamId }: { teamId: string }) {
     }, [load])
   )
 
-  const photo = preview ? { uri: preview.uri } : identity ? teamCoverPhotoSource(identity.cover, demoTeamCoverAsset(identity)) : null
+  const photo = preview ? { uri: preview.uri } : identity ? teamCoverSource(identity.cover, identity) : null
 
   async function pick(source: "camera" | "library") {
     setSaveProblem(null)

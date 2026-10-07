@@ -73,12 +73,22 @@ test("every Admin Centre section is gated by one canonical capability the websit
   // not yet been migrated to check these specific granular keys (a known gap, tracked separately, not this
   // section list's to fix). Genuinely inventing a capability for mobile alone would not appear in either.
   const deskToolSource = code("packages/contracts/src/club/overview.ts")
+  // AND THE WEBSITE'S OWN SERVER-SIDE ENFORCEMENT, which is a stronger witness than a nav list.
+  // `training.plan.manage` is the key `app/(app)/club/training/page.tsx` and its actions check with
+  // `hasCapability`; it simply never appears in the Club Settings nav resolver or in
+  // `CLUB_AUTHORITY_KEYS`, so looking only there read a correctly-gated section as an invented key.
+  // A key the website ENFORCES is a key the website recognises.
+  const webEnforced = ["app/(app)/club/training/page.tsx", "app/(app)/club/training/actions.ts",
+                       "app/(app)/club/calendar/deleted-events/page.tsx"]
+    .map((f) => { try { return code(f) } catch { return "" } })
+    .join("\n")
   const keys = new Set(ADMIN_CENTRE_SECTIONS.map((s) => s.key))
   assert.equal(keys.size, ADMIN_CENTRE_SECTIONS.length, "section keys are unique")
   for (const s of ADMIN_CENTRE_SECTIONS) {
     const gatedByWebNav = new RegExp(`"${s.capability.replace(/\./g, "\\.")}"`).test(webNav)
     const gatedByDeskToolCatalogue = new RegExp(`"${s.capability.replace(/\./g, "\\.")}"`).test(deskToolSource)
-    assert.ok(gatedByWebNav || gatedByDeskToolCatalogue, `${s.key} is gated on ${s.capability}, which neither the website's Club Settings/Teams nav nor the shared desk-tool capability catalogue recognises`)
+    const enforcedByWeb = new RegExp(`hasCapability\\([^)]*"${s.capability.replace(/\./g, "\\.")}"`).test(webEnforced)
+    assert.ok(gatedByWebNav || gatedByDeskToolCatalogue || enforcedByWeb, `${s.key} is gated on ${s.capability}, which neither the website's Club Settings/Teams nav, the shared desk-tool capability catalogue, nor the website's own server-side enforcement recognises`)
     assert.ok(s.webPath.startsWith("/"), `${s.key} names a web destination`)
     assert.match(s.label, /^[A-Z]/, `${s.key} label is Title Case`)
   }
@@ -188,12 +198,39 @@ test("venues: both clients save through save_club_venue; no client writes venues
     const src = code(f)
     assert.doesNotMatch(src, /\.from\("(venues|club_pitches)"\)\s*\.\s*(insert|update|upsert|delete)/, `${f} writes a table`)
     assert.doesNotMatch(src, /rpc\("/, `${f} calls an operation directly instead of the shared wrapper`)
-    assert.doesNotMatch(src, /latitude:|longitude:|p_latitude/, `${f} must not type a pin`)
+    // A HAND-TYPED pin (a hardcoded number, or a raw numeric TextInput bound to latitude/longitude)
+    // is still forbidden -- that was always the real target of this check, not the field name itself.
+    // Since the sitewide address-lookup work, a screen MAY legitimately populate VenueInput's own
+    // latitude/longitude from an address the person just selected through AddressLookupField, because
+    // that coordinate is server-resolved (the provider is only ever reached from
+    // lib/address-lookup/lookup.ts or the address-lookup Edge Function, never the browser/app) and
+    // relayed, not fabricated client-side -- the same trust level the postcode text field already had.
+    assert.doesNotMatch(src, /latitude:\s*-?\d|longitude:\s*-?\d/, `${f} must not hardcode a literal coordinate`)
+    assert.doesNotMatch(src, /keyboardType=["'](?:decimal-pad|numeric)["'][^>]*[Ll]atitude|[Ll]atitude[^>]*keyboardType=["'](?:decimal-pad|numeric)["']/, `${f} must not offer a hand-typed pin`)
   }
   assert.match(code(join(ADMIN_ROUTES, "venues/[venueId].tsx")), /Confirm Deactivate/, "deactivation is confirmed")
   assert.match(code(join(ADMIN_ROUTES, "venues/[venueId].tsx")), /useFocusEffect/)
 
-  const v: ClubVenue = { id: "v", name: "Riverside", addressLine1: "1 Mill Lane", addressLine2: null, town: "Ovaltown", county: null, postcode: "BB10 2LS", country: "United Kingdom", directions: null, active: true, isDefaultHome: true, latitude: 53.8, longitude: -2.2, geocodeStatus: "pending" }
+  const v: ClubVenue = {
+    id: "v",
+    name: "Riverside",
+    addressLine1: "1 Mill Lane",
+    addressLine2: null,
+    town: "Ovaltown",
+    county: null,
+    postcode: "BB10 2LS",
+    country: "United Kingdom",
+    directions: null,
+    active: true,
+    isDefaultHome: true,
+    latitude: 53.8,
+    longitude: -2.2,
+    geocodeStatus: "pending",
+    coverImagePath: null,
+    coverStockKey: null,
+    cateringAvailable: true,
+    changingRoomsAvailable: true,
+  }
   assert.equal(venueAddressLine(v), "1 Mill Lane, Ovaltown, BB10 2LS")
   assert.deepEqual(venueMapsQuery(v), { kind: "query", query: "Riverside, 1 Mill Lane, Ovaltown, BB10 2LS" }, "a pending pin is never offered as coordinates")
   assert.deepEqual(venueMapsQuery({ ...v, geocodeStatus: "success" }), { kind: "coordinates", latitude: 53.8, longitude: -2.2 })
@@ -240,42 +277,58 @@ test("the team catalogue and taxonomy live once, in the shared package", () => {
 
 import { PEOPLE_FILTERS, personName, reasonRuleFor } from "../../../packages/contracts/src/club/people"
 
+// PEOPLE & INVITATIONS (2026-10-05) rebuilt People as the club's one register and moved the screens' bodies into
+// src/people (the routes render them, as Match Centre's wrappers do), so each check below reads the route AND the
+// implementation together. What changed on purpose, each pinned here instead of the old shape:
+//   * team roles are ADDITIVE -- assign_role / transition_role_assignment -- and the shared module no longer wraps the
+//     seat switch (set_team_access / remove_team_access) that replaced a person's other roles on a team unannounced;
+//   * the filters are All / Players / Staff / Admins / Pending -- club access (Admins) and what people do (Staff) kept
+//     apart, and Deactivated a lifecycle state reached from its own quiet line, never a chip;
+//   * players are rows, through the read model, for roster readers only: still no player, child or family table read
+//     on a People screen, and still no date of birth;
+//   * Deactivate Membership and Remove from Club are their own confirmation screens, read before they are done.
+const PEOPLE_SRC = join(MOBILE, "src/people")
+
 test("people: one read model, one reason list, one avatar resolver, no child data, no permission editor", () => {
   const contracts = code(join(CONTRACTS_CLUB, "people.ts"))
   assert.match(contracts, /rpc\("club_people"/, "the People list reads the shared read model")
-  for (const rpc of ["set_primary_club_role", "transition_club_membership", "set_team_access", "remove_team_access", "assign_role", "transition_role_assignment", "decide_club_join_request"]) {
+  for (const rpc of ["set_primary_club_role", "transition_club_membership", "assign_role", "transition_role_assignment", "set_team_role_title", "set_membership_governance_title", "club_access_summary", "decide_club_join_request"]) {
     assert.match(contracts, new RegExp(`rpc\\("${rpc}"`), `the shared module wraps ${rpc}`)
   }
+  assert.doesNotMatch(contracts, /rpc\("set_team_access"|rpc\("remove_team_access"/, "no seat switch: team roles are given and ended one at a time")
   assert.doesNotMatch(contracts, /set_capability_override|revoke_capability_override|capability_overrides/, "no permission editing lives in People (CA-M4)")
   assert.doesNotMatch(contracts, /from\("(club_memberships|role_assignments|team_permissions|players|guardians)"\)/, "no direct table reads or writes; the read model and the operations only")
   assert.match(contracts, /REASON_REQUIRED_OPERATIONS/, "the reason rule comes from the one shared list")
-  assert.equal(reasonRuleFor("transition_club_membership"), "required", "the server requires a reason from anyone acting on another person's membership, so the sheet asks for it up front")
+  assert.equal(reasonRuleFor("transition_club_membership"), "required", "the server requires a reason from anyone acting on another person's membership, so the screen asks for it up front")
   assert.equal(reasonRuleFor("transition_club_membership", { actingOnSelf: true }), "optional", "the one exception the shared list names: a person acting on their own membership")
   assert.equal(reasonRuleFor("revoke_invitation"), "required")
   assert.equal(reasonRuleFor("set_primary_club_role"), "optional")
-  assert.deepEqual(PEOPLE_FILTERS.map((f) => f.key), ["all", "staff", "members", "pending", "suspended"])
+  assert.deepEqual(PEOPLE_FILTERS.map((f) => f.key), ["all", "players", "staff", "admins", "pending"], "Deactivated is a state, never a chip")
   assert.equal(personName({ firstName: "Ada", surname: "Admin", invitationEmail: null }), "Ada Admin")
   assert.equal(personName({ firstName: null, surname: null, invitationEmail: "a…@x.test" }), "a…@x.test")
 
-  // CA-M4 extracted the list row into src/admin/person-row.tsx; the list and its row are read together.
   const list = code(join(ADMIN_ROUTES, "people/index.tsx")) + code(join(ADMIN_SRC, "person-row.tsx"))
-  const detail = code(join(ADMIN_ROUTES, "people/[membershipId]/index.tsx"))
+  const detail = code(join(ADMIN_ROUTES, "people/[membershipId]/index.tsx")) + code(join(PEOPLE_SRC, "member-details.tsx"))
+  const lifecycle = code(join(PEOPLE_SRC, "membership-change.tsx"))
   for (const f of [list, detail]) {
     assert.match(f, /resolvePersonalAvatarUrls?\(/, "the person's avatar comes from the canonical personal-avatar resolver")
     assert.match(f, /<PersonAvatar/, "a person is drawn with PersonAvatar")
-    assert.doesNotMatch(f, /<ClubCrest|<RugbyKit|clubLogoUrlFromPath|crestUrl/, "a club crest or a kit is never a person's picture")
+    assert.doesNotMatch(f, /<ClubCrest|<RugbyKit|clubLogoUrlFromPath|crestUrl=\{person/, "a club crest or a kit is never a person's picture")
     assert.doesNotMatch(f, /date_of_birth|dateOfBirth|\bdob\b/i, "no date of birth on a People screen")
-    assert.doesNotMatch(f, /guardian_link|safeguarding_case|players\b.*from\(|player_team_memberships/, "no family, child or safeguarding data")
-    assert.doesNotMatch(src(f), /role\s*===?\s*["']CLUB_ADMIN["']|clubRoleKey/, "no role branching")
+    assert.doesNotMatch(f, /guardian_link|safeguarding_case|players\b.*from\(|player_team_memberships/, "no family, child or safeguarding table read")
+    assert.doesNotMatch(f, /role\s*===?\s*["']CLUB_ADMIN["']|clubRoleKey/, "no role branching")
     assert.doesNotMatch(f, /set_capability_override|capability_overrides|Allow|Withhold/, "no permission toggles")
     assert.doesNotMatch(f, /AsyncStorage|queue|retryLater/i, "no offline queue")
     assert.match(f, /useFocusEffect/, "re-reads on focus")
   }
-  assert.match(list, /readClubPeople\(supabase, clubId, \{ search: query, filter, limit: PAGE, offset \}\)/, "search, filter and paging are the server's")
-  assert.match(detail, /ReasonSheet/, "every membership change goes through the confirmed, reasoned sheet")
-  assert.match(detail, /Confirm Suspension|Remove Access/, "destructive actions are confirmed")
-  assert.doesNotMatch(detail, /onSwipe|Swipeable/, "no destructive swipe")
-  function src(s: string) { return s }
+  assert.match(list, /readClubPeople\(supabase, clubId, \{ search: query, filter, limit: PAGE, offset, roleKey: role \?\? undefined, title: title \?\? undefined \}\)/, "search, filter, role, title and paging are the server's")
+  assert.match(list, /No deactivated members/, "deactivated people are a quiet line, never a category to add to")
+  assert.match(detail, /ReasonSheet/, "every role and access change goes through the confirmed, reasoned sheet")
+  assert.match(detail, /Deactivate Membership/), assert.match(detail, /Remove from Club/)
+  assert.match(lifecycle, /deactivateMembership\(supabase/), assert.match(lifecycle, /removeFromClub\(supabase/)
+  assert.match(lifecycle, /reasonRuleFor\("transition_club_membership"/, "the confirmation asks for the reason the server requires")
+  assert.match(lifecycle, /isRecentAuthRefusal/, "a recent-authenticator refusal goes to the step-up and comes back")
+  for (const f of [detail, lifecycle]) assert.doesNotMatch(f, /onSwipe|Swipeable/, "no destructive swipe")
 })
 
 test("people on the web: capability gate, shared read model, shared operations with reasons", () => {
@@ -287,7 +340,9 @@ test("people on the web: capability gate, shared read model, shared operations w
   assert.match(actions, /setPrimaryClubRole\(|transitionMembership\(|removeTeamAccess\(/, "the actions call the shared wrappers")
   assert.doesNotMatch(actions, /rpc\("set_primary_club_role"|rpc\("remove_team_access"/, "the website no longer calls these operations without the shared reason rule")
   const row = code("app/(app)/people/person-row.tsx")
-  assert.match(row, /Confirm Suspension/, "suspend and restore reached the web person row")
+  // People & Invitations: the membership's reversible pause is Deactivate / Reactivate on both clients.
+  assert.match(row, /Deactivate Membership/, "deactivate and reactivate reached the web person row")
+  assert.match(row, /Reactivate Membership/)
 })
 
 // ---------------------------------------------------------------------------------------------------
@@ -357,8 +412,10 @@ test("permissions: Site Admin authority and safeguarding are never in the club p
   assert.doesNotMatch(all, /safeguarding_cases|safeguarding\.welfare|safeguarding_officer_nominate/, "no safeguarding case content")
   const people = code(join(CONTRACTS_CLUB, "people.ts"))
   assert.match(people, /people\.membership\.suspend/), assert.match(people, /people\.membership\.revoke/)
-  const person = code(join(ADMIN_ROUTES, "people/[membershipId]/index.tsx"))
-  assert.match(person, /canSuspend = !!caps\?\.suspend/), assert.match(person, /canRevoke = !!caps\?\.revoke/)
+  // The person screen's body is src/people/member-details.tsx (People & Invitations): Deactivate asks
+  // people.membership.suspend, Remove asks people.membership.revoke -- each key on its own.
+  const person = code(join(ADMIN_ROUTES, "people/[membershipId]/index.tsx")) + code(join(MOBILE, "src/people/member-details.tsx"))
+  assert.match(person, /caps\?\.suspend && \(/), assert.match(person, /caps\?\.revoke && \(/)
   const migration = read("supabase/migrations/20270546000000_a_permission_says_what_the_server_enforces.sql")
   assert.match(migration, /club_membership_authority\(v_club, 'people\.membership\.suspend'\)/)
   assert.match(migration, /club_membership_authority\(v_club, 'people\.membership\.revoke'\)/)

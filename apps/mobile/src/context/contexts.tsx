@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
 import {
@@ -17,7 +17,7 @@ import { supabase } from "../auth/supabase"
 import { useSession } from "../auth/session"
 import { getUnreadCounts, type UnreadCounts } from "@ovalball/contracts"
 import { reconcileSelectedKey, resolveOnboardingState, type OnboardingDecision } from "@ovalball/contracts/onboarding"
-import { hasJoinSecret } from "../onboarding/join-secret"
+import { hasJoinSecret, subscribeJoinSecret } from "../onboarding/join-secret"
 import { canManageClubCrest } from "../identity/images"
 import { friendly, logDetail, type FriendlyError } from "../errors/translate"
 
@@ -197,10 +197,12 @@ export function ContextProvider({ children }: { children: React.ReactNode }) {
     [ctx, selectedKey]
   )
 
-  // THE ONBOARDING DECISION, made in one place: none / one / many-with-a-memory / many-without.
+  // THE ONBOARDING DECISION, made in one place: none / one / many-with-a-memory / many-without. A held
+  // invitation is read as it changes, so the decision is made again when the invitation screen lets it go.
+  const pendingInvitation = useSyncExternalStore(subscribeJoinSecret, hasJoinSecret)
   const onboarding = useMemo(
-    () => resolveOnboardingState({ phase: status, contexts, storedKey: selectedKey, pendingInvitation: hasJoinSecret() }),
-    [status, contexts, selectedKey]
+    () => resolveOnboardingState({ phase: status, contexts, storedKey: selectedKey, pendingInvitation }),
+    [status, contexts, selectedKey, pendingInvitation]
   )
 
   const EMPTY_CLUB = { name: null, crestUrl: null, clubId: null, hasOwnCrest: false, canManageCrest: false }

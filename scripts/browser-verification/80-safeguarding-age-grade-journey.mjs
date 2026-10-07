@@ -37,9 +37,18 @@ const sql = (q) =>
   }).trim()
 
 const staffId = sql(`select id from auth.users where email = '${STAFF}'`)
+// The staff persona's team that the guardian persona's child is on, so the family half (B) is about the same
+// team. An unordered "limit 1" picked whichever of the staff's teams came first, and the persona world has since
+// given them more than one.
+const guardianIdForTeam = sql(`select id from auth.users where email = '${GUARDIAN}'`)
 const teamId = sql(`select ra.team_id from public.role_assignments ra
                     join public.club_memberships cm on cm.id = ra.membership_id
-                    where cm.user_id = '${staffId}' and ra.state = 'ACTIVE' and ra.team_id is not null limit 1`)
+                    where cm.user_id = '${staffId}' and ra.state = 'ACTIVE' and ra.team_id is not null
+                    order by exists (select 1 from public.guardians g
+                                       join public.player_team_memberships ptm on ptm.player_id = g.player_id and ptm.state = 'ACTIVE'
+                                      where g.guardian_user_id = '${guardianIdForTeam}' and g.status = 'active' and ptm.team_id = ra.team_id) desc,
+                             ra.created_at, ra.team_id
+                    limit 1`)
 if (!teamId) {
   console.error("Missing UAT team staff: run the local UAT seed.")
   process.exit(1)
@@ -67,9 +76,35 @@ const cutoff = sql(`select r.age_grade_cutoff_date::text
 const teamGrade = sql(`select coalesce(age_group, '') from public.teams where id = '${teamId}'`)
 const gradeYears = Number((teamGrade.match(/\d+/) ?? ["12"])[0])
 const dob = sql(`select (date '${cutoff}' - interval '${gradeYears + 1} years')::date::text`)
-const playerId = sql(`insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-                      values ('Ola', '${SURNAME}', date '${dob}', 'MALE') returning id`)
-sql(`insert into public.player_team_memberships (player_id, team_id, state) values ('${playerId}', '${teamId}', 'ACTIVE')`)
+// Placed in the grade, then their date of birth corrected to one a school year out: the real way a player ends up
+// outside their side's grade. Placing them there directly is what the age-grade guard refuses (no active place
+// outside the grade without an approved dispensation for that player, team and season), and so, since
+// 20270742000000, is placing a player whose date of birth is not recorded: a grade that cannot be checked is not
+// assumed. The in-grade date comes from the canonical helper, which agrees with the guard's own season.
+const inGrade = sql(`select coalesce(internal.date_of_birth_in_age_grade('${teamCode}', nullif('${teamGrade}', ''))::text, '')`)
+if (!inGrade) {
+  console.error(`No date of birth fits ${teamGrade || "this team's grade"} this season, so the suite cannot place a player.`)
+  process.exit(1)
+}
+let playerId = ""
+try {
+  playerId = sql(`insert into public.players (first_name, surname, date_of_birth, playing_pathway)
+                  values ('Ola', '${SURNAME}', date '${inGrade}', 'MALE') returning id`)
+  sql(`insert into public.player_team_memberships (player_id, team_id, state) values ('${playerId}', '${teamId}', 'ACTIVE')`)
+  sql(`update public.players set date_of_birth = date '${dob}' where id = '${playerId}'`)
+} catch (e) {
+  // A fixture that fails half-way leaves nothing behind.
+  teardown()
+  throw e
+}
+
+// THE PRIVACY ASSERTION NAMES THE EVIDENCE IT LOOKS FOR: every date of birth on this team's roster (the seeded
+// player's included). "No yyyy-mm-dd string at all" stood in for that until the team page began listing its
+// fixtures as yyyy-mm-dd -- a fixture date is exactly what the page is for, and no date of birth is one of them.
+const rosterDobs = sql(`select coalesce(string_agg(distinct p.date_of_birth::text, '|'), '')
+                        from public.player_team_memberships ptm join public.players p on p.id = ptm.player_id
+                        where ptm.team_id = '${teamId}' and ptm.state = 'ACTIVE' and p.date_of_birth is not null`).split("|").filter(Boolean)
+const leaksDob = (text) => [dob, ...rosterDobs].filter((d) => text.includes(d))
 
 const browser = await launch()
 const pageErrors = []
@@ -91,7 +126,7 @@ try {
   record("A3 and the reason stated in words rather than a code", /outside this age grade/i.test(main))
 
   // THE WHOLE POINT OF THE STATUS VOCABULARY: the evidence stays out of the coach's view.
-  record("A4 and no date of birth anywhere on the page", !main.includes(dob) && !/\b\d{4}-\d{2}-\d{2}\b/.test(main), dob)
+  record("A4 and no date of birth anywhere on the page", leaksDob(main).length === 0, leaksDob(main).join(", ") || `none of ${rosterDobs.length + 1}`)
   record("A5 nor anything medical", !/medical|emergency contact|diagnos/i.test(main))
 
   // ONLY WHAT NEEDS ATTENTION. Asserted against what the server would return rather than against a
@@ -135,7 +170,7 @@ try {
   // The staff panel is server-refused for them, so it is absent rather than hidden.
   record("B2 and is NOT shown the club's attention list", !/age grade\s*—\s*needs attention/i.test(gtext))
   record("B3 nor another family's child in an age-grade status", !new RegExp(SURNAME).test(gtext))
-  record("B4 and no date of birth", !gtext.includes(dob) && !/\b\d{4}-\d{2}-\d{2}\b/.test(gtext))
+  record("B4 and no date of birth", leaksDob(gtext).length === 0, leaksDob(gtext).join(", ") || `none of ${rosterDobs.length + 1}`)
   await gctx.close()
 
   // ==================================================================
@@ -165,7 +200,7 @@ try {
     record(`D1 no horizontal overflow on the team home at ${width}px`, overflow <= 0, `${overflow}px over`)
     const text = await m.locator("main").innerText()
     record(`D2 and the attention state survives the phone at ${width}px`, /needs attention/i.test(text))
-    record(`D3 still with no date of birth at ${width}px`, !text.includes(dob))
+    record(`D3 still with no date of birth at ${width}px`, leaksDob(text).length === 0)
     await small.close()
   }
 

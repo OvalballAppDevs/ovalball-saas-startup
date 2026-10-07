@@ -138,6 +138,49 @@ const ciSources = walkAny(join(ROOT, "supabase/tests"))
   .concat(walkAny(join(ROOT, "scripts")))
   .filter((f) => !RETIREMENT_INSTRUMENTS.some((name) => f.endsWith(name)))
 
+/**
+ * WHAT A CI REFERENCE IS, AND WHAT IT IS NOT.
+ *
+ * The database dimension has always stripped comments before matching, for a stated reason: "a
+ * reference is code, not prose". The CI dimension did not, so a suite that merely EXPLAINED why a
+ * person has no team role -- "Club A: BASIC_USER, no team_permissions row at all" -- counted exactly
+ * as heavily as one writing through the view. Twenty-odd files were being counted for their comments.
+ *
+ * The same stripping is applied here, in the same spirit and for the same reason. This is not an
+ * exemption: a file whose CODE touches a target still counts, however it is commented.
+ *
+ * TWO INTENTIONAL ARCHITECTURAL CATEGORIES are recognised, and only two:
+ *
+ *   `testing.*`              The test-fixture schema. It writes CANONICAL rows -- a suite that seeds a
+ *                            team role through `testing.team_roles` is exercising the architecture
+ *                            production uses, which is the opposite of depending on the legacy one.
+ *                            Production may never reference it, and that is asserted below.
+ *
+ *   COMPATIBILITY SUITES     A suite whose purpose IS the compatibility surface -- proving the INSTEAD
+ *                            OF trigger still lands a canonical row while the view exists. Those must
+ *                            keep referencing it or they would be testing the replacement. They are
+ *                            named, never pattern-matched, so the category cannot quietly grow.
+ */
+const COMPATIBILITY_SUITES = [
+  // Section D proves the `public.team_permissions` INSTEAD OF trigger still writes canonical
+  // role_assignments rows, and that a delete through it revokes them. Moving it to the replacement
+  // would delete the only coverage of the thing being retired.
+  "role_assignment_state_machine.sql",
+  // TSR3 proves the legacy view genuinely excludes a Volunteer -- the bug the canonical model fixes.
+  "team_staff_multi_role.sql",
+]
+
+/** Source with comments stripped: SQL `--`, and JS `//` and block comments. */
+function codeOnly(text) {
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^[ \t]*--.*$/gm, "")
+    .replace(/^[ \t]*\/\/.*$/gm, "")
+    .replace(/\s--[^\n]*$/gm, "")
+}
+
+const ciCode = new Map(ciSources.map((f) => [f, codeOnly(readFileSync(f, "utf8"))]))
+
 let databaseReachable = true
 const counts = {}
 for (const t of TARGETS) {
@@ -153,7 +196,12 @@ for (const t of TARGETS) {
     databaseReachable = false
   }
   if (t.ts) ts = sources.filter((f) => t.ts.test(readFileSync(f, "utf8"))).length
-  const ci = t.ci ? ciSources.filter((f) => t.ci.test(readFileSync(f, "utf8"))).length : 0
+  const ci = t.ci
+    ? ciSources.filter(
+        (f) =>
+          !COMPATIBILITY_SUITES.some((name) => f.endsWith(name)) && t.ci.test(ciCode.get(f) ?? ""),
+      ).length
+    : 0
   counts[t.key] = { db, ts, ci }
 }
 
@@ -192,6 +240,61 @@ if (secrets > 0) {
     `${secrets} legacy invitation secret column(s) are reachable by a browser role. Convergence Step 17 ` +
       `took this to zero and it is a hard zero, not a ratchet.`,
   )
+}
+
+// ---------------------------------------------------------------------------
+// THE TEST-FIXTURE SCHEMA IS FOR TESTS. A HARD ZERO.
+//
+// `testing.*` exists so a suite can arrange canonical state without writing through a compatibility
+// surface. The moment production reaches for it, it stops being a test category and becomes a second
+// write path that nothing governs -- so the exemption the CI count grants it is paid for here.
+// ---------------------------------------------------------------------------
+const productionSources = walk(join(ROOT, "app"))
+  .concat(walk(join(ROOT, "lib")), walk(join(ROOT, "components")), walk(join(ROOT, "packages")))
+const productionUsingTesting = productionSources.filter((f) => /\btesting\.[a-z_]+/.test(readFileSync(f, "utf8")))
+if (productionUsingTesting.length > 0) {
+  failures.push(
+    `production code references the test-fixture schema: ${productionUsingTesting.map((f) => f.replace(ROOT + "/", "")).join(", ")}. ` +
+      `\`testing.*\` is a test category, not an application surface.`,
+  )
+}
+try {
+  const prodFns = psql(
+    `select coalesce(string_agg(n.nspname || '.' || p.proname, ', '), '')
+       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname in ('public','internal') and ${NO_COMMENTS} ~ '\\ytesting\\.'`,
+  )
+  if (prodFns) {
+    failures.push(`database function(s) reference the test-fixture schema: ${prodFns}.`)
+  }
+} catch {
+  /* the database is unreachable; the count check above already reports that */
+}
+
+// ---------------------------------------------------------------------------
+// A ROLE LABEL NEVER DECIDES AN AUTHORITY.
+//
+// `internal.team_role_label` and `internal.team_role_wire_value` turn a canonical role key into words
+// for a person to read. A conditional built on one of them is a label deciding what somebody may do --
+// the exact confusion the canonical split exists to prevent, and the one the compatibility view's
+// `permission` column used to invite. Describing is not deciding; `internal.can` decides.
+// ---------------------------------------------------------------------------
+try {
+  const labelInDecision = psql(
+    `select coalesce(string_agg(n.nspname || '.' || p.proname, ', '), '')
+       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname in ('public','internal')
+        and p.proname not in ('team_role_label','team_role_wire_value')
+        and ${NO_COMMENTS} ~ '(if|where|and|or|case when|not)\\s+[^;]{0,80}internal\\.team_role_(label|wire_value)\\s*\\('`,
+  )
+  if (labelInDecision) {
+    failures.push(
+      `${labelInDecision} uses a role LABEL inside a condition. A label describes a person; ` +
+        `internal.can decides what they may do.`,
+    )
+  }
+} catch {
+  /* unreachable database, reported above */
 }
 
 for (const [key, now] of Object.entries(counts)) {

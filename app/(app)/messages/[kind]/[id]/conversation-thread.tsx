@@ -63,6 +63,15 @@ function formatBytes(bytes: number): string {
 
 function AttachmentView({ attachment }: { attachment: ThreadAttachment }) {
   const isImage = attachment.mimeType.startsWith("image/")
+  // A voice note sent from the app plays here rather than downloading as a file. Minimal by design: the web
+  // messenger is not being redesigned in this pass.
+  if (attachment.mimeType.startsWith("audio/") && attachment.signedUrl) {
+    return (
+      <audio controls preload="none" src={attachment.signedUrl} className="mt-2 w-full max-w-[260px]" aria-label="Voice note">
+        <track kind="captions" />
+      </audio>
+    )
+  }
   if (isImage && attachment.signedUrl) {
     return (
       <a href={attachment.signedUrl} target="_blank" rel="noreferrer" className="mt-2 block max-w-[220px] overflow-hidden rounded-lg border border-ink/10">

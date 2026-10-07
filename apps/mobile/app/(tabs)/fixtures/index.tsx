@@ -1,9 +1,13 @@
+import type { ClubEventItem } from "@ovalball/contracts/agenda/events"
+import type { MyEventAnswer } from "@ovalball/contracts/events/centre"
+import { EventListRow } from "../../../src/events/event-card"
+import { loadEventsForContext } from "../../../src/events/load"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { isFamilyFacingContext, memberFor, type AgendaItem, type FamilyMember } from "@ovalball/contracts"
-import { collapseFamilyEvents } from "@ovalball/contracts/family/events"
+import { collapseFamilyEvents, narrowEventsToChild } from "@ovalball/contracts/family/events"
 import { needsAttendanceResponse } from "@ovalball/contracts"
 import { readClubFixtureRequests, type ClubFixtureRequest } from "@ovalball/contracts/club/requests"
 import { readTeamFixtureRequests, type TeamFixtureRequest } from "@ovalball/contracts/team/requests"
@@ -29,7 +33,8 @@ import {
   countActive,
   type AgendaFilter,
 } from "../../../src/components/agenda-filter"
-import { ChevronRight, Megaphone, OvalIcon, Plus, SlidersHorizontal } from "../../../src/components/icons"
+import { CalendarDays, ChevronRight, Megaphone, OvalIcon, Plus, SlidersHorizontal } from "../../../src/components/icons"
+import { usePlannerAccess } from "../../../src/season-planner/data"
 import { Button, EmptyState, ErrorState } from "../../../src/components/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
 
@@ -66,6 +71,7 @@ export default function Fixtures() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { sessionContext, active } = useAppContexts()
+  const plannerAccess = usePlannerAccess(active?.kind === "club" ? (active.clubId ?? active.id) : null)
   const [direction, setDirection] = useState<"upcoming" | "past">("upcoming")
   const [items, setItems] = useState<AgendaItem[] | null>(null)
   const [truncated, setTruncated] = useState(false)
@@ -99,6 +105,8 @@ export default function Fixtures() {
   // authorised. Team Profile only ever sends this param where that scope is already known to cover the
   // team, so this never surfaces as a confusing empty list; it just saves the person the extra tap the
   // Filter sheet's own Team picker would otherwise ask for.
+  // EVENTS SIT IN THE SAME CHRONOLOGY (20270729): never dressed as fixtures, always their own EVENT card.
+  const [agendaEvents, setAgendaEvents] = useState<{ events: ClubEventItem[]; answers: MyEventAnswer[] }>({ events: [], answers: [] })
   const params = useLocalSearchParams<{ teamId?: string }>()
   const appliedTeamParam = useRef(false)
   useEffect(() => {
@@ -116,10 +124,25 @@ export default function Fixtures() {
         // A FIXTURE LIST IS FIXTURES. Training has no opponent and no home or away; it lives on the
         // Calendar, where the question it answers is the one being asked.
         includeTraining: false,
+        // A FESTIVAL IS NOT A FIXTURE, BUT ITS GAMES ARE MATCHES (20270726). The list carries each
+        // published tournament game -- a real opponent, a kick-off, a pitch, a counted score -- as one
+        // row that opens that game; the festival itself stays on the Calendar, which is asked what is
+        // happening rather than which matches are coming. A draft plan's games never appear.
+        includeTournaments: true,
+        tournamentGames: true,
         today,
       })
       setItems(result.items)
       setTruncated(result.truncated)
+      {
+        const start = direction === "upcoming" ? today : shiftYear(today, -1)
+        const end = direction === "upcoming" ? shiftYear(today, 1) : today
+        const loaded = await loadEventsForContext(active, { start, end }).catch(() => ({ events: [] as ClubEventItem[], answers: [] as MyEventAnswer[] }))
+        setAgendaEvents({
+          events: loaded.events.filter((e) => (direction === "upcoming" ? e.endsOn >= today : e.endsOn < today)),
+          answers: loaded.answers,
+        })
+      }
     } catch (caught) {
       const failure = friendly(caught, "your fixtures")
       logDetail("fixtures", failure)
@@ -188,6 +211,8 @@ export default function Fixtures() {
   )
   const effective = useMemo(() => ({ ...filter, playerId: selectedPlayerId }), [filter, selectedPlayerId])
   const shown = useMemo(() => (items ? applyFilter(items, effective) : null), [items, effective])
+  // The chosen child narrows the club's events exactly as it narrows the rugby (`narrowEventsToChild`).
+  const eventsShown = useMemo(() => narrowEventsToChild(agendaEvents.events, agendaEvents.answers, selectedPlayerId), [agendaEvents, selectedPlayerId])
 
   // ONE MATCH, EVERY CHILD IN IT (CA-M9). A family reading all its children collapses the agenda's
   // one-row-per-child onto the event, so two siblings on one side are one row with two answers.
@@ -210,7 +235,9 @@ export default function Fixtures() {
   // is skipped for this purpose but still stays exactly where it belongs chronologically further down.
   const nextRow = useMemo(() => {
     if (direction !== "upcoming") return null
-    return allRows.find((r) => r.row.status !== "Cancelled") ?? null
+    // NOR IS A GAME ALREADY PLAYED: on a tournament day the morning's games carry results while the
+    // afternoon's are still to come, and the next fixture is the first one without a result.
+    return allRows.find((r) => r.row.status !== "Cancelled" && r.row.result === null) ?? null
   }, [allRows, direction])
   const rows = useMemo(() => (nextRow ? allRows.filter((r) => r.row.key !== nextRow.row.key) : allRows), [allRows, nextRow])
 
@@ -324,7 +351,7 @@ export default function Fixtures() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={requestsBadge > 0 ? `Fixture Requests. ${requestsBadge} ${requestsBadge === 1 ? "request needs" : "requests need"} your attention.` : "Fixture Requests. View and manage your fixture requests."}
-              onPress={() => router.push((active.kind === "club" ? "/club/requests" : "/team/requests") as never)}
+              onPress={() => router.push({ pathname: (active.kind === "club" ? "/club/requests" : "/team/requests") as never, params: { returnTo: "/fixtures" } })}
               style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 4, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, opacity: pressed ? 0.92 : 1 })}
             >
               <Megaphone size={17} color={colour.forest800} strokeWidth={2} />
@@ -346,10 +373,27 @@ export default function Fixtures() {
           </View>
         )}
 
-        {/* THE DESK TOOLS ARE DESK TOOLS (CA-M10, owner correction pass Section 2): season planning,
-            imports, bulk edits and the Competition Creator stay a web-only job. Mobile Fixtures no longer
-            carries a "Fixture Control Centre" card pointing at them at all -- the previous hand-off card
-            was itself the thing the owner rejected, not just its styling. */}
+        {/* SEASON PLANNER, NATIVE: club days with another club over the canonical fixture-request domain.
+            Club context and the club-scope planner capability only (fixture.planner.use -- Club Admin,
+            Fixture Secretary); team staff never see mass scheduling. Imports, bulk edits and the Competition
+            Creator remain web tools and are not linked from here (the owner rejected a hand-off card). */}
+        {active?.kind === "club" && plannerAccess.allowed && direction === "upcoming" && (
+          <View style={{ paddingHorizontal: space.lg }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Season Planner. Arrange club days with other clubs."
+              onPress={() => router.push({ pathname: "/fixtures/planner" as never, params: { returnTo: "/fixtures" } })}
+              style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 4, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, opacity: pressed ? 0.92 : 1 })}
+            >
+              <CalendarDays size={17} color={colour.forest800} strokeWidth={2} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[type.smallMedium, { color: colour.ink }]}>Season Planner</Text>
+                <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>Arrange club days with other clubs</Text>
+              </View>
+              <ChevronRight size={17} color={colour.inkSubtle} />
+            </Pressable>
+          </View>
+        )}
 
         {shown?.length === 0 && (
           <View style={{ paddingHorizontal: space.lg }}>
@@ -405,6 +449,14 @@ export default function Fixtures() {
           </View>
         )}
 
+        {shown && shown.length === 0 && eventsShown.events.length > 0 && (
+          <View style={{ paddingHorizontal: space.lg, gap: space.sm }}>
+            {eventsShown.events.map((e) => (
+              <EventListRow key={e.key} event={e} answers={eventsShown.answers.filter((x) => x.eventId === e.eventId)} onPress={() => router.push({ pathname: "/fixtures/event/[eventId]", params: { eventId: e.eventId } } as never)} />
+            ))}
+          </View>
+        )}
+
         {shown && shown.length > 0 && (
           <View style={{ paddingHorizontal: space.lg, gap: space.sm }}>
             {(page.shown.length > 0 || !nextRow) && (
@@ -412,7 +464,11 @@ export default function Fixtures() {
                 {direction === "upcoming" ? "Upcoming Fixtures" : "Past Fixtures"}
               </Text>
             )}
-            {page.shown.map(({ row: item, siblings }) => (
+            {page.shown.map(({ row: item, siblings }, index) => (
+              <View key={item.key} style={{ gap: space.sm }}>
+              {eventsBefore(eventsShown.events, item.date, page.shown[index - 1]?.row.date ?? null, direction).map((e) => (
+                <EventListRow key={e.key} event={e} answers={eventsShown.answers.filter((x) => x.eventId === e.eventId)} onPress={() => router.push({ pathname: "/fixtures/event/[eventId]", params: { eventId: e.eventId } } as never)} />
+              ))}
               <FixtureListRow
                 key={item.key}
                 item={item}
@@ -424,7 +480,12 @@ export default function Fixtures() {
                 canRecordResult={canRecordResult}
                 onAddResult={() => router.push(routeForIntent({ kind: "ADD_RESULT", fixtureId: item.eventId }) as never)}
               />
+              </View>
             ))}
+            {!page.hasMore &&
+              eventsAfter(eventsShown.events, page.shown[page.shown.length - 1]?.row.date ?? null, direction).map((e) => (
+                <EventListRow key={e.key} event={e} answers={eventsShown.answers.filter((x) => x.eventId === e.eventId)} onPress={() => router.push({ pathname: "/fixtures/event/[eventId]", params: { eventId: e.eventId } } as never)} />
+              ))}
             {page.hasMore && (
               <Pressable
                 accessibilityRole="button"
@@ -545,4 +606,24 @@ function Action({
       <Text style={[type.smallMedium, { color: primary ? colour.onForest : colour.forest800 }]}>{label}</Text>
     </Pressable>
   )
+}
+
+function shiftYear(iso: string, by: number): string {
+  return `${Number(iso.slice(0, 4)) + by}${iso.slice(4)}`
+}
+
+/** The events that fall between the previous row's date and this row's, in the list's own direction. */
+function eventsBefore(events: ClubEventItem[], date: string, previous: string | null, direction: string): ClubEventItem[] {
+  const upcoming = direction === "upcoming"
+  return events
+    .filter((e) => (upcoming ? e.startsOn <= date && (previous === null || e.startsOn > previous) : e.startsOn >= date && (previous === null || e.startsOn < previous)))
+    .sort((a, b) => (upcoming ? a.startsOn.localeCompare(b.startsOn) : b.startsOn.localeCompare(a.startsOn)))
+}
+
+function eventsAfter(events: ClubEventItem[], last: string | null, direction: string): ClubEventItem[] {
+  if (last === null) return []
+  const upcoming = direction === "upcoming"
+  return events
+    .filter((e) => (upcoming ? e.startsOn > last : e.startsOn < last))
+    .sort((a, b) => (upcoming ? a.startsOn.localeCompare(b.startsOn) : b.startsOn.localeCompare(a.startsOn)))
 }

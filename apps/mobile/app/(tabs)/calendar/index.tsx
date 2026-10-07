@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Modal, Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
-import { useFocusEffect, useRouter } from "expo-router"
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { AgendaItem, RangeMode } from "@ovalball/contracts"
 import {
@@ -20,9 +20,14 @@ import {
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
 import { readAgenda, todayIso } from "../../../src/agenda/load"
-import { eventAudienceLabel, eventDays, loadClubEvents, type ClubEventItem } from "@ovalball/contracts/agenda/events"
+import { eventDays, type ClubEventItem } from "@ovalball/contracts/agenda/events"
+import { narrowEventsToChild } from "@ovalball/contracts/family/events"
+import type { MyEventAnswer } from "@ovalball/contracts/events/centre"
+import { loadEventsForContext } from "../../../src/events/load"
+import { EventAgendaCard } from "../../../src/events/event-card"
+import { withinStack } from "../../../src/links/stack"
 import { mondayOf } from "@ovalball/contracts"
-import { clubRugbyCode, loadSeasons, resolveSeason, seasonLabel, type SeasonPhase, type SeasonRow } from "../../../src/agenda/seasons"
+import { clubRugbyCode, clubsRugbyCode, loadSeasons, resolveSeason, seasonLabel, type SeasonPhase, type SeasonRow } from "../../../src/agenda/seasons"
 import { daysBetween, exactDate, groupByDay, relativeDate, restOfDate } from "../../../src/agenda/presentation"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { AppHeader } from "../../../src/components/app-header"
@@ -38,6 +43,7 @@ import { MonthGrid } from "../../../src/components/calendar/month-grid"
 import { CalendarEmptyDay, EventSheet, ListDayHeading } from "../../../src/components/calendar/event-sheet"
 import {
   ParticipantMatchCard,
+  ParticipantTournamentCard,
   ParticipantTrainingCard,
 } from "../../../src/components/participant/match-card"
 import {
@@ -103,7 +109,8 @@ export default function Calendar() {
   const [items, setItems] = useState<AgendaItem[] | null>(null)
   // CLUB EVENTS (CA-M10): the club's own calendar entries beside fixtures and training, in a club context,
   // read under their own row rule. A separate shape, never a fake fixture.
-  const [events, setEvents] = useState<ClubEventItem[]>([])
+  const [loadedEvents, setEvents] = useState<ClubEventItem[]>([])
+  const [loadedEventAnswers, setEventAnswers] = useState<MyEventAnswer[]>([])
   const [label, setLabel] = useState("")
   const [problem, setProblem] = useState<{ message: string; offline: boolean } | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -127,25 +134,49 @@ export default function Calendar() {
   */
   const [openDay, setOpenDay] = useState<string>(today)
 
-  // The register, scoped to our own rugby code -- a Union club is never shown a League season.
+  /*
+    OPENED ON A DAY. "View Calendar" from a tournament plan, a notification or a link about a date
+    brings `date`; the Calendar opens on that month with that day's sheet showing, instead of on
+    today with nothing in it. `at` lets the same day be asked for twice -- coming back to a festival
+    after browsing elsewhere still lands on it.
+  */
+  const params = useLocalSearchParams<{ date?: string; at?: string }>()
+  useEffect(() => {
+    const asked = typeof params.date === "string" ? params.date : null
+    if (!asked || !/^\d{4}-\d{2}-\d{2}$/.test(asked)) return
+    setMode("month")
+    setAnchor(asked)
+    setOpenDay(asked)
+  }, [params.date, params.at])
+
+  // The register, scoped to our own rugby code -- a Union club is never shown a League season. A family
+  // reading all its children has no single club, so the code comes from the children's clubs.
+  const { projection: familyForSeason } = useFamily()
+  const familyClubKey = familyForSeason.members.map((m) => m.clubId).sort().join(",")
+  const [seasonCode, setSeasonCode] = useState<string | null>(null)
   useEffect(() => {
     let live = true
     setSeasons([])
     setSeasonId(null)
     setPhase(null)
     void (async () => {
-      const code = await clubRugbyCode(supabase, active?.clubId ?? null)
+      const code = active?.clubId
+        ? await clubRugbyCode(supabase, active.clubId)
+        : await clubsRugbyCode(supabase, familyClubKey ? familyClubKey.split(",") : [])
       const rows = await loadSeasons(supabase, code)
-      if (live) setSeasons(rows)
+      if (live) {
+        setSeasonCode(code)
+        setSeasons(rows)
+      }
     })()
     return () => {
       live = false
     }
-  }, [active])
+  }, [active, familyClubKey])
 
   const season = useMemo(
-    () => resolveSeason(seasons, null, today, seasonId, phase),
-    [seasons, today, seasonId, phase]
+    () => resolveSeason(seasons, seasonCode, today, seasonId, phase),
+    [seasons, seasonCode, today, seasonId, phase]
   )
 
   const load = useCallback(async () => {
@@ -179,11 +210,12 @@ export default function Calendar() {
               today,
             })
       setItems(result.items)
-      if (active.kind === "club" && (active.clubId ?? active.id)) {
+      // EVENTS, FOR WHOEVER IS LOOKING (20270729): the one rule the Fixtures agenda also uses.
+      {
         const range = mode === "season" && season.range ? season.range : { start: grid[0].iso, end: grid[grid.length - 1].iso }
-        setEvents(await loadClubEvents(supabase, [(active.clubId ?? active.id) as string], { startIso: range.start, endIso: range.end }).catch(() => []))
-      } else {
-        setEvents([])
+        const { events: found, answers } = await loadEventsForContext(active, range)
+        setEvents(found)
+        setEventAnswers(answers)
       }
       setLabel(
         mode === "season"
@@ -240,6 +272,12 @@ export default function Calendar() {
   const { selectedPlayerId, projection } = useFamily()
   const effective = useMemo(() => ({ ...filter, playerId: selectedPlayerId }), [filter, selectedPlayerId])
   const shown = useMemo(() => (items ? applyFilter(items, effective) : null), [items, effective])
+  // The chosen child narrows the club's events exactly as it narrows the rugby -- the dots, the day's count and
+  // the cards all follow it (`narrowEventsToChild`).
+  const { events, answers: eventAnswers } = useMemo(
+    () => narrowEventsToChild(loadedEvents, loadedEventAnswers, selectedPlayerId),
+    [loadedEvents, loadedEventAnswers, selectedPlayerId]
+  )
   const days = useMemo(() => {
     const rows = shown ?? []
     // A day the strip selected narrows the list; nothing selected shows the whole week or month.
@@ -293,11 +331,16 @@ export default function Calendar() {
     advertise itself as having rugby on it -- the grid and the sheet are two views
     of one list, and a dot over an empty day is the grid contradicting the sheet.
   */
-  const marks = useMemo(() => marksByDay(shown ?? []), [shown])
-  /** The next day at or after the one being read that has anything on it. */
+  // EVENTS MARK THEIR DAYS TOO -- every day of a multi-day event, with its own cancelled state.
+  const eventDayMarks = useMemo(
+    () => events.flatMap((e) => eventDays(e, "0000-01-01", "9999-12-31").map((date) => ({ date, cancelled: e.cancelled }))),
+    [events]
+  )
+  const marks = useMemo(() => marksByDay(shown ?? [], eventDayMarks), [shown, eventDayMarks])
+  /** The next day at or after the one being read that has anything on it -- a match, a session or an event. */
   const nextBusyDay = useMemo(
-    () => nextDayWithSomething(new Set((shown ?? []).map((item) => item.date)), openDay),
-    [shown, openDay]
+    () => nextDayWithSomething(new Set([...(shown ?? []).map((item) => item.date), ...eventDayMarks.map((d) => d.date)]), openDay),
+    [shown, openDay, eventDayMarks]
   )
   const showOwner = active?.kind !== "team"
 
@@ -311,7 +354,9 @@ export default function Calendar() {
     (item: AgendaItem) => {
       if (!active) return
       const route = routeForAgendaItem(item, active.kind)
-      if (route) router.push(route as never)
+      // INSIDE THE CALENDAR'S OWN STACK: a match or a festival opened from a day here comes Back to that day,
+      // never to the Fixtures agenda the person did not open (src/links/stack.ts).
+      if (route) router.push(withinStack(route, "calendar") as never)
     },
     [router, active]
   )
@@ -329,10 +374,13 @@ export default function Calendar() {
   */
   const offerSeason = !family && seasons.length > 1
 
-  const sheetHeading =
-    mode === "list"
-      ? monthLabel(anchor)
-      : `${dayLabel(openDay, today)}${restOfDate(openDay, today) ? ` · ${restOfDate(openDay, today)}` : ""}`
+  // ONE WAY TO NAME A DAY, in the sheet and over each day of the list. Beyond the coming week the
+  // relative word already is the date, so nothing follows it -- never a dangling " · ".
+  const dayHeading = (iso: string) => {
+    const rest = restOfDate(iso, today)
+    return rest ? `${dayLabel(iso, today)} · ${rest}` : dayLabel(iso, today)
+  }
+  const sheetHeading = mode === "list" ? monthLabel(anchor) : dayHeading(openDay)
 
   return (
     <View style={{ flex: 1, backgroundColor: surface.forest }}>
@@ -350,7 +398,9 @@ export default function Calendar() {
         <CalendarHeading
           anchor={anchor}
           onStep={(direction) =>
-            setAnchor(clamp(direction === -1 ? previousAnchor("month", anchor) : nextAnchor("month", anchor), season.range))
+            // Bounded by the season only where the season is the viewer's own: an unscoped viewer (children
+            // at clubs of both codes) is not stopped at the edge of whichever code's season came first.
+            setAnchor(clamp(direction === -1 ? previousAnchor("month", anchor) : nextAnchor("month", anchor), seasonCode ? season.range : null))
           }
           trailing={
             offerSeason ? (
@@ -400,7 +450,7 @@ export default function Calendar() {
       {/* ============================================================
             THE CHALK SHEET.
          ============================================================ */}
-      <EventSheet heading={sheetHeading} count={mode === "month" ? (days[0]?.items.length ?? 0) : undefined}>
+      <EventSheet heading={sheetHeading} count={mode === "month" ? (days[0]?.items.length ?? 0) + eventsOn(openDay).length : undefined}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: insets.bottom + space.xxl, paddingTop: space.xs, gap: space.sm }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colour.forest800} />}
@@ -445,16 +495,29 @@ export default function Calendar() {
           {mode !== "season" &&
             days.map((day) => (
               <View key={day.date} style={{ gap: space.sm }}>
-                {mode === "list" && <ListDayHeading label={`${dayLabel(day.date, today)} · ${restOfDate(day.date, today)}`} />}
+                {mode === "list" && <ListDayHeading label={dayHeading(day.date)} />}
                 {/* ONE PREMIUM CARD PER EVENT, never a "+2 more" link: a day with a
                     match and two sessions is three things to be at, and each of them
                     names its own child. The sheet scrolls. */}
                 {eventsOn(day.date).map((event) => (
-                  <ClubEventCard key={event.key} event={event} onPress={() => router.push({ pathname: "/calendar/event/[eventId]", params: { eventId: event.eventId } } as never)} />
+                  <EventAgendaCard
+                    key={event.key}
+                    event={event}
+                    answers={eventAnswers.filter((a) => a.eventId === event.eventId)}
+                    onPress={() => router.push({ pathname: "/calendar/event/[eventId]", params: { eventId: event.eventId } } as never)}
+                  />
                 ))}
                 {collapse(day.items).map((item) =>
                   item.kind === "training" ? (
                     <ParticipantTrainingCard
+                      key={item.key}
+                      item={item}
+                      family={projection}
+                      siblings={siblingsFor(item, day.items)}
+                      onPress={() => openEvent(item)}
+                    />
+                  ) : item.kind === "tournament" ? (
+                    <ParticipantTournamentCard
                       key={item.key}
                       item={item}
                       family={projection}
@@ -818,24 +881,3 @@ function format(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
 }
 
-/**
- * A CLUB EVENT CARD: the third kind of thing on a club's calendar, with its own amber accent -- neither a
- * match's green nor training's blue -- naming what it is, whom it is for and where.
- */
-function ClubEventCard({ event, onPress }: { event: ClubEventItem; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Club event: ${event.name}, ${eventAudienceLabel(event)}${event.startTime ? `, ${event.startTime}` : ", all day"}${event.where ? `, ${event.where}` : ""}${event.cancelled ? ". Cancelled" : ""}`}
-      onPress={onPress}
-      style={({ pressed }) => ({ flexDirection: "row", borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden", opacity: pressed ? 0.94 : event.cancelled ? 0.62 : 1 })}
-    >
-      <View style={{ width: 4, backgroundColor: colour.warning }} />
-      <View style={{ flex: 1, padding: space.lg, gap: 4 }}>
-        <Text style={[type.caption, { color: colour.warning, letterSpacing: 0.8, fontFamily: "Inter_600SemiBold" }]}>CLUB EVENT</Text>
-        <Text numberOfLines={2} style={[type.bodyMedium, { color: colour.ink, fontSize: 15, textDecorationLine: event.cancelled ? "line-through" : "none" }]}>{event.name}</Text>
-        <Text numberOfLines={1} style={[type.caption, { color: colour.inkMuted }]}>{[event.startTime ? `${event.startTime}${event.endTime ? `–${event.endTime}` : ""}` : "All day", eventAudienceLabel(event), event.where].filter(Boolean).join(" · ")}</Text>
-      </View>
-    </Pressable>
-  )
-}

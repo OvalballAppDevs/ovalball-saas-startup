@@ -19,6 +19,7 @@ import { resolveHomeAwayGroupIds } from "../fixtures/resolve-home-away-groups"
 import { detectConflicts, partitionAllocation } from "./auto-allocate"
 import { detectResourceConflicts, type TrainingConflict, type TrainingOccupancy } from "./training-conflicts"
 import { detectTournamentConflicts, occupantsFromFixtures, occupantsFromSpans, type TournamentConflict } from "./tournament-conflicts"
+import { detectEventConflicts } from "./event-conflicts"
 import { DEFAULT_SCHEDULING_POLICY, type AllocationConflict, type AllocationFixture, type ClubSchedulingPolicy, type PitchOption, type TournamentSummary } from "./types"
 import type { Database } from "../database"
 
@@ -135,6 +136,11 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
   const bufferSource: "club" | "platform" = buffers?.source === "club" ? "club" : "platform"
 
   const { data: rules } = await supabase.from("fixture_scheduling_rules").select("rugby_code, age_group, half_minutes, min_pitch_size_category, confidence")
+  // HOW MUCH PITCH A GRADE NEEDS comes from the ONE server resolver (internal.age_grade_pitch_fit, read
+  // through age_grade_pitch_fits): Ovalball's verified Regulation 15 register first, the grade's scheduling
+  // category only where the register holds no size. The board never decides a grade's size itself.
+  const { data: fits } = rugbyCode ? await supabase.rpc("age_grade_pitch_fits", { p_rugby_code: rugbyCode }) : { data: null }
+  const fitByAge = new Map((fits ?? []).map((f) => [f.age_group ?? "", f]))
 
   // A TOURNAMENT'S REAL HOLD ON A PITCH.
   //
@@ -164,6 +170,8 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
     : { data: [] }
   const teamLabelsByTournament = new Map<string, string[]>()
   for (const row of tournamentEntryRows ?? []) {
+    // Nullable on the view's underlying table; the view itself never emits one.
+    if (!row.tournament_id) continue
     const list = teamLabelsByTournament.get(row.tournament_id) ?? []
     if (row.teams?.display_name) list.push(row.teams.display_name)
     teamLabelsByTournament.set(row.tournament_id, list)
@@ -223,7 +231,8 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
     .lte("starts_on", dateIso)
     .gte("ends_on", dateIso)
   const clubEvents: EventOccupancy[] = (eventRows ?? [])
-    .filter((e) => e.status !== "CANCELLED")
+    // A postponed event is not happening on its old date: it holds no pitch then (the server engine agrees).
+    .filter((e) => e.status !== "CANCELLED" && e.status !== "POSTPONED")
     .flatMap((e) =>
       (e.club_event_pitches ?? [])
         .map((p) => p.pitch_id)
@@ -318,10 +327,13 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
     const fallback = (rules ?? []).find((r) => r.rugby_code === rugbyCode && r.age_group === null)
     const rule = specific ?? fallback
     if (!rule) return { durationMinutes: null, confidence: null, requiredPitchSize: null }
+    const fit = fitByAge.get(ageGroup ?? "") ?? fitByAge.get("")
     return {
       durationMinutes: rule.half_minutes * 2,
       confidence: rule.confidence as "confirmed" | "unresolved",
-      requiredPitchSize: rule.min_pitch_size_category as AllocationFixture["requiredPitchSize"],
+      // The resolver's footprint, in the board's size words (a quarter = mini, a half = reduced).
+      requiredPitchSize: fit?.footprint === "quarter" ? "mini" : fit?.footprint === "half" ? "reduced" : fit?.footprint === "full" ? "full"
+        : (rule.min_pitch_size_category as AllocationFixture["requiredPitchSize"]),
     }
   }
 
@@ -446,6 +458,10 @@ export async function getPitchAllocationBoard(supabase: SupabaseClient<Database>
     ]
   )
   for (const c of fixtureConflictsFromTournament) {
+    if (!conflicts.some((existing) => existing.fixtureId === c.fixtureId)) conflicts.push(c)
+  }
+  // AN EVENT'S EXPLICIT PITCH holds against a fixture, as the server engine says.
+  for (const c of detectEventConflicts(allocated, clubEvents, pitches, { warmUpMinutes: policy.warmUpMinutes, packUpMinutes: policy.packUpMinutes }, dateIso)) {
     if (!conflicts.some((existing) => existing.fixtureId === c.fixtureId)) conflicts.push(c)
   }
 

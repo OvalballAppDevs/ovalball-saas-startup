@@ -1,5 +1,4 @@
 import type { ActiveContextKind } from "../active-context-rules"
-import { destinationHref, type Destination } from "../navigation/destinations"
 
 /**
  * ATTENTION -- what still needs this person, in this context (CA-M8).
@@ -21,11 +20,24 @@ export type AttentionPriority = "urgent" | "needs_action" | "for_information"
 export type AttentionSourceType =
   | "fixture_availability"
   | "training_availability"
+  /**
+   * A TOURNAMENT'S OWN AVAILABILITY QUESTION.
+   *
+   * Not folded into `fixture_availability`. The id beside a source type is the
+   * canonical record's id, and a tournament id filed under "fixture" would make
+   * the attention row's stable key claim a fixture exists that does not -- which
+   * is also what would send the row's destination to /fixtures/<a tournament id>.
+   */
+  | "tournament_availability"
   | "fixture_incomplete"
   | "kickoff_proposal"
   | "result_confirmation"
   | "fixture_request"
+  /** A Season Planner club day waiting for this club's answer, as ONE item (20270761000000). */
+  | "club_day"
   | "team_place_request"
+  /** A child's own request for a team place, waiting for their parent to confirm it (20270741000000). */
+  | "team_place_confirmation"
   | "club_join_request"
   | "player_join_request"
   | "partner_request"
@@ -33,6 +45,10 @@ export type AttentionSourceType =
   | "team_subscription"
   | "family_subscription"
   | "age_grade"
+  /** One tournament game whose result needs this viewer: a side confirming, or the organiser settling. */
+  | "tournament_result"
+  /** One age-grade dispensation waiting for this viewer's decision, as its Safeguarding Officer or a Club Admin. */
+  | "dispensation"
 
 export interface AttentionContext {
   kind: ActiveContextKind
@@ -53,8 +69,10 @@ export interface AttentionItem {
   title: string
   /** The line that makes it identifiable without opening it. */
   summary: string | null
-  destination: Destination
-  /** The canonical web address of `destination`, for a renderer that wants a string. */
+  /** The canonical web address -- resolved to a native route the same way every other link is, by
+   * `resolveIntent`/`routeForIntent` (`apps/mobile/src/links/`). There was briefly a second, typed
+   * `Destination` vocabulary alongside this string; it was never actually consulted for navigation
+   * on either platform and was retired rather than kept as a second source of truth. */
   href: string
   /** When the underlying record was created, where the domain says. */
   createdAt: string | null
@@ -102,13 +120,12 @@ export function attentionId(sourceType: AttentionSourceType, sourceId: string, p
   return playerId ? `${sourceType}:${sourceId}:${playerId}` : `${sourceType}:${sourceId}`
 }
 
-/** Build one item with the derived fields filled in, so no caller hand-writes `href` or `state`. */
-export function attentionItem(input: Omit<AttentionItem, "id" | "href" | "state"> & { playerKey?: string | null }): AttentionItem {
+/** Build one item with the derived fields filled in, so no caller hand-writes `id` or `state`. */
+export function attentionItem(input: Omit<AttentionItem, "id" | "state"> & { playerKey?: string | null }): AttentionItem {
   const { playerKey, ...rest } = input
   return {
     ...rest,
     id: attentionId(rest.sourceType, rest.sourceId, playerKey ?? null),
-    href: destinationHref(rest.destination),
     state: "open",
   }
 }

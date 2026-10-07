@@ -193,14 +193,14 @@ try {
   }
   // Seeded directly rather than through the UI: the team-access editor is
   // Step 2's and is not what this suite is proving.
-  sql(`insert into public.team_permissions (membership_id, team_id, permission)
-       values ('${membershipId}', '${teamId}', 'coach') on conflict do nothing`)
+  sql(`insert into testing.team_roles (membership_id, team_id, role_key)
+       values ('${membershipId}', '${teamId}', 'COACH') on conflict do nothing`)
   sql(`update public.club_memberships set role = 'BASIC_USER' where id = '${membershipId}'`)
 
   // ------------------------------------------------------------------
   // F. REMOVE ONE ROLE -- and nothing else moves.
   // ------------------------------------------------------------------
-  const teamRowsBefore = sql(`select count(*) from public.team_permissions where membership_id = '${membershipId}'`)
+  const teamRowsBefore = sql(`select count(*) from testing.team_roles where membership_id = '${membershipId}'`)
   await go(`/people/${membershipId}`)
   // The section lists EVERY additional role, so the team role seeded above is
   // in it too -- which is the point: a team role is an additional role, and
@@ -219,7 +219,7 @@ try {
   const afterRemoval = sql(`select count(*) from public.role_assignments
                             where membership_id = '${membershipId}' and role_key = 'VOLUNTEER' and state = 'ACTIVE'`)
   record("F1 the Volunteer role is gone", afterRemoval === "0", afterRemoval)
-  const teamRowsAfter = sql(`select count(*) from public.team_permissions where membership_id = '${membershipId}'`)
+  const teamRowsAfter = sql(`select count(*) from testing.team_roles where membership_id = '${membershipId}'`)
   record("F2 their team access survives", teamRowsAfter === teamRowsBefore, `${teamRowsBefore} -> ${teamRowsAfter}`)
   const stillMember = sql(`select state from public.club_memberships where id = '${membershipId}'`)
   record("F3 their club membership survives", stillMember === "ACTIVE", stillMember)

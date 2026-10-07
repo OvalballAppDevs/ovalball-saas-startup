@@ -1,6 +1,9 @@
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
+import { collectionDayLine, familyFeeSentence, familyFirstPayment, loadFamilyMembershipCharge } from "@ovalball/contracts/membership/family-charge"
+import { feePercent } from "@ovalball/contracts/membership/setup"
+import { FAMILY_START_SENTENCE, loadFamilySubscription } from "@ovalball/contracts/subscriptions/family"
 
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { formatMinorUnits } from "@/lib/payments/domain/money"
@@ -190,6 +193,21 @@ export async function SubscriptionView({ playerId, isSelf = false }: { playerId:
 
   const canSetUp = eligibility.programme_enabled && eligibility.has_pricing && eligibility.merchant_verified && eligibility.player_has_active_membership
 
+  // WHAT THE DIRECT DEBIT COLLECTS AND WHO PAYS OVALBALL'S FEE (20270751000000): the server's one answer, so the
+  // amount a parent agrees to here is the amount collected -- including Ovalball's fee when the club's members pay it.
+  const charge = await loadFamilyMembershipCharge(supabase, playerId, relation.clubId).catch(() => null)
+  const yourCharge = charge && charge.youPay && charge.monthlyAmountMinor !== null ? charge : null
+  const feeSentence = yourCharge ? familyFeeSentence(yourCharge, relation.clubName) : null
+  const firstPayment = !payerRow && yourCharge?.first ? familyFirstPayment(yourCharge.first) : null
+
+  // THE FAMILY'S ONE STANDING (20270753000000): the same answer the club and the phone read. It says whether the
+  // payer's Direct Debit is in place but the membership was never started (their task), and -- for a guardian who
+  // does not pay -- only that somebody else looks after it, with none of the payer's figures. That reader is offered
+  // nothing the server would refuse: no Set Up button and no price.
+  const family = await loadFamilySubscription(supabase, { playerId, playerName: `${player.first_name} ${player.surname}`, clubId: relation.clubId }).catch(() => null)
+  const someoneElsePays = charge ? charge.setUp && !charge.youPay : Boolean(eligibility.existing_payer_subscription_id) && !isOwnPayer
+  const startRequired = family?.attention === "start_required"
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 md:px-8 md:py-12">
       <BackLink playerId={playerId} isSelf={isSelf} />
@@ -202,10 +220,26 @@ export async function SubscriptionView({ playerId, isSelf = false }: { playerId:
         <dl className="flex flex-col gap-3 text-sm">
           <Row label="Player" value={`${player.first_name} ${player.surname}`} />
           <Row label="Club" value={relation.clubName} />
-          <Row label="Membership" value={payerSnapshot?.final_amount_minor != null ? `${formatMinorUnits(payerSnapshot.final_amount_minor)} / month` : preview ? `${formatMinorUnits(preview.monthly_amount_minor)} / month` : "Not yet priced"} />
+          {yourCharge ? (
+            <>
+              <Row label="Membership" value={yourCharge.membership?.name ?? "Club membership"} />
+              <Row label="Monthly Price" value={`${formatMinorUnits(yourCharge.monthlyAmountMinor ?? 0)} a month`} />
+              {yourCharge.feeBearer === "PAYER" && (yourCharge.monthlyFeeMinor ?? 0) > 0 && (
+                <Row label={`Ovalball's Fee (${feePercent(yourCharge.feeBps)})`} value={`${formatMinorUnits(yourCharge.monthlyFeeMinor ?? 0)} a month`} />
+              )}
+              <Row label="Monthly Direct Debit" value={`${formatMinorUnits(yourCharge.monthlyCollectMinor ?? yourCharge.monthlyAmountMinor ?? 0)} a month`} />
+            </>
+          ) : someoneElsePays ? (
+            <Row label="Membership" value={family?.statusLabel ?? "Set up by someone else"} />
+          ) : (
+            <Row label="Membership" value={payerSnapshot?.final_amount_minor != null ? `${formatMinorUnits(payerSnapshot.final_amount_minor)} / month` : preview ? `${formatMinorUnits(preview.monthly_amount_minor)} / month` : "Not yet priced"} />
+          )}
         </dl>
+        {feeSentence && <p className="mt-3 text-xs text-ink-muted">{feeSentence}</p>}
 
-        {payerSnapshot
+        {someoneElsePays
+          ? null
+          : payerSnapshot
           ? (payerSnapshot.sibling_ordinal ?? 0) >= 2 &&
             payerSnapshot.sibling_discount_type !== "NONE" && (
               <div className="mt-4 rounded-md bg-mint-50 px-3 py-2 text-xs text-forest-800">
@@ -228,7 +262,18 @@ export async function SubscriptionView({ playerId, isSelf = false }: { playerId:
             this speculative recompute would otherwise show a different,
             contradictory number on the same page for an already-active
             member. */}
-        {!payerRow && preview && (
+        {firstPayment ? (
+          <div className="mt-4 border-t border-ink/10 pt-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-ink">First Payment</span>
+              <span className="text-lg font-medium tabular-nums text-ink">{formatMinorUnits(firstPayment.amountMinor)}</span>
+            </div>
+            <p className="mt-1 text-xs text-ink-muted">
+              {firstPayment.covers} {firstPayment.then}
+            </p>
+            <p className="mt-2 text-xs text-ink-muted">Shown in full before you authorise anything. GoCardless confirms the first collection date once your Direct Debit is set up -- it is not a promise of same-day collection.</p>
+          </div>
+        ) : !payerRow && !someoneElsePays && preview && (
           <div className="mt-4 border-t border-ink/10 pt-4">
             {preview.is_prorated ? (
               <>
@@ -248,7 +293,7 @@ export async function SubscriptionView({ playerId, isSelf = false }: { playerId:
                   <span className="text-sm font-medium text-ink">First membership charge</span>
                   <span className="text-lg font-medium tabular-nums text-ink">{formatMinorUnits(preview.first_charge_amount_minor)}</span>
                 </div>
-                <p className="mt-1 text-xs text-ink-muted">Billing period {new Date(preview.first_charge_billing_period).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}. Normal collection date: 1st of each month.</p>
+                <p className="mt-1 text-xs text-ink-muted">Billing period {new Date(preview.first_charge_billing_period).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}.</p>
               </>
             ) : (
               <div className="flex items-center justify-between">
@@ -266,7 +311,10 @@ export async function SubscriptionView({ playerId, isSelf = false }: { playerId:
           mobile (found live in the mobile responsive check); the shell now reserves that space once, for
           the widget and for the bottom bar. */}
       <div className="mt-6">
-        {!payerRow ? (
+        {someoneElsePays ? (
+          // Whatever this reader can or cannot read of the payer's own records, they are told only this.
+          <p className="rounded-lg border border-ink/10 bg-white px-4 py-4 text-sm text-ink">{family?.detail ?? "Someone else looks after the payments for this membership."}</p>
+        ) : !payerRow ? (
           canSetUp ? (
             <>
               <p className="mb-3 text-sm text-ink/60">Direct Debit not set up.</p>
@@ -302,14 +350,17 @@ export async function SubscriptionView({ playerId, isSelf = false }: { playerId:
                 {/* Once a real Subscription exists, its own committed amount_minor is the truthful figure -- not the (possibly-since-changed) preview. */}
                 Ongoing membership:{" "}
                 {(() => {
-                  const amount = localSubscription?.amount_minor ?? preview?.monthly_amount_minor
+                  const amount = localSubscription?.amount_minor ?? yourCharge?.monthlyCollectMinor ?? preview?.monthly_amount_minor
                   return amount != null ? `${formatMinorUnits(amount)} / month` : "—"
                 })()}
               </p>
-              <p className="mt-1 text-xs text-ink/60">Collected on the 1st of each month.</p>
+              <p className="mt-1 text-xs text-ink/60">{collectionDayLine(charge?.collectionDay ?? null)}.</p>
               <p className="mt-2 text-xs font-medium text-ink/70">{localSubscription ? `Status: ${GC_SUBSCRIPTION_STATUS_LABEL[localSubscription.status] ?? localSubscription.status}` : "Not yet set up."}</p>
             </div>
 
+            {!localSubscription && startRequired && (
+              <p className="rounded-lg border border-amber-600/30 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">{FAMILY_START_SENTENCE}</p>
+            )}
             {!localSubscription && <ActivateMembershipButton playerId={playerId} />}
             {localSubscription && isOwnPayer && payerRow?.id && <CancelOwnMembershipButton playerId={playerId} playerName={`${player.first_name} ${player.surname}`} />}
           </div>

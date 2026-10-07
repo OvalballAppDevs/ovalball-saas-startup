@@ -31,6 +31,7 @@ import { fixtureTitle as canonicalFixtureTitle } from "@/lib/fixtures/presentati
  * still exactly one answer to the question.
  */
 import type { FamilyChild } from "@ovalball/contracts/agenda/family-scope"
+import { loadScheduleGrounds } from "@ovalball/contracts/agenda/grounds"
 export { resolveFamilyScope, type FamilyChild } from "@ovalball/contracts/agenda/family-scope"
 
 /**
@@ -70,7 +71,7 @@ export async function loadFamilyAgenda(
     supabase
       .from("fixtures")
       .select(
-        "id, owning_team_id, opponent_team_id, season_id, mirror_fixture_id, kickoff_date, kickoff_time, meet_time, home_away, status, raw_opposition_text, venue_address, venue_id, teams!fixtures_owning_team_id_fkey(display_name), opponent:teams!fixtures_opponent_team_id_fkey(display_name)"
+        "id, owning_team_id, opponent_team_id, season_id, mirror_fixture_id, kickoff_date, kickoff_time, meet_time, home_away, status, raw_opposition_text, venue_address, venue_id, attendance_is_open, teams!fixtures_owning_team_id_fkey(display_name), opponent:teams!fixtures_opponent_team_id_fkey(display_name)"
       )
       .or(`owning_team_id.in.(${teamIds.join(",")}),opponent_team_id.in.(${teamIds.join(",")})`)
       .gte("kickoff_date", window.startIso)
@@ -90,13 +91,14 @@ export async function loadFamilyAgenda(
       .order("session_date", { ascending: true }),
   ])
 
-  const venueIds = Array.from(
-    new Set([
-      ...(fixtures ?? []).map((f) => f.venue_id),
-      ...(training ?? []).map((t) => t.venue_id),
-    ].filter((v): v is string => Boolean(v)))
-  )
-  const { data: venues } = venueIds.length > 0 ? await supabase.from("venues").select("id, name").in("id", venueIds) : { data: [] }
+  // A match's ground from the ONE ground rule (`schedule_grounds`): an away family cannot read the host club's
+  // venue rows, so reading them here said "venue to be confirmed" about a ground Match Centre names. Training
+  // is at the family's own club, whose grounds it can read.
+  const trainingVenueIds = Array.from(new Set((training ?? []).map((t) => t.venue_id).filter((v): v is string => Boolean(v))))
+  const [{ data: venues }, fixtureGrounds] = await Promise.all([
+    trainingVenueIds.length > 0 ? supabase.from("venues").select("id, name").in("id", trainingVenueIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    loadScheduleGrounds(supabase, { fixtureIds: (fixtures ?? []).map((f) => f.id) }),
+  ])
   const venueNameById = new Map((venues ?? []).map((v) => [v.id, v.name]))
 
   // Attendance is read per player, so RLS returns only rows this session may
@@ -178,8 +180,9 @@ export async function loadFamilyAgenda(
         date: f.kickoff_date,
         time: f.kickoff_time ? String(f.kickoff_time).slice(0, 5) : null,
         meetTime: f.meet_time ? String(f.meet_time).slice(0, 5) : null,
+        attendanceOpen: f.attendance_is_open ?? null,
         title: fixtureTitle({ home_away: homeAway, raw_opposition_text: f.raw_opposition_text, opponentName, ownTeamName }),
-        venue: (f.venue_id ? venueNameById.get(f.venue_id) : null) ?? f.venue_address ?? null,
+        venue: fixtureGrounds.get(f.id)?.name ?? f.venue_address ?? null,
         status: f.status,
         attendance: responseFor(child.playerId, "fixture", f.id),
         href: `/fixtures/${f.id}`,

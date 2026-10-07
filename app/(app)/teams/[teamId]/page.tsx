@@ -23,7 +23,8 @@ import { MyChildAgeGradeNote, TeamAgeGradeAttentionPanel } from "@/components/te
 import { TeamRelationshipBadges } from "@/components/teams/team-relationship-badges"
 import { TeamWhatsNext } from "@/components/teams/team-whats-next"
 import { TeamSubscriptionsSection } from "@/components/teams/team-subscriptions-section"
-import { loadTeamSubscriptions } from "@/lib/teams/team-subscriptions"
+import { loadTeamMembershipBoard } from "@ovalball/contracts/membership/board"
+import { loadMembershipReminderHistory } from "@ovalball/contracts/membership/member"
 import { answerablePlayerIds, type TeamRelationship } from "@/lib/teams/team-relationship"
 import { JoinCodeSection } from "./join-code-section"
 import { TeamIdentitySection } from "./team-identity-section"
@@ -190,16 +191,22 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
   // finance.subscription.view held at TEAM scope is the bounded authority migration 20270531 gave a
   // Team Manager -- operational state for this team's players, nothing else -- and a club holder is let in
   // too. The same pair the subscriptions page itself asks (CA-M7), so the card and the page cannot disagree.
-  const canSeeFinance =
-    (await hasCapability(supabase, "finance.subscription.view", "team", { clubId: team.club_id, teamId: team.id })) ||
-    (await hasCapability(supabase, "finance.subscription.view", "club", { clubId: team.club_id }))
-  const teamSubscriptions = canSeeFinance ? await loadTeamSubscriptions(supabase, team.id) : null
+  const teamFinanceView = await hasCapability(supabase, "finance.subscription.view", "team", { clubId: team.club_id, teamId: team.id })
+  const canSeeFinance = teamFinanceView || (await hasCapability(supabase, "finance.subscription.view", "club", { clubId: team.club_id }))
+  // Remind follows the sending operation's own rule for a team: its own finance view, or the club's enrolment managers.
+  const canRemindTeam = canSeeFinance && (teamFinanceView || (await hasCapability(supabase, "finance.enrolment.manage", "club", { clubId: team.club_id })))
+  const [teamSubscriptions, teamReminders] = canSeeFinance
+    ? await Promise.all([
+        loadTeamMembershipBoard(supabase, team.id).catch(() => null),
+        loadMembershipReminderHistory(supabase, { clubId: team.club_id, teamId: team.id, limit: 3 }).catch(() => null),
+      ])
+    : [null, null]
 
   const [upcomingRead, recentRead] = await Promise.all([
     // THE SAME WINDOW THE TEAM'S DASHBOARD USES. Sixty days hid a January fixture from a team in
     // September, so this page said "Nothing scheduled yet" about a season that was in fact arranged.
     loadAgenda(supabase, agendaScope, teamAgendaWindows(todayIso).upcoming, { includeTraining: true }),
-    loadAgenda(supabase, agendaScope, teamAgendaWindows(todayIso).past, { includeTraining: false }),
+    loadAgenda(supabase, agendaScope, teamAgendaWindows(todayIso).past, { includeTraining: false, includeTournaments: false }),
   ])
   const upcoming = upcomingRead.items.slice(0, 5)
   const recent = recentRead.items.filter((i) => i.result).slice(0, 3)
@@ -317,7 +324,7 @@ export default async function TeamDetailPage({ params }: { params: Promise<{ tea
       )}
 
       {/* Money sits after the people it is about, and before the configuration nobody opens daily. */}
-      {teamSubscriptions && <TeamSubscriptionsSection summary={teamSubscriptions} />}
+      {teamSubscriptions && <TeamSubscriptionsSection board={teamSubscriptions} teamId={team.id} canRemind={canRemindTeam} history={teamReminders} />}
 
       {canManageJoinCodes && team.active && (
         <JoinCodeSection teamId={team.id} codes={await teamJoinCodes(team.id)} />

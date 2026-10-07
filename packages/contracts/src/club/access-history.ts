@@ -17,6 +17,8 @@
  * catalogue of its own.
  */
 
+import { canonicalRoleLabel } from "../role-labels"
+
 const SENTENCE: Record<string, (subject: string) => string> = {
   "role.granted": (what) => `Given the ${what} role`,
   "role.revoked": (what) => `${what} role removed`,
@@ -28,9 +30,9 @@ const SENTENCE: Record<string, (subject: string) => string> = {
   "membership.granted": () => "Joined the club",
   "membership.approved": () => "Membership approved",
   "membership.requested": () => "Asked to join the club",
-  "membership.suspended": () => "Membership suspended",
+  "membership.suspended": () => "Membership deactivated",
   "membership.revoked": () => "Removed from the club",
-  "membership.restored": () => "Membership restored",
+  "membership.restored": () => "Membership reactivated",
   "invitation.issued": () => "Sent an invitation",
   "invitation.resent": () => "Invitation sent again",
   "invitation.revoked": () => "Invitation withdrawn",
@@ -39,6 +41,7 @@ const SENTENCE: Record<string, (subject: string) => string> = {
   "team_access.revoked": (what) => `Team access removed: ${what}`,
   "player_team.added": (what) => `Added to ${what}`,
   "player_team.removed": (what) => `Removed from ${what}`,
+  "player_team.guardian_confirmed": (what) => `Confirmed a request to join ${what}`,
   "guardian.linked": () => "Linked as a guardian",
   "guardian.unlinked": () => "Guardian link ended",
 }
@@ -62,4 +65,20 @@ export function accessEventSentence(
   const sentence = shape(subject || "it")
   // A team-scoped decision says which team, once, and never twice.
   return teamName && !sentence.includes(teamName) ? `${sentence} — ${teamName}` : sentence
+}
+
+/**
+ * A RECORDED REASON, AS A PERSON READS IT.
+ *
+ * Reasons are kept exactly as written, and an earlier version of the app wrote the role's internal key
+ * into them -- "Set from Team Profile Staff (FIRST_AIDER)". The record stays as it is; what is shown
+ * names the role, because an internal key is never something a person is asked to read. Anything in
+ * brackets that is not a role's key is left alone.
+ */
+export function accessReasonText(reason: string | null | undefined): string | null {
+  if (!reason) return null
+  return reason.replace(/\(([A-Z][A-Z0-9_]*)\)/g, (whole, key: string) => {
+    const label = canonicalRoleLabel(key)
+    return label !== key ? `(${label})` : whole
+  })
 }

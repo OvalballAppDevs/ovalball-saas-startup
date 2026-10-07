@@ -275,6 +275,8 @@ const NAV_SOURCES = [
   "app/(app)/club/settings/club-settings-nav.tsx",
   "components/rugby-hub/nav/hub-nav-groups.ts",
   "app/(app)/club/rollover/handover-nav.tsx",
+  // Club Memberships Part 2: the Memberships area's sections (Overview, Members, Reminders, Payments).
+  "app/(app)/club/finance/memberships-nav.tsx",
 ]
 for (const file of NAV_SOURCES) {
   const src = readFileSync(path.join(ROOT, file), "utf8")

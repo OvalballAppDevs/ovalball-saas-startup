@@ -20,7 +20,9 @@ const sql = (q: string) => execFileSync("docker", ["exec", "-i", "supabase_db_ov
 const ctor = new Map([...code(manifest).matchAll(/const ([A-Z][A-Za-z]*) = \(key: string\)[^\n]*?type: "([A-Z_]+)"/g)].map((m) => [m[1], m[2]]))
 const refs = [...code(manifest).matchAll(/\b([A-Z][A-Za-z]*)\("([a-z0-9-]+)"\)/g)].filter((m) => ctor.has(m[1])).map((m) => ({ type: ctor.get(m[1]) as string, key: m[2] }))
 const assetKeys = [...code(manifest).matchAll(/assetKey:\s*"([a-z0-9-]+)"/g)].map((m) => m[1])
-const registered = [...code(assets).matchAll(/"([a-z0-9-]+)":\s*require\(/g)].map((m) => m[1])
+// Registered by its own file, or -- for a scene that is also a Stock Media Library picture (Arena pass, section
+// 49) -- through the library binding by key, so the same picture is never required twice.
+const registered = [...code(assets).matchAll(/"([a-z0-9-]+)":\s*(?:require\(|libraryAsset\("[a-z0-9-]+"\))/g)].map((m) => m[1])
 
 test("every hotspot and step references a PUBLISHED canonical entity", () => {
   assert.ok(refs.length >= 40, `expected a real manifest, found ${refs.length} references`)

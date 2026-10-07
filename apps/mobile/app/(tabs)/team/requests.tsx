@@ -6,7 +6,6 @@ import { buildFixtureRequestGroupSummaries, type FixtureRequestGroupSummary } fr
 import { teamErrorMessage } from "@ovalball/contracts/club/teams"
 
 import { supabase } from "../../../src/auth/supabase"
-import { useSession } from "../../../src/auth/session"
 import { useTeamAuthority } from "../../../src/team/authority"
 import { NotForYou, TeamScreen } from "../../../src/team/screen"
 import { MyRequestsView } from "../../../src/requests/my-requests-view"
@@ -22,7 +21,6 @@ import { Button } from "../../../src/components/ui"
  */
 export default function TeamFixtureRequests() {
   const router = useRouter()
-  const { session } = useSession()
   const { authority, loading: authorityLoading, teamId, teamName } = useTeamAuthority()
   const [data, setData] = useState<{ incoming: TeamFixtureRequest[]; outgoing: TeamFixtureRequest[] } | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
@@ -61,7 +59,7 @@ export default function TeamFixtureRequests() {
   async function withdraw(group: FixtureRequestGroupSummary<TeamFixtureRequest>) {
     setWithdrawingGroupId(group.groupId)
     try {
-      await Promise.all(group.withdrawableRequestIds.map((id) => withdrawFixtureRequest(supabase, id, session?.user.id ?? "")))
+      await Promise.all(group.withdrawableRequestIds.map((id) => withdrawFixtureRequest(supabase, id)))
       await load()
     } finally {
       setWithdrawingGroupId(null)
@@ -81,7 +79,7 @@ export default function TeamFixtureRequests() {
         problem={problem}
         onRetry={load}
         canCreate={authority.requestCreate}
-        onOpenGroup={(group) => router.push({ pathname: "/fixtures/request/[groupId]", params: { groupId: group.groupId } } as never)}
+        onOpenGroup={(group) => router.push({ pathname: "/fixtures/request/[groupId]", params: { groupId: group.groupId, returnTo: "/team/requests" } } as never)}
         onWithdraw={withdraw}
         withdrawingGroupId={withdrawingGroupId}
         teamLabel={() => teamName ?? "This team"}

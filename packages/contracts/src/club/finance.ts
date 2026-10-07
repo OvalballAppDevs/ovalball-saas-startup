@@ -146,6 +146,9 @@ export interface DashboardMetrics {
 
 const SETTLED_ATTEMPT_STATUSES = new Set(["SUBMITTED", "PAID", "FAILED", "RETRYING", "OVERDUE"])
 
+const NOT_EXPECTED_STATUSES: ReadonlySet<string> = new Set(["CANCELLED", "EXEMPT", "WAIVED", "REFUNDED"])
+const OUTSTANDING_STATUSES: ReadonlySet<string> = new Set(["SETUP_PENDING", "READY", "SCHEDULED", "OVERDUE", "SUBMITTED", "RETRYING", "FAILED", "CHARGEDBACK"])
+
 export function computeDashboardMetrics(obligations: ObligationForMetrics[], activeDirectDebits: number): DashboardMetrics {
   let expectedRevenueMinor = 0
   let collectedMinor = 0
@@ -154,28 +157,42 @@ export function computeDashboardMetrics(obligations: ObligationForMetrics[], act
   let attempted = 0
   let failed = 0
 
+  // THE CANONICAL DEFINITIONS (docs/architecture/club-management-domain.md section 6; the same ones
+  // club_membership_board computes, 20270746000000): a cancelled, exempt, waived or refunded month is not
+  // EXPECTED, and OUTSTANDING is what is owed and not yet paid -- so a cancelled or refunded month no longer
+  // inflates either, and the web, the phone and the membership board give one figure.
+  let outstandingMinor = 0
   for (const o of obligations) {
-    expectedRevenueMinor += o.amountDueMinor
+    if (!NOT_EXPECTED_STATUSES.has(o.status)) expectedRevenueMinor += o.amountDueMinor
     countByStatus[o.status] = (countByStatus[o.status] ?? 0) + 1
     if (o.status === "PAID") collectedMinor += o.amountDueMinor
     if (o.status === "EXEMPT" || o.status === "WAIVED") exemptWaivedMinor += o.amountDueMinor
+    if (OUTSTANDING_STATUSES.has(o.status)) outstandingMinor += o.amountDueMinor
     if (SETTLED_ATTEMPT_STATUSES.has(o.status)) {
       attempted += 1
       if (o.status === "FAILED" || o.status === "OVERDUE") failed += 1
     }
   }
 
-  const outstandingMinor = Math.max(0, expectedRevenueMinor - collectedMinor - exemptWaivedMinor)
   const successRatePercent = attempted > 0 ? Math.round(((attempted - failed) / attempted) * 1000) / 10 : null
   return { expectedRevenueMinor, collectedMinor, outstandingMinor, exemptWaivedMinor, successRatePercent, activeDirectDebits, countByStatus }
 }
 
-/** OVERDUE is never webhook-asserted: derived locally when an unsettled obligation's due date has passed a processing window. */
-export function isObligationOverdue(status: string, dueDate: string, processingWindowDays: number = 5, now: Date = new Date()): boolean {
-  if (!["SETUP_PENDING", "READY", "SCHEDULED", "SUBMITTED"].includes(status)) return false
-  const due = new Date(dueDate)
-  const cutoff = new Date(due.getTime() + processingWindowDays * 24 * 60 * 60 * 1000)
-  return now > cutoff
+/**
+ * OVERDUE is never webhook-asserted: derived when an unpaid obligation that is NOT with the bank has passed
+ * its due date plus the processing window -- the canonical rule (20270746000000). A SUBMITTED payment is the
+ * money on its way, never overdue, and a member's due date is never before the day they joined
+ * (`effectiveFrom`), so a new member is not overdue on day one.
+ *
+ * Calendar dates, not instants, exactly as the server compares them (`today > effective due + 5`): a month is
+ * Overdue once it is MORE than five days late, so the ledger and the board change on the same day. Comparing
+ * instants turned it Overdue at midnight on the fifth day, a day before the board did.
+ */
+export function isObligationOverdue(status: string, dueDate: string, processingWindowDays: number = 5, now: Date = new Date(), effectiveFrom?: string | null): boolean {
+  if (!["SETUP_PENDING", "READY", "SCHEDULED"].includes(status)) return false
+  const due = (effectiveFrom && effectiveFrom > dueDate ? effectiveFrom : dueDate).slice(0, 10)
+  const lastDayInTime = new Date(Date.parse(`${due}T00:00:00Z`) + processingWindowDays * 86_400_000).toISOString().slice(0, 10)
+  return now.toISOString().slice(0, 10) > lastDayInTime
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -254,14 +271,17 @@ export const OBLIGATION_STATUS_LABEL: Record<string, string> = {
 }
 
 /** The short pill word the dashboard table uses. */
+// A MONTH'S PAYMENT RECORD, in words that never collide with a person's membership standing
+// (membership/board.ts): "Not set up" there means nobody pays for the player, so a month not yet collected
+// is "Not yet collected" here, and money with the bank says so (20270746000000).
 export const OBLIGATION_STATUS_SHORT: Record<string, string> = {
-  SETUP_PENDING: "Not set up",
+  SETUP_PENDING: "Not yet collected",
   READY: "Ready",
   SCHEDULED: "Scheduled",
-  SUBMITTED: "Submitted",
+  SUBMITTED: "With the bank",
   PAID: "Paid",
   FAILED: "Failed",
-  RETRYING: "Retrying",
+  RETRYING: "Being retried",
   OVERDUE: "Overdue",
   CANCELLED: "Cancelled",
   EXEMPT: "Exempt",
@@ -270,12 +290,18 @@ export const OBLIGATION_STATUS_SHORT: Record<string, string> = {
   CHARGEDBACK: "Charged back",
 }
 
-export type ObligationTone = "positive" | "caution" | "danger" | "neutral"
+export type ObligationTone = "positive" | "moving" | "caution" | "danger" | "neutral"
 
+/**
+ * The phone's month pill, drawn from the one month tone (membership/board.ts MONTH_STATUS_TONE) so the web and the
+ * phone colour a month alike: red only where a payment failed or was taken back; late is amber; money on its way is
+ * "moving" (mint).
+ */
 export function obligationTone(status: string): ObligationTone {
   if (status === "PAID") return "positive"
-  if (status === "FAILED" || status === "OVERDUE" || status === "CHARGEDBACK") return "danger"
-  if (status === "RETRYING" || status === "SUBMITTED" || status === "SCHEDULED" || status === "READY") return "caution"
+  if (status === "FAILED" || status === "CHARGEDBACK") return "danger"
+  if (status === "OVERDUE") return "caution"
+  if (status === "RETRYING" || status === "SUBMITTED" || status === "SCHEDULED" || status === "READY") return "moving"
   return "neutral"
 }
 
@@ -298,6 +324,8 @@ export const FINANCE_MANDATE_STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
   expired: "Expired",
   consumed: "Replaced by a newer mandate",
+  suspended_by_payer: "Suspended by the payer",
+  blocked: "Blocked by GoCardless",
 }
 
 export const FINANCE_SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
@@ -325,15 +353,9 @@ export type FirstPaymentPolicy = "PRORATE_CURRENT_MONTH" | "NEXT_COLLECTION_DAY"
 export type PlatformFeeMode = "NONE" | "PARTNER_REVENUE_SHARE"
 export type SiblingDiscountType = "NONE" | "PERCENTAGE" | "FIXED"
 
-export const FIRST_PAYMENT_POLICY_OPTIONS: { value: FirstPaymentPolicy; label: string; body: string }[] = [
-  { value: "PRORATE_CURRENT_MONTH", label: "Charge a pro-rata amount", body: "Charge only for the remaining days of their first month. Full monthly payments then continue from the next 1st." },
-  { value: "NEXT_COLLECTION_DAY", label: "Start payments next month", body: "No payment is due for the remaining part of the current month. The first full monthly payment is scheduled for the next 1st." },
-]
-
-export const PLATFORM_FEE_MODE_OPTIONS: { value: PlatformFeeMode; label: string }[] = [
-  { value: "NONE", label: "No platform fee" },
-  { value: "PARTNER_REVENUE_SHARE", label: "Partner revenue share (Ovalball is paid separately by GoCardless, not the club)" },
-]
+// The old first-payment and platform-fee option lists left with Programme & Pricing: the policy words now come
+// from `firstPaymentPolicyOptions(collectionDay)` in membership/setup (never a hard-coded "1st"), and the platform
+// fee is the club's choice of who pays Ovalball's fee, not a revenue-share selector.
 
 export const SIBLING_ORDINALS = [2, 3, 4, 5, 6] as const
 
@@ -366,7 +388,17 @@ export const FINANCE_WEB_PATHS = {
   /** The canonical entry to the merchant OAuth dance: capability + CSRF state on the server, then GoCardless's own consent page. */
   gocardlessConnect: (clubId: string) => `/api/gocardless/oauth/start?clubId=${encodeURIComponent(clubId)}`,
   subscriptionSettings: "/club/settings/subscriptions",
-  financeDashboard: (billingPeriod: string) => `/club/finance?month=${billingPeriod}`,
+  /** Club Memberships on the website (Part 2): Overview, Members, one member, Reminders, and the month's Payments. */
+  memberships: "/club/finance",
+  members: "/club/finance/members",
+  /**
+   * One member. `clubId` names which club's memberships when the link leaves the club's own pages (a hand-off from
+   * the app, a notification): it only chooses, the page still checks the reader's authority at that club.
+   */
+  member: (playerId: string, clubId?: string | null) => `/club/finance/members/${encodeURIComponent(playerId)}${clubId ? `?club=${encodeURIComponent(clubId)}` : ""}`,
+  reminders: "/club/finance/reminders",
+  /** The month's payments ledger (waive, retry, generate, export) -- moved here from the old dashboard. */
+  financeDashboard: (billingPeriod: string) => `/club/finance/payments?month=${billingPeriod}`,
   /** Retry a failed payment and Cancel Membership live here: both need the club's merchant token, held only by the web server. */
   membership: (payerSubscriptionId: string) => `/club/finance/${payerSubscriptionId}`,
   ovalballBilling: "/club/settings/ovalball-billing",
@@ -415,7 +447,7 @@ export async function loadFinanceDashboard(supabase: Client, clubId: string, bil
   const [{ data: obligationsRaw, error: obligationsError }, { count: activeSubsCount, error: subsError }] = await Promise.all([
     supabase
       .from("membership_obligations")
-      .select("id, amount_due_minor, due_date, status, resolved_reason, player_id, payer_subscription_id, gocardless_payment_id, is_prorated")
+      .select("id, amount_due_minor, due_date, membership_effective_date, status, resolved_reason, player_id, payer_subscription_id, gocardless_payment_id, is_prorated")
       .eq("club_id", clubId)
       .eq("billing_period", billingPeriod),
     supabase.from("gocardless_subscriptions").select("id", { count: "exact", head: true }).eq("club_id", clubId).eq("status", "active"),
@@ -438,7 +470,17 @@ export async function loadFinanceDashboard(supabase: Client, clubId: string, bil
   const relationshipReasons = (actionRequiredRaw ?? []).filter((r) => !PAYMENT_REVIEW_REASONS.has(r.reason))
 
   const players = await loadStaffPlayers(supabase, [...relationshipReasons.map((r) => r.player_id), ...obligations.map((o) => o.player_id)])
-  const nameOf = (id: string) => players.get(id)?.displayName || "Unknown player"
+  // A player who has left every team is exactly who the review list is about, and the roster read no longer finds
+  // them ("Unknown player"). The club's own membership board still names everybody it holds a membership for, so
+  // names the roster cannot give come from there -- one read, only when one is missing.
+  const missing = [...relationshipReasons.map((r) => r.player_id), ...obligations.map((o) => o.player_id)].filter((id) => !players.get(id)?.displayName)
+  const boardNames = new Map<string, string>()
+  if (missing.length > 0) {
+    const { data: board } = await supabase.rpc("club_membership_board", { p_club_id: clubId })
+    for (const r of (((board ?? {}) as { rows?: { player_id: string; first_name: string | null; surname: string | null }[] }).rows ?? []))
+      boardNames.set(r.player_id, `${r.first_name ?? ""} ${r.surname ?? ""}`.trim())
+  }
+  const nameOf = (id: string) => players.get(id)?.displayName || boardNames.get(id) || "Unknown player"
 
   const rows: FinanceObligationRow[] = obligations
     .map((o) => ({
@@ -448,7 +490,7 @@ export async function loadFinanceDashboard(supabase: Client, clubId: string, bil
       playerName: nameOf(o.player_id),
       amountMinor: o.amount_due_minor,
       dueDate: o.due_date,
-      status: isObligationOverdue(o.status, o.due_date) ? "OVERDUE" : o.status,
+      status: isObligationOverdue(o.status, o.due_date, 5, new Date(), o.membership_effective_date) ? "OVERDUE" : o.status,
       resolvedReason: o.resolved_reason,
       payment: paymentByObligationId.get(o.id) ?? null,
       isProrated: o.is_prorated,
@@ -461,7 +503,7 @@ export async function loadFinanceDashboard(supabase: Client, clubId: string, bil
     metrics,
     attention: {
       failed: obligations.filter((o) => o.status === "FAILED").length,
-      overdue: obligations.filter((o) => isObligationOverdue(o.status, o.due_date)).length,
+      overdue: obligations.filter((o) => isObligationOverdue(o.status, o.due_date, 5, new Date(), o.membership_effective_date)).length,
       notSetUp: obligations.filter((o) => o.status === "SETUP_PENDING").length,
     },
     rows,
@@ -561,7 +603,7 @@ export async function loadMembershipDetail(supabase: Client, payerSubscriptionId
 
   const { data: obligationsRaw } = await supabase
     .from("membership_obligations")
-    .select("id, billing_period, amount_due_minor, due_date, status, is_prorated, gocardless_payment_id")
+    .select("id, billing_period, amount_due_minor, due_date, membership_effective_date, status, is_prorated, gocardless_payment_id")
     .eq("payer_subscription_id", payerSubscriptionId)
     .order("billing_period", { ascending: false })
   const obligations = obligationsRaw ?? []
@@ -600,7 +642,7 @@ export async function loadMembershipDetail(supabase: Client, payerSubscriptionId
         billingPeriod: o.billing_period,
         amountMinor: o.amount_due_minor,
         dueDate: o.due_date,
-        status: isObligationOverdue(o.status, o.due_date) ? "OVERDUE" : o.status,
+        status: isObligationOverdue(o.status, o.due_date, 5, new Date(), o.membership_effective_date) ? "OVERDUE" : o.status,
         isProrated: o.is_prorated,
         payment: p ? { status: p.status, chargeDate: p.charge_date ?? null, confirmedAt: p.confirmed_at ?? null, failedAt: p.failed_at ?? null } : null,
       }
@@ -622,12 +664,6 @@ export interface SubscriptionProgrammeSettings {
   collectionDay: number
   platformFeeMode: PlatformFeeMode
   firstPaymentPolicy: FirstPaymentPolicy
-}
-
-export const DEFAULT_PROGRAMME_SETTINGS: SubscriptionProgrammeSettings = { enabled: false, collectionDay: 1, platformFeeMode: "NONE", firstPaymentPolicy: "NEXT_COLLECTION_DAY" }
-
-export function programmeSettingsEqual(a: SubscriptionProgrammeSettings, b: SubscriptionProgrammeSettings): boolean {
-  return a.enabled === b.enabled && a.collectionDay === b.collectionDay && a.platformFeeMode === b.platformFeeMode && a.firstPaymentPolicy === b.firstPaymentPolicy
 }
 
 export interface PriceRow {
@@ -707,31 +743,6 @@ export async function readSiblingDiscountRules(supabase: Client, programmeId: st
   return (data ?? []).map((r) => ({ ordinal: r.ordinal, discountType: r.discount_type as SiblingDiscountType, discountValue: r.discount_value }))
 }
 
-export interface FirstPaymentPreview {
-  policy: FirstPaymentPolicy
-  monthlyAmountMinor: number
-  firstChargeAmountMinor: number
-  firstChargeBillingPeriod: string
-  coversFrom: string
-  coversTo: string
-  isProrated: boolean
-}
-
-/** Server-computed against the SAVED policy, so it can never drift from what obligations will do. */
-export async function previewFirstPayment(supabase: Client, programmeId: string, membershipStartDate: string): Promise<FirstPaymentPreview | null> {
-  const { data, error } = await supabase.rpc("preview_first_payment_illustrative", { p_programme_id: programmeId, p_membership_start_date: membershipStartDate }).maybeSingle()
-  if (error || !data) return null
-  return {
-    policy: data.policy as FirstPaymentPolicy,
-    monthlyAmountMinor: data.monthly_amount_minor,
-    firstChargeAmountMinor: data.first_charge_amount_minor,
-    firstChargeBillingPeriod: data.first_charge_billing_period,
-    coversFrom: data.covers_from,
-    coversTo: data.covers_to,
-    isProrated: data.is_prorated,
-  }
-}
-
 export interface ActiveSubscriptionImpact {
   activeGoCardlessSubscriptions: number
   activePayers: number
@@ -761,21 +772,8 @@ export async function setObligationExemption(supabase: Client, obligationId: str
   if (error) throw error
 }
 
-export async function saveSubscriptionProgramme(supabase: Client, clubId: string, settings: SubscriptionProgrammeSettings): Promise<void> {
-  const { error } = await supabase.rpc("configure_subscription_programme", {
-    p_club_id: clubId,
-    p_enabled: settings.enabled,
-    p_collection_day: settings.collectionDay,
-    p_platform_fee_mode: settings.platformFeeMode,
-    p_first_payment_policy: settings.firstPaymentPolicy,
-  })
-  if (error) throw error
-}
-
-export async function setSubscriptionPrice(supabase: Client, programmeId: string, amountMinor: number, effectiveFrom: string): Promise<void> {
-  const { error } = await supabase.rpc("set_subscription_price", { p_programme_id: programmeId, p_amount_minor: amountMinor, p_effective_from: effectiveFrom })
-  if (error) throw error
-}
+// Programme settings and prices are set through the Club Memberships doors (membership/setup), which re-derive
+// readiness on the server; the legacy configure/price doors are no longer called by either client.
 
 export async function saveSiblingDiscountRule(supabase: Client, programmeId: string, ordinal: number, discountType: SiblingDiscountType, discountValue: number): Promise<void> {
   const { error } = await supabase.rpc("configure_sibling_discount_rule", { p_programme_id: programmeId, p_ordinal: ordinal, p_discount_type: discountType, p_discount_value: discountValue })

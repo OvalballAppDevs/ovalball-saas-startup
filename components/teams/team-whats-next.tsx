@@ -90,9 +90,14 @@ export function TeamWhatsNext({
   )
 }
 
-/** Training is not a fixture with fields removed, so it is not described as one. */
+/**
+ * Training is not a fixture with fields removed, so it is not described as one.
+ * Neither is a tournament: it has no opposition, and it has a name of its own
+ * that identifies it better than any date could.
+ */
 function activityName(item: AgendaItem): string {
   if (item.kind === "training") return `training on ${item.date}`
+  if (item.kind === "tournament") return `${item.name ?? "the tournament"} on ${item.date}`
   return `${item.them?.clubName ?? "the opposition"} on ${item.date}`
 }
 
@@ -105,6 +110,28 @@ function TeamActivityLine({ item, returnTo }: { item: AgendaItem; returnTo: stri
         <p className="text-sm font-medium text-ink">Training</p>
         <p className="mt-0.5 text-xs text-ink-muted">
           {[when, item.venue, item.pitch].filter(Boolean).join(" · ")}
+        </p>
+      </div>
+    )
+  }
+
+  // A TOURNAMENT IS NAMED, AND SAYS WHICH DAY OF ITSELF THIS IS. Running it
+  // through the fixture line below would title it "Under 12 Boys v" with nothing
+  // after the preposition, because there is no opposition to put there.
+  if (item.kind === "tournament") {
+    return (
+      <div>
+        <p className="text-sm font-medium text-ink">{item.name ?? "Tournament"}</p>
+        <p className="mt-0.5 text-xs text-ink-muted">
+          {[
+            when,
+            item.dayOfSpan ? `Day ${item.dayOfSpan.day} of ${item.dayOfSpan.of}` : null,
+            item.us.teamName,
+            item.venue,
+            item.pitch,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       </div>
     )

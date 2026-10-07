@@ -31,6 +31,12 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
  * button being written says "Saving…" while the other two stay readable, rather
  * than the whole group greying out and losing which answer was tapped.
  *
+ * ONE CONTROL, TWO WAYS OF SAVING. A match, a session and a festival save the answer the moment it is
+ * tapped (`onChoose` writes and resolves on the server's word). An event's answer travels WITH its party
+ * size and food, so the Event Centre's `onChoose` only records the choice and its own Save Response writes
+ * the whole answer -- the same tiles, the same words, the same press, and the same Attendance Moment once
+ * the server has accepted it. The chip beside the person keeps saying what the server holds until then.
+ *
  * AUTHORITY IS NOT DECIDED HERE. `disabled` is the server's answer, resolved by
  * `get_my_players_for_fixture` / `get_my_players_for_training_session`, which
  * wrap the canonical safeguarding rule. An under-16 answering for themselves is
@@ -49,6 +55,8 @@ export function AvailabilityChoice({
   disabled,
   onChoose,
   ground = "dark",
+  labels,
+  unavailable,
 }: {
   /** The sentence above the buttons, built by the shared `availabilityQuestion`. */
   question: string
@@ -69,13 +77,21 @@ export function AvailabilityChoice({
    * ground the screen chose.
    */
   ground?: "dark" | "light"
+  /**
+   * WHERE ONE ANSWER MEANS SOMETHING MORE. An event with every place taken says "Join Waiting List" -- or
+   * "Full" -- on its first answer; the words, icon and colour of the other two are untouched. Anything not
+   * named keeps `ATTENDANCE_ANSWER_WORDS`.
+   */
+  labels?: Partial<Record<AvailabilityStatus, string>>
+  /** Answers that cannot be given right now (a full event with no waiting list), drawn but not pressable. */
+  unavailable?: readonly AvailabilityStatus[]
 }) {
   const [pending, setPending] = useState<AvailabilityStatus | null>(null)
   const onLight = ground === "light"
   const palette = onLight ? ANSWER_ON_LIGHT : ANSWER_ON_DARK
 
   async function choose(status: AvailabilityStatus) {
-    if (pending || disabled) return
+    if (pending || disabled || unavailable?.includes(status)) return
     setPending(status)
     try {
       await onChoose(status)
@@ -97,13 +113,15 @@ export function AvailabilityChoice({
           const Icon = AVAILABILITY_ICONS[attendanceStateShape(status).icon]
           const chosen = committed === status
           const saving = pending === status
+          const blocked = unavailable?.includes(status) ?? false
+          const word = labels?.[status] ?? ATTENDANCE_ANSWER_WORDS[status]
           return (
             <Pressable
               key={status}
               accessibilityRole="radio"
-              accessibilityState={{ selected: chosen, disabled: disabled || pending !== null }}
-              accessibilityLabel={answerControlLabel(status, subject, what)}
-              disabled={disabled || pending !== null}
+              accessibilityState={{ selected: chosen, disabled: disabled || blocked || pending !== null }}
+              accessibilityLabel={labels?.[status] ? `${word} — ${subject}, ${what}` : answerControlLabel(status, subject, what)}
+              disabled={disabled || blocked || pending !== null}
               onPress={() => void choose(status)}
               style={({ pressed }) => ({
                 flex: 1,
@@ -117,7 +135,7 @@ export function AvailabilityChoice({
                 borderWidth: 1,
                 borderColor: chosen ? paint.chosenEdge : onLight ? colour.line : "rgba(255,255,255,0.15)",
                 backgroundColor: chosen ? paint.chosenWash : onLight ? colour.surface : "rgba(255,255,255,0.05)",
-                opacity: disabled ? 0.6 : pressed ? 0.85 : 1,
+                opacity: disabled || blocked ? 0.6 : pressed ? 0.85 : 1,
               })}
             >
               <View
@@ -150,7 +168,7 @@ export function AvailabilityChoice({
                   },
                 ]}
               >
-                {saving ? SAVING_LABEL : ATTENDANCE_ANSWER_WORDS[status]}
+                {saving ? SAVING_LABEL : word}
               </Text>
             </Pressable>
           )

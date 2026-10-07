@@ -41,16 +41,20 @@ import type { RegisterEntry } from "../components/availability-register"
  * value the server returned; this module has no branch that could grant
  * something the database refused, and the mutations re-check regardless.
  *
- * WHAT IS DELIBERATELY NOT SHOWN. Fixture logistics. The date, the venue, the
- * pitch, the meet time and the kick-off are the Fixture Console's, and Match
- * Centre owns PEOPLE -- availability, the squad, match-day preparation. The
- * header states enough to know which match this is and offers the route back to
- * the console rather than reproducing it.
+ * ONE MATCH CENTRE (owner brief, 2026-10-03). The logistics -- date, meet,
+ * kick-off, venue, pitch, changing rooms, catering -- are now the Match Centre's
+ * too: there is no separate fixture console to send anybody to.
  */
 
 type Client = SupabaseClient<Database>
 
 export interface MatchCentreSide {
+  /** The canonical team, where the side is an Ovalball team. Opens the public team page. */
+  teamId: string | null
+  /** The canonical club, where the side's club is on Ovalball. */
+  clubId: string | null
+  /** The Club Directory identity -- every club, on Ovalball or not. Opens the public club page. */
+  directoryId: string | null
   clubName: string
   teamName: string | null
   crestUrl: string | null
@@ -58,7 +62,7 @@ export interface MatchCentreSide {
    * The club's own playing shirt, from the canonical `club_kits` row. Null for a
    * club that has not configured one, which is a real and common state -- an
    * opposition that is only a Directory entry almost always is -- and gets a
-   * finished dashed placeholder rather than an empty box.
+   * finished placeholder rather than an empty box.
    */
   kit: KitConfig | null
   /** A club with an Ovalball account, as opposed to a Club Directory entry with nobody behind it. */
@@ -78,49 +82,69 @@ export interface MyAvailability {
   cannotRespondReason: string | null
 }
 
+export interface MatchCentreRoom {
+  id: string
+  name: string
+  coverImagePath: string | null
+  coverStockKey: string | null
+}
+
 export interface MatchCentreView {
   fixtureId: string
-  /** The viewer's own side, flipped by the canonical orientation -- never inferred from which team is printed first. */
-  us: MatchCentreSide
-  them: MatchCentreSide
+  /** HOME on the left, AWAY on the right, from the fixture's own orientation -- whoever is looking. */
+  home: MatchCentreSide
+  away: MatchCentreSide
+  /** Which side this viewer belongs to (staff, family or player), from the server. Null for an unrelated viewer. */
+  viewerSide: "home" | "away" | null
   homeAway: "Home" | "Away" | "TBD" | "Not Applicable" | null
   date: string
   kickoffTime: string | null
   meetTime: string | null
-  /**
-   * The DERIVED Match Centre state, not the raw `fixtures.status` column. It is
-   * built by the shared `matchCentreStatus`, which also folds in `cancelled_at`
-   * and a pending kick-off amendment -- so the app says "Confirmed" exactly
-   * where the website does rather than showing the database's operational
-   * "Booked".
-   */
+  /** True once kick-off has passed (the server's own rule, the one results and awards follow). */
+  kickedOff: boolean
   status: MatchCentreStatus
   cancelled: boolean
   cancellationReason: string | null
   /** A recorded result, or null. Two nulls are not a nil-nil draw. */
   result: { homeScore: number; awayScore: number } | null
-  /** The canonical result_status, so a participant is told a provisional score is provisional. */
   resultStatus: string | null
-  /** The GROUND'S NAME -- what the page shows. Never its postal address. */
-  venueName: string | null
-  venuePostcode: string | null
-  /** The full address, kept for navigation. Not drawn on the page. */
-  venueAddress: string | null
-  venueAddressLines: string[]
-  pitchName: string | null
+  venue: {
+    id: string | null
+    name: string | null
+    postcode: string | null
+    addressLines: string[]
+    directions: string | null
+    coverImagePath: string | null
+    coverStockKey: string | null
+    cateringAvailable: boolean | null
+    changingRoomsAvailable: boolean | null
+  }
+  pitch: { id: string | null; name: string | null; description: string | null; coverImagePath: string | null; coverStockKey: string | null }
+  homeRoom: MatchCentreRoom | null
+  awayRoom: MatchCentreRoom | null
+  /** The match officials' room, when the host has allocated one (in Arena or here). */
+  officialsRoom: MatchCentreRoom | null
+  /**
+   * WHERE THE HOST IS NOT ON OVALBALL there are no room records, so the rooms are numbered for this match
+   * (1-20), and "no changing rooms at the ground" is its own answer -- not the same as "not set yet".
+   */
+  homeRoomNumber: number | null
+  awayRoomNumber: number | null
+  noChangingRooms: boolean
+  /** CANONICAL: the host club is on Ovalball and its records are referenced. PROVISIONAL: written for this match. */
+  facilityMode: "CANONICAL" | "PROVISIONAL" | "UNDECIDED"
+  changingRoomNotes: string | null
+  cateringRequired: boolean
+  notes: string | null
   competitionName: string | null
-  /** The canonical match type (`fixtures.game_type`), verbatim; null where nothing is recorded. */
   matchType: string | null
   mine: MyAvailability[]
-  /** Empty for a viewer without staff attendance authority. The section is then not rendered at all. */
-  register: RegisterEntry[]
-  canViewRegister: boolean
   canMessage: boolean
   canManageFixture: boolean
 }
 
 const FIXTURE_FIELDS =
-  "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, cancellation_reason, kickoff_amendment_proposed_at, venue_id, venue_address, pitch_id, competition_edition_id, raw_opposition_text, home_score, away_score, result_status, game_type"
+  "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, cancellation_reason, kickoff_amendment_proposed_at, venue_id, venue_address, pitch_id, competition_edition_id, raw_opposition_text, home_score, away_score, result_status, game_type, notes, changing_room, home_changing_room_id, away_changing_room_id, officials_changing_room_id, catering_required, pitch_allocation, home_changing_room_number, away_changing_room_number, no_changing_rooms"
 
 export async function loadMatchCentre(
   supabase: Client,
@@ -128,45 +152,47 @@ export async function loadMatchCentre(
   /**
    * WHICH HAT THIS PERSON IS WEARING.
    *
-   * The capability RPC answers about the USER; the context says which of their
-   * roles they are operating as. A club admin reading their daughter's match as a
-   * parent must not be offered their coach's controls. It can only ever REMOVE a
-   * capability -- the database is still the authority, and a genuine parent is
-   * refused every one of these writes whatever any client believes.
+   * The server answers about the USER; the context says which of their roles they
+   * are operating as. A club admin reading their daughter's match as a parent must
+   * not be offered their coach's controls. It can only ever REMOVE a capability --
+   * the database is still the authority, and refuses a genuine parent regardless.
    */
   contextKind: ActiveContextKind | null = null
 ): Promise<MatchCentreView | null> {
   const { data: f, error } = await supabase.from("fixtures").select(FIXTURE_FIELDS).eq("id", fixtureId).maybeSingle()
   // A fixture that does not exist and one this viewer may not see are the same
-  // answer. Telling them apart would let somebody map the platform's fixtures by
-  // watching which ids behave differently -- the same reasoning the web page's
-  // 404 records.
+  // answer, so the platform's fixtures cannot be mapped by probing ids.
   if (error || !f) return null
 
-  const [{ data: caps }, { data: mineRows }, { data: pitch }, { data: competition }] = await Promise.all([
+  const roomIds = [f.home_changing_room_id, f.away_changing_room_id, f.officials_changing_room_id].filter((r): r is string => Boolean(r))
+  const [{ data: caps }, { data: viewer }, { data: mineRows }, { data: pitch }, { data: competition }, { data: rooms }] = await Promise.all([
     supabase.rpc("get_match_centre_capabilities", { p_fixture_id: fixtureId }).maybeSingle(),
+    supabase.rpc("get_match_centre_viewer", { p_fixture_id: fixtureId }),
     supabase.rpc("get_my_players_for_fixture", { p_fixture_id: fixtureId }),
-    f.pitch_id ? supabase.from("club_pitches").select("id, display_name").eq("id", f.pitch_id).maybeSingle() : Promise.resolve({ data: null }),
+    f.pitch_id
+      ? supabase.from("club_pitches").select("id, display_name, description, cover_image_path, cover_stock_key").eq("id", f.pitch_id).maybeSingle()
+      : Promise.resolve({ data: null }),
     f.competition_edition_id
       ? supabase.from("competition_editions").select("competitions(name)").eq("id", f.competition_edition_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    roomIds.length
+      ? supabase.from("venue_changing_rooms").select("id, display_name, cover_image_path, cover_stock_key").in("id", roomIds)
+      : Promise.resolve({ data: [] as { id: string; display_name: string; cover_image_path: string | null; cover_stock_key: string | null }[] }),
   ])
 
-  const [us, them] = await Promise.all([
+  const [owning, opponent] = await Promise.all([
     resolveSide(supabase, f.owning_team_id, null),
     resolveSide(supabase, f.opponent_team_id, f.opponent_directory_id, f.raw_opposition_text),
   ])
+  // THE FIXTURE'S OWN ORIENTATION decides who is home. "TBD" and "Not Applicable" keep the row's order.
+  const owningIsHome = f.home_away !== "Away"
+  const home = owningIsHome ? owning : opponent
+  const away = owningIsHome ? opponent : owning
 
   /*
-    THE VENUE, THROUGH THE ONE CANONICAL RESOLVER.
-
-    It used to read `venue_id` alone, so a fixture whose ground is recorded as the
-    fixture's own ADDRESS -- which is how an opponent from the Club Directory is
-    usually recorded -- came back with nothing, and the page said "the venue hasn't
-    been confirmed yet" about a match whose address the Calendar was showing two
-    taps away. The resolver applies the platform's order: the chosen venue, then
-    the fixture's own address, then the HOME side's default ground -- which for an
-    away fixture is the OPPOSITION's, not ours.
+    THE VENUE, THROUGH THE ONE CANONICAL RESOLVER: the chosen venue, then the
+    fixture's own address, then the HOME side's default ground -- which for an away
+    fixture is the OPPOSITION's, not ours.
   */
   const venue = await resolveFixtureVenue(supabase, {
     venueId: f.venue_id,
@@ -176,20 +202,16 @@ export async function loadMatchCentre(
       owningClubId: await clubIdOfTeam(supabase, f.owning_team_id),
       opponentClubId: await clubIdOfTeam(supabase, f.opponent_team_id),
     }),
-    // An away fixture against a Directory-only opponent still has a home ground:
-    // theirs, recorded in the Club Directory with its own postcode and geocode.
     homeDirectoryId: f.home_away === "Away" ? f.opponent_directory_id : null,
   })
+  const { data: venueRow } = f.venue_id
+    ? await supabase
+        .from("venues")
+        .select("id, directions, cover_image_path, cover_stock_key, catering_available, changing_rooms_available")
+        .eq("id", f.venue_id)
+        .maybeSingle()
+    : { data: null }
 
-  /*
-    WHICH HAT, NOT JUST WHICH PERSON.
-
-    `get_match_centre_capabilities` answers about the USER, and a club admin who is
-    also a parent holds all three whichever context they are standing in. Operating
-    AS a parent, they were still offered "Announce to the Squad" and the fixture
-    console's entry point. The narrowing can only ever remove -- the database
-    remains the authority and refuses a genuine parent regardless.
-  */
   const capabilities = narrowCapabilitiesToContext(
     {
       canViewParticipants: Boolean(caps?.can_view_participants),
@@ -198,55 +220,92 @@ export async function loadMatchCentre(
     },
     contextKind
   )
-
-  const canViewRegister = capabilities.canViewParticipants
-  const register = canViewRegister ? await loadRegister(supabase, fixtureId) : []
+  const v = (viewer ?? {}) as {
+    side?: "home" | "away" | null
+    kickedOff?: boolean
+    ground?: {
+      name: string | null
+      address: string | null
+      postcode: string | null
+      coverImagePath?: string | null
+      coverStockKey?: string | null
+      directions?: string | null
+      cateringAvailable?: boolean | null
+      changingRoomsAvailable?: boolean | null
+    } | null
+  }
+  const roomOf = (id: string | null): MatchCentreRoom | null => {
+    const r = (rooms ?? []).find((x) => x.id === id)
+    return r ? { id: r.id, name: r.display_name, coverImagePath: r.cover_image_path, coverStockKey: r.cover_stock_key } : null
+  }
 
   return {
     fixtureId: f.id,
-    us,
-    them,
+    home,
+    away,
+    viewerSide: v.side ?? null,
     homeAway: (f.home_away as MatchCentreView["homeAway"]) ?? null,
     date: f.kickoff_date,
     kickoffTime: f.kickoff_time,
     meetTime: f.meet_time ? String(f.meet_time).slice(0, 5) : null,
+    kickedOff: Boolean(v.kickedOff),
     status: matchCentreStatus(f),
     cancelled: f.cancelled_at !== null || f.status === "Cancelled",
     cancellationReason: f.cancellation_reason,
     /*
-      A RESULT IS A RESULT ONLY WHEN THE WORKFLOW SAYS SO. `none` means nobody
-      has recorded one, and two nulls are not a nil-nil draw -- so the hero says
-      "V" rather than inventing a scoreline out of absent data, exactly as the
-      web's does.
+      A RESULT IS A RESULT ONLY WHEN THE WORKFLOW SAYS SO. `none` means nobody has
+      recorded one, and two nulls are not a nil-nil draw.
     */
     result:
       f.result_status && f.result_status !== "none" && f.home_score !== null && f.away_score !== null
         ? { homeScore: f.home_score, awayScore: f.away_score }
         : null,
     resultStatus: f.result_status ?? null,
-    venueName: venue?.name ?? null,
-    venuePostcode: venue?.postcode ?? null,
-    /** The full address, for navigation only. Match Centre shows the NAME. */
-    venueAddress: venue?.address ?? null,
-    // Built from the structured columns, blanks dropped -- never a string
-    // concatenation that yields "Holden Road, , , BB11".
-    venueAddressLines: venue?.address ? venue.address.split(",").map((l) => l.trim()).filter(Boolean) : [],
-    pitchName: pitch?.display_name ?? null,
+    venue: {
+      id: f.venue_id,
+      // The away side cannot read the home club's venue rows; the server's own answer
+      // (`get_match_centre_viewer.ground`) fills in what the direct read could not.
+      name: venue?.name ?? v.ground?.name ?? null,
+      postcode: venue?.postcode ?? v.ground?.postcode ?? null,
+      // Built from the structured columns, blanks dropped -- never "Holden Road, , , BB11".
+      addressLines: (venue?.address ?? v.ground?.address ?? "").split(",").map((l) => l.trim()).filter(Boolean),
+      directions: venueRow?.directions ?? v.ground?.directions ?? null,
+      coverImagePath: venueRow?.cover_image_path ?? v.ground?.coverImagePath ?? null,
+      coverStockKey: venueRow?.cover_stock_key ?? v.ground?.coverStockKey ?? null,
+      cateringAvailable: venueRow?.catering_available ?? v.ground?.cateringAvailable ?? null,
+      changingRoomsAvailable: venueRow?.changing_rooms_available ?? v.ground?.changingRoomsAvailable ?? null,
+    },
+    pitch: {
+      id: f.pitch_id,
+      // The away side may not read the host's pitch row; the match carries the pitch's name itself.
+      name: pitch?.display_name ?? (f.pitch_allocation?.trim() || null),
+      description: pitch?.description ?? null,
+      coverImagePath: pitch?.cover_image_path ?? null,
+      coverStockKey: pitch?.cover_stock_key ?? null,
+    },
+    homeRoom: roomOf(f.home_changing_room_id),
+    awayRoom: roomOf(f.away_changing_room_id),
+    officialsRoom: roomOf(f.officials_changing_room_id),
+    homeRoomNumber: f.home_changing_room_number ?? null,
+    awayRoomNumber: f.away_changing_room_number ?? null,
+    noChangingRooms: Boolean(f.no_changing_rooms),
+    // The host is the HOME side, whoever is looking.
+    facilityMode: f.home_away === "Home" || f.home_away === "Away" ? (home.onOvalball ? "CANONICAL" : "PROVISIONAL") : "UNDECIDED",
+    changingRoomNotes: f.changing_room ?? null,
+    cateringRequired: Boolean(f.catering_required),
+    notes: f.notes ?? null,
     competitionName: (competition?.competitions as { name: string } | null)?.name ?? null,
     matchType: matchTypeLabel((f as { game_type?: string | null }).game_type ?? null),
     mine: (mineRows ?? []).map((r) => ({
       playerId: r.player_id,
       firstName: r.first_name ?? "",
       displayName: `${r.first_name ?? ""} ${r.surname ?? ""}`.trim() || "Player",
-      // From players.user_id, resolved by the RPC. Never inferred here from a
-      // name, an email or a role label.
+      // From players.user_id, resolved by the RPC -- never inferred from a name or a role label.
       isSelf: r.relationship === "self",
       response: (r.current_status as AvailabilityStatus | null) ?? null,
       canRespond: r.can_respond,
       cannotRespondReason: r.denial_reason,
     })),
-    register,
-    canViewRegister,
     canMessage: capabilities.canMessage,
     canManageFixture: capabilities.canManageFixture,
   }
@@ -353,6 +412,9 @@ async function resolveSide(
           .maybeSingle()
       : { data: null }
     return {
+      teamId: team?.id ?? teamId,
+      clubId: club?.id ?? null,
+      directoryId: club?.club_directory?.id ?? null,
       clubName: club?.club_directory?.name ?? team?.display_name ?? "Club",
       teamName: team?.display_name ?? null,
       crestUrl: club
@@ -377,6 +439,9 @@ async function resolveSide(
   if (directoryId) {
     const { data: dir } = await supabase.from("club_directory").select("id, name, logo_storage_path").eq("id", directoryId).maybeSingle()
     return {
+      teamId: null,
+      clubId: null,
+      directoryId: dir?.id ?? directoryId,
       clubName: dir?.name ?? "Opposition",
       teamName: null,
       crestUrl: dir?.logo_storage_path
@@ -388,7 +453,7 @@ async function resolveSide(
   }
   // An opponent recorded as free text, or none recorded yet. Both are real
   // states and neither is given a fake identity.
-  return { clubName: rawText?.trim() || "Opposition to be confirmed", teamName: null, crestUrl: null, kit: null, onOvalball: false }
+  return { teamId: null, clubId: null, directoryId: null, clubName: rawText?.trim() || "Opposition to be confirmed", teamName: null, crestUrl: null, kit: null, onOvalball: false }
 }
 
 /** Which club a team belongs to, for resolving whose ground a fixture is played at. */

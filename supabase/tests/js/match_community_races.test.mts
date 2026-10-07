@@ -110,10 +110,12 @@ function seed() {
     }
   }
 
+  // Dates of birth squarely inside the U12 grade this season (the canonical resolver's): a rough "11 years
+  // ago" is only right for part of the year, and since 20270742000000 a place outside the grade is refused.
   id.childA = one(`insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-                   values ('Rio', 'RaceA ${TAG}', (current_date - interval '11 years')::date, 'MALE') returning id`)
+                   values ('Rio', 'RaceA ${TAG}', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id`)
   id.childB = one(`insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-                   values ('Sam', 'RaceB ${TAG}', (current_date - interval '11 years')::date, 'MALE') returning id`)
+                   values ('Sam', 'RaceB ${TAG}', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id`)
   sql(`insert into public.player_team_memberships (player_id, team_id, state) values
          ('${id.childA}', '${id.team}', 'ACTIVE'), ('${id.childB}', '${id.team}', 'ACTIVE');
        insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state, source, created_by) values
@@ -144,25 +146,27 @@ function reopen() {
   id.award = openAward()
 }
 
-seed()
-
+// THE CLEANUP IS REGISTERED BEFORE THE SEED, so a seed that stops part-way takes what it made with it.
+const q = (v: string) => (v ? `'${v}'::uuid` : "null::uuid")
 after(() => {
-  sql(`delete from public.match_award_votes where award_id in (select id from public.match_awards where fixture_id = '${id.fixture}');
-       delete from public.match_awards where fixture_id = '${id.fixture}';
-       delete from public.match_kudos where fixture_id = '${id.fixture}';
-       delete from public.team_award_category_settings where team_id = '${id.team}';
-       delete from public.fixtures where id = '${id.fixture}';
-       delete from public.guardians where player_id in ('${id.childA}', '${id.childB}');
-       delete from public.player_team_memberships where team_id = '${id.team}';
-       delete from public.players where id in ('${id.childA}', '${id.childB}');
-       delete from public.role_assignments where club_id = '${id.club}';
-       delete from public.club_memberships where club_id = '${id.club}';
-       delete from public.teams where club_id = '${id.club}';
-       delete from public.clubs where id = '${id.club}';
-       delete from public.club_directory where id = '${id.dir}';
+  sql(`delete from public.match_award_votes where award_id in (select id from public.match_awards where fixture_id = ${q(id.fixture)});
+       delete from public.match_awards where fixture_id = ${q(id.fixture)};
+       delete from public.match_kudos where fixture_id = ${q(id.fixture)};
+       delete from public.team_award_category_settings where team_id = ${q(id.team)};
+       delete from public.fixtures where id = ${q(id.fixture)};
+       delete from public.guardians where player_id in (${q(id.childA)}, ${q(id.childB)});
+       delete from public.player_team_memberships where team_id = ${q(id.team)};
+       delete from public.players where id in (${q(id.childA)}, ${q(id.childB)});
+       delete from public.role_assignments where club_id = ${q(id.club)};
+       delete from public.club_memberships where club_id = ${q(id.club)};
+       delete from public.teams where club_id = ${q(id.club)};
+       delete from public.clubs where id = ${q(id.club)};
+       delete from public.club_directory where id = ${q(id.dir)};
        delete from public.profiles where id in ('${id.coachA}', '${id.coachB}', '${id.parentA}', '${id.parentB}');
        delete from auth.users where id in ('${id.coachA}', '${id.coachB}', '${id.parentA}', '${id.parentB}');`)
 })
+
+seed()
 
 test("R1 one voter submitting twice at once leaves exactly one vote", async () => {
   reopen()

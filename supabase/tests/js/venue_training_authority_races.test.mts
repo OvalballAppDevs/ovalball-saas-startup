@@ -76,7 +76,7 @@ function seed() {
       ('${ids.club}','${ids.mb}','BASIC_USER','active')`)
   const m1 = one(`insert into public.club_memberships (club_id, user_id, role, status) values ('${ids.club}','${ids.tm1}','BASIC_USER','active') returning id`)
   const m2 = one(`insert into public.club_memberships (club_id, user_id, role, status) values ('${ids.club}','${ids.tm2}','BASIC_USER','active') returning id`)
-  sql(`insert into public.team_permissions (membership_id, team_id, permission) values ('${m1}','${ids.team1}','manager'),('${m2}','${ids.team2}','manager')`)
+  sql(`insert into testing.team_roles (membership_id, team_id, role_key) values ('${m1}','${ids.team1}','TEAM_MANAGER'),('${m2}','${ids.team2}','TEAM_MANAGER')`)
   ids.venue = one(`insert into public.venues (club_id, name, slug, active) values ('${ids.club}','Vrace Park','vrace-park-${TAG}',true) returning id`)
   ids.pitch = one(`insert into public.club_pitches (club_id, venue_id, display_name, active) values ('${ids.club}','${ids.venue}','Pitch 1',true) returning id`)
   ids.season = one(`select id from public.seasons where rugby_code='union' and not is_regression_fixture
@@ -162,7 +162,7 @@ begin
   delete from public.club_pitches where club_id = '${ids.club}';
   delete from public.venues where club_id = '${ids.club}';
   delete from public.notifications where user_id = any(v_people);
-  delete from public.team_permissions where membership_id in (select id from public.club_memberships where club_id='${ids.club}');
+  delete from testing.team_roles where membership_id in (select id from public.club_memberships where club_id='${ids.club}');
   delete from public.role_assignments where club_id = '${ids.club}';
   delete from public.club_memberships where club_id = '${ids.club}';
   delete from public.teams where club_id = '${ids.club}';

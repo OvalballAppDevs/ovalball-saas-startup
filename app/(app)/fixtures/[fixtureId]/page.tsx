@@ -103,11 +103,14 @@ export default async function FixtureMatchCentrePage({
   // and its venue's coordinates. Never throws: every failure -- no credential,
   // timeout, 429, malformed payload -- comes back as a state, so a weather
   // outage can never take this page with it.
+  // COORDINATES CARRY THEIR PROVENANCE: the sky is asked only about a ground geocoded from its own postcode,
+  // exactly as `forecastLocation` rules for every other surface -- never about a number somebody typed.
+  const geocoded = context.venue.geocodeStatus === "success"
   const weather = await getFixtureForecast({
     kickoffDate: context.fixture.kickoffDate,
     kickoffTime: context.fixture.kickoffTime,
-    latitude: context.venue.latitude,
-    longitude: context.venue.longitude,
+    latitude: geocoded ? context.venue.latitude : null,
+    longitude: geocoded ? context.venue.longitude : null,
   })
 
   // THE COMMUNITY LAYER IS LOADED ONLY FOR A PLAYED MATCH. Reading it for an upcoming fixture

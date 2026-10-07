@@ -51,12 +51,19 @@ test("revoking an invitation goes through the authority, not a table write", () 
     "an UPDATE that matches no rows returns no error and reports success")
 })
 
-test("giving and removing a team role both call the canonical RPCs", () => {
+// PEOPLE & INVITATIONS (2026-10-05): team roles are ADDITIVE on both clients. Giving one is assign_role and ending
+// one is transition_role_assignment, one assignment at a time, through the shared People contract. The seat switch
+// (set_team_access / remove_team_access) replaced a person's other Coach/Manager/Team Admin roles on the team without
+// saying so, and could not express First Aider, Team Safeguarding Lead or Volunteer; no client calls it now.
+test("giving and removing a team role both call the canonical, additive RPCs", () => {
   const src = code(PEOPLE_ACTIONS)
-  assert.match(src, /rpc\("set_team_access"/, "giving a team role is set_team_access's job")
-  // CA-M3 moved the removal into the shared People contract; the action calls the wrapper, the wrapper the RPC.
-  assert.match(src, /removeTeamAccess\(supabase/, "removing one is remove_team_access's job (through the shared wrapper)")
-  assert.match(code("packages/contracts/src/club/people.ts"), /rpc\("remove_team_access"/, "and the wrapper is the one that calls remove_team_access")
+  assert.match(src, /giveRole\(supabase, membershipId, roleKey, teamId, reason\)/, "giving a team role is assign_role's job (through the shared wrapper)")
+  assert.match(src, /endOneRole\(supabase, assignmentId, reason\)/, "ending one is transition_role_assignment's job (through the shared wrapper)")
+  const contract = code("packages/contracts/src/club/people.ts")
+  assert.match(contract, /rpc\("assign_role"/), assert.match(contract, /rpc\("transition_role_assignment"/)
+  for (const f of [PEOPLE_ACTIONS, "app/(app)/teams/[teamId]/actions.ts", "packages/contracts/src/club/people.ts"]) {
+    assert.doesNotMatch(code(f), /rpc\("set_team_access"|rpc\("remove_team_access"/, `${f} must not reach for the seat switch`)
+  }
   assert.doesNotMatch(src, /from\("team_permissions"\)[\s\S]{0,160}(insert|update|delete)/,
     "team roles are never written directly around the authority that audits them")
 })

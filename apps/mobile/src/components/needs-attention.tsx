@@ -37,7 +37,20 @@ export interface AttentionItem {
   onPress?: () => void
 }
 
-export function NeedsAttention({ items, showHeading = true }: { items: AttentionItem[]; showHeading?: boolean }) {
+export function NeedsAttention({
+  items,
+  showHeading = true,
+  total,
+}: {
+  items: AttentionItem[]
+  showHeading?: boolean
+  /**
+   * How many things are waiting, when the caller shows only the first few (Home shows three and links to
+   * the rest). The heading counts the work, not the rows drawn: "3" above three rows and "1 more" said
+   * there were three things and then that there were four.
+   */
+  total?: number
+}) {
   if (items.length === 0) return null
 
   // Urgent first, then the order the caller gave -- which is the domain's own sense of priority.
@@ -62,7 +75,7 @@ export function NeedsAttention({ items, showHeading = true }: { items: Attention
           }}
         >
           <Text style={[type.caption, { color: colour.onForest, fontFamily: type.smallMedium.fontFamily }]}>
-            {ordered.length}
+            {Math.max(total ?? 0, ordered.length)}
           </Text>
         </View>
       </View>

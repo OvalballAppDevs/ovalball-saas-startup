@@ -98,7 +98,7 @@ begin
   delete from public.club_pitches where club_id = any(v_clubs);
   delete from public.venues where club_id = any(v_clubs);
   delete from public.notifications where user_id = any(v_people);
-  delete from public.team_permissions where membership_id in (select id from public.club_memberships where club_id = any(v_clubs));
+  delete from testing.team_roles where membership_id in (select id from public.club_memberships where club_id = any(v_clubs));
   delete from public.role_assignments where club_id = any(v_clubs);
   delete from public.club_memberships where club_id = any(v_clubs);
   delete from public.club_setup_state where club_id = any(v_clubs);

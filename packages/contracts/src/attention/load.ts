@@ -11,6 +11,7 @@ import { ATTENDANCE_HORIZON_DAYS } from "../parent/agenda-model"
 import { attendanceAttention, narrowToChild } from "../parent/home"
 import { loadFamilySubscription, type FamilySubscription } from "../subscriptions/family"
 import { loadTeamOverview } from "../team/overview"
+import { readFamilyTeamRequests } from "../team/team-code"
 import { loadClubAttention } from "./club"
 import { familyAttentionItems } from "./family"
 import { sortAttention, type AttentionItem } from "./model"
@@ -53,18 +54,21 @@ export async function loadAttentionForContext(
   if (isFamilyFacingContext(context.kind)) {
     const children = resolveFamilyScope(ctx, context)
     const window = { startIso: todayIso, endIso: shiftDays(todayIso, ATTENDANCE_HORIZON_DAYS), label: "the next fortnight", order: "asc" as const }
-    const [agenda, subscriptions] = await Promise.all([
+    const [agenda, subscriptions, teamRequests] = await Promise.all([
       loadAgenda(supabase, { kind: "family", children }, window, { includeTraining: true }).catch(() => ({ items: [], truncated: false })),
       Promise.all(
         children.map((child) =>
           loadFamilySubscription(supabase, { playerId: child.playerId, playerName: child.firstName, clubId: child.clubId }).catch(() => null)
         )
       ),
+      // A child's own team request waits on their parent (20270741000000).
+      readFamilyTeamRequests(supabase).catch(() => []),
     ])
     const items = narrowToChild(agenda.items, options.selectedPlayerId ?? null)
     const attention = attendanceAttention(items, todayIso, { viewerIsThePlayer: context.kind === "player" })
     const money = subscriptions.filter((s): s is FamilySubscription => s !== null && (!options.selectedPlayerId || s.playerId === options.selectedPlayerId))
-    return { items: sortAttention(familyAttentionItems(attention, money, { kind: context.kind, clubId: context.clubId })), coverage: "native", contextKey }
+    const requests = teamRequests.filter((r) => !options.selectedPlayerId || r.playerId === options.selectedPlayerId)
+    return { items: sortAttention(familyAttentionItems(attention, money, { kind: context.kind, clubId: context.clubId }, requests)), coverage: "native", contextKey }
   }
 
   if (context.kind === "team" && context.id && context.clubId) {

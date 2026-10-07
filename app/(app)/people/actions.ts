@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 
 import { resolveClubCrestEmailUrl } from "@/lib/email/club-crest"
 import { sendEmailEvent } from "@/lib/email/send"
-import { toPublicSubmissionError } from "@/lib/errors/public-error"
+import { toPublicStaffInvitationError, toPublicSubmissionError } from "@/lib/errors/public-error"
 import type { InvitationShareData } from "@/components/invitations/invitation-share"
 import {
   describeIntendedOutcome,
@@ -16,7 +16,7 @@ import {
 import { clubRoleLabel } from "@/lib/permissions/role-labels"
 import { roleKeyLabel } from "@/lib/permissions/role-presentation"
 import { createClient } from "@/lib/supabase/server"
-import { peopleErrorMessage, removeTeamAccess, setPrimaryClubRole, transitionMembership } from "@ovalball/contracts/club/people"
+import { endRoleAssignment as endOneRole, giveRole, peopleErrorMessage, setPrimaryClubRole, transitionMembership } from "@ovalball/contracts/club/people"
 import { isRecentAuthRefusal } from "@ovalball/contracts/club/permissions"
 import { guardAction } from "@/lib/auth/action-boundary"
 
@@ -107,7 +107,7 @@ export async function createInvitation(input: InviteInput): Promise<InviteResult
 
   if (error || !data) {
     console.error("createInvitation failed:", error)
-    return { ok: false, error: toPublicSubmissionError() }
+    return { ok: false, error: error ? toPublicStaffInvitationError(error) : toPublicSubmissionError() }
   }
 
   // An identical invitation already out there is returned rather than reissued, and deliberately
@@ -280,17 +280,17 @@ export async function revokeInvitation(invitationId: string, reason: string): Pr
 export async function grantTeamAccess(
   membershipId: string,
   teamId: string,
-  permission: string,
+  roleKey: string,
   reason: string
 ): Promise<MembershipActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("set_team_access", {
-    p_membership_id: membershipId,
-    p_team_id: teamId,
-    p_permission: permission,
-    p_reason: reason.trim() || undefined,
-  })
-  if (error) return { ok: false, error: error.message }
+  // ADDITIVE (People & Invitations): one more role on the team, through assign_role. The old seat switch
+  // (set_team_access) replaced the person's other Coach/Manager/Team Admin roles there without saying so.
+  try {
+    await giveRole(supabase, membershipId, roleKey, teamId, reason)
+  } catch (error) {
+    return { ok: false, error: peopleErrorMessage(error, "The team role could not be given. Please try again.") }
+  }
   revalidatePath("/people", "layout")
   // The team's own page lists exactly this relationship, so it is refreshed too.
   revalidatePath(`/teams/${teamId}`)
@@ -379,10 +379,12 @@ export async function revokeMembership(membershipId: string, reason: string): Pr
  * a person navigating between the two pages would hit and a test using full page
  * loads would not.
  */
-export async function removeTeamAssignment(teamPermissionId: string, teamId: string, reason = ""): Promise<MembershipActionResult> {
+export async function removeTeamAssignment(assignmentId: string, teamId: string, reason = ""): Promise<MembershipActionResult> {
   const supabase = await createClient()
   try {
-    await removeTeamAccess(supabase, teamPermissionId, reason)
+    // ONE ROLE ENDS: the role assignment named, through transition_role_assignment. Every other role the
+    // person holds -- on this team or any other -- is untouched.
+    await endOneRole(supabase, assignmentId, reason)
   } catch (error) {
     return { ok: false, error: peopleErrorMessage(error, "The team role could not be removed. Please try again.") }
   }

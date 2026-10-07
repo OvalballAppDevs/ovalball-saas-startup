@@ -1,11 +1,6 @@
-export const DOCUMENT_CATEGORY_OPTIONS = [
-  ["visitor_guide", "Visitor Guide"],
-  ["fixture_information", "Fixture Information"],
-  ["ground_pitch_information", "Ground / Pitch Information"],
-  ["parking", "Parking"],
-  ["match_day_information", "Match Day Information"],
-  ["image", "Image"],
-  ["other", "Other"],
-] as const
-
-export const DOCUMENT_CATEGORY_LABEL: Record<string, string> = Object.fromEntries(DOCUMENT_CATEGORY_OPTIONS)
+/**
+ * Moved to `packages/contracts/src/documents/categories` so the mobile Club Documents area names a
+ * category exactly as the website does, and re-exported here so no web import had to change. One list,
+ * one set of words.
+ */
+export { DOCUMENT_CATEGORY_LABEL, DOCUMENT_CATEGORY_OPTIONS } from "@ovalball/contracts/documents/categories"

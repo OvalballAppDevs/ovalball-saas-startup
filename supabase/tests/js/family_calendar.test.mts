@@ -191,8 +191,9 @@ test("a past event is not shown as waiting, however unanswered it is", () => {
 
 test("a parent's calendar match opens Match Centre and a session opens Training Centre", () => {
   for (const kind of ["parent", "family", "player"] as const) {
+    // The one Match Centre, at the canonical fixture address (consolidation, 2026-10-03).
     assert.deepEqual(routeForAgendaItem(item({ key: "m", date: TODAY, eventId: "fx-1" }), kind), {
-      pathname: "/fixtures/[fixtureId]/match-centre",
+      pathname: "/fixtures/[fixtureId]",
       params: { fixtureId: "fx-1" },
     })
     assert.deepEqual(routeForAgendaItem(training({ key: "t", date: TODAY, eventId: "ts-1" }), kind), {
@@ -239,7 +240,10 @@ test("nothing in the app writes to the device's own calendar yet", () => {
 test("the Training Centre's administrative half is a component nothing else mounts", () => {
   const importers = sourceFiles("apps/mobile/src")
     .concat(sourceFiles("apps/mobile/app"))
-    .filter((f) => !f.endsWith("training-operations.tsx") && /training-operations/.test(readFileSync(f, "utf8")))
+    // AN IMPORT, NOT A MENTION. `src/agenda/training.ts` names `training-operations.tsx` in a comment
+    // explaining where the "this session only / this and all future" choice is offered, and a
+    // substring match counted that as mounting the administrative half.
+    .filter((f) => !f.endsWith("training-operations.tsx") && /from "[^"]*training-operations"/.test(readFileSync(f, "utf8")))
   assert.deepEqual(importers, [TRAINING_SCREEN], "something other than the Training Centre can mount training administration")
 })
 
@@ -393,7 +397,7 @@ test("a day carries one dot for rugby played and one for rugby trained, never on
     item({ key: "c", date: "2026-10-03" }),
     training({ key: "d", date: "2026-10-03" }),
   ])
-  assert.deepEqual(marks.get("2026-10-03"), { fixture: true, training: true, cancelled: false })
+  assert.deepEqual(marks.get("2026-10-03"), { fixture: true, training: true, tournament: false, event: false, cancelled: false })
   assert.equal(marks.size, 1)
 })
 
@@ -407,6 +411,46 @@ test("a day with something cancelled says so, and the dot is hollow rather than 
   assert.match(panel, /backgroundColor: marks\?\.cancelled\s*\n?\s*\? "transparent"/)
   // And the spoken label carries the fact rather than describing the decoration.
   assert.match(panel, /marks\?\.cancelled \? "something cancelled" : null/)
+})
+
+test("a club event marks every day it spans -- an event-only day is busy, and a cancelled event is hollow", () => {
+  // Before 20270729 the dots came only from matches, sessions and tournaments: a day whose only item was
+  // the Christmas Party had no dot at all, so a parent scanning the month could not see it.
+  const marks = marksByDay([], [
+    { date: "2026-12-12", cancelled: false },
+    { date: "2026-12-19", cancelled: true },
+  ])
+  assert.deepEqual(marks.get("2026-12-12"), { fixture: false, training: false, tournament: false, event: true, cancelled: false })
+  assert.equal(marks.get("2026-12-19")?.cancelled, true)
+  // Mixed day: a match and an event are both on it, one dot, both spoken.
+  const mixed = marksByDay([item({ key: "m", date: "2026-12-12" })], [{ date: "2026-12-12", cancelled: false }])
+  assert.equal(mixed.get("2026-12-12")?.fixture, true)
+  assert.equal(mixed.get("2026-12-12")?.event, true)
+  assert.equal(mixed.size, 1)
+  const panel = readFileSync("apps/mobile/src/components/calendar/month-grid.tsx", "utf8")
+  assert.match(panel, /marks\?\.event \? "an event" : null/, "the spoken day names the event")
+  const screen = readFileSync("apps/mobile/app/(tabs)/calendar/index.tsx", "utf8")
+  assert.match(screen, /marksByDay\(shown \?\? \[\], eventDayMarks\)/, "the Calendar passes its events to the dots")
+})
+
+test("a tournament marks the day as its own kind, and marks every day it runs", () => {
+  // THREE ROWS, ONE TOURNAMENT. The loader expands a multi-day festival onto each
+  // day it occupies, because a calendar is asked "what is on this date" and the
+  // answer on the Sunday is the festival. Each day must say so.
+  const marks = marksByDay([
+    item({ key: "t1", date: "2026-10-10", kind: "tournament", them: null, homeAway: null }),
+    item({ key: "t2", date: "2026-10-11", kind: "tournament", them: null, homeAway: null }),
+  ])
+  assert.deepEqual(marks.get("2026-10-10"), { fixture: false, training: false, tournament: true, event: false, cancelled: false })
+  assert.deepEqual(marks.get("2026-10-11"), { fixture: false, training: false, tournament: true, event: false, cancelled: false })
+  // And a tournament is NOT counted as a match: a club with a festival on Saturday
+  // has not played a fixture that day, and the dots must not claim it has.
+  assert.equal(marks.get("2026-10-10")?.fixture, false)
+})
+
+test("the spoken day label names a tournament rather than describing the dot", () => {
+  const panel = readFileSync("apps/mobile/src/components/calendar/month-grid.tsx", "utf8")
+  assert.match(panel, /marks\?\.tournament \? "a tournament" : null/)
 })
 
 test("a day with nothing on it carries no dot", () => {
@@ -506,7 +550,9 @@ test("the chalk sheet rises over the forest, with a handle and a date", () => {
   assert.match(sheet, /borderTopRightRadius: 26/)
   assert.match(sheet, /marginTop: -12/, "the sheet is butted against the calendar rather than lifted over it")
   assert.match(sheet, /width: 38, height: 4/, "the grab handle is missing")
-  assert.match(sheet, /count === 1 \? "1 event" : `\$\{count\} events`/)
+  // "things on", not "events" (integration audit): an Event is its own kind of thing now, and a match day is not one.
+  assert.match(sheet, /count === 1 \? "1 thing on" : `\$\{count\} things on`/)
+  assert.match(readFileSync("apps/mobile/app/(tabs)/calendar/index.tsx", "utf8"), /\(days\[0\]\?\.items\.length \?\? 0\) \+ eventsOn\(openDay\)\.length/, "the day's count leaves out its club events")
 })
 
 /** Prose explaining why something is absent must not be mistaken for the thing. */
@@ -564,7 +610,12 @@ test("the child's identity on a card comes from the projection and nowhere else"
 
 test("the Training Centre is a participant experience, not a form", () => {
   const src = readFileSync(TRAINING_SCREEN, "utf8")
-  assert.match(src, /<EventHero/)
+  // A HERO WITH THE SHARED PROP CONTRACT. Training Centre draws `TrainingSessionHero`, a documented
+  // Training-only exception to EventHero's forest-only rule with the identical contract -- same back
+  // button, same status pill, same facts -- so that a session's page sits in the same visual family as
+  // Training Planning. What this line is for is that there IS a hero rather than a form, which either
+  // satisfies; drawing neither does not.
+  assert.match(src, /<EventHero|<TrainingSessionHero/)
   assert.match(src, /<ParticipantSheet>/)
   assert.match(src, /surfaceName="Training Centre"/)
   // The answer is the first thing on the sheet, because it is what a parent came for.
@@ -605,5 +656,27 @@ test("the participant action cards carry no administrative variant", () => {
   const cards = code("apps/mobile/src/components/participant/event-hero.tsx")
   for (const forbidden of ["Edit", "Manage", "Cancel", "Delete", "Attendees"]) {
     assert.ok(!cards.includes(forbidden), `a participant action card offers ${forbidden}`)
+  }
+})
+
+test("choosing one child narrows the club's events too -- the events they are invited to, with only their answer", async () => {
+  // The chooser reached the rugby and stopped at the events: with Ben chosen, Ava's U12 Charity Run still
+  // showed, "Ava Awaiting", and Ava's answer sat beside Ben's on every event the two share.
+  const { narrowEventsToChild } = await import("../../../packages/contracts/src/family/events")
+  const events = [{ eventId: "bonfire" }, { eventId: "charity-run" }, { eventId: "party" }]
+  const answers = [
+    { eventId: "bonfire", playerId: "ben" }, { eventId: "bonfire", playerId: "ava" },
+    { eventId: "charity-run", playerId: "ava" },
+    { eventId: "party", playerId: "ben" }, { eventId: "party", playerId: "ava" },
+  ]
+  const ben = narrowEventsToChild(events, answers, "ben")
+  assert.deepEqual(ben.events.map((e) => e.eventId), ["bonfire", "party"], "an event only the other child is invited to stays")
+  assert.ok(ben.answers.every((a) => a.playerId === "ben"), "the other child's answer is still drawn")
+  const all = narrowEventsToChild(events, answers, null)
+  assert.equal(all.events.length, 3, "All narrows nothing")
+  assert.equal(all.answers.length, 5)
+  assert.deepEqual(narrowEventsToChild(events, answers, "somebody-else").events, [], "an id belonging to nobody cannot widen the events")
+  for (const screen of ["app/(tabs)/fixtures/index.tsx", "app/(tabs)/calendar/index.tsx"]) {
+    assert.match(readFileSync(join("apps/mobile", screen), "utf8"), /narrowEventsToChild\(/, `${screen} does not narrow its events by the chosen child`)
   }
 })

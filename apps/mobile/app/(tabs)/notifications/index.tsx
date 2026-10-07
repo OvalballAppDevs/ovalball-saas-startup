@@ -4,16 +4,20 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { isFamilyFacingContext } from "@ovalball/contracts"
-import { countNeedingAction, groupAttention, type AttentionItem } from "@ovalball/contracts/attention"
+import { countNeedingAction, sortAttention, type AttentionItem } from "@ovalball/contracts/attention"
 import {
   attentionVerdict,
   CLUBHOUSE_NOTIFICATION_TYPES,
+  dismissNotification,
   markAllNotificationsRead,
   markNotificationRead,
   markNotificationUnread,
+  newestFirst,
   notificationContextHint,
+  verdictsNewestAskOnly,
   notificationPriority,
   readNotificationPage,
+  restoreNotification,
   type FeedCursor,
   type FeedNotification,
 } from "@ovalball/contracts/notifications/feed"
@@ -24,12 +28,12 @@ import { useAppContexts } from "../../../src/context/contexts"
 import { invalidateAttention } from "../../../src/attention/cache"
 import { routeForAttentionItem } from "../../../src/attention/routes"
 import { useAttention } from "../../../src/attention/use-attention"
-import { narrowIntentForContext, routeForIntent } from "../../../src/links/destinations"
-import { resolveIntent } from "../../../src/links/intents"
-import { teamContextKeyFor } from "../../../src/team/context"
-import { NotificationCard, QuietClock } from "../../../src/components/notification-card"
-import { NeedsAttention, type AttentionItem as AttentionRow } from "../../../src/components/needs-attention"
-import { Bell, ChevronRight, CircleCheck, Settings2 } from "../../../src/components/icons"
+import { useNotificationNavigator } from "../../../src/notifications/open"
+import { QuietClock } from "../../../src/components/notification-card"
+import { JobRow, NotificationRow, TabButton } from "../../../src/components/notification-rows"
+import { OvalballDetailHeader } from "../../../src/components/app-header"
+import { SwipeToDelete, UndoBar } from "../../../src/components/swipe-to-delete"
+import { Bell, CircleCheck, Settings } from "../../../src/components/icons"
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
@@ -49,14 +53,17 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/t
  * notifications the projection still finds open, never the ones whose type merely sounds like a job.
  *
  * NO FAKE STATE. Read and unread are the row's own `read_at`, changed through the canonical
- * operations both clients share. There is no dismiss, no delete and no local inbox: what a person
- * cannot do on the website they cannot do here, and what they can do is the same thing.
+ * operations both clients share, and there is no local inbox. DELETE (owner product decision) is a
+ * server fact too: `dismissNotification` hides the row from its owner everywhere, with an Undo that
+ * puts it back exactly -- and deleting a notification never resolves the job it was about.
  *
- * PUSH IS NOT PRETENDED. Nothing here is delivered to the device; the foundation for that is recorded
- * as pending in the domain map, with its prerequisites, rather than approximated.
+ * A PUSH TAP OPENS THE SAME PLACE THIS LIST DOES. `routeForHref` (`src/links/destinations.ts`) is the
+ * one function behind both: this screen's `open()` below and the push response listener wired in
+ * `src/notifications/push.ts`. Neither keeps its own routing table.
  */
-type Tab = "attention" | "recent"
-type Filter = "all" | "unread" | "action" | "clubhouse"
+/** The three views the approved mock-up draws: All, Action Required, Unread. */
+type CentreView = "all" | "action" | "unread"
+type Filter = "all" | "unread" | "clubhouse"
 
 /**
  * CLUBHOUSE ACTIVITY'S OWN CATEGORY SUB-FILTER (mock-up reconciliation): the reference shows Clubhouse
@@ -87,15 +94,17 @@ export default function Notifications() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams<{ filter?: string }>()
-  const { unread, refreshUnread, active, contexts, select } = useAppContexts()
+  const { unread, refreshUnread, active, contexts } = useAppContexts()
+  const navigateTo = useNotificationNavigator()
   const attention = useAttention()
   const familyFacing = active !== null && isFamilyFacingContext(active.kind)
 
   // Clubhouse Home's "See All" arrives with ?filter=clubhouse -- landing straight on Recent, already
   // filtered, rather than on Needs Attention with the person having to find the filter themselves.
   const arrivedViaClubhouse = params.filter === "clubhouse"
-  const [tab, setTab] = useState<Tab>(arrivedViaClubhouse ? "recent" : "attention")
-  const [filter, setFilter] = useState<Filter>(arrivedViaClubhouse ? "clubhouse" : "all")
+  const [view, setView] = useState<CentreView>("all")
+  // The feed's own filter: Unread is the server's unread-only page; Clubhouse is the type subset.
+  const filter: Filter = arrivedViaClubhouse ? "clubhouse" : view === "unread" ? "unread" : "all"
   const [clubhouseCategory, setClubhouseCategory] = useState<ClubhouseCategory>("all")
   const [items, setItems] = useState<FeedNotification[] | null>(null)
   const [cursor, setCursor] = useState<FeedCursor | null>(null)
@@ -103,6 +112,7 @@ export default function Notifications() {
   const [refreshing, setRefreshing] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [held, setHeld] = useState<FeedNotification | null>(null)
+  const [deleted, setDeleted] = useState<FeedNotification | null>(null)
   const now = useMemo(() => new Date(), [items])
   const generation = useRef(0)
 
@@ -182,22 +192,35 @@ export default function Notifications() {
   }, [refreshUnread, loadFirstPage, filter])
 
   // ---- Opening: read first, then the one resolver, standing in the right context ------------------
+  // ---- Delete, and undo: the server's dismissal, then the badge recounted from the same source ----
+  const deleteItem = useCallback(
+    (item: FeedNotification) => {
+      setItems((prev) => (prev ?? []).filter((n) => n.id !== item.id))
+      setDeleted(item)
+      dismissNotification(supabase, item.id)
+        .then(() => refreshUnread())
+        .catch((caught) => {
+          logDetail("dismiss notification", friendly(caught, "that notification"))
+          void loadFirstPage(filter === "unread")
+        })
+    },
+    [refreshUnread, loadFirstPage, filter]
+  )
+
+  const undoDelete = useCallback(() => {
+    const item = deleted
+    if (!item) return
+    setDeleted(null)
+    restoreNotification(supabase, item.id)
+      .then(() => Promise.all([loadFirstPage(filter === "unread"), refreshUnread()]))
+      .catch((caught) => logDetail("restore notification", friendly(caught, "that notification")))
+  }, [deleted, loadFirstPage, filter, refreshUnread])
+
+  // The one opening rule (context switch + `routeForHref`) lives in `src/notifications/open.ts`, shared
+  // with the bell's quick view so the two surfaces cannot route the same row differently.
   function open(item: FeedNotification) {
     if (item.readAt === null) void setRead(item, true)
-    const hint = notificationContextHint(item.data)
-    // A LINK MAY SELECT A CONTEXT THAT WAS ON OFFER, never grant one: only a team this person already
-    // holds as a context is switched into, and only when they are not already standing in it.
-    if (hint.teamId && active?.kind !== "team") {
-      const key = teamContextKeyFor(hint.teamId, contexts, active)
-      if (key) void select(key)
-    }
-    const intent = narrowIntentForContext(resolveIntent(`ovalball://${item.href.replace(/^\//, "")}`), active?.kind ?? null)
-    const route = routeForIntent(intent)
-    if (route) {
-      router.push(route as never)
-      return
-    }
-    void Linking.openURL(`${webUrl}${item.href}`)
+    navigateTo(item)
   }
 
   function openAttention(item: AttentionItem) {
@@ -207,16 +230,14 @@ export default function Notifications() {
   }
 
   // ---- What the projection says about each notification, for the card and for the filter --------
-  const verdicts = useMemo(() => {
-    const map = new Map<string, ReturnType<typeof attentionVerdict>>()
-    for (const n of items ?? []) map.set(n.id, attentionVerdict(n.type, n.data, attention.read, familyFacing))
-    return map
-  }, [items, attention.read, familyFacing])
+  const verdicts = useMemo(
+    () => verdictsNewestAskOnly(items ?? [], (n) => attentionVerdict(n.type, n.data, attention.read, familyFacing)),
+    [items, attention.read, familyFacing]
+  )
 
   const canOfferActionFilter = attention.read?.coverage === "native"
   const visible = useMemo(() => {
     const all = items ?? []
-    if (filter === "action") return all.filter((n) => verdicts.get(n.id) === "open")
     if (filter === "clubhouse") {
       const clubhouseOnly = all.filter((n) => CLUBHOUSE_NOTIFICATION_TYPES.has(n.type))
       if (clubhouseCategory === "all") return clubhouseOnly
@@ -237,33 +258,17 @@ export default function Notifications() {
     [contexts]
   )
 
+  // NEWEST FIRST in every view, grouped by day only for reading -- never re-ranked by state.
+  const sections = useMemo(() => groupByDay(newestFirst(visible), now), [visible, now])
+  const jobs = useMemo(() => sortAttention(attentionItems), [attentionItems])
+
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <View style={{ paddingTop: insets.top + space.sm, paddingBottom: space.sm, paddingHorizontal: space.md, borderBottomWidth: 1, borderBottomColor: colour.line, gap: space.sm }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            onPress={() => router.back()}
-            hitSlop={8}
-            style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
-          >
-            <View style={{ transform: [{ rotate: "180deg" }] }}>
-              <ChevronRight size={22} color={colour.ink} />
-            </View>
-          </Pressable>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>
-              {arrivedViaClubhouse ? "Clubhouse Activity" : "Notifications"}
-            </Text>
-            {/* TWO FIGURES, TWO WORDS. The unread count is the badge's own number from the one canonical
-                read; the action count is the projection's, and is never added to it. */}
-            <Text style={[type.caption, { color: colour.inkMuted }]}>
-              {[unread.notifications > 0 ? `${unread.notifications} unread` : "Nothing unread", actionCount > 0 ? `${actionCount} need${actionCount === 1 ? "s" : ""} action` : null]
-                .filter(Boolean)
-                .join(" · ")}
-            </Text>
-          </View>
+      <OvalballDetailHeader
+        title={arrivedViaClubhouse ? "Clubhouse Activity" : "Notifications"}
+        tone="chalk"
+        onBack={() => router.back()}
+        rightAction={
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Notification preferences"
@@ -271,151 +276,123 @@ export default function Notifications() {
             hitSlop={8}
             style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
           >
-            <Settings2 size={20} color={colour.ink} strokeWidth={1.9} />
+            <Settings size={21} color={colour.ink} strokeWidth={1.9} />
           </Pressable>
-        </View>
+        }
+      />
 
-        <View accessibilityRole="tablist" style={{ flexDirection: "row", backgroundColor: "rgba(16,21,18,0.05)", borderRadius: radius.md, padding: 3 }}>
-          {(["attention", "recent"] as const).map((option) => {
-            const selected = option === tab
-            const label = option === "attention" ? (attentionItems.length > 0 ? `Needs Attention (${attentionItems.length})` : "Needs Attention") : "Recent"
-            return (
-              <Pressable
-                key={option}
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-                accessibilityLabel={label}
-                onPress={() => setTab(option)}
-                style={{ flex: 1, minHeight: TOUCH_TARGET - 8, alignItems: "center", justifyContent: "center", borderRadius: radius.sm, backgroundColor: selected ? colour.surface : "transparent" }}
-              >
-                <Text style={[type.smallMedium, { color: selected ? colour.ink : colour.inkMuted, fontSize: 13 }]}>{label}</Text>
-              </Pressable>
-            )
-          })}
+      {!arrivedViaClubhouse && (
+        <View accessibilityRole="tablist" style={{ flexDirection: "row", paddingHorizontal: space.md, gap: space.xs, borderBottomWidth: 1, borderBottomColor: colour.line }}>
+          <TabButton label="All" count={null} badge={colour.pitch600} selected={view === "all"} onPress={() => setView("all")} />
+          {/* TWO FIGURES, TWO WORDS. The action count is the projection's; the unread count is the
+              badge's own canonical read. They are never added together. */}
+          <TabButton label="Action Required" count={actionCount} badge={colour.danger} selected={view === "action"} onPress={() => setView("action")} />
+          <TabButton label="Unread" count={unread.notifications} badge={colour.inkSubtle} selected={view === "unread"} onPress={() => setView("unread")} />
         </View>
-      </View>
+      )}
 
       <ScrollView
-        contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.md }}
+        contentContainerStyle={{ paddingVertical: space.sm, paddingBottom: insets.bottom + space.xxl, gap: space.xs }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colour.forest800} />}
         onScroll={({ nativeEvent }) => {
           const nearEnd = nativeEvent.layoutMeasurement.height + nativeEvent.contentOffset.y >= nativeEvent.contentSize.height - 240
-          if (tab === "recent" && nearEnd) void loadMore()
+          if (view !== "action" && nearEnd) void loadMore()
         }}
         scrollEventThrottle={160}
       >
-        {tab === "attention" && (
-          <AttentionPanel
-            state={attention}
-            contextLabel={active?.label ?? null}
-            familyFacing={familyFacing}
-            onOpen={openAttention}
-          />
+        {arrivedViaClubhouse && (
+          <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap", paddingHorizontal: space.lg, paddingVertical: space.sm }}>
+            {(["all", "fixtures", "partnerships", "opportunities"] as ClubhouseCategory[]).map((option) => {
+              const on = option === clubhouseCategory
+              const label = option === "all" ? "All" : option === "fixtures" ? "Fixtures" : option === "partnerships" ? "Partnerships" : "Opportunities"
+              return (
+                <Pressable
+                  key={option}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: on }}
+                  accessibilityLabel={label}
+                  onPress={() => setClubhouseCategory(option)}
+                  style={{ minHeight: 32, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: on ? colour.pitch600 : colour.lineStrong, backgroundColor: on ? colour.mint100 : colour.surface, justifyContent: "center" }}
+                >
+                  <Text style={[type.caption, { color: on ? colour.forest800 : colour.inkMuted }]}>{label}</Text>
+                </Pressable>
+              )
+            })}
+          </View>
         )}
 
-        {tab === "recent" && (
+        {view === "action" ? (
+          <ActionView state={attention} jobs={jobs} contextLabel={active?.label ?? null} familyFacing={familyFacing} onOpen={openAttention} />
+        ) : problem ? (
+          <View style={{ padding: space.lg }}>
+            <ErrorState message={problem} onRetry={() => void loadFirstPage(filter === "unread")} />
+          </View>
+        ) : items === null ? (
+          <View style={{ padding: space.lg }}>
+            <CardSkeleton lines={3} />
+          </View>
+        ) : visible.length === 0 ? (
+          <View style={{ padding: space.lg }}>
+            {filter === "unread" ? (
+              <EmptyState title="You're all caught up" body="Everything Ovalball has told you has been read." icon={<CircleCheck size={26} color={colour.forest800} strokeWidth={1.8} />} />
+            ) : filter === "clubhouse" ? (
+              <EmptyState title="No Clubhouse activity yet" body="Fixture requests, partner requests and club-claim outcomes will appear here as you connect with clubs." icon={<Bell size={26} color={colour.forest800} strokeWidth={1.8} />} />
+            ) : (
+              <EmptyState title="No new notifications" body="Changes to your rugby — a moved kick-off, a cancelled session, an answer from a family — arrive here." icon={<Bell size={26} color={colour.forest800} strokeWidth={1.8} />} />
+            )}
+          </View>
+        ) : (
           <>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-              <View style={{ flexDirection: "row", gap: space.sm, flex: 1, flexWrap: "wrap" }}>
-                {(["all", "unread", ...(canOfferActionFilter ? (["action"] as const) : []), "clubhouse"] as Filter[]).map((option) => {
-                  const on = option === filter
-                  const label = option === "all" ? "All" : option === "unread" ? "Unread" : option === "action" ? "Needs Action" : "Clubhouse"
-                  return (
-                    <Pressable
-                      key={option}
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: on }}
-                      accessibilityLabel={label}
-                      onPress={() => setFilter(option)}
-                      style={{ minHeight: 36, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: on ? colour.forest800 : colour.lineStrong, backgroundColor: on ? colour.forest800 : colour.surface, justifyContent: "center" }}
-                    >
-                      <Text style={[type.small, { color: on ? colour.onForest : colour.ink }]}>{label}</Text>
-                    </Pressable>
-                  )
-                })}
-              </View>
-              {unread.notifications > 0 && (
+            {unread.notifications > 0 && (
+              <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: space.lg }}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Mark all read"
                   onPress={() => void markAll()}
-                  style={({ pressed }) => ({ minHeight: 36, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: space.sm, opacity: pressed ? 0.6 : 1 })}
+                  style={({ pressed }) => ({ minHeight: 36, flexDirection: "row", alignItems: "center", gap: 4, opacity: pressed ? 0.6 : 1 })}
                 >
                   <CircleCheck size={15} color={colour.forest800} strokeWidth={2} />
                   <Text style={[type.caption, { color: colour.forest800, fontFamily: "Inter_500Medium" }]}>Mark All Read</Text>
                 </Pressable>
-              )}
-            </View>
-
-            {filter === "clubhouse" && (
-              <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
-                {(["all", "fixtures", "partnerships", "opportunities"] as ClubhouseCategory[]).map((option) => {
-                  const on = option === clubhouseCategory
-                  const label = option === "all" ? "All" : option === "fixtures" ? "Fixtures" : option === "partnerships" ? "Partnerships" : "Opportunities"
-                  return (
-                    <Pressable
-                      key={option}
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: on }}
-                      accessibilityLabel={label}
-                      onPress={() => setClubhouseCategory(option)}
-                      style={{ minHeight: 32, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: on ? colour.pitch600 : colour.lineStrong, backgroundColor: on ? colour.mint100 : colour.surface, justifyContent: "center" }}
-                    >
-                      <Text style={[type.caption, { color: on ? colour.forest800 : colour.inkMuted }]}>{label}</Text>
-                    </Pressable>
-                  )
-                })}
               </View>
             )}
-
-            {problem ? (
-              <ErrorState message={problem} onRetry={() => void loadFirstPage(filter === "unread")} />
-            ) : items === null ? (
-              <CardSkeleton lines={3} />
-            ) : visible.length === 0 ? (
-              filter === "all" ? (
-                <EmptyState title="No new notifications" body="Changes to your rugby — a moved kick-off, a cancelled session, an answer from a family — arrive here." icon={<Bell size={26} color={colour.forest800} strokeWidth={1.8} />} />
-              ) : filter === "unread" ? (
-                <EmptyState title="You're all caught up" body="Everything Ovalball has told you has been read." icon={<CircleCheck size={26} color={colour.forest800} strokeWidth={1.8} />} />
-              ) : filter === "clubhouse" ? (
-                <EmptyState title="No Clubhouse activity yet" body="Fixture requests, partner requests and club-claim outcomes will appear here as you connect with clubs." icon={<Bell size={26} color={colour.forest800} strokeWidth={1.8} />} />
-              ) : (
-                <EmptyState title="Nothing waiting on you" body="None of these notifications is about a job that is still open." icon={<CircleCheck size={26} color={colour.forest800} strokeWidth={1.8} />} />
-              )
-            ) : (
-              <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
-                {visible.map((item, index) => (
-                  <View key={item.id} style={{ borderTopWidth: index === 0 ? 0 : 1, borderTopColor: colour.line }}>
-                    <NotificationCard
-                      item={item}
-                      priority={notificationPriority(item.type)}
-                      verdict={verdicts.get(item.id) ?? "unknown"}
-                      contextLabel={contextLabelFor(item)}
-                      topicLabel={item.topicKey ? (TOPIC_LABEL[item.topicKey] ?? null) : null}
-                      now={now}
-                      onOpen={() => open(item)}
-                      onLongPress={() => setHeld(item)}
-                    />
-                  </View>
-                ))}
+            {sections.map((section) => (
+              <View key={section.label}>
+                <Text style={[type.smallMedium, { color: colour.ink, paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.xs }]}>{section.label}</Text>
+                <View style={{ backgroundColor: colour.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colour.line, paddingVertical: space.xs }}>
+                  {section.items.map((item, index) => (
+                    <SwipeToDelete key={item.id} inset={space.sm} onDelete={() => deleteItem(item)}>
+                      <NotificationRow
+                        item={item}
+                        verdict={verdicts.get(item.id) ?? "unknown"}
+                        divider={index > 0}
+                        onPress={() => open(item)}
+                        onDelete={() => deleteItem(item)}
+                        onLongPress={() => setHeld(item)}
+                      />
+                    </SwipeToDelete>
+                  ))}
+                </View>
               </View>
-            )}
-
+            ))}
+            <UndoBar visible={deleted !== null} onUndo={undoDelete} onExpire={() => setDeleted(null)} />
             {cursor && visible.length > 0 && (
-              <Button label={loadingMore ? "Loading…" : "Show Older"} variant="secondary" busy={loadingMore} onPress={() => void loadMore()} />
+              <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm }}>
+                <Button label={loadingMore ? "Loading…" : "Show Older"} variant="secondary" busy={loadingMore} onPress={() => void loadMore()} />
+              </View>
             )}
             {!cursor && (items?.length ?? 0) > 0 && (
-              <Text style={[type.caption, { color: colour.inkSubtle, textAlign: "center" }]}>That is everything Ovalball has told you.</Text>
+              <Text style={[type.caption, { color: colour.inkSubtle, textAlign: "center", marginTop: space.sm }]}>That is everything Ovalball has told you.</Text>
             )}
           </>
         )}
 
-        <Text style={[type.caption, { color: colour.inkSubtle, textAlign: "center", marginTop: space.sm }]}>
-          Notifications are not sent to this device yet. The same list is on the website and stays in step with it.
+        <Text style={[type.caption, { color: colour.inkSubtle, textAlign: "center", marginTop: space.sm, paddingHorizontal: space.lg }]}>
+          The same list is on the website and stays in step with it.
         </Text>
       </ScrollView>
 
-      {/* PRESS AND HOLD: read or unread, and open. The two things a person may do to a notification. */}
+      {/* PRESS AND HOLD: read or unread, open, or delete. */}
       <Modal visible={held !== null} transparent animationType="fade" onRequestClose={() => setHeld(null)}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setHeld(null)} style={{ flex: 1, backgroundColor: "rgba(7,28,20,0.45)", justifyContent: "flex-end" }}>
           <View style={{ backgroundColor: colour.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: space.lg, paddingBottom: insets.bottom + space.lg, gap: space.sm }}>
@@ -429,6 +406,15 @@ export default function Notifications() {
                     const target = held
                     setHeld(null)
                     void setRead(target, target.readAt === null)
+                  }}
+                />
+                <Button
+                  label="Delete"
+                  variant="danger"
+                  onPress={() => {
+                    const target = held
+                    setHeld(null)
+                    deleteItem(target)
                   }}
                 />
                 <Button
@@ -448,64 +434,75 @@ export default function Notifications() {
   )
 }
 
+/** Today, Yesterday, then one section per earlier day -- the rows inside each stay newest first. */
+function groupByDay(items: FeedNotification[], now: Date): { label: string; items: FeedNotification[] }[] {
+  const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const today = startOf(now)
+  const out: { label: string; items: FeedNotification[] }[] = []
+  for (const item of items) {
+    const at = new Date(item.createdAt)
+    const days = Math.round((today - startOf(at)) / 86_400_000)
+    const label = days <= 0 ? "Today" : days === 1 ? "Yesterday" : at.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })
+    const last = out[out.length - 1]
+    if (last && last.label === label) last.items.push(item)
+    else out.push({ label, items: [item] })
+  }
+  return out
+}
+
 /**
- * NEEDS ATTENTION -- the projection for this context, banded by priority.
+ * ACTION REQUIRED -- the live projection for this context, the same jobs Home's Needs Attention lists.
  *
  * Empty is a real answer with two faces: "YOU'RE ALL CAUGHT UP" where the app holds this context's work
- * and finds none, and an honest hand-off where the context's work is a web desk. A queue drawn empty for
- * a Site Admin would be a lie; a link to where it lives is not.
+ * and finds none, and an honest hand-off where the context's work is a web desk. A job leaves this list
+ * when its record is settled -- never because a notification was read or dismissed.
  */
-function AttentionPanel({
+function ActionView({
   state,
+  jobs,
   contextLabel,
   familyFacing,
   onOpen,
 }: {
   state: ReturnType<typeof useAttention>
+  jobs: AttentionItem[]
   contextLabel: string | null
   familyFacing: boolean
   onOpen: (item: AttentionItem) => void
 }) {
-  if (state.error) return <ErrorState message={state.error} onRetry={() => void state.refresh()} />
-  if (state.loading || !state.read) return <CardSkeleton lines={3} />
-  if (state.read.coverage === "web") {
+  if (state.error) return <View style={{ padding: space.lg }}><ErrorState message={state.error} onRetry={() => void state.refresh()} /></View>
+  if (state.loading || !state.read) return <View style={{ padding: space.lg }}><CardSkeleton lines={3} /></View>
+  if (state.read.coverage !== "native") {
     return (
-      <EmptyState
-        title="This work lives on the website"
-        body={`${contextLabel ?? "This context"} is a desk job with wide authority. Its queues are on the Ovalball website rather than squeezed onto a phone.`}
-        icon={<QuietClock />}
-      />
+      <View style={{ padding: space.lg }}>
+        <EmptyState
+          title="This work lives on the website"
+          body={`${contextLabel ?? "This context"} is a desk job with wide authority. Its queues are on the Ovalball website rather than squeezed onto a phone.`}
+          icon={<QuietClock />}
+        />
+      </View>
     )
   }
-  if (state.read.items.length === 0) {
+  if (jobs.length === 0) {
     return (
-      <EmptyState
-        title="You're all caught up"
-        body={familyFacing ? "Nothing needs an answer right now. When a match or a session needs one, it appears here." : "Nothing is waiting on you right now."}
-        icon={<CircleCheck size={26} color={colour.forest800} strokeWidth={1.8} />}
-      />
+      <View style={{ padding: space.lg }}>
+        <EmptyState
+          title="You're all caught up"
+          body={familyFacing ? "Nothing needs an answer right now. When a match or a session needs one, it appears here." : "Nothing is waiting on you right now."}
+          icon={<CircleCheck size={26} color={colour.forest800} strokeWidth={1.8} />}
+        />
+      </View>
     )
   }
-  const bands = groupAttention(state.read.items)
   return (
-    <View style={{ gap: space.lg }}>
-      {bands.map((band) => {
-        const rows: AttentionRow[] = band.items.map((item) => ({
-          key: item.id,
-          label: item.title,
-          detail: item.summary,
-          urgent: item.priority === "urgent",
-          onPress: () => onOpen(item),
-        }))
-        return (
-          <View key={band.priority} style={{ gap: space.sm }}>
-            <Text style={[type.overline, { color: band.priority === "urgent" ? colour.warning : colour.forest800 }]}>{band.label.toUpperCase()}</Text>
-            <NeedsAttention items={rows} showHeading={false} />
-          </View>
-        )
-      })}
-      <Text style={[type.caption, { color: colour.inkSubtle }]}>
-        Each item is read from the record it is about and disappears when that record is settled. Reading a notification never settles one.
+    <View style={{ gap: space.sm }}>
+      <View style={{ backgroundColor: colour.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colour.line, paddingVertical: space.xs }}>
+        {jobs.map((job, index) => (
+          <JobRow key={job.id} item={job} divider={index > 0 && jobs[index - 1].priority === "for_information"} onPress={() => onOpen(job)} />
+        ))}
+      </View>
+      <Text style={[type.caption, { color: colour.inkSubtle, paddingHorizontal: space.lg }]}>
+        Each item is read from the record it is about and disappears when that record is settled. Reading or deleting a notification never settles one.
       </Text>
     </View>
   )

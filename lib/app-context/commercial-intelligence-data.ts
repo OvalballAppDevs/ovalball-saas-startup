@@ -161,7 +161,10 @@ export async function getCommercialCardsData(
     // conflation this section's own description promises never to make.
     supabase
       .from("gocardless_payments")
-      .select("net_amount_minor, status, charge_date")
+      // GROSS: net_amount_minor is never written (Ovalball records no GoCardless fee or payout), so a sum of
+      // it read £0 for ever. Gross collected is the figure the architecture specifies and the club's own
+      // board reports (docs/architecture/club-management-domain.md section 6).
+      .select("gross_amount_minor, status, charge_date")
       .in("status", ["confirmed", "paid_out"])
       .gte("charge_date", thirtyDaysAgo),
     supabase.from("admin_referral_overview").select("status, reward_amount_pence"),
@@ -216,7 +219,7 @@ export async function getCommercialCardsData(
       state: "ok",
       data: {
         collectedLast30dPence: (memberPaymentsRes.data ?? []).reduce(
-          (sum, p) => sum + (p.net_amount_minor ?? 0),
+          (sum, p) => sum + (p.gross_amount_minor ?? 0),
           0
         ),
       },
@@ -252,7 +255,9 @@ export async function getReferralIntelligenceData(
     // was never accepted produces no platform_referrals row at all. Counting
     // referral rows and labelling them "invitations sent" silently deletes
     // the top of the funnel -- the exact stage the funnel exists to show.
-    supabase.from("club_ovalball_invitations").select("id", { count: "exact", head: true }),
+    // Only invitations a club SENT: an introduction through a club's referral link (source 'link') is made
+    // when the club it brought is approved, and was never an invitation sent (20270740000000).
+    supabase.from("club_ovalball_invitations").select("id", { count: "exact", head: true }).eq("source", "invitation"),
     readBillingCollecting(supabase),
     // The pooled ledger, for the two money facts that are NOT per-referral.
     supabase.from("platform_credits").select("amount_pence, source"),

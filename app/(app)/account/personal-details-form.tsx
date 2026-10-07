@@ -1,12 +1,13 @@
 "use client"
 
+import { AddressLookupField } from "@/components/address/address-lookup-field"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-import { updatePersonalDetails, type PersonalDetailsInput } from "./actions"
+import { updatePersonalDetails, type PersonalDetailsInput, lookupAccountAddress, resolveAccountAddress } from "./actions"
 
 export function PersonalDetailsForm({ initial, dateOfBirth }: { initial: PersonalDetailsInput; dateOfBirth: string | null }) {
   const [form, setForm] = useState(initial)
@@ -69,6 +70,24 @@ export function PersonalDetailsForm({ initial, dateOfBirth }: { initial: Persona
         <p className="mt-1 text-xs text-ink-muted">Private -- never shown to other club members, opposition, or in chat.</p>
         <div className="mt-3 flex flex-col gap-4">
           <div>
+            {/* The same canonical address search as sign-up, venues and the directory. */}
+            <div className="sm:col-span-2">
+              <AddressLookupField
+                search={lookupAccountAddress}
+                resolve={resolveAccountAddress}
+                onResolve={(a) =>
+                  setForm((f) => ({
+                    ...f,
+                    addressLine1: a.line1 ?? f.addressLine1,
+                    addressLine2: a.line2 ?? "",
+                    town: a.town ?? f.town,
+                    county: a.county ?? f.county,
+                    postcode: a.postcode ?? f.postcode,
+                    country: a.country || f.country,
+                  }))
+                }
+              />
+            </div>
             <Label htmlFor="pd-address1" className="text-ink/80">
               Address Line 1
             </Label>

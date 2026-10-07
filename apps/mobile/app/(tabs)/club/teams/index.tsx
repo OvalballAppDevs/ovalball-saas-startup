@@ -13,6 +13,7 @@ import { ChevronRight, Users } from "../../../../src/components/icons"
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../../../../src/components/ui"
 import { friendly, logDetail } from "../../../../src/errors/translate"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
+import { OvalballDetailHeader } from "../../../../src/components/app-header"
 
 /**
  * THE CLUB'S SIDES (CA-M10): every active side the club runs, what it has next and who is in it.
@@ -53,14 +54,7 @@ export default function ClubTeams() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <View style={{ paddingTop: insets.top + space.sm, paddingBottom: space.sm, paddingHorizontal: space.md, borderBottomWidth: 1, borderBottomColor: colour.line, flexDirection: "row", alignItems: "center", gap: space.xs }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} hitSlop={8} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
-          <View style={{ transform: [{ rotate: "180deg" }] }}>
-            <ChevronRight size={22} color={colour.ink} />
-          </View>
-        </Pressable>
-        <Text accessibilityRole="header" style={[type.heading, { color: colour.ink, flex: 1 }]}>Teams</Text>
-      </View>
+      <OvalballDetailHeader title="Teams" onBack={() => router.back()} />
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.md }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load().finally(() => setRefreshing(false)) }} tintColor={colour.forest800} />}>
         {problem ? (
           <ErrorState message={problem} onRetry={() => void load()} />

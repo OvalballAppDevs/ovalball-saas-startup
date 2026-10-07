@@ -107,7 +107,9 @@ begin
   perform set_config('ovalball.maintenance','on',true);
   delete from public.club_claim_messages where claim_id in (select id from public.club_claims where directory_id = '${ids.dir}');
   delete from public.club_claims where directory_id = '${ids.dir}';
-  delete from public.notifications where user_id = any(v_people);
+  -- A claim tells EVERY Site Admin, not only this run's two: the persistent reviewers' feeds collected two
+  -- "New club claim" notices per run (26 with thirteen reviewers) until this deleted them by the run's own club.
+  delete from public.notifications where user_id = any(v_people) or data ->> 'directory_id' = '${ids.dir}';
   delete from public.security_events where actor_user_id = any(v_people) or club_id = any(v_clubs);
   delete from public.platform_trials where club_id = any(v_clubs);
   delete from public.club_setup_state where club_id = any(v_clubs);
@@ -130,4 +132,10 @@ end $$;`)
            and not exists (select 1 from public.club_memberships x where x.id = a.record_id)
            and not exists (select 1 from public.role_assignments x where x.id = a.record_id)
            and not exists (select 1 from public.profiles x where x.id = a.record_id); end $$;`)
+  // VERIFY THE CLEANUP, do not assume it: anything left is somebody else's feed or table carrying this run.
+  const left = one(`select (select count(*) from public.notifications where data ->> 'directory_id' = '${ids.dir}' or user_id = any(array[${people.map((p) => `'${p}'::uuid`).join(",")}]))
+                         + (select count(*) from public.club_claims where directory_id = '${ids.dir}')
+                         + (select count(*) from public.club_directory where normalized_key = 'crace-${TAG}')
+                         + (select count(*) from auth.users where email like 'crace-${TAG}-%')`)
+  if (left !== "0") throw new Error(`claim_races left ${left} rows behind`)
 })

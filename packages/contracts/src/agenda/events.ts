@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "../database"
+import { loadScheduleGrounds, type ScheduleGround } from "./grounds"
 import type { DateWindow } from "./window"
 
 type Client = SupabaseClient<Database>
@@ -32,26 +33,50 @@ export interface ClubEventItem {
   endTime: string | null
   isClubWide: boolean
   teamNames: string[]
+  /** The sides it is for, by canonical id -- what a screen filters on. `teamNames` is only for reading. */
+  teamIds: string[]
   /** The club ground, or the external place, in one line. */
   where: string | null
   status: string | null
   cancelled: boolean
+  /** 20270729: what kind of event, who hosts it, and the club's crest for the card. */
+  eventType: string
+  hostTeamName: string | null
+  hostTeamId: string | null
+  clubName: string | null
+  clubLogoPath: string | null
+  postponed: boolean
 }
 
 const EVENT_FIELDS =
-  "id, club_id, name, description, starts_on, ends_on, start_time, end_time, is_club_wide, status, cancelled_at, external_location_name, external_town, venues(name), club_event_teams(teams(display_name))"
+  "id, club_id, name, description, starts_on, ends_on, start_time, end_time, is_club_wide, status, cancelled_at, external_location_name, external_town, location_kind, event_type, venue_id, host_team_id, venues(name), host:teams!club_events_host_team_id_fkey(display_name), clubs(logo_storage_path, club_directory(name, logo_storage_path)), club_event_teams(team_id, teams(display_name))"
 
-export async function loadClubEvents(supabase: Client, clubIds: string[], window: Pick<DateWindow, "startIso" | "endIso">): Promise<ClubEventItem[]> {
-  if (clubIds.length === 0) return []
-  const { data, error } = await supabase
-    .from("club_events")
-    .select(EVENT_FIELDS)
-    .in("club_id", clubIds)
+/**
+ * `clubIds` null reads every event this person may see in the window, at any club -- the row rule already
+ * decides that (organisers, the invited, and a club's members for an event shown to the whole club).
+ */
+export async function loadClubEvents(supabase: Client, clubIds: string[] | null, window: Pick<DateWindow, "startIso" | "endIso">): Promise<ClubEventItem[]> {
+  if (clubIds && clubIds.length === 0) return []
+  let query = supabase.from("club_events").select(EVENT_FIELDS)
+  if (clubIds) query = query.in("club_id", clubIds)
+  const { data, error } = await query
+    // A draft is its organisers' alone and is not on anybody's calendar yet -- the organiser included.
+    .neq("status", "DRAFT")
     .lte("starts_on", window.endIso)
     .gte("ends_on", window.startIso)
     .order("starts_on", { ascending: true })
     .limit(200)
   if (error) throw error
+  /*
+    AN INVITED GUEST FROM OUTSIDE THE CLUB cannot read the club's venue rows, so the embed above is empty
+    for them. Those events -- and only those -- ask the one ground rule, which answers for any event the
+    caller can see. A member's calendar costs no extra request.
+  */
+  const unnamed = (data ?? [])
+    .map((row) => row as unknown as { id: string; venue_id: string | null; venues: { name: string | null } | null })
+    .filter((r) => r.venue_id && !r.venues?.name)
+    .map((r) => r.id)
+  const grounds = unnamed.length ? await loadScheduleGrounds(supabase, { eventIds: unnamed }) : new Map<string, ScheduleGround>()
   return (data ?? []).map((row) => {
     const r = row as unknown as {
       id: string
@@ -68,7 +93,12 @@ export async function loadClubEvents(supabase: Client, clubIds: string[], window
       external_location_name: string | null
       external_town: string | null
       venues: { name: string | null } | null
-      club_event_teams: { teams: { display_name: string | null } | null }[] | null
+      location_kind: string | null
+      event_type: string | null
+      host: { display_name: string | null } | null
+      host_team_id: string | null
+      clubs: { logo_storage_path: string | null; club_directory: { name: string | null; logo_storage_path: string | null } | null } | null
+      club_event_teams: { team_id: string; teams: { display_name: string | null } | null }[] | null
     }
     return {
       kind: "event" as const,
@@ -83,9 +113,19 @@ export async function loadClubEvents(supabase: Client, clubIds: string[], window
       endTime: r.end_time ? r.end_time.slice(0, 5) : null,
       isClubWide: r.is_club_wide,
       teamNames: (r.club_event_teams ?? []).map((t) => t.teams?.display_name).filter((n): n is string => !!n),
-      where: r.venues?.name ?? [r.external_location_name, r.external_town].filter(Boolean).join(", ") ?? null,
+      teamIds: (r.club_event_teams ?? []).map((t) => t.team_id),
+      where:
+        r.location_kind === "ONLINE"
+          ? "Online"
+          : (r.venues?.name ?? grounds.get(r.id)?.name ?? ([r.external_location_name, r.external_town].filter(Boolean).join(", ") || null)),
       status: r.status,
       cancelled: !!r.cancelled_at || r.status === "CANCELLED",
+      eventType: r.event_type ?? "SOCIAL",
+      hostTeamName: r.host?.display_name ?? null,
+      hostTeamId: r.host_team_id,
+      clubName: r.clubs?.club_directory?.name ?? null,
+      clubLogoPath: r.clubs?.logo_storage_path ?? r.clubs?.club_directory?.logo_storage_path ?? null,
+      postponed: r.status === "POSTPONED",
     }
   })
 }

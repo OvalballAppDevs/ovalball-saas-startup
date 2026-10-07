@@ -332,6 +332,37 @@ if [[ -d "$TEST_DIR/js" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Mobile TypeScript suites.
+#
+# The venue wizard's step logic, the address-search logic and the training-plan
+# builders are permanent tests that lived ONLY behind `npm test` inside
+# apps/mobile, i.e. outside this gate -- so a green gate could be reported while
+# they were never executed. Worse, that script's own `src/**/*.test.mts` was
+# expanded by the SHELL, which does not recurse, so three of the eight suites
+# (every `create-plan/*` one) never ran even there. Both holes are closed: the
+# package script now hands the glob to node's own recursive matcher, and the
+# suites are registered here, where the canonical gate can see them.
+mobile_dir="$(dirname "${BASH_SOURCE[0]}")/../apps/mobile"
+if [[ -d "$mobile_dir/src" ]]; then
+  mobile_output=$(cd "$mobile_dir" && node --import ../../scripts/email-test-loader.mjs \
+    --experimental-strip-types --test "src/**/*.test.mts" 2>&1)
+  mobile_ok=$(sed -n 's/^.*# pass \([0-9]*\).*$/\1/p' <<<"$mobile_output" | tail -1)
+  [[ -z "$mobile_ok" ]] && mobile_ok=$(grep -oE 'pass [0-9]+' <<<"$mobile_output" | tail -1 | grep -oE '[0-9]+')
+  mobile_bad=$(grep -oE 'fail [0-9]+' <<<"$mobile_output" | tail -1 | grep -oE '[0-9]+')
+  mobile_ok=${mobile_ok:-0}
+  mobile_bad=${mobile_bad:-0}
+  total_pass=$((total_pass + mobile_ok))
+  total_fail=$((total_fail + mobile_bad))
+  if [[ "$mobile_bad" -gt 0 ]]; then
+    failed_suites+=("mobile_typescript_suites")
+    printf '  FAIL  %-34s %s passed, %s failed\n' "mobile_typescript_suites" "$mobile_ok" "$mobile_bad"
+    grep -E 'AssertionError|✖' <<<"$mobile_output" | head -12 | sed 's/^/          /'
+  else
+    printf '  ok    %-34s %s passed\n' "mobile_typescript_suites" "$mobile_ok"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Identity/Auth browser journeys.
 #
 # SLICE 6b: a login page cannot be accepted by SQL and TypeScript alone. The
@@ -482,6 +513,54 @@ BROWSER_SUITES=(
   52-roster-authority
   58-club-admin-authority
   59-club-misc-authority
+  # ONE REFERRAL LINK PER CLUB (20270740000000). /r/<slug> carries a club's
+  # referral in the address only, so every hop to a claim has to keep it --
+  # including the Clubhouse map's pin cards, which live in their own React
+  # root with no router. The first version threw on every unclaimed pin; no
+  # other suite opens one. Each claim is submitted and aborted, never written.
+  95-club-referral-link
+  # SLICE 5'S INVITATION JOURNEYS, RECONCILED (2026-10-05). Declared exempt
+  # since Step 8 as UNVERIFIED; it borrowed the persistent UAT club and Club
+  # Admin, deleted every team code that club had, and its people had no
+  # password, so it could not pass. Rewritten on its own isolated club and
+  # people with the same assertions, plus a proof of its own cleanup: 17 of 17.
+  60-invitation-journeys
+  # TEAM CODES PLACE PLAYERS (20270741000000), the website's half: a new
+  # parent adds their child against the server's live age-grade fit and lands
+  # on Welcome; the approver's card says exactly what approving does and never
+  # names a child still waiting for a parent; the parent confirms and is told
+  # who decides next (the answer once vanished on the page's own refresh); one
+  # approval places the child and admits the parent. Its own people and code.
+  96-team-code-requests
+  # THE ONE AGE-DISPENSATION WORKFLOW (20270742000000), in front of people: a
+  # parent's child who does not fit stays greyed and refused, with Request
+  # Dispensation the only way on; asking says it is not approval; the club's
+  # Safeguarding Officer and Club Admin both see it waiting, the first decision
+  # wins and the other decider is told who made it; the team sees nothing of
+  # the child until the club has decided; a decline is read by the family with
+  # its reason. Its own club, people and code, all removed afterwards.
+  97-age-dispensation
+  # CLUB MEMBERSHIPS SET UP ON THE WEBSITE (20270748000000-20270752000000): a
+  # Club Admin goes from nothing to memberships on through the real pages;
+  # Connect waits for the terms; the GoCardless boundary is tested where it can
+  # be without a real merchant (the authorise redirect captured, Cancel and a
+  # forged return refused in plain words, words in the address never shown);
+  # an invalid membership is refused inline; Review leads with what members
+  # pay; waiting for GoCardless is a finished ending and the verification
+  # notifies; a double click and a replay activate once; pause and disconnect
+  # need reasons; a Team Manager and another club are refused. Its own clubs
+  # and people, removed afterwards with every uuid column scanned.
+  98-club-memberships-setup
+  # Club Memberships Part 2 -- running them: the desktop overview fills the
+  # width; Members filters and finds; a member's page explains a failure in
+  # words and shows the payer; changing who pays is refused while GoCardless
+  # collects and done (audited, old payer told) where nothing is collecting;
+  # the reminder preview shows the server's exact words and Send asks each
+  # family once; a view-only member sees no contact details and no actions; the
+  # Team Manager sees no money and no other team; a non-paying guardian and a
+  # payer who never started are told the right thing; 390 wide; axe. Its own
+  # club and people, removed afterwards with every uuid column scanned.
+  99-club-memberships-running
 )
 
 browser_blocked=""
@@ -606,6 +685,17 @@ fi
 echo
 if [[ ${#failed_suites[@]} -gt 0 ]]; then
   echo "$total_pass passed, $total_fail failed — ${failed_suites[*]}"
+  exit 1
+fi
+
+# A COUNTED FAILURE MUST FAIL THE GATE.
+#
+# `FAILED` was incremented by three structural verifiers -- the one-team-catalogue check, the legacy
+# invitation-token readers and the Slice 10 retirement ratchet -- and then never read, so a run could
+# print "verify-slice10-retirement: FAIL" and still exit 0. A failure that cannot fail the gate is a
+# failure nobody acts on, which is the definition of a green that is not green.
+if [[ "$FAILED" -gt 0 ]]; then
+  echo "$total_pass passed, 0 suite failures, but $FAILED structural check(s) above FAILED -- see their output."
   exit 1
 fi
 

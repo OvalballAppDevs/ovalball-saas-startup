@@ -2,7 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "./database"
 
+import { conversationRoleLabel, type ConversationPerson } from "./conversation-parties"
 import { resolvePersonalAvatarUrls } from "./personal-avatar"
+import { CLUB_ROLE_LABEL, TEAM_PERMISSION_LABEL, type ClubRole, type TeamPermissionValue } from "./role-labels"
 
 export interface ParticipantIdentity {
   name: string
@@ -10,14 +12,6 @@ export interface ParticipantIdentity {
   clubName: string
   clubId: string | null
   avatarUrl: string | null
-}
-
-const CLUB_ROLE_LABEL: Record<string, string> = { CLUB_ADMIN: "Club Admin", FIXTURE_SECRETARY: "Fixture Secretary" }
-const TEAM_PERMISSION_LABEL: Record<string, string> = {
-  team_admin: "Team Admin",
-  coach: "Coach",
-  manager: "Manager",
-  view_only: "Parent/Player",
 }
 
 /**
@@ -30,7 +24,13 @@ export async function resolveParticipantIdentities(
   supabase: SupabaseClient<Database>,
   userIds: string[],
   clubIds: string[],
-  teams: { id: string; displayName: string; clubName: string; clubId?: string }[]
+  teams: { id: string; displayName: string; clubName: string; clubId?: string }[],
+  /**
+   * The thread these people wrote in, when it is a fixture, request or club conversation. The server then
+   * says who each of them is in it (`conversation_people`): the other club's people included, whose
+   * memberships the reads below cannot see -- every message from the other side was "Member" of "Ovalball".
+   */
+  conversation?: { conversationId?: string | null; fixtureRequestId?: string | null }
 ): Promise<Map<string, ParticipantIdentity>> {
   const uniqueUserIds = Array.from(new Set(userIds))
   const uniqueClubIds = Array.from(new Set(clubIds))
@@ -64,15 +64,41 @@ export async function resolveParticipantIdentities(
       : Promise.resolve({ data: [] as never[] }),
   ])
 
+  const conversationPeople: ConversationPerson[] =
+    conversation?.fixtureRequestId || conversation?.conversationId
+      ? (((
+          await supabase.rpc(
+            "conversation_people",
+            conversation.fixtureRequestId ? { p_fixture_request_id: conversation.fixtureRequestId } : { p_conversation_id: conversation.conversationId! }
+          )
+        ).data ?? []) as ConversationPerson[])
+      : []
+  const personById = new Map(conversationPeople.map((p) => [p.user_id, p]))
+
   const nameById = new Map(
     (profiles ?? []).map((p) => [p.user_id, [p.first_name, p.surname].filter(Boolean).join(" ") || "Ovalball user"])
   )
-  const signedAvatars = await resolvePersonalAvatarUrls(supabase, (profiles ?? []).map((p) => p.avatar_storage_path))
+  const signedAvatars = await resolvePersonalAvatarUrls(supabase, [
+    ...(profiles ?? []).map((p) => p.avatar_storage_path),
+    ...conversationPeople.map((p) => p.avatar_storage_path),
+  ])
   const avatarUrlById = new Map((profiles ?? []).map((p) => [p.user_id, p.avatar_storage_path ? (signedAvatars.get(p.avatar_storage_path) ?? null) : null]))
 
   const result = new Map<string, ParticipantIdentity>()
 
   for (const userId of uniqueUserIds) {
+    const person = personById.get(userId)
+    if (person) {
+      result.set(userId, {
+        name: [person.first_name, person.surname].filter(Boolean).join(" ") || nameById.get(userId) || "Ovalball user",
+        roleLabel: conversationRoleLabel(person.role_kind, person.role_key),
+        clubName: person.club_name ?? "",
+        clubId: person.club_id,
+        avatarUrl: person.avatar_storage_path ? (signedAvatars.get(person.avatar_storage_path) ?? null) : null,
+      })
+      continue
+    }
+
     const name = nameById.get(userId) ?? "Ovalball user"
     const avatarUrl = avatarUrlById.get(userId) ?? null
 
@@ -80,7 +106,7 @@ export async function resolveParticipantIdentities(
     if (clubMembership) {
       result.set(userId, {
         name,
-        roleLabel: CLUB_ROLE_LABEL[clubMembership.role] ?? clubMembership.role,
+        roleLabel: CLUB_ROLE_LABEL[clubMembership.role as ClubRole] ?? clubMembership.role,
         clubName: clubMembership.clubs?.club_directory?.name ?? "Ovalball",
         clubId: clubMembership.club_id,
         avatarUrl,
@@ -93,7 +119,7 @@ export async function resolveParticipantIdentities(
       const team = teams.find((t) => t.id === teamPerm.team_id)
       result.set(userId, {
         name,
-        roleLabel: (teamPerm.permission && TEAM_PERMISSION_LABEL[teamPerm.permission]) || (teamPerm.permission ?? ""),
+        roleLabel: (teamPerm.permission && TEAM_PERMISSION_LABEL[teamPerm.permission as TeamPermissionValue]) || (teamPerm.permission ?? ""),
         clubName: team?.clubName ?? "Ovalball",
         clubId: team?.clubId ?? null,
         avatarUrl,

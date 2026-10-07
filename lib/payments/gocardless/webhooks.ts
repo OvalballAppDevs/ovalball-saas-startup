@@ -23,9 +23,14 @@ export function verifyGoCardlessWebhookSignature(rawBody: string, signatureHeade
 }
 
 export interface GoCardlessWebhookEvent {
+  /**
+   * Typed as a string for the routes that only ever see ordinary events, but GoCardless's own "app disconnected"
+   * event carries `"id": null` (Connect your merchants) -- key events with goCardlessEventKey(), never `id` alone.
+   */
   id: string
   resource_type: string
   action: string
+  /** For a partner app every event also names `organisation`: the connected merchant it belongs to. */
   links?: Record<string, string>
   details?: { origin?: string; cause?: string; description?: string; reason_code?: string }
   metadata?: Record<string, string>
@@ -34,4 +39,12 @@ export interface GoCardlessWebhookEvent {
 
 export interface GoCardlessWebhookPayload {
   events: GoCardlessWebhookEvent[]
+}
+
+/**
+ * The inbox key of an event: GoCardless's own id, or -- for the one documented event that has none, an
+ * organisation's "app disconnected" -- what the event is about and when it happened.
+ */
+export function goCardlessEventKey(event: GoCardlessWebhookEvent): string {
+  return event.id ?? `${event.resource_type}:${event.action}:${event.links?.organisation ?? "unknown"}:${event.created_at ?? ""}`
 }

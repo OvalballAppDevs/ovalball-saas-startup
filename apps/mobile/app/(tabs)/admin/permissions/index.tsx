@@ -92,7 +92,7 @@ export default function PermissionsPeopleScreen() {
       {people && people.length > 0 && (
         <Card style={{ padding: 0, overflow: "hidden" }}>
           {people.map((p, i) => (
-            <PersonRow key={p.membershipId ?? String(i)} person={p} avatarUrl={p.avatarStoragePath ? (avatars.get(p.avatarStoragePath) ?? null) : null} first={i === 0} onPress={() => router.push(`/admin/people/${p.membershipId}/permissions` as never)} />
+            <PersonRow key={p.membershipId ?? String(i)} person={p} avatarUrl={p.avatarStoragePath ? (avatars.get(p.avatarStoragePath) ?? null) : null} first={i === 0} onPress={p.membershipId ? () => router.push(`/admin/people/${p.membershipId}/permissions` as never) : undefined} />
           ))}
         </Card>
       )}

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ChevronRight, ClipboardCheck, Clock, Dumbbell, MapPin, Users } from "lucide-react"
+import { ChevronRight, ClipboardCheck, Clock, Dumbbell, MapPin, Trophy, Users } from "lucide-react"
 
 import { RugbyKit } from "@/components/club/rugby-kit"
 import type { AgendaItem, AgendaSide } from "@/lib/agenda/load"
@@ -371,6 +371,143 @@ export function TrainingCard({
   )
 }
 
+/**
+ * ONE TOURNAMENT, AT AGENDA DENSITY.
+ *
+ * A TOURNAMENT IS NOT A FIXTURE WITH FIELDS MISSING, which is exactly what it
+ * would have become had it gone through FixtureCard: no opposition crest, no kit,
+ * no home-or-away badge and no scoreline, leaving a card that says "Under 12 Boys
+ * v" and stops. It is a named occasion a club is going to, so the NAME leads.
+ *
+ * IT BORROWS THE TRAINING CARD'S STRUCTURE, deliberately -- same shell, same
+ * dark-ground inversion, same meta row, same chevron -- because the thing that
+ * must stay constant across the agenda is the SHAPE of a row, not the facts
+ * inside it. Only the mark, the band and the title line differ, which is the
+ * smallest difference that still tells a parent at a glance that Saturday is a
+ * festival rather than a match.
+ */
+export function TournamentCard({
+  item,
+  showChild,
+  onDark = false,
+  attention = false,
+}: {
+  item: AgendaItem
+  showChild: boolean
+  onDark?: boolean
+  attention?: boolean
+}) {
+  const className = cn(
+    "block rounded-xl border px-4 py-3.5 transition-[background-color,border-color,transform] focus-visible:ring-2 focus-visible:ring-pitch-400 focus-visible:ring-offset-2 focus-visible:outline-none",
+    onDark ? "border-white/25 bg-white/5" : "border-pitch-600/30 bg-white",
+    item.href && (onDark ? "hover:bg-white/10 active:translate-y-px" : "hover:border-pitch-600/50 active:translate-y-px"),
+    attention && !onDark && ATTENTION_CARD
+  )
+
+  const day = item.dayOfSpan ? `Day ${item.dayOfSpan.day} of ${item.dayOfSpan.of}` : null
+
+  const label = (
+    <span className="sr-only">
+      Tournament, {item.name ?? "Tournament"}
+      {item.us.teamName ? `, ${item.us.teamName}` : ""}
+      {day ? `, ${day}` : ""}
+      {item.time ? `, ${item.time}` : ""}
+      {item.venue ? `, at ${item.venue}` : ""}
+      {attention ? ". You have not said whether you can attend" : ""}.{item.href ? " Open Tournament Centre." : ""}
+    </span>
+  )
+
+  const Shell = item.href
+    ? ({ children }: { children: React.ReactNode }) => (
+        <Link href={item.href!} className={className}>
+          {label}
+          <span aria-hidden="true">{children}</span>
+        </Link>
+      )
+    : ({ children }: { children: React.ReactNode }) => (
+        <div className={className}>
+          {label}
+          <span aria-hidden="true">{children}</span>
+        </div>
+      )
+
+  return (
+    <Shell>
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className={cn(
+            "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md ring-1",
+            onDark ? "bg-white/10 text-chalk ring-white/20" : "bg-pitch-600/10 text-forest-800 ring-pitch-600/20"
+          )}
+        >
+          <Trophy className="size-4" />
+        </span>
+
+        <div className="min-w-0 flex-1">
+          {showChild && item.childFirstName && (
+            <p
+              className={cn(
+                "mb-1 inline-flex items-center gap-1.5 rounded-full py-0.5 pr-2.5 pl-0.5 text-xs font-semibold",
+                onDark ? "bg-white/10 text-chalk" : "bg-ink/6 text-ink"
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "flex size-5 items-center justify-center rounded-full text-[9px] font-bold",
+                  onDark ? "bg-chalk text-forest-950" : "bg-ink/70 text-chalk"
+                )}
+              >
+                {item.childFirstName.slice(0, 1).toUpperCase()}
+              </span>
+              {item.childFirstName}
+            </p>
+          )}
+          <p className={cn("text-[11px] font-semibold tracking-[0.1em] uppercase", onDark ? "text-pitch-400" : "text-ink-muted")}>
+            Tournament
+          </p>
+          {/* THE FESTIVAL'S NAME IS THE TITLE. The team is below it: a family
+              already knows whose rugby it is, and which tournament is the part
+              they cannot work out from anything else on the row. */}
+          <p className={cn("mt-0.5 font-display text-base leading-tight", onDark ? "text-chalk" : "text-ink")}>
+            {item.name ?? "Tournament"}
+          </p>
+          <div className={cn("mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm", onDark ? "text-white/80" : "text-ink-muted")}>
+            {item.us.teamName && <span className="truncate">{item.us.teamName}</span>}
+            {day && (
+              <span className="inline-flex items-center gap-1">
+                <Trophy className="size-3.5 shrink-0" aria-hidden="true" />
+                {day}
+              </span>
+            )}
+            {item.time && (
+              <span className="inline-flex items-center gap-1">
+                <Clock className="size-3.5 shrink-0" aria-hidden="true" />
+                {item.time}
+              </span>
+            )}
+            {item.venue && (
+              <span className="inline-flex min-w-0 items-center gap-1">
+                <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">{item.venue}</span>
+              </span>
+            )}
+          </div>
+          {attention && !onDark && (
+            <div className="mt-2">
+              <AttentionChip />
+            </div>
+          )}
+        </div>
+        {item.href && (
+          <ChevronRight className={cn("mt-1 size-4 shrink-0", onDark ? "text-white/40" : "text-ink/30")} aria-hidden="true" />
+        )}
+      </div>
+    </Shell>
+  )
+}
+
 export function ActivityCard({
   item,
   showChild,
@@ -383,9 +520,7 @@ export function ActivityCard({
   /** This viewer still owes an answer on this activity. Decided by the page, never here. */
   attention?: boolean
 }) {
-  return item.kind === "training" ? (
-    <TrainingCard item={item} showChild={showChild} onDark={onDark} attention={attention} />
-  ) : (
-    <FixtureCard item={item} showChild={showChild} attention={attention} />
-  )
+  if (item.kind === "training") return <TrainingCard item={item} showChild={showChild} onDark={onDark} attention={attention} />
+  if (item.kind === "tournament") return <TournamentCard item={item} showChild={showChild} onDark={onDark} attention={attention} />
+  return <FixtureCard item={item} showChild={showChild} attention={attention} />
 }

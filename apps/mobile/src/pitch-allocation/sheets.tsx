@@ -5,7 +5,7 @@ import DateTimePicker from "@react-native-community/datetimepicker"
 
 import { fixtureOccupiedWindow, physicalSizeCategoryLabel, pitchSuitable, type AllocationConflict, type AllocationFixture, type PitchAllocationBoard, type PitchOption } from "@ovalball/contracts/pitch-allocation"
 
-import { minutesToTime, xToSnappedMinutes, START_MINUTES, END_MINUTES, SLOT_MINUTES, kickoffMinutes } from "./geometry"
+import { minutesToTime, START_MINUTES, END_MINUTES, SLOT_MINUTES, kickoffMinutes } from "./geometry"
 import { Button } from "../components/ui"
 import { TriangleAlert, X } from "../components/icons"
 import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
@@ -187,10 +187,10 @@ export function MoveSheet({ fixture, board, pitchName, previewFor, onClose, onSt
 }
 
 /** Save / Discard / Stay -- the safe way off a dirty board. */
-export function LeaveSheet({ visible, count, onSave, onDiscard, onStay }: { visible: boolean; count: number; onSave: () => void; onDiscard: () => void; onStay: () => void }) {
+export function LeaveSheet({ visible, count, onSave, onDiscard, onStay, body }: { visible: boolean; count: number; onSave: () => void; onDiscard: () => void; onStay: () => void; body?: string }) {
   return (
     <Sheet visible={visible} onClose={onStay} title="You have staged changes">
-      <Text style={[type.small, { color: colour.inkMuted }]}>{count} change{count === 1 ? "" : "s"} on this day {count === 1 ? "has" : "have"} not been saved.</Text>
+      <Text style={[type.small, { color: colour.inkMuted }]}>{body ?? `${count} change${count === 1 ? "" : "s"} on this day ${count === 1 ? "has" : "have"} not been saved.`}</Text>
       <View style={{ gap: space.sm, marginTop: space.md }}>
         <Button label={`Save Changes (${count})`} onPress={onSave} />
         <Button label="Discard Changes" variant="secondary" onPress={onDiscard} />
@@ -200,4 +200,3 @@ export function LeaveSheet({ visible, count, onSave, onDiscard, onStay }: { visi
   )
 }
 
-export { xToSnappedMinutes }

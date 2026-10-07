@@ -53,17 +53,20 @@ export const ATTENDANCE_STATE_WORDS: Record<AttendanceGroupKey, string> = {
  * used -- reads as a lighter commitment than the register's "Unsure" describes.
  */
 export const ATTENDANCE_ANSWER_WORDS: Record<AvailabilityStatus, string> = {
-  ATTENDING: "I'm Available",
-  CANNOT_ATTEND: "Not Available",
+  // THE OWNER'S WORDS (Match Centre brief, 2026-10-03, and its approved mock-ups): "I'm Attending /
+  // Can't Attend / Unsure". They were "I'm Available / Not Available"; changed here, in the one place,
+  // so the Match Centre, the Calendar, the Agenda and the Training Centre all say the same thing.
+  ATTENDING: "I'm Attending",
+  CANNOT_ATTEND: "Can't Attend",
   UNSURE: "Unsure",
 }
 
 /**
  * The accessible sentence for one answer control, so a screen on which the same
- * three buttons repeat for four children does not announce "I'm Available" four
+ * three buttons repeat for four children does not announce "I'm Attending" four
  * times with nothing to tell them apart.
  *
- * WHO and WHAT, always in that order: "I'm Available — Harry, Saturday's match".
+ * WHO and WHAT, always in that order: "I'm Attending — Harry, Saturday's match".
  */
 export function answerControlLabel(status: AvailabilityStatus, subject: string, what: string): string {
   return `${ATTENDANCE_ANSWER_WORDS[status]} — ${subject}, ${what}`

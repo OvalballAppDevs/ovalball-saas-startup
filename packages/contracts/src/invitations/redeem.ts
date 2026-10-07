@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { teamCodeSubjectPayload, type TeamCodeSubject } from "../team/team-code"
+
 /**
  * INVITATION REDEMPTION -- ONE INTERPRETATION FOR BOTH CLIENTS (CA-M11).
  *
@@ -23,22 +25,35 @@ export const SUCCESSFUL_REDEMPTION_OUTCOMES = [
   "ACCOUNT_SETUP_CONFIRMED",
   "ACCEPTED",
   "ALREADY_REDEEMED",
+  // Team codes place players (20270741000000): a request for a place on THAT team, still to be decided.
+  "TEAM_PLACE_PENDING",
 ] as const
 
 export type SuccessfulRedemptionOutcome = (typeof SUCCESSFUL_REDEMPTION_OUTCOMES)[number]
 
 export type RedemptionResult =
   | { ok: true; outcome: SuccessfulRedemptionOutcome; detail: Record<string, unknown> }
-  | { ok: false; reason: string | null; message: string }
+  | { ok: false; reason: string | null; message: string; verdict: string | null }
 
 /** One sentence for every refusal the person cannot act on, so a refusal is never an oracle. */
 export const GENERIC_REFUSAL = "That invitation or code can't be used."
 
 /**
- * Reasons a person can act on. Each is only reachable AFTER the redeemer's confirmed session email has
- * been matched to the invited address, so each tells the invited person something about themselves.
+ * Reasons a person can act on. Each tells the person something about THEMSELVES: the first three are
+ * only reachable after their confirmed session email has been matched to the invited address; a team
+ * code's (20270741000000) are about the person using it, a child they are the guardian of, or details
+ * they have just typed -- never whether somebody else exists. Anything else is the generic refusal.
  */
-export const ACTIONABLE_REASONS = ["AGE_ELIGIBILITY_REQUIRED", "MEMBERSHIP_REQUIRED", "ORGANISATION_ACCESS_SUSPENDED"] as const
+export const ACTIONABLE_REASONS = [
+  "AGE_ELIGIBILITY_REQUIRED",
+  "MEMBERSHIP_REQUIRED",
+  "ORGANISATION_ACCESS_SUSPENDED",
+  "NOT_ELIGIBLE",
+  "GUARDIAN_REQUIRED",
+  "DETAILS_REQUIRED",
+  "ALREADY_ON_TEAM",
+  "ALREADY_USED",
+] as const
 
 const ACTIONABLE = new Set<string>(ACTIONABLE_REASONS)
 
@@ -47,7 +62,7 @@ const ACTIONABLE = new Set<string>(ACTIONABLE_REASONS)
  * prove the fail-closed shape without a client.
  */
 export function interpretRedemption(data: unknown, error: { message?: string } | null): RedemptionResult {
-  if (error) return { ok: false, reason: null, message: GENERIC_REFUSAL }
+  if (error) return { ok: false, reason: null, message: GENERIC_REFUSAL, verdict: null }
   const result = (data && typeof data === "object" ? data : {}) as Record<string, unknown>
   const outcome = typeof result.outcome === "string" ? result.outcome : null
   if (outcome && (SUCCESSFUL_REDEMPTION_OUTCOMES as readonly string[]).includes(outcome)) {
@@ -58,16 +73,20 @@ export function interpretRedemption(data: unknown, error: { message?: string } |
   // build does not, and guessing is exactly how a refusal becomes an acceptance.
   const reason = typeof result.reason === "string" && ACTIONABLE.has(result.reason) ? result.reason : null
   const message = reason && typeof result.message === "string" && result.message.length > 0 ? result.message : GENERIC_REFUSAL
-  return { ok: false, reason, message }
+  // The canonical fit verdict travels with NOT_ELIGIBLE, so a client says why in its own one set of words.
+  const verdict = reason === "NOT_ELIGIBLE" && typeof result.verdict === "string" ? result.verdict : null
+  return { ok: false, reason, message, verdict }
 }
 
 export async function redeemInvitation(
   supabase: SupabaseClient,
-  input: { token?: string | null; code?: string | null }
+  input: { token?: string | null; code?: string | null; subject?: TeamCodeSubject | null }
 ): Promise<RedemptionResult> {
   const { data, error } = await supabase.rpc("redeem_invitation", {
     p_token: input.token ?? null,
     p_code: input.code ?? null,
+    // Read by a team code alone: who it is being used for. Every other kind ignores it.
+    p_subject: input.subject ? teamCodeSubjectPayload(input.subject) : null,
   })
   return interpretRedemption(data, error)
 }
@@ -109,5 +128,19 @@ export function entranceOutcome(outcome: SuccessfulRedemptionOutcome, detail: Re
       return { landing: "ACCOUNT", contextKey: null, note: null, bodyId: null }
     case "ALREADY_REDEEMED":
       return { landing: "HOME", contextKey: null, note: "You had already accepted that invitation, so there was nothing left to do.", bodyId: null }
+    case "TEAM_PLACE_PENDING":
+      return { landing: "PENDING", contextKey: null, note: teamPlacePendingNote(detail), bodyId: null }
   }
+}
+
+/** The one sentence after asking for a team place: who decides next, and nothing a probe could use. */
+export function teamPlacePendingNote(detail: Record<string, unknown>): string {
+  if (detail.awaiting_guardian === true && detail.awaiting_dispensation === true)
+    return "Request sent. Your parent or guardian confirms it, the club decides the dispensation, then the team decides."
+  if (detail.awaiting_guardian === true) return "Request sent. Your parent or guardian needs to confirm it, then the team decides."
+  if (detail.awaiting_dispensation === true)
+    return "Request sent. Asking is not approval: the club's Safeguarding Officer or a Club Admin decides the dispensation first, then the team decides."
+  if (detail.under_review === true) return "Request sent. The club will check the details and let you know."
+  if (detail.already === true) return "You've already asked. The team will let you know when it has decided."
+  return "Request sent. The team will let you know when it has decided."
 }

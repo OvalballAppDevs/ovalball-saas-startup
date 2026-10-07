@@ -20,6 +20,7 @@ type Extra = {
   authGoogleEnabled?: string
   authAppleEnabled?: string
   authFacebookEnabled?: string
+  clubhouseResearchPreview?: string
 }
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra
@@ -30,6 +31,13 @@ export const environment: OvalballEnvironment =
   extra.ovalballEnvironment === "production" || extra.ovalballEnvironment === "staging"
     ? extra.ovalballEnvironment
     : "development"
+
+/**
+ * The Clubhouse research PREVIEW overlay. Off unless explicitly set to "1", which happens only in a
+ * gitignored `.env.local` for a review session -- never in a shipped build. Read here, through the one
+ * public channel, rather than from `process.env` in the overlay itself.
+ */
+export const clubhouseResearchPreviewEnabled = extra.clubhouseResearchPreview === "1"
 
 export const supabaseUrl = extra.supabaseUrl ?? ""
 export const supabasePublishableKey = extra.supabasePublishableKey ?? ""

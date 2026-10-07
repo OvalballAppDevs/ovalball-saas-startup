@@ -1,10 +1,12 @@
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useRouter } from "expo-router"
+import { StatusBar } from "expo-status-bar"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useAppContexts } from "../context/contexts"
 import { ClubCrest } from "../components/identity"
 import { ChevronLeft } from "../components/icons"
+import { tabBarHeight } from "../navigation/tab-bar-height"
 import { TOUCH_TARGET, colour, space, type } from "../design/tokens"
 
 /**
@@ -35,17 +37,19 @@ export function TeamScreen({
   const back = () => (router.canGoBack() ? router.back() : router.dismissTo("/"))
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
+      {/* THE SAME FOREST BAR AS THE ADMIN CENTRE'S SCREENS (`AdminScreen`): a team's inner screens were the one
+          workspace still on a light bar, the "light bar on some screens and a dark one on others" that bar's
+          own note was written to end. */}
+      <StatusBar style="light" />
       <View
         style={{
           paddingTop: insets.top + space.xs,
-          paddingBottom: space.xs,
+          paddingBottom: space.sm,
           paddingHorizontal: space.sm,
           flexDirection: "row",
           alignItems: "center",
           gap: space.xs,
-          backgroundColor: colour.chalk,
-          borderBottomWidth: 1,
-          borderBottomColor: colour.line,
+          backgroundColor: colour.forest950,
         }}
       >
         <Pressable
@@ -53,16 +57,16 @@ export function TeamScreen({
           accessibilityLabel="Back"
           onPress={back}
           hitSlop={6}
-          style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: pressed ? "rgba(16,21,18,0.06)" : "transparent" })}
+          style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: pressed ? "rgba(255,255,255,0.08)" : "transparent" })}
         >
-          <ChevronLeft size={24} color={colour.forest800} strokeWidth={2.2} />
+          <ChevronLeft size={24} color={colour.onForest} strokeWidth={2.2} />
         </Pressable>
         <ClubCrest clubName={club.name} url={club.crestUrl} size={30} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[type.caption, { color: colour.forest800, textTransform: "uppercase", letterSpacing: 1, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>
+          <Text style={[type.caption, { color: colour.onForestMuted, textTransform: "uppercase", letterSpacing: 1, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>
             {teamName}
           </Text>
-          <Text accessibilityRole="header" style={[type.smallMedium, { color: colour.ink, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>
+          <Text accessibilityRole="header" style={[type.smallMedium, { color: colour.onForest, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>
             {section}
           </Text>
         </View>
@@ -70,7 +74,7 @@ export function TeamScreen({
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={{ paddingHorizontal: padded ? space.lg : 0, paddingTop: space.lg, paddingBottom: insets.bottom + space.xxl + (footer ? 72 : 0), gap: space.lg }}
+        contentContainerStyle={{ paddingHorizontal: padded ? space.lg : 0, paddingTop: space.lg, paddingBottom: tabBarHeight(insets.bottom) + space.lg + (footer ? 72 : 0), gap: space.lg }}
         refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colour.forest800} /> : undefined}
         showsVerticalScrollIndicator={false}
       >

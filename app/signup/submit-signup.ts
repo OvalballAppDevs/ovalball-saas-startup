@@ -1,6 +1,7 @@
 "use server"
 
 import { headers } from "next/headers"
+import { welcomeWithNext } from "@/lib/auth/safe-next"
 
 import { hasAllRequiredConsents } from "@/lib/legal/required-consents"
 import { toPublicAuthError } from "@/lib/errors/public-error"
@@ -11,6 +12,7 @@ import { CURRENT_TERMS_VERSION } from "@/lib/signup/terms"
 import type { SignupFormState } from "@/lib/signup/types"
 import type { Json } from "@/types/database.types"
 import { getSiteUrl } from "@/lib/site-url"
+import { referralSlugFrom } from "@ovalball/contracts/clubhouse/referral-link"
 
 export type SubmitSignupResult =
   | { ok: true }
@@ -40,7 +42,9 @@ export type SubmitSignupResult =
  */
 export async function submitSignup(
   formState: SignupFormState,
-  turnstileToken: string | null = null
+  turnstileToken: string | null = null,
+  referralSlug: string | null = null,
+  next: string | null = null
 ): Promise<SubmitSignupResult> {
   // Every required policy, checked on the server. A client that omits one
   // (or invents an extra) cannot create an account without it.
@@ -74,6 +78,8 @@ export async function submitSignup(
     rugbyCode: formState.rugbyCode,
     club: formState.club,
     termsVersion: CURRENT_TERMS_VERSION,
+    // The club whose referral link they came through, if any: a public slug, re-checked by the server.
+    referralSlug: referralSlugFrom(referralSlug),
   } as unknown as Json
   const { data: flowId, error: flowError } = await supabase.rpc("create_auth_flow_state", {
     p_kind: "SIGNUP",
@@ -92,7 +98,7 @@ export async function submitSignup(
     email: formState.email,
     options: {
       shouldCreateUser: true,
-      emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/welcome`,
+      emailRedirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(welcomeWithNext(next))}`,
     },
   })
 
@@ -106,4 +112,3 @@ export async function submitSignup(
 
   return { ok: true }
 }
-

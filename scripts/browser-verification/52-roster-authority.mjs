@@ -33,6 +33,10 @@ const status = JSON.parse(execFileSync("npx", ["supabase", "status", "-o", "json
 const API = status.API_URL
 const ANON_KEY = status.ANON_KEY
 const SERVICE_KEY = status.SERVICE_ROLE_KEY
+// signIn() signs in through the real password form, so this run's people carry the local UAT password.
+const PASSWORD = process.env.UAT_BROWSER_PASSWORD
+  || (fs.readFileSync(path.resolve(import.meta.dirname, "../../.env.local"), "utf8").split("\n").find((l) => l.startsWith("UAT_BROWSER_PASSWORD=")) ?? "").slice("UAT_BROWSER_PASSWORD=".length).trim().replace(/^["']|["']$/g, "")
+if (!PASSWORD) throw new Error("No UAT_BROWSER_PASSWORD in the environment or .env.local")
 
 const TAG = Date.now().toString(36).slice(-6)
 const SITE_ADMIN = "uat.fullsiteadmin@ovalball.test"
@@ -49,7 +53,7 @@ async function createIdentity(person) {
   const res = await fetch(`${API}/auth/v1/admin/users`, {
     method: "POST",
     headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ email: person.email, email_confirm: true }),
+    body: JSON.stringify({ email: person.email, password: PASSWORD, email_confirm: true }),
   })
   const body = await res.json()
   if (!body.id) throw new Error(`could not create ${person.email}: HTTP ${res.status}`)
@@ -227,12 +231,12 @@ sql(`insert into public.club_memberships (club_id, user_id, role, status) values
   ('${ids.club}', '${people.secretary.id}', 'FIXTURE_SECRETARY', 'active'),
   ('${ids.club}', '${people.otherTeamCoach.id}', 'BASIC_USER', 'active'),
   ('${ids.farClub}', '${people.farAdmin.id}', 'CLUB_ADMIN', 'active');
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'coach' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.coach.id}';
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'manager' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.manager.id}';
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team2}', 'coach' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.otherTeamCoach.id}';`)
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'COACH' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.coach.id}';
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'TEAM_MANAGER' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.manager.id}';
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team2}', 'COACH' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.otherTeamCoach.id}';`)
 
 ids.player = one(`insert into public.players (first_name, surname, date_of_birth, playing_pathway)
   values ('Rory', 'Roster ${TAG}', (current_date - interval '11 years 2 months')::date, 'MALE') returning id`)
@@ -240,7 +244,12 @@ sql(`insert into public.player_team_memberships (player_id, team_id, status) val
 
 const browser = await launch()
 const sessions = {}
-const playersTab = (page) => page.locator("button").filter({ hasText: /^Players/ }).first()
+// THE ROSTER IS THE TEAM'S PEOPLE PAGE. It moved off the team's home on 2026-09-22 (team-people.tsx, the
+// "Team people" tabs); the team home still answers who the team is, which D1/D2 and E2 keep asking there.
+const rosterRoute = `/teams/${ids.team}/people`
+// The tab by its role, not the first button whose text starts "Players": at phone width the first such button
+// need not be the tab.
+const playersTab = (page) => page.getByRole("tab", { name: /^Players/ })
 const rosterNames = async (page) => (await page.locator("li").allTextContents()).join(" ")
 
 try {
@@ -254,7 +263,7 @@ try {
   // A1-A3  legitimate roster visibility ------------------------------------------------
   {
     const { page } = sessions.admin
-    await open(page, `/teams/${ids.team}`)
+    await open(page, rosterRoute)
     record("A1 the Club Admin reaches their own club's team", /\/teams\/[0-9a-f-]{36}/.test(page.url()), page.url())
     await playersTab(page).click()
     record("A2 and reads the roster", (await rosterNames(page)).includes("Rory"), "looked for the player by name")
@@ -264,7 +273,7 @@ try {
   // B1-B2  the Coach reads their own team, and is offered nothing that changes it -------
   {
     const { page } = sessions.coach
-    await open(page, `/teams/${ids.team}`)
+    await open(page, rosterRoute)
     await playersTab(page).click()
     record("B1 the Coach reads their own team's roster", (await rosterNames(page)).includes("Rory"))
     record("B2 and is offered no control that changes it (team.roster.view, not manage)",
@@ -274,7 +283,7 @@ try {
   // C1-C2  the Team Manager reads and may change it -------------------------------------
   {
     const { page } = sessions.manager
-    await open(page, `/teams/${ids.team}`)
+    await open(page, rosterRoute)
     await playersTab(page).click()
     record("C1 the Team Manager reads their own team's roster", (await rosterNames(page)).includes("Rory"))
     record("C2 and is offered the control that changes it", (await page.getByRole("button", { name: "Archive" }).count()) > 0)
@@ -290,7 +299,13 @@ try {
     })()
     record("D1 AI #70 the Fixtures Secretary still sees the team page (team.team.view: identity and name)", canSeeTeam, page.url())
     record("D2 AI #70 and its name", (await page.locator("body").textContent()).includes("Under 12"), "looked for the canonical display name")
-    const names = canSeeTeam ? await (async () => { await playersTab(page).click().catch(() => {}); return rosterNames(page) })() : ""
+    const names = canSeeTeam
+      ? await (async () => {
+          await open(page, rosterRoute)
+          await playersTab(page).click().catch(() => {})
+          return rosterNames(page)
+        })()
+      : ""
     record("D3 AI #70 but reads no player in it", !names.includes("Rory"), names.slice(0, 120))
     record("D4 and is offered no control that changes the roster", (await page.getByRole("button", { name: "Archive" }).count()) === 0)
   }
@@ -298,7 +313,7 @@ try {
   // E1-E2  wrong team and wrong club ----------------------------------------------------
   {
     const { page } = sessions.otherTeamCoach
-    await open(page, `/teams/${ids.team}`)
+    await open(page, rosterRoute)
     await playersTab(page).click().catch(() => {})
     record("E1 a Coach of another team in the same club reads no player in this one",
       !(await rosterNames(page)).includes("Rory"))
@@ -323,7 +338,7 @@ try {
     const phoneCtx = watch(await newContext(browser, { width: 390, height: 844 }), "phone")
     const phone = await phoneCtx.newPage()
     await signIn(phone, people.manager.email)
-    await open(phone, `/teams/${ids.team}`)
+    await open(phone, rosterRoute)
     await playersTab(phone).click()
     const m = await measure(phone)
     record("G1 the team page and its roster fit a 390px phone", m.scrollWidth <= m.innerWidth + 1, `scrollWidth=${m.scrollWidth}`)

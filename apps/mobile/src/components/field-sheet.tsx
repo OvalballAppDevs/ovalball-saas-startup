@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react"
-import { ActivityIndicator, Animated, Easing, Modal, Pressable, ScrollView, Text, View } from "react-native"
+import { ActivityIndicator, Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { DateField, TextField, TimeField } from "./form"
 import { Check, ChevronRight } from "./icons"
+import { useReduceMotion } from "../a11y/reduce-motion"
 import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../design/tokens"
 
 /**
@@ -22,7 +23,11 @@ import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../design/
  * re-read. A fixture that appeared to move and did not is worse than one that took a moment.
  */
 
-function Sheet({
+/**
+ * The sheet itself, for a screen whose one decision is not a fixture field (a membership's name, price and
+ * teams): the same keyboard-aware rise, the same Cancel beside one explicit Save.
+ */
+export function Sheet({
   visible,
   title,
   hint,
@@ -33,6 +38,9 @@ function Sheet({
   problem,
   saveLabel = "Save",
   canSave = true,
+  dismissLabel = "Cancel",
+  destructive = false,
+  brand = false,
 }: {
   visible: boolean
   title: string
@@ -44,19 +52,35 @@ function Sheet({
   problem: string | null
   saveLabel?: string
   canSave?: boolean
+  /**
+   * The words on the way out. "Cancel" beside "Cancel Event" asks a person to guess which one cancels the
+   * event, so a destructive sheet names the safe choice for what it keeps ("Keep Event").
+   */
+  dismissLabel?: string
+  /** A step that cannot be undone wears the restrained danger treatment, never the everyday forest fill. */
+  destructive?: boolean
+  /** The Club Memberships surfaces' primary green (Button's `brand`), so a membership sheet matches its screen. */
+  brand?: boolean
 }) {
   const insets = useSafeAreaInsets()
   const translate = useRef(new Animated.Value(500)).current
   const backdrop = useRef(new Animated.Value(0)).current
+  // REDUCE MOTION is honoured here, once, for every sheet built on this: the sheet is simply there.
+  const reduceMotion = useReduceMotion()
 
   useEffect(() => {
     if (!visible) return
+    if (reduceMotion) {
+      translate.setValue(0)
+      backdrop.setValue(1)
+      return
+    }
     translate.setValue(500)
     Animated.parallel([
       Animated.spring(translate, { toValue: 0, damping: 26, stiffness: 260, useNativeDriver: true }),
       Animated.timing(backdrop, { toValue: 1, duration: 160, easing: Easing.out(Easing.quad), useNativeDriver: true }),
     ]).start()
-  }, [visible, translate, backdrop])
+  }, [visible, translate, backdrop, reduceMotion])
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
@@ -64,12 +88,15 @@ function Sheet({
         <Pressable accessibilityRole="button" accessibilityLabel="Close without saving" onPress={onClose} style={{ flex: 1 }} />
       </Animated.View>
 
+      {/* A SHEET WITH A FIELD RISES WITH THE KEYBOARD. Without this the keyboard covered the very field being
+          typed into and the button that saves it -- a cancellation reason, a postponement note, a typed pitch. */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        pointerEvents="box-none"
+        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, justifyContent: "flex-end" }}
+      >
       <Animated.View
         style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
           maxHeight: "85%",
           backgroundColor: colour.chalk,
           borderTopLeftRadius: radius.xl + 6,
@@ -102,7 +129,7 @@ function Sheet({
           <View style={{ flexDirection: "row", gap: space.sm }}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Cancel"
+              accessibilityLabel={dismissLabel}
               onPress={onClose}
               style={({ pressed }) => ({
                 flex: 1,
@@ -116,7 +143,7 @@ function Sheet({
                 opacity: pressed ? 0.85 : 1,
               })}
             >
-              <Text style={[type.smallMedium, { color: colour.ink }]}>Cancel</Text>
+              <Text style={[type.smallMedium, { color: colour.ink }]}>{dismissLabel}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -130,19 +157,22 @@ function Sheet({
                 alignItems: "center",
                 justifyContent: "center",
                 borderRadius: radius.md,
-                backgroundColor: canSave ? colour.forest800 : colour.lineStrong,
+                borderWidth: destructive ? 1 : 0,
+                borderColor: destructive ? colour.danger : "transparent",
+                backgroundColor: !canSave ? colour.lineStrong : destructive ? colour.dangerSurface : brand ? colour.rugby700 : colour.forest800,
                 opacity: pressed ? 0.88 : 1,
               })}
             >
               {saving ? (
-                <ActivityIndicator color={colour.onForest} />
+                <ActivityIndicator color={destructive ? colour.danger : colour.onForest} />
               ) : (
-                <Text style={[type.smallMedium, { color: colour.onForest }]}>{saveLabel}</Text>
+                <Text style={[type.smallMedium, { color: destructive && canSave ? colour.danger : colour.onForest }]}>{saveLabel}</Text>
               )}
             </Pressable>
           </View>
         </View>
       </Animated.View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }
@@ -244,6 +274,7 @@ export function ChoiceSheet({
   onSave,
   saving,
   problem,
+  noneLabel = "Not set",
 }: {
   visible: boolean
   title: string
@@ -255,8 +286,12 @@ export function ChoiceSheet({
   onSave: (id: string | null) => void
   saving: boolean
   problem: string | null
+  /** What choosing nothing means here -- "Not set" unless the screen has a truer word for it ("Same as club default"). */
+  noneLabel?: string
 }) {
   const [draft, setDraft] = useState<string | null>(value)
+  // The list scrolls inside the sheet, sized to the screen: a fixed height hid the last choices behind Save.
+  const { height } = useWindowDimensions()
   useEffect(() => {
     if (visible) setDraft(value)
   }, [visible, value])
@@ -275,9 +310,9 @@ export function ChoiceSheet({
       {options.length === 0 ? (
         <Text style={[type.small, { color: colour.inkMuted }]}>{emptyMessage}</Text>
       ) : (
-        <ScrollView style={{ maxHeight: 280 }} contentContainerStyle={{ gap: 0 }}>
+        <ScrollView style={{ maxHeight: Math.max(280, Math.round(height * 0.5)) }} contentContainerStyle={{ gap: 0 }}>
           <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
-            {[{ id: "", name: "Not set", detail: null }, ...options].map((option, index) => {
+            {[{ id: "", name: noneLabel, detail: null }, ...options].map((option, index) => {
               const id = option.id || null
               const selected = draft === id
               return (
@@ -374,9 +409,17 @@ export function TextSheet({
  * The reason is required by `cancel_fixture` itself, and it is the useful part: it reaches the other
  * club and the players, who otherwise learn only that something is off.
  */
+/**
+ * `kind` picks the copy: a FIXTURE cancellation involves another club and a result that never
+ * happens, so it says so; a TRAINING SESSION cancellation is entirely this club's own, one-off
+ * occurrence, and never touches the rest of that team's recurring plan -- confusing the two here
+ * would tell a coach cancelling next Tuesday's training that "the other club" will see the reason,
+ * which is simply untrue. Defaults to "fixture" so the existing fixture caller is unaffected.
+ */
 export function CancelSheet({
   visible,
   summary,
+  kind = "fixture",
   onClose,
   onConfirm,
   saving,
@@ -384,6 +427,12 @@ export function CancelSheet({
 }: {
   visible: boolean
   summary: { teams: string; when: string }
+  /**
+   * An EVENT is cancelled or postponed through the same sheet: the same summary to check against, the same
+   * action-named button. Its reason is optional, as `cancel_club_event` and `postpone_event` allow -- a
+   * fixture's is required because `cancel_fixture` requires it.
+   */
+  kind?: "fixture" | "training" | "event" | "event_postpone"
   onClose: () => void
   onConfirm: (reason: string) => void
   saving: boolean
@@ -394,32 +443,66 @@ export function CancelSheet({
     if (visible) setReason("")
   }, [visible])
 
+  const copy =
+    kind === "training"
+      ? {
+          title: "Cancel this training session?",
+          saveLabel: "Cancel Session",
+          keepLabel: "Keep Session",
+          body: "You are cancelling this training session only. The rest of the training plan will continue -- other sessions are not affected. The squad will see the reason, and this session stays in the calendar marked cancelled rather than being deleted.",
+          field: "Why it is cancelled",
+          placeholder: "Waterlogged pitch, failed inspection",
+          required: true,
+        }
+      : kind === "event"
+        ? {
+            title: "Cancel this event?",
+            saveLabel: "Cancel Event",
+            keepLabel: "Keep Event",
+            body: "Everybody invited is told it is not going ahead, with your reason if you give one. It stays in the calendar marked cancelled. This cannot be undone.",
+            field: "Why it is cancelled",
+            placeholder: "Not enough people could come",
+            required: false,
+          }
+        : kind === "event_postpone"
+          ? {
+              title: "Postpone this event?",
+              saveLabel: "Postpone Event",
+              keepLabel: "Keep the Date",
+              body: "Everybody invited is told it is postponed, with your note if you give one. Their answers are kept for the new date.",
+              field: "Note for everybody invited",
+              placeholder: "The venue is unavailable; a new date will follow",
+              required: false,
+            }
+          : {
+              title: "Cancel this fixture?",
+              saveLabel: "Cancel Fixture",
+              keepLabel: "Keep Fixture",
+              body: "The other club and everyone who was going to play will see the reason. The fixture stays in the calendar marked cancelled, so nobody turns up — it is not deleted.",
+              field: "Why it is cancelled",
+              placeholder: "Waterlogged pitch, failed inspection",
+              required: true,
+            }
+
   return (
     <Sheet
       visible={visible}
-      title="Cancel this fixture?"
+      title={copy.title}
       onClose={onClose}
       onSave={() => onConfirm(reason)}
       saving={saving}
       problem={problem}
-      saveLabel="Cancel Fixture"
-      canSave={reason.trim().length > 0}
+      saveLabel={copy.saveLabel}
+      canSave={!copy.required || reason.trim().length > 0}
+      dismissLabel={copy.keepLabel}
+      destructive={kind !== "event_postpone"}
     >
       <View style={{ padding: space.md, borderRadius: radius.md, backgroundColor: colour.surface, borderWidth: 1, borderColor: colour.line, gap: 2 }}>
         <Text style={[type.smallMedium, { color: colour.ink }]}>{summary.teams}</Text>
         <Text style={[type.caption, { color: colour.inkMuted }]}>{summary.when}</Text>
       </View>
-      <Text style={[type.caption, { color: colour.inkMuted }]}>
-        The other club and everyone who was going to play will see the reason. The fixture stays in the
-        calendar marked cancelled, so nobody turns up — it is not deleted.
-      </Text>
-      <TextField
-        label="Why it is cancelled"
-        value={reason}
-        onChange={setReason}
-        multiline
-        placeholder="Waterlogged pitch, failed inspection"
-      />
+      <Text style={[type.caption, { color: colour.inkMuted }]}>{copy.body}</Text>
+      <TextField label={copy.field} value={reason} onChange={setReason} multiline placeholder={copy.placeholder} />
     </Sheet>
   )
 }

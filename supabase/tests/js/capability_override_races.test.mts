@@ -155,8 +155,12 @@ begin
     || array(select id from public.club_directory where normalized_key = 'crace-${tag}');
   delete from public.capability_overrides where club_id = v_club or user_id = any(v_people);
   delete from public.access_review_items where club_id = v_club;
-  delete from public.role_assignments where club_id = v_club;
-  delete from public.club_memberships where club_id = v_club;
+  -- BY PERSON AS WELL AS BY CLUB. Scoping teardown to the suite's own club leaves anything its
+  -- people acquired elsewhere behind, and the next statement -- deleting those people -- then dies
+  -- on a foreign key. The suite created these users, so everything they hold is the suite's to
+  -- remove; a partial teardown is what turns one failed run into a permanently red suite.
+  delete from public.role_assignments where club_id = v_club or user_id = any(v_people);
+  delete from public.club_memberships where club_id = v_club or user_id = any(v_people);
   delete from public.notifications where user_id = any(v_people);
   delete from public.club_setup_state where club_id = v_club;
   delete from public.clubs where id = v_club;
@@ -173,6 +177,27 @@ begin
   end if;
   delete from public.security_events where subject_user_id = any(v_people) or actor_user_id = any(v_people) or club_id = v_club;
   delete from public.audit_log where changed_by = any(v_people) or actor_user_id = any(v_people) or record_id = any(v_records);
+  -- Tournaments these people created, innermost first. Swept by AUTHOR for the same reason as the
+  -- competitions below: a race produces rows nobody planned a name for.
+  delete from public.tournament_games where tournament_id in (select id from public.tournaments where created_by = any(v_people));
+  delete from public.tournament_entry_opponents where participant_id in
+    (select p.id from public.tournament_participants p join public.tournaments t on t.id = p.tournament_id where t.created_by = any(v_people));
+  delete from public.tournament_pitches where tournament_id in (select id from public.tournaments where created_by = any(v_people));
+  delete from public.tournament_application_teams where application_id in
+    (select a.id from public.tournament_applications a join public.tournaments t on t.id = a.tournament_id where t.created_by = any(v_people));
+  delete from public.tournament_applications where tournament_id in (select id from public.tournaments where created_by = any(v_people));
+  delete from public.tournament_participants where tournament_id in (select id from public.tournaments where created_by = any(v_people));
+  delete from public.tournament_age_groups where tournament_id in (select id from public.tournaments where created_by = any(v_people));
+  delete from public.tournaments where created_by = any(v_people);
+
+  -- ANYTHING THESE PEOPLE AUTHORED, before the people themselves. A race suite creates rows the happy
+  -- path never names -- the losing side of a creation race -- so a teardown that lists only the ids the
+  -- test planned for leaves them behind and then dies on a foreign key deleting their author. One
+  -- failed run would otherwise wedge the suite permanently.
+  delete from public.competition_editions where competition_id in (select id from public.competitions where created_by = any(v_people));
+  delete from public.competition_areas where competition_id in (select id from public.competitions where created_by = any(v_people));
+  delete from public.regulatory_competition_overlays where ovalball_competition_id in (select id from public.competitions where created_by = any(v_people));
+  delete from public.competitions where created_by = any(v_people);
   delete from public.profiles where id = any(v_people);
   delete from auth.users where id = any(v_people);
   delete from public.audit_log where record_id = any(v_records);

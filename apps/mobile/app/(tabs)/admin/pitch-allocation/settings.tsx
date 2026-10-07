@@ -111,7 +111,7 @@ export default function PitchAllocationSettings() {
             </Card>
             {caps.manage && <Button label="Save Settings" onPress={() => void save()} busy={busy} />}
             {!!saved && <Text accessibilityLiveRegion="polite" style={[type.caption, { color: colour.forest800 }]}>{saved}</Text>}
-            <Button label="Back to the Board" variant="quiet" onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/admin/pitch-allocation" as never))} />
+            <Button label="Back" variant="quiet" onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/admin/pitch-allocation" as never))} />
           </>
         )}
       </ScrollView>

@@ -105,9 +105,10 @@ test("isFiltered/countActive against a baseline: a staff default (cancelled hidd
 })
 
 test("ADD_RESULT is in the one routing table, never a hand-built path", () => {
+  // Entering a score is the Match Centre's Result section since the consolidation (2026-10-03).
   assert.deepEqual(routeForIntent({ kind: "ADD_RESULT", fixtureId: "fx-1" }), {
-    pathname: "/fixtures/[fixtureId]/add-result",
-    params: { fixtureId: "fx-1" },
+    pathname: "/fixtures/[fixtureId]",
+    params: { fixtureId: "fx-1", tab: "result" },
   })
 })
 

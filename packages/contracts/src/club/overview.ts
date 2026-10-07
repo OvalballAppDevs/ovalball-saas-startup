@@ -43,6 +43,9 @@ export const CLUB_AUTHORITY_KEYS = {
   profileEdit: "club.profile.edit",
   capabilityManage: "people.capability.manage",
   financeView: "finance.subscription.view",
+  /** The club's document library: who may read it, and who may upload, file, archive and delete in it. */
+  documentsView: "club.documents.view",
+  documentsManage: "club.documents.manage",
 } as const
 
 export type ClubAuthority = Record<keyof typeof CLUB_AUTHORITY_KEYS, boolean>

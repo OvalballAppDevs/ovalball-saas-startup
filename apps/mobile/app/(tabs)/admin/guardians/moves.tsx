@@ -5,21 +5,16 @@ import {
   CALL_UP_STATUS_LABEL,
   canOpenGuardiansPlayers,
   decideClubCallUp,
-  decideDispensation,
-  DISPENSATION_STATUS_LABEL,
   guardiansPlayersErrorMessage,
   previewMovementEligibility,
   readClubPlayerMoves,
   requestCallUp,
-  requestDispensation,
-  revokeDispensation,
   sameAgeGroup,
   type ClubCallUp,
-  type ClubDispensation,
   type ClubPlayerMoves,
-  type DispensationStage,
   type MovementEligibilityPreview,
 } from "@ovalball/contracts/club/guardians-players"
+import { DISPENSATION_NOT_A_GRANT, DISPENSATION_REASON_MAX, requestDispensation } from "@ovalball/contracts/team/dispensation"
 
 import { AdminScreen } from "../../../../src/admin/screen"
 import { todayIso, useGuardiansPlayersAccess } from "../../../../src/admin/guardians-players"
@@ -30,6 +25,7 @@ import { supabase } from "../../../../src/auth/supabase"
 import { exactDate } from "../../../../src/agenda/presentation"
 import { ArrowRightLeft, ShieldCheck, TriangleAlert } from "../../../../src/components/icons"
 import { Button, Card, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../../../../src/components/ui"
+import { DispensationRows } from "../../../../src/dispensation/register"
 import { friendly, logDetail, type FriendlyError } from "../../../../src/errors/translate"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
 
@@ -37,10 +33,9 @@ import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/desig
  * PLAYER MOVES -- the website's /club/player-moves, natively (CA-M11.1).
  *
  * A CALL-UP borrows a player from another of the club's sides for one fixture; the SOURCE team (or
- * the club) decides it. A DISPENSATION is a longer-term move outside ordinary age-grade eligibility
- * for the canonical season, approved in stages -- source team, club, governing body -- none of which
- * can be skipped: each control appears only when the record is actually at that stage, and the final
- * stage only RECORDS a governing-body reference the club holds. Ovalball never grants that approval.
+ * the club) decides it. A DISPENSATION lets a child play outside their age grade for one team and one
+ * season: it is the one workflow (20270742000000), asked for here with a reason and decided ONCE, on
+ * its own record, by the club's Safeguarding Officer or a Club Admin -- never by the person who asked.
  *
  * The player picker offers players ordinarily eligible for the target side; a player from another
  * age grade sits behind an explicit disclosure and previews the real computed requirement before
@@ -103,7 +98,9 @@ export default function PlayerMoves() {
         <Text accessibilityRole="header" style={[type.display, { color: colour.ink }]}>
           Player Moves
         </Text>
-        <Text style={[type.body, { color: colour.inkMuted }]}>Borrow a player for a single fixture, or move one onto a different side for the season. Both need the source team's consent first.</Text>
+        <Text style={[type.body, { color: colour.inkMuted }]}>
+          Borrow a player for a single fixture, or ask for a player to play outside their age grade this season. A dispensation is an exception the club's Safeguarding Officer or a Club Admin decides.
+        </Text>
       </View>
 
       {!accessLoading && clubId && !may && <EmptyState title="Not part of your job here" body="Player moves are raised and decided by the people the club has given that job to." />}
@@ -135,17 +132,12 @@ export default function PlayerMoves() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
             <ShieldCheck size={18} color={colour.forest800} />
             <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]}>
-              Team Dispensations
+              Dispensations
             </Text>
           </View>
-          <Text style={[type.small, { color: colour.inkMuted }]}>A longer-term move outside ordinary age-grade eligibility for {data.season?.name ?? "the current season"}. Ovalball records each approval stage; it never grants governing-body approval itself.</Text>
-          {caps.dispensationRequest && !data.season && <Notice tone="warning" text="Needs attention: no season in the Seasons register covers today for this club's code, so a dispensation cannot be requested until Site Admin records one." />}
-          {caps.dispensationRequest && data.season && <DispensationRequestForm data={data} seasonId={data.season.id} onAsk={setAsk} onDone={(text) => { setNotice({ tone: "ok", text }); void load() }} />}
-          {data.dispensations.length === 0 ? (
-            <EmptyState title="No dispensations yet" body="Requests for a season-long move appear here." />
-          ) : (
-            data.dispensations.map((row) => <DispensationRow key={row.id} row={row} canDecideClub={caps.dispensationApproveClub} onDecide={(stage, approve, ref) => decideStage(row, stage, approve, ref)} onRevoke={() => revoke(row)} />)
-          )}
+          <Text style={[type.small, { color: colour.inkMuted }]}>A child outside a team's age grade can only be placed there with an approved dispensation, for that team and season.</Text>
+          {caps.dispensationRequest && <DispensationRequestForm data={data} onAsk={setAsk} onDone={(text) => { setNotice({ tone: "ok", text }); void load() }} />}
+          <DispensationRows records={data.dispensations} emptyTitle="No dispensations yet" emptyBody="A request appears here the moment somebody asks for one." />
         </View>
       )}
 
@@ -174,17 +166,6 @@ export default function PlayerMoves() {
     confirmThen(question, (reason) => decideClubCallUp(supabase, row.id, action, reason), action === "approve" ? "Call-up approved." : action === "reject" ? "Call-up rejected." : "Call-up revoked.")
   }
 
-  function decideStage(row: ClubDispensation, stage: DispensationStage, approve: boolean, governingBodyReference: string | null) {
-    const stageWord = stage === "source_team" ? "as the source team" : stage === "club" ? "as the club" : "the governing body's approval"
-    const question: Omit<ReasonAsk, "onConfirm"> = approve
-      ? { title: stage === "governing_body" ? `Record ${stageWord} for ${row.playerName}?` : `Approve ${row.playerName}'s dispensation ${stageWord}?`, body: stage === "governing_body" ? `Reference ${governingBodyReference ?? ""}. Ovalball records the approval the club holds; it does not grant it.` : `${row.sourceTeamName} to ${row.targetTeamName} for ${row.seasonName}. The next stage then waits.`, confirmLabel: stage === "governing_body" ? "Record Approval" : "Approve", reason: "none" }
-      : { title: `Reject ${row.playerName}'s dispensation?`, body: "Any linked call-up is blocked. A reason is kept with the decision.", confirmLabel: "Reject", destructive: true, reason: "optional" }
-    confirmThen(question, (reason) => decideDispensation(supabase, row.id, stage, approve, governingBodyReference, reason || null), approve ? "Dispensation stage recorded." : "Dispensation rejected.")
-  }
-
-  function revoke(row: ClubDispensation) {
-    confirmThen({ title: `Revoke ${row.playerName}'s dispensation?`, body: "Any call-up relying on it is blocked. The reason is recorded.", confirmLabel: "Revoke", destructive: true, reason: "required" }, (reason) => revokeDispensation(supabase, row.id, reason), "Dispensation revoked.")
-  }
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -322,30 +303,33 @@ function CallUpRow({ row, canApprove, onDecide }: { row: ClubCallUp; canApprove:
 // Dispensations
 // ---------------------------------------------------------------------------------------------------
 
-function DispensationRequestForm({ data, seasonId, onAsk, onDone }: { data: ClubPlayerMoves; seasonId: string; onAsk: (ask: ReasonAsk) => void; onDone: (text: string) => void }) {
+function DispensationRequestForm({ data, onAsk, onDone }: { data: ClubPlayerMoves; onAsk: (ask: ReasonAsk) => void; onDone: (text: string) => void }) {
   const [open, setOpen] = useState(false)
   const [targetTeamId, setTargetTeamId] = useState<string | null>(null)
   const [playerKey, setPlayerKey] = useState<string | null>(null)
-  const [eligibility, setEligibility] = useState("")
   const eligible = useMemo(() => data.players.filter((p) => p.currentTeamId !== targetTeamId), [data.players, targetTeamId])
   const selected = eligible.find((p) => `${p.playerId}:${p.currentTeamId}` === playerKey) ?? null
   const targetTeam = data.teams.find((t) => t.id === targetTeamId) ?? null
 
-  function submit() {
-    if (!selected || !targetTeam || !eligibility.trim()) return
+  // THE REASON IS THE REQUEST: asked in the one sheet, sent with the one operation the website uses. Asking
+  // is never a grant, and the sheet says so before anything is sent.
+  function ask() {
+    if (!selected || !targetTeam) return
     const player = selected
     const team = targetTeam
     onAsk({
       title: `Request a dispensation for ${player.playerName}?`,
-      body: `Onto ${team.label} for ${data.season?.name ?? "the season"}. ${player.currentTeamName} must approve first, then the club, then the governing body's approval is recorded.`,
-      confirmLabel: "Request Dispensation",
-      reason: "none",
-      onConfirm: async () => {
-        await requestDispensation(supabase, { playerId: player.playerId, sourceTeamId: player.currentTeamId, targetTeamId: team.id, seasonId, eligibilityRuleReference: eligibility })
-        setEligibility("")
+      body: `For ${team.label} this season. ${DISPENSATION_NOT_A_GRANT} The club's Safeguarding Officer or a Club Admin decides.`,
+      confirmLabel: "Send Request",
+      reason: "required",
+      fieldLabel: `Why Should ${player.playerName.split(" ")[0]} Play for ${team.label}?`,
+      placeholder: "The people who decide read this",
+      maxLength: DISPENSATION_REASON_MAX,
+      onConfirm: async (reason) => {
+        await requestDispensation(supabase, { playerId: player.playerId, teamId: team.id, reason, sourceTeamId: player.currentTeamId })
         setPlayerKey(null)
         setOpen(false)
-        onDone(`Dispensation requested for ${player.playerName}. ${player.currentTeamName} must approve first.`)
+        onDone(`Request sent for ${player.playerName}. ${DISPENSATION_NOT_A_GRANT}`)
       },
     })
   }
@@ -354,59 +338,15 @@ function DispensationRequestForm({ data, seasonId, onAsk, onDone }: { data: Club
 
   return (
     <Card style={{ gap: space.md }}>
-      <Text style={[type.overline, { color: colour.inkSubtle }]}>REQUEST A DISPENSATION</Text>
-      <ChoiceChips label="Onto which side?" options={data.teams.map((t) => ({ key: t.id, label: t.label }))} value={targetTeamId} onChange={(id) => { setTargetTeamId(id); setPlayerKey(null) }} />
+      <Text accessibilityRole="header" style={[type.heading, { color: colour.ink }]}>
+        Request a Dispensation
+      </Text>
+      <ChoiceChips label="Which team?" options={data.teams.map((t) => ({ key: t.id, label: t.label }))} value={targetTeamId} onChange={(id) => { setTargetTeamId(id); setPlayerKey(null) }} />
       {targetTeamId && <ChoiceChips label="Player" options={eligible.map((p) => ({ key: `${p.playerId}:${p.currentTeamId}`, label: `${p.playerName} (${p.currentTeamName})` }))} value={playerKey} onChange={setPlayerKey} />}
-      <View style={{ gap: 6 }}>
-        <Text style={[type.smallMedium, { color: colour.ink }]}>Eligibility Rule Reference</Text>
-        <TextInput accessibilityLabel="Eligibility rule reference" value={eligibility} onChangeText={setEligibility} placeholder='e.g. "GOVERNING-BODY CONFIRMATION REQUIRED" if not yet verified' placeholderTextColor={colour.inkSubtle} style={[type.body, { minHeight: TOUCH_TARGET, borderWidth: 1, borderColor: colour.lineStrong, borderRadius: radius.md, paddingHorizontal: space.md, color: colour.ink }]} />
-      </View>
       <View style={{ flexDirection: "row", gap: space.sm }}>
         <Button label="Cancel" variant="secondary" onPress={() => setOpen(false)} style={{ flex: 1 }} />
-        <Button label="Request Dispensation" disabled={!selected || !eligibility.trim()} onPress={submit} style={{ flex: 2 }} />
+        <Button label="Continue" disabled={!selected} onPress={ask} style={{ flex: 2 }} />
       </View>
-    </Card>
-  )
-}
-
-function DispensationRow({ row, canDecideClub, onDecide, onRevoke }: { row: ClubDispensation; canDecideClub: boolean; onDecide: (stage: DispensationStage, approve: boolean, governingBodyReference: string | null) => void; onRevoke: () => void }) {
-  const [govRef, setGovRef] = useState("")
-  const tone = row.status === "approved" ? "positive" : row.status.endsWith("approved") || row.status === "requested" ? "caution" : "neutral"
-  return (
-    <Card style={{ gap: space.sm }}>
-      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: space.sm }}>
-        <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>{row.playerName}</Text>
-        <StatusPill label={DISPENSATION_STATUS_LABEL[row.status]} tone={tone} />
-      </View>
-      <Text style={[type.small, { color: colour.ink }]}>
-        {row.sourceTeamName} → {row.targetTeamName}
-      </Text>
-      <Text style={[type.caption, { color: colour.inkMuted }]}>
-        {row.seasonName} · {row.eligibilityRuleReference}
-        {row.governingBodyReference ? ` · Ref: ${row.governingBodyReference}` : ""}
-      </Text>
-      {canDecideClub && row.canDecideSourceTeam && row.status === "requested" && (
-        <View style={{ flexDirection: "row", gap: space.sm }}>
-          <Button label="Reject" variant="secondary" onPress={() => onDecide("source_team", false, null)} style={{ flex: 1 }} />
-          <Button label="Approve as Source Team" onPress={() => onDecide("source_team", true, null)} style={{ flex: 2 }} />
-        </View>
-      )}
-      {canDecideClub && row.status === "source_team_approved" && (
-        <View style={{ flexDirection: "row", gap: space.sm }}>
-          <Button label="Reject" variant="secondary" onPress={() => onDecide("club", false, null)} style={{ flex: 1 }} />
-          <Button label="Approve as Club" onPress={() => onDecide("club", true, null)} style={{ flex: 2 }} />
-        </View>
-      )}
-      {canDecideClub && row.status === "club_approved" && (
-        <View style={{ gap: space.sm }}>
-          <TextInput accessibilityLabel="Governing-body reference" value={govRef} onChangeText={setGovRef} placeholder="Governing-body reference or certificate number" placeholderTextColor={colour.inkSubtle} style={[type.body, { minHeight: TOUCH_TARGET, borderWidth: 1, borderColor: colour.lineStrong, borderRadius: radius.md, paddingHorizontal: space.md, color: colour.ink }]} />
-          <View style={{ flexDirection: "row", gap: space.sm }}>
-            <Button label="Reject" variant="secondary" onPress={() => onDecide("governing_body", false, null)} style={{ flex: 1 }} />
-            <Button label="Record Governing-Body Approval" disabled={!govRef.trim()} onPress={() => onDecide("governing_body", true, govRef.trim())} style={{ flex: 2 }} />
-          </View>
-        </View>
-      )}
-      {canDecideClub && row.status === "approved" && <Button label="Revoke" variant="quiet" onPress={onRevoke} />}
     </Card>
   )
 }

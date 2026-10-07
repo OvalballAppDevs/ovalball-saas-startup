@@ -3,7 +3,9 @@
 import { BadgeCheck, ShieldCheck } from "lucide-react"
 import { useEffect, useImperativeHandle, useMemo, useState, type Ref } from "react"
 
+import { AddressLookupField } from "@/components/address/address-lookup-field"
 import { Button } from "@/components/ui/button"
+import { lookupSignupAddress, resolveSignupAddress } from "../actions"
 import { cn } from "@/lib/utils"
 import {
   AUTHORITY_DECLARATION_TEXT,
@@ -874,6 +876,23 @@ function NotFoundForm({
           onChange={(event) => setProposal({ ...proposal, bio: event.target.value })}
         />
       </div>
+
+      {/* The same canonical address search as every other surface -- see the note in
+          personal-details-step. A new club's address is chosen, not constructed by hand. */}
+      <AddressLookupField
+        search={lookupSignupAddress}
+        resolve={resolveSignupAddress}
+        onResolve={(a) =>
+          setProposal({
+            ...proposal,
+            addressLine1: a.line1 ?? proposal.addressLine1,
+            addressLine2: a.line2 ?? "",
+            town: a.town ?? proposal.town,
+            county: a.county ?? proposal.county,
+            postcode: a.postcode ?? proposal.postcode,
+          })
+        }
+      />
 
       <div className="flex flex-col gap-4">
         <FormField id="addressLine1" label="Address line 1" {...field("addressLine1")} />

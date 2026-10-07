@@ -19,6 +19,8 @@ const WEB_ACTIONS = "app/(app)/club/settings/safeguarding/actions.ts"
 const WEB_PAGE = "app/(app)/club/settings/safeguarding/page.tsx"
 const WEB_APPOINTMENTS = "lib/safeguarding/club-appointments.ts"
 const CATALOGUE = "supabase/migrations/20270349000000_capability_catalogue_and_bundles.sql"
+// The one dispensation workflow added the officer's decision key to the SO bundle (and nowhere else).
+const DISPENSATION_WORKFLOW = "supabase/migrations/20270742000000_one_dispensation_workflow.sql"
 const SCREENS = join(MOBILE, "app/(tabs)/admin/safeguarding")
 const HOOK = join(MOBILE, "src/safeguarding/access.ts")
 
@@ -111,7 +113,7 @@ test("the Admin Centre section is native and gated on the Club Admin's nominatio
 })
 
 test("the officer keys are the catalogue's SO bundle, asked of my_capabilities, and open only what the server can read", () => {
-  const catalogue = read(CATALOGUE)
+  const catalogue = read(CATALOGUE) + "\n" + read(DISPENSATION_WORKFLOW)
   for (const key of Object.values(SAFEGUARDING_OFFICER_KEYS)) {
     assert.match(catalogue, new RegExp(`\\('SO', '${key.replace(/\./g, "\\.")}', 'club'\\)`), `${key} is in the SO bundle at club scope`)
   }
@@ -128,7 +130,8 @@ test("the officer keys are the catalogue's SO bundle, asked of my_capabilities, 
   for (const f of mobileSafeguardingFiles()) {
     assert.doesNotMatch(code(f), /safeguarding\.[a-z_]+\.[a-z_]+|messaging\.moderation/, `${f} names no capability key literally -- keys live in the contract`)
   }
-  // The read-only officer screens offer no decision: nothing on the server lets an officer decide.
+  // The officer's lists offer no decision from a list. Since 20270742000000 the confirmed officer DOES decide a
+  // dispensation -- on its record (src/dispensation/record.tsx), where the server re-decides who may.
   const dispensations = code(join(SCREENS, "dispensations.tsx"))
   const reports = code(join(SCREENS, "reports.tsx"))
   assert.doesNotMatch(dispensations + reports, /decide_player_dispensation|revoke_player_dispensation|mark_message_report_reviewed|resolve_message_report|<Button /, "read-only")

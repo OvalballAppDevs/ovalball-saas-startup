@@ -4,6 +4,7 @@ import type { Session } from "@supabase/supabase-js"
 
 import { supabase } from "./supabase"
 import { friendly, logDetail, type FriendlyError } from "../errors/translate"
+import { syncRegistrationIfPermitted, unregisterThisDevice } from "../notifications/push"
 
 /**
  * WHO IS SIGNED IN, AND WHETHER THEY HAVE FINISHED SIGNING IN.
@@ -82,7 +83,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setSession(next)
       // A recovery in progress outranks everything except losing the session altogether -- which is
       // what signing out during a recovery does, and must still work.
-      setStatus(recovering.current && next ? "recovering" : nextStatus)
+      const resolved = recovering.current && next ? "recovering" : nextStatus
+      setStatus(resolved)
+      // OPPORTUNISTIC, NEVER PROMPTING: this only refreshes a token Expo has already issued for a
+      // device that already holds OS permission (`syncRegistrationIfPermitted`'s own guard). It runs
+      // on every transition into "signed-in" -- a fresh sign-in, a restored session, a token refresh
+      // -- which is deliberately cheap to repeat: the RPC it calls is an upsert keyed on the token.
+      if (resolved === "signed-in") void syncRegistrationIfPermitted()
     },
     [classify]
   )
@@ -98,8 +105,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     // A refresh timer that fires while the app is suspended is the "signed out overnight" report
     // nobody can reproduce. The library is told when the app is actually in front of somebody.
     const appState = AppState.addEventListener("change", (state) => {
-      if (state === "active") supabase.auth.startAutoRefresh()
-      else supabase.auth.stopAutoRefresh()
+      if (state === "active") {
+        supabase.auth.startAutoRefresh()
+        void syncRegistrationIfPermitted()
+      } else supabase.auth.stopAutoRefresh()
     })
     supabase.auth.startAutoRefresh()
 
@@ -127,6 +136,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     recovering.current = false
+    // BEFORE the auth call: unregistering this device's push token authenticates as whoever is still
+    // signed in, so it has to happen while that is still true. Best-effort -- see its own comment.
+    await unregisterThisDevice()
     // Local scope first: the point of signing out on a shared handset is that THIS device forgets,
     // and that must happen even with no signal. The library clears the stored session either way.
     await supabase.auth.signOut({ scope: "local" })

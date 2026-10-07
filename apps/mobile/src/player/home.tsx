@@ -127,16 +127,16 @@ export function PlayerHome() {
               <Pressable
                 key={item.key}
                 accessibilityRole="button"
-                accessibilityLabel={`${item.kind === "training" ? "Training" : `v ${item.them?.clubName ?? "TBC"}`}, ${exactDate(item.date)}${item.time ? `, ${kickoffLabel(item.time)}` : ""}`}
+                accessibilityLabel={`${item.kind === "training" ? "Training" : item.kind === "tournament" ? (item.name ?? "Tournament") : `v ${item.them?.clubName ?? "TBC"}`}, ${exactDate(item.date)}${item.time ? `, ${kickoffLabel(item.time)}` : ""}`}
                 onPress={() => open(item)}
                 style={({ pressed }) => ({ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, paddingHorizontal: space.md, borderRadius: radius.md, backgroundColor: pressed ? colour.chalk : colour.surface, borderWidth: 1, borderColor: colour.line })}
               >
-                <View style={{ width: 4, alignSelf: "stretch", borderRadius: 2, backgroundColor: item.kind === "training" ? colour.messengerBlue : colour.pitch600 }} />
+                <View style={{ width: 4, alignSelf: "stretch", borderRadius: 2, backgroundColor: item.kind === "training" ? colour.messengerBlue : item.kind === "tournament" ? colour.mint300 : colour.pitch600 }} />
                 <View style={{ width: 64 }}>
                   <Text style={[type.smallMedium, { color: colour.forest800 }]}>{relativeDate(item.date, today)}</Text>
                   <Text style={[type.caption, { color: colour.inkMuted }]}>{kickoffLabel(item.time) ?? "TBC"}</Text>
                 </View>
-                <Text numberOfLines={1} style={[type.small, { color: colour.ink, flex: 1 }]}>{item.kind === "training" ? "Training" : `v ${[item.them?.clubName, item.them?.teamName].filter(Boolean).join(" ")}`}</Text>
+                <Text numberOfLines={1} style={[type.small, { color: colour.ink, flex: 1 }]}>{item.kind === "training" ? "Training" : item.kind === "tournament" ? (item.name ?? "Tournament") : `v ${[item.them?.clubName, item.them?.teamName].filter(Boolean).join(" ")}`}</Text>
                 <ChevronRight size={16} color={colour.inkSubtle} />
               </Pressable>
             ))}

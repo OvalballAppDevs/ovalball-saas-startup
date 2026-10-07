@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import type { AgeGradeStatus } from "@ovalball/contracts/team/age-grade"
+
 import type { Database } from "@/types/database.types"
 
 /**
@@ -11,15 +13,9 @@ import type { Database } from "@/types/database.types"
  * not the evidence behind it.
  */
 
-export type AgeGradeStatus =
-  | "ELIGIBLE"
-  | "OUTSIDE_AGE_GRADE"
-  | "DISPENSATION_APPROVED"
-  | "DISPENSATION_PENDING"
-  | "AGE_EVIDENCE_REQUIRED"
-  | "AGE_GRADE_NOT_ESTABLISHED"
-  | "SEASON_NOT_ESTABLISHED"
-  | "UNKNOWN_TEAM"
+// One vocabulary for both apps: the phone reads the same words from the shared contract.
+export { AGE_GRADE_STATUS_LABEL, ageGradeStatusLabel } from "@ovalball/contracts/team/age-grade"
+export type { AgeGradeStatus } from "@ovalball/contracts/team/age-grade"
 
 export interface TeamAgeGradeAttention {
   playerId: string
@@ -33,18 +29,6 @@ export interface MyPlayerAgeGradeStatus {
   teamName: string
   status: AgeGradeStatus
   detail: string
-}
-
-/** Human wording for a status. Never "invalid", never a label about the child. */
-export const AGE_GRADE_STATUS_LABEL: Record<AgeGradeStatus, string> = {
-  ELIGIBLE: "Eligible",
-  OUTSIDE_AGE_GRADE: "Outside this age grade",
-  DISPENSATION_APPROVED: "Dispensation approved",
-  DISPENSATION_PENDING: "Dispensation pending",
-  AGE_EVIDENCE_REQUIRED: "Date of birth needed",
-  AGE_GRADE_NOT_ESTABLISHED: "Age grade not established",
-  SEASON_NOT_ESTABLISHED: "Season not established",
-  UNKNOWN_TEAM: "Team not found",
 }
 
 /**

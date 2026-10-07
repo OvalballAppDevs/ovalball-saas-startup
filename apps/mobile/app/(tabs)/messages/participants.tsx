@@ -16,16 +16,16 @@ import {
   rejoinConversation,
   removeParticipant,
   setMuted,
-  unblockPerson,
   type AddableMember,
   type ConversationKind,
   type ParticipantsView,
 } from "../../../src/messages/participants"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { PersonAvatar } from "../../../src/components/identity"
-import { Bell, Check, ChevronRight, Plus, Users, X } from "../../../src/components/icons"
+import { Bell, Check, Plus, Users, X } from "../../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
-import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
+import { TOUCH_TARGET, colour, onForest, radius, space, type } from "../../../src/design/tokens"
+import { OvalballDetailHeader } from "../../../src/components/app-header"
 
 /**
  * WHO IS IN THIS CONVERSATION.
@@ -112,55 +112,34 @@ export default function Participants() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <View
-        style={{
-          paddingTop: insets.top + space.sm,
-          paddingBottom: space.sm,
-          paddingHorizontal: space.md,
-          borderBottomWidth: 1,
-          borderBottomColor: colour.line,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: space.xs,
-        }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back to the conversation"
-          onPress={() => router.back()}
-          hitSlop={8}
-          style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
-        >
-          <View style={{ transform: [{ rotate: "180deg" }] }}>
-            <ChevronRight size={22} color={colour.ink} />
-          </View>
-        </Pressable>
-        <Text accessibilityRole="header" style={[type.heading, { color: colour.ink, flex: 1 }]}>
-          {adding ? "Add People" : "People"}
-        </Text>
-        {!adding && view?.canAdd && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add people to this conversation"
-            onPress={() => void openAdd()}
-            hitSlop={8}
-            style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
-          >
-            <Plus size={22} color={colour.forest800} strokeWidth={2.2} />
-          </Pressable>
-        )}
-        {adding && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Done adding people"
-            onPress={() => setAdding(false)}
-            hitSlop={8}
-            style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
-          >
-            <X size={22} color={colour.ink} strokeWidth={2.2} />
-          </Pressable>
-        )}
-      </View>
+      <OvalballDetailHeader
+        title={adding ? "Add People" : "People"}
+        onBack={() => router.back()}
+        backLabel="Back to the conversation"
+        rightAction={
+          !adding && view?.canAdd ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add people to this conversation"
+              onPress={() => void openAdd()}
+              hitSlop={8}
+              style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
+            >
+              <Plus size={22} color={onForest.primary} strokeWidth={2.2} />
+            </Pressable>
+          ) : adding ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Done adding people"
+              onPress={() => setAdding(false)}
+              hitSlop={8}
+              style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
+            >
+              <X size={22} color={onForest.primary} strokeWidth={2.2} />
+            </Pressable>
+          ) : undefined
+        }
+      />
 
       {missing ? (
         <EmptyState
@@ -259,7 +238,7 @@ export default function Participants() {
                       </View>
                       {/* NEVER OFFERED AGAINST YOURSELF. Blocking yourself is not a thing, and a remove
                           control on your own row is what Leave is for. */}
-                      {!person.isMe && view.canManage && (
+                      {!person.isMe && view.canManage && view.removableIds.includes(person.userId) && (
                         <Action
                           label={`Remove ${person.name} from this conversation`}
                           busy={busy === `remove:${person.userId}`}

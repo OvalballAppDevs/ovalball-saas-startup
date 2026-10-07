@@ -99,7 +99,9 @@ export async function cancelMembership(params: { supabase: SupabaseClient<Databa
         user_id: payerRow.payer_user_id,
         type: "gocardless_membership_cancelled",
         title: "Membership cancelled",
-        body: `The Direct Debit membership for ${playerName} has been cancelled. No further monthly collections will be made.`,
+        // True to what GoCardless does: cancelling the subscription stops new collections, but a payment it has
+        // already created is not cancelled with it (https://docs.gocardless.com/docs/api-reference/subscription).
+        body: `The Direct Debit membership for ${playerName} has been cancelled. No new monthly collections will be scheduled; a payment already on its way to your bank may still be collected.`,
         data: { payer_subscription_id: params.payerSubscriptionId },
       })
     }

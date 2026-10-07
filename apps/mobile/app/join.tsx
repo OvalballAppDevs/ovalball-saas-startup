@@ -15,6 +15,7 @@ import {
   type InvitationSecret,
 } from "@ovalball/contracts/invitations"
 import { AUTH_WORDING } from "@ovalball/contracts/auth"
+import type { TeamCodeSubject } from "@ovalball/contracts/team/team-code"
 
 import { supabase } from "../src/auth/supabase"
 import { useSession } from "../src/auth/session"
@@ -23,6 +24,7 @@ import { useAppContexts } from "../src/context/contexts"
 import { webUrl } from "../src/config/environment"
 import { discardJoinSecret, holdJoinSecret, peekJoinSecret } from "../src/onboarding/join-secret"
 import { EntranceLink, EntranceProblem, EntranceScreen, Field } from "../src/components/entrance"
+import { TeamCodeJourney } from "../src/join/team-code"
 import { Button, Card, Loading } from "../src/components/ui"
 import { CircleCheck, KeyRound, Mail, UserRound } from "../src/components/icons"
 import { colour, radius, space, type } from "../src/design/tokens"
@@ -110,12 +112,13 @@ export default function Join() {
     setSecret(next)
   }
 
-  async function accept() {
+  async function accept(subject?: TeamCodeSubject) {
     if (!secret) return
     setBusy(true)
     setProblem(null)
     setRefusedGenerically(false)
-    const result = await redeemInvitation(supabase, secret)
+    // A team code says who it is for (20270741000000); every other invitation sends no subject.
+    const result = await redeemInvitation(supabase, { ...secret, subject: subject ?? null })
     if (!result.ok) {
       setBusy(false)
       setProblem(result.message)
@@ -152,12 +155,17 @@ export default function Join() {
   // ------------------------------------------------------------------ accepted
   if (outcome) {
     return (
-      <EntranceScreen title="You're in" subtitle={outcome.note ?? "Your invitation has been accepted."}>
+      <EntranceScreen
+        title={outcome.landing === "PENDING" ? "Request Sent" : "You're In"}
+        // The title already says the request went; the sentence under it says what happens next.
+        subtitle={(outcome.landing === "PENDING" ? outcome.note?.replace(/^Request sent\.\s*/, "") : outcome.note) || "Your invitation has been accepted."}
+      >
         <View style={{ alignItems: "center", marginTop: space.xl, gap: space.md }}>
           <CircleCheck size={40} color={colour.forest800} />
           <Text style={[type.body, { color: colour.inkMuted, textAlign: "center" }]}>
             {outcome.landing === "PENDING"
-              ? "Nothing more to do for now. You will hear from the club when it has been confirmed."
+              ? // "decided", never "confirmed": a request -- a dispensation above all -- may be declined.
+                "Nothing more to do for now. You'll get a notification as soon as it has been decided."
               : outcome.landing === "SITE_ADMIN"
                 ? "Platform administration stays on the website; the app will show you your own rugby."
                 : "Everything you now hold is ready in the app."}
@@ -234,6 +242,11 @@ export default function Join() {
 
   // ------------------------------------------------------------------ usable
   const invited = preview!
+
+  // A TEAM'S CODE, signed in: who it is for, then one request for THAT team (20270741000000).
+  if (invited.kind === "TEAM_JOIN_CODE" && status === "signed-in") {
+    return <TeamCodeJourney secret={secret} email={email ?? null} busy={busy} problem={problem} onSend={(subject) => accept(subject)} onNotNow={notNow} />
+  }
   const sentence = invited.inviterLabel ? `${invited.inviterLabel} has invited you to ${invitationPurpose(invited.kind)}.` : `You have been invited to ${invitationPurpose(invited.kind)}.`
   const expires = invited.expiresAt ? new Date(invited.expiresAt) : null
 

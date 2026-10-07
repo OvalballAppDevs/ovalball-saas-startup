@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 
 import { setAttendanceResponse } from "../fixtures/[fixtureId]/actions"
 import { respondToTrainingAttendance } from "../calendar/training-session-actions"
+import { respondToTournamentAttendance } from "../tournaments/actions"
 
 export type AgendaResponseResult = { ok: true } | { ok: false; message: string }
 
@@ -25,12 +26,15 @@ export type AgendaResponseResult = { ok: true } | { ok: false; message: string }
  * caller the database refuses is refused here whether or not a button was
  * rendered.
  *
- * The two kinds deliberately do not share a write: a fixture and a training
- * session are different canonical records with different RPCs, and pretending
- * otherwise would mean inventing a third thing that is neither.
+ * The three kinds deliberately do not share a write: a fixture, a training
+ * session and a tournament are different canonical records with different RPCs,
+ * and pretending otherwise would mean inventing a fourth thing that is none of
+ * them. What they DO share is the authority underneath -- all three RPCs call
+ * the same `internal.resolve_attendance_response_source` -- which is the part
+ * that must never be duplicated.
  */
 export async function respondFromAgenda(
-  kind: "fixture" | "training",
+  kind: "fixture" | "training" | "tournament",
   eventId: string,
   playerId: string,
   status: "ATTENDING" | "CANNOT_ATTEND" | "UNSURE",
@@ -38,6 +42,9 @@ export async function respondFromAgenda(
   if (kind === "fixture") {
     const result = await setAttendanceResponse(eventId, playerId, status)
     if (!result.ok) return { ok: false, message: result.message }
+  } else if (kind === "tournament") {
+    const result = await respondToTournamentAttendance(eventId, playerId, status)
+    if (!result.ok) return { ok: false, message: result.error }
   } else {
     const result = await respondToTrainingAttendance(eventId, playerId, status)
     if (!result.ok) return { ok: false, message: result.error }

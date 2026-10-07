@@ -1,5 +1,8 @@
 "use server"
 
+import { resolveAddress, suggestAddresses } from "@/lib/address-lookup/lookup"
+import type { AddressResolveResult, AddressSuggestResult } from "@ovalball/contracts/address"
+
 import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
@@ -210,4 +213,29 @@ export async function requestEmailChange(newEmail: string): Promise<ChangeEmailR
   const { error } = await supabase.auth.updateUser({ email: trimmed })
   if (error) return { ok: false, error: error.message }
   return { ok: true }
+}
+
+/**
+ * CANONICAL ADDRESS SEARCH FOR A PERSON'S OWN ACCOUNT.
+ *
+ * Signed in is the whole boundary: a person may look up an address to put on their own profile, and
+ * the write itself is authorised separately by `updatePersonalDetails`. Same shared service, same
+ * mapping, same failure vocabulary as every other surface -- no account-specific address parser.
+ */
+export async function lookupAccountAddress(query: string, sessionToken: string): Promise<AddressSuggestResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { status: "invalid_query", reason: "You must be signed in." }
+  return suggestAddresses(query, sessionToken)
+}
+
+export async function resolveAccountAddress(placeId: string, sessionToken: string): Promise<AddressResolveResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { status: "invalid_query", reason: "You must be signed in." }
+  return resolveAddress(placeId, sessionToken)
 }

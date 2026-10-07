@@ -31,6 +31,7 @@ export function NotificationCard({
   now,
   onOpen,
   onLongPress,
+  onDelete,
 }: {
   item: FeedNotification
   priority: AttentionPriority
@@ -40,6 +41,8 @@ export function NotificationCard({
   now: Date
   onOpen: () => void
   onLongPress: () => void
+  /** Offered to a screen reader as a named action, since the swipe that reveals Delete is not. */
+  onDelete?: () => void
 }) {
   const unread = item.readAt === null
   const when = whenLabel(item.createdAt, now)
@@ -52,6 +55,10 @@ export function NotificationCard({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint="Opens it. Press and hold for more"
+      accessibilityActions={onDelete ? [{ name: "delete", label: "Delete notification" }] : undefined}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === "delete") onDelete?.()
+      }}
       onPress={onOpen}
       onLongPress={onLongPress}
       delayLongPress={350}

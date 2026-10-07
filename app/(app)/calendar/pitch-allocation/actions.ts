@@ -28,7 +28,7 @@ export type { AllocateResult, ProposalItemView, ProposalResult }
 
 const CALENDAR_PATHS = ["/calendar", "/calendar/agenda", "/calendar/pitch-allocation", "/fixtures"]
 
-export async function requirePitchAllocationAccess(clubId: string) {
+export async function requirePitchAllocationAccess(clubId: string, level: "view" | "manage" = "manage") {
   const supabase = await createClient()
   const {
     data: { user },
@@ -59,7 +59,9 @@ export async function requirePitchAllocationAccess(clubId: string) {
   // exactly Section 25's "do not silently grant club-wide scheduling
   // power" requirement, for free, from the capability engine's own scope
   // model.
-  const allowed = activeIsSiteAdmin || (await hasCapability(supabase, "fixture.edit", "club", { clubId }))
+  // H32 closed (20270762000000): Pitch Allocation asks its OWN keys, never fixture edit. The server enforces the same
+  // (allocate_fixture_pitch / apply_arena_allocation); this check only spares a refused round trip.
+  const allowed = activeIsSiteAdmin || (await hasCapability(supabase, `venue.pitch_allocation.${level}`, "club", { clubId }))
   if (!allowed) return { ok: false as const, error: "You do not have Pitch Allocation access for this club." }
 
   return { ok: true as const, supabase, user }
@@ -91,7 +93,7 @@ export async function createPitchAllocationProposal(clubId: string, dateIso: str
 }
 
 export async function getProposal(clubId: string, proposalId: string): Promise<{ ok: true; items: ProposalItemView[] } | { ok: false; error: string }> {
-  const auth = await requirePitchAllocationAccess(clubId)
+  const auth = await requirePitchAllocationAccess(clubId, "view")
   if (!auth.ok) return { ok: false, error: auth.error }
   try {
     return { ok: true, items: await readAllocationProposal(auth.supabase, proposalId) }

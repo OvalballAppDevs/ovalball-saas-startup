@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "../database"
-import { loadStaffPlayers } from "../team/players"
 
 type Client = SupabaseClient<Database>
 
@@ -45,6 +44,8 @@ export const SAFEGUARDING_CLUB_KEYS = {
  */
 export const SAFEGUARDING_OFFICER_KEYS = {
   dispensationView: "safeguarding.dispensation.view",
+  /** The confirmed officer decides dispensations beside the Club Admin (20270742000000). */
+  dispensationDecide: "safeguarding.dispensation.decide",
   welfareView: "safeguarding.welfare.view",
   transferView: "safeguarding.transfer.view",
   conversationHandle: "safeguarding.conversation.handle",
@@ -76,7 +77,7 @@ export function noSafeguardingAccess(): SafeguardingAccess {
     deactivate: false,
     conversationStart: false,
     contactView: false,
-    officer: { dispensationView: false, welfareView: false, transferView: false, conversationHandle: false, moderationReview: false },
+    officer: { dispensationView: false, dispensationDecide: false, welfareView: false, transferView: false, conversationHandle: false, moderationReview: false },
     anyOfficer: false,
     contactEditSelf: false,
   }
@@ -478,58 +479,8 @@ export async function sendSafeguardingThreadMessage(supabase: Client, conversati
 // THE OFFICER'S READS: dispensations, a reasoned welfare lookup, and the club's reported messages.
 // ---------------------------------------------------------------------------------------------------
 
-export interface OfficerDispensation {
-  id: string
-  status: string
-  playerName: string
-  sourceTeamName: string
-  targetTeamName: string
-  seasonName: string
-  eligibilityRuleReference: string
-  governingBodyReference: string | null
-  createdAt: string
-}
-
-export const DISPENSATION_STATUS_LABEL: Record<string, string> = {
-  requested: "Requested",
-  source_team_approved: "Team Approved",
-  club_approved: "Club Approved",
-  approved: "Approved",
-  rejected: "Declined",
-  expired: "Expired",
-  revoked: "Revoked",
-}
-
-/**
- * The club's dispensations, under `player_team_dispensation_select`: the officer's grant is one branch
- * of that policy and the rows are whatever it allows. Read-only -- deciding is somebody else's job and
- * the officer's grant carries none of it. `decision_reason` is deliberately not selected.
- */
-export async function readOfficerDispensations(supabase: Client, clubId: string): Promise<OfficerDispensation[]> {
-  const { data: teams, error: teamsError } = await supabase.from("teams").select("id").eq("club_id", clubId)
-  if (teamsError) throw teamsError
-  const teamIds = (teams ?? []).map((t) => t.id)
-  if (teamIds.length === 0) return []
-  const { data, error } = await supabase
-    .from("player_team_dispensation")
-    .select("id, status, eligibility_rule_reference, governing_body_reference, player_id, created_at, source_team:source_team_id(display_name), target_team:target_team_id(display_name), seasons(name)")
-    .in("source_team_id", teamIds)
-    .order("created_at", { ascending: false })
-  if (error) throw error
-  const rows = data ?? []
-  const players = await loadStaffPlayers(supabase, rows.map((r) => r.player_id))
-  return rows.map((r) => ({
-    id: r.id,
-    status: r.status,
-    playerName: players.get(r.player_id)?.displayName || "A player",
-    sourceTeamName: r.source_team?.display_name ?? "A team",
-    targetTeamName: r.target_team?.display_name ?? "A team",
-    seasonName: r.seasons?.name ?? "This season",
-    eligibilityRuleReference: r.eligibility_rule_reference,
-    governingBodyReference: r.governing_body_reference ?? null,
-    createdAt: r.created_at,
-  }))
-}
+// The officer's dispensations are the club's register, read and decided through `../team/dispensation` --
+// one implementation for the officer, the Club Admin and both apps. The officer now DECIDES them too.
 
 export interface WelfareCandidate {
   playerId: string

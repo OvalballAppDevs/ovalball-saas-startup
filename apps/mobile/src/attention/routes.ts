@@ -2,14 +2,14 @@ import type { ActiveContextKind } from "@ovalball/contracts"
 import type { AttentionItem } from "@ovalball/contracts/attention"
 
 import { resolveIntent } from "../links/intents"
-import { narrowIntentForContext, routeForIntent, type Route } from "../links/destinations"
+import { routeForIntent, type Route } from "../links/destinations"
 
 /**
  * WHERE AN ATTENTION ITEM OPENS, natively.
  *
- * The item carries a typed destination and its canonical web href. Everything that has a screen in the
- * app goes through the ONE resolver (`resolveIntent` -> `routeForIntent`), narrowed for a family
- * context exactly as a notification is. The team's own screens -- the register, the requests list,
+ * The item carries its canonical web href. Everything that has a screen in the
+ * app goes through the ONE resolver (`resolveIntent` -> `routeForIntent`), exactly as a notification
+ * does. The team's own screens -- the register, the requests list,
  * the people list -- are the team workspace's routes, chosen by what the item IS, so a coach lands on
  * the register rather than on the fixture page that also happens to be canonical.
  *
@@ -25,8 +25,9 @@ export function routeForAttentionItem(item: AttentionItem, contextKind: ActiveCo
       case "fixture_request":
         return { pathname: "/team/requests" }
       case "team_place_request":
-      case "age_grade":
         return { pathname: "/team/people" }
+      case "age_grade":
+        return { pathname: "/team/age-grade" }
       case "call_up":
         return { pathname: "/team/settings/player-requests" }
       case "team_subscription":
@@ -38,6 +39,6 @@ export function routeForAttentionItem(item: AttentionItem, contextKind: ActiveCo
   if (item.context.kind === "club" && item.sourceType === "club_join_request") {
     return { pathname: "/admin/people" }
   }
-  const intent = narrowIntentForContext(resolveIntent(`ovalball://${item.href.replace(/^\//, "")}`), contextKind)
+  const intent = resolveIntent(`ovalball://${item.href.replace(/^\//, "")}`)
   return routeForIntent(intent)
 }

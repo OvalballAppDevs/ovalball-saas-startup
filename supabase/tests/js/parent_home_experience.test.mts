@@ -159,8 +159,11 @@ test("each hero page names its own child, so a family of two is never ambiguous"
 test("a participant's hero goes to a participant centre and says so", () => {
   assert.equal(heroActionLabel("match"), "View Match Centre")
   assert.equal(heroActionLabel("training"), "View Training Centre")
+  // MATCH CENTRE CONSOLIDATION (owner brief, 2026-10-03): the one Match Centre lives at the canonical
+  // fixture address for everybody -- there is no separate participant address any more. That the
+  // address draws nothing but the Match Centre is pinned in participant_routing.test.mts.
   for (const kind of ["parent", "family", "player"] as const) {
-    assert.equal(routeForAgendaItem(event({ key: "a", date: "2026-10-03" }), kind)!.pathname, "/fixtures/[fixtureId]/match-centre")
+    assert.equal(routeForAgendaItem(event({ key: "a", date: "2026-10-03" }), kind)!.pathname, "/fixtures/[fixtureId]")
     assert.equal(routeForAgendaItem(session({ key: "t", date: "2026-10-03" }), kind)!.pathname, "/calendar/training/[sessionId]")
   }
 })
@@ -257,9 +260,13 @@ test("family payment authority is the family's, never a staff finance capability
 })
 
 test("mobile keeps no payment state of its own", () => {
+  // The summary reads the server's ONE standing (20270747000000) -- the same derivation the club and the team
+  // see -- and the detail reads the canonical provider records themselves. Neither keeps a state of its own.
   const source = readFileSync("packages/contracts/src/subscriptions/family.ts", "utf8")
+  assert.match(source, /rpc\("family_membership_standing"/, "the family summary does not read the server's one standing")
+  const detail = readFileSync("packages/contracts/src/subscriptions/family-detail.ts", "utf8")
   for (const table of ["gocardless_subscriptions", "gocardless_mandates", "gocardless_billing_requests"]) {
-    assert.ok(source.includes(table), `${table} is not read`)
+    assert.ok(detail.includes(table) || source.includes(table), `${table} is not read`)
   }
   // No local boolean, no shadow table, nothing copied between clients. Prose
   // explaining that must not be mistaken for the thing.
@@ -278,9 +285,19 @@ test("a provider processing state is not dressed up as a task", () => {
 
 test("the mandate is entered on the provider's own pages, never natively", () => {
   const home = readFileSync("apps/mobile/app/(tabs)/index.tsx", "utf8")
-  assert.match(home, /parent\/players\/\$\{subscription\.playerId\}\/subscription/)
-  for (const forbidden of ["sort code", "account number", "TextInput"]) {
-    assert.ok(!home.includes(forbidden), `Home collects bank details: ${forbidden}`)
+  // HOME HANDS OFF; IT NO LONGER BUILDS A WEB PATH ITSELF. It used to push
+  // `parent/players/${playerId}/subscription` from here, which was a second place that knew the
+  // website's address; it now routes to the canonical parent subscription surface, and THAT opens
+  // the provider. Both halves are checked, because the invariant is about where a mandate is
+  // entered rather than about which file holds the string.
+  assert.match(home, /router\.push\("\/subscriptions"/, "Home does not hand off to the subscription surface")
+  const surface = readFileSync("apps/mobile/src/family/subscriptions.tsx", "utf8")
+  assert.match(surface, /Linking\.openURL/, "the subscription surface does not open the provider's own pages")
+  for (const file of ["apps/mobile/app/(tabs)/index.tsx", "apps/mobile/src/family/subscriptions.tsx"]) {
+    const src = readFileSync(file, "utf8")
+    for (const forbidden of ["sort code", "account number", "TextInput"]) {
+      assert.ok(!src.includes(forbidden), `${file} collects bank details: ${forbidden}`)
+    }
   }
 })
 
@@ -345,8 +362,16 @@ test("the artwork is the app's own, bundled, and never fetched or invented in co
   }
   // The two heroes and all four news fallbacks are wired, not left null.
   assert.ok(!/heroMatch: null|heroTraining: null/.test(editorial), "a hero has no artwork")
+  // Since the Arena pass (section 49) each picture is taken from the Stock Media Library by its key -- the same
+  // bundled editorial photograph, required once, in the library binding.
+  const library = readFileSync("apps/mobile/src/media/stock-assets.ts", "utf8")
+  const keys: Record<string, string> = { matchday: "matchday-scene-01", training: "training-session-02", community: "rugby-team-community-01", general: "rugby-team-general-01" }
   for (const key of ["matchday", "training", "community", "general"]) {
-    assert.match(editorial, new RegExp(`${key}: require\\("\\.\\./\\.\\./\\.\\./assets/editorial/rugby-${key}\\.jpg"\\)`), `the ${key} news fallback is missing`)
+    assert.match(editorial, new RegExp(`${key}: libraryAsset\\("${keys[key]}"\\)`), `the ${key} news fallback is missing`)
+    const bound = library.match(new RegExp(`"${keys[key]}": require\\("\\.\\./\\.\\./assets/(editorial/rugby-${key}\\.jpg)"\\)`))
+    assert.ok(bound, `${keys[key]} is not the editorial ${key} photograph`)
+    const path = `apps/mobile/assets/${bound![1]}`
+    assert.ok(existsSync(path) && statSync(path).size > 20_000 && statSync(path).size < 900_000, `${path} is not a real, phone-sized photograph`)
   }
   // And none of it carries domain truth: no club, no crest, no kit, no fixture.
   for (const forbidden of ["crest", "logo", "kit", "fixture", "club_", "Ovalball UAT"]) {
@@ -357,7 +382,9 @@ test("the artwork is the app's own, bundled, and never fetched or invented in co
 test("a news card shows the club's own photograph first, and an editorial one only in its absence", () => {
   const sections = readFileSync("apps/mobile/src/components/home/sections.tsx", "utf8")
   assert.match(sections, /article\.heroUrl \? \(/, "a news card has no branded fallback")
-  assert.match(sections, /editorial\.news\.(matchday|training|community|general)/)
+  // The editorial fallback is the ONE news fallback (integration audit), drawn only from the editorial set.
+  assert.match(sections, /newsFallbackImage\(article\.categoryLabel\)/)
+  assert.match(readFileSync("apps/mobile/src/content/news-fallback.ts", "utf8"), /editorial\.news\.(matchday|training|community|general)/)
   for (const forbidden of ["unsplash", "pexels", "placeholder.com", "https://"]) {
     assert.ok(!sections.includes(forbidden), `sections fetch ${forbidden}`)
   }
@@ -466,4 +493,23 @@ test("announcements, news and the membership live on light cards with dark type"
   // The membership's colour is its state, never the club.
   const membership = sections.split("export function SubscriptionStatusCard")[1] ?? ""
   assert.ok(!/accents\./.test(membership.split("const card =")[0]), "the membership card is painted in club colours")
+})
+
+test("a family's task comes only from a genuine absence or failure in the one standing (20270747000000)", async () => {
+  const { familyAttention } = await import("@/packages/contracts/src/subscriptions/family")
+  assert.equal(familyAttention("COLLECTING", "WITH_THE_BANK"), "none", "money with the bank is GoCardless doing its job")
+  assert.equal(familyAttention("COLLECTING", "RETRYING"), "none")
+  assert.equal(familyAttention("COLLECTING", "SCHEDULED"), "none")
+  assert.equal(familyAttention("UP_TO_DATE", "PAID"), "none")
+  assert.equal(familyAttention("EXEMPT", "WAIVED"), "none")
+  assert.equal(familyAttention("NOT_SET_UP", "NO_PAYER"), "setup_required")
+  assert.equal(familyAttention("DUE", "SETUP_UNFINISHED"), "setup_required")
+  // 20270753000000: a Direct Debit in place whose membership the payer never started is theirs to start.
+  assert.equal(familyAttention("DUE", "NOT_STARTED"), "start_required")
+  assert.equal(familyAttention("OVERDUE", "NOT_STARTED"), "start_required")
+  // The failure the old projection missed: a payment that failed while the Direct Debit was live.
+  assert.equal(familyAttention("ACTION_NEEDED", "PAYMENT_FAILED"), "failed")
+  assert.equal(familyAttention("ACTION_NEEDED", "MANDATE_PROBLEM"), "failed")
+  // The club's own problems are not a family's task.
+  assert.equal(familyAttention("ACTION_NEEDED", "LEFT_THE_TEAM"), "none")
 })

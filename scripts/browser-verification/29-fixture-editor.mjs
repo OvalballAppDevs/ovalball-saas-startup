@@ -165,7 +165,13 @@ await sheet.getByRole("button", { name: "Save Changes" }).click()
 await sheet.waitFor({ state: "hidden" })
 let r = row()
 record("§9 the fixture now records Preston Grasshoppers as the club, with no team bound", r[4] === PRESTON && r[5] === "", `${r[4]} team=${r[5]}`)
-record("§10 the fixture is Away at their ground, recorded by name", r[3] === "Away" && r[6] === "Lightfoot Green" && r[1] === "", `${r[3]} ${r[6]} venue_id=${r[1]}`)
+// AT THEIR GROUND, AS THEIR OWN RECORD. Preston Grasshoppers are on Ovalball, and since 20270728 ("a match is
+// played at the host's ground") an away match at an Ovalball club follows that club's canonical default venue --
+// the venue RECORD named Lightfoot Green, not the words "Lightfoot Green" typed onto the fixture. A club that is
+// not on Ovalball still has its ground kept by name. The invariant is unchanged: away, at their ground.
+const PRESTON_GROUND = sql(`select internal.host_default_venue(c.id) from clubs c where c.slug='preston-grasshoppers-uat'`)
+const groundName = r[1] ? sql(`select name from venues where id='${r[1]}'`) : r[6]
+record("§10 the fixture is Away at their ground, as their own venue record", r[3] === "Away" && r[1] === PRESTON_GROUND && groundName === "Lightfoot Green" && r[6] === "", `${r[3]} venue_id=${r[1]} (${groundName}) text=${r[6]}`)
 record("§7 the notes still survive", r[2] === `Bring both kits ${TAG}`, r[2])
 
 // ---------------------------------------------------------------------

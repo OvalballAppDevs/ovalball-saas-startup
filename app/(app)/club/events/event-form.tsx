@@ -8,7 +8,7 @@ import { AddressLookupField } from "@/components/address/address-lookup-field"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
-import { lookupEventAddress, saveClubEvent } from "./actions"
+import { lookupEventAddress, resolveEventAddress, saveClubEvent } from "./actions"
 
 /**
  * ADD / EDIT EVENT.
@@ -240,14 +240,16 @@ export function EventForm({
                     the browser and no key is exposed to it. */}
                 <AddressLookupField
                   search={lookupEventAddress}
-                  onSelect={(a) =>
+                  resolve={resolveEventAddress}
+                  onResolve={(a) =>
                     setExternal((prev) => ({
                       ...prev,
-                      line1: a.line1,
-                      line2: a.line2,
-                      town: a.town,
-                      county: a.county,
-                      postcode: a.postcode,
+                      // A selected property fills the whole address; anything Google omitted is kept.
+                      line1: a.line1 ?? prev.line1,
+                      line2: a.line2 ?? "",
+                      town: a.town ?? prev.town,
+                      county: a.county ?? prev.county,
+                      postcode: a.postcode ?? prev.postcode,
                     }))
                   }
                 />

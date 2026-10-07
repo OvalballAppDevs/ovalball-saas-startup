@@ -3,7 +3,7 @@ import { Animated, Easing, Modal, Pressable, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { BookOpen, Camera, IdCard, Image as ImageIcon } from "./icons"
-import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../design/tokens"
+import { colour, elevation, messenger, radius, space, type } from "../design/tokens"
 
 /**
  * WHAT YOU CAN ATTACH, AS A SHEET.
@@ -33,12 +33,15 @@ export function AttachmentSheet({
   /** False in a conversation the canonical model cannot carry an attachment in. */
   canAttach,
   reason,
+  showDocuments = true,
 }: {
   visible: boolean
   onClose: () => void
   onChoose: (action: AttachmentAction) => void
   canAttach: boolean
   reason: string | null
+  /** Club Documents is offered only to somebody the server says may use the club's library. */
+  showDocuments?: boolean
 }) {
   const insets = useSafeAreaInsets()
   const translate = useRef(new Animated.Value(500)).current
@@ -64,36 +67,44 @@ export function AttachmentSheet({
     })
   }
 
-  const actions: { key: AttachmentAction; label: string; caption: string; icon: React.ReactNode }[] = [
+  const actions: { key: AttachmentAction; label: string; caption: string; icon: React.ReactNode; tint: string }[] = [
     {
-      key: "documents",
-      label: "Club Documents",
-      caption: "Share something already in Ovalball",
-      icon: <BookOpen size={20} color={colour.forest800} strokeWidth={1.9} />,
+      key: "library",
+      label: "Choose Photo",
+      caption: "From your photo library",
+      icon: <ImageIcon size={24} color={colour.forest800} strokeWidth={1.9} />,
+      tint: colour.mint100,
     },
     {
       key: "camera",
       label: "Take Photo",
       caption: "Use the camera",
-      icon: <Camera size={20} color={colour.forest800} strokeWidth={1.9} />,
+      icon: <Camera size={24} color={colour.forest800} strokeWidth={1.9} />,
+      tint: colour.mint100,
     },
-    {
-      key: "library",
-      label: "Choose Photo",
-      caption: "From your photo library",
-      icon: <ImageIcon size={20} color={colour.forest800} strokeWidth={1.9} />,
-    },
+    ...(showDocuments
+      ? [
+          {
+            key: "documents" as const,
+            label: "Club Documents",
+            caption: "Share from your club's library",
+            icon: <BookOpen size={24} color={colour.messengerBlue} strokeWidth={1.9} />,
+            tint: colour.infoSurface,
+          },
+        ]
+      : []),
     {
       key: "contact",
       label: "Contact Card",
-      caption: "Share your name, role and telephone number",
-      icon: <IdCard size={20} color={colour.forest800} strokeWidth={1.9} />,
+      caption: "Your name, role and number",
+      icon: <IdCard size={24} color={colour.warning} strokeWidth={1.9} />,
+      tint: colour.warningSurface,
     },
   ]
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={() => dismiss()} statusBarTranslucent>
-      <Animated.View style={{ flex: 1, backgroundColor: "rgba(7,28,20,0.5)", opacity: backdrop }}>
+      <Animated.View style={{ flex: 1, backgroundColor: messenger.scrim, opacity: backdrop }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => dismiss()} style={{ flex: 1 }} />
       </Animated.View>
 
@@ -115,8 +126,8 @@ export function AttachmentSheet({
           <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colour.lineStrong }} />
         </View>
 
-        <Text accessibilityRole="header" style={[type.heading, { color: colour.ink, paddingHorizontal: space.lg, paddingTop: space.lg }]}>
-          Attach
+        <Text accessibilityRole="header" style={[type.heading, { color: colour.ink, paddingHorizontal: space.lg, paddingTop: space.md }]}>
+          Share
         </Text>
 
         {!canAttach && !!reason && (
@@ -125,38 +136,38 @@ export function AttachmentSheet({
           </Text>
         )}
 
-        <View style={{ padding: space.lg, gap: space.sm }}>
-          {actions.map((action) => {
-            const enabled = canAttach
-            return (
-              <Pressable
-                key={action.key}
-                accessibilityRole="button"
-                accessibilityLabel={`${action.label}. ${action.caption}`}
-                accessibilityState={{ disabled: !enabled }}
-                disabled={!enabled}
-                onPress={() => dismiss(() => onChoose(action.key))}
-                style={({ pressed }) => ({
-                  minHeight: TOUCH_TARGET + 12,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: space.md,
-                  padding: space.md,
-                  borderRadius: radius.lg,
-                  backgroundColor: colour.surface,
-                  borderWidth: 1,
-                  borderColor: colour.line,
-                  opacity: !enabled ? 0.45 : pressed ? 0.88 : 1,
-                })}
-              >
-                {action.icon}
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[type.smallMedium, { color: colour.ink }]}>{action.label}</Text>
-                  <Text style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>{action.caption}</Text>
-                </View>
-              </Pressable>
-            )
-          })}
+        {/* A GRID OF WHAT CAN BE SHARED HERE -- the four the platform supports, and only those. */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, padding: space.lg }}>
+          {actions.map((action) => (
+            <Pressable
+              key={action.key}
+              accessibilityRole="button"
+              accessibilityLabel={`${action.label}. ${action.caption}`}
+              accessibilityState={{ disabled: !canAttach }}
+              disabled={!canAttach}
+              onPress={() => dismiss(() => onChoose(action.key))}
+              style={({ pressed }) => ({
+                flexBasis: "47%",
+                flexGrow: 1,
+                minHeight: 108,
+                gap: space.sm,
+                padding: space.md,
+                borderRadius: radius.lg,
+                backgroundColor: colour.surface,
+                opacity: !canAttach ? 0.45 : 1,
+                transform: [{ scale: pressed ? 0.97 : 1 }],
+                ...elevation.card,
+              })}
+            >
+              <View style={{ width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: action.tint }}>{action.icon}</View>
+              <View>
+                <Text style={[type.smallMedium, { color: colour.ink }]}>{action.label}</Text>
+                <Text numberOfLines={2} style={[type.caption, { color: colour.inkMuted, marginTop: 1 }]}>
+                  {action.caption}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
         </View>
       </Animated.View>
     </Modal>

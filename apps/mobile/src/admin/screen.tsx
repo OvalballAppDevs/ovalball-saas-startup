@@ -1,10 +1,12 @@
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
-import { useRouter } from "expo-router"
+import { StatusBar } from "expo-status-bar"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { ChevronLeft } from "../components/icons"
 import { ClubCrest } from "../components/identity"
 import { useAppContexts } from "../context/contexts"
+import { useOriginBack } from "../links/origin"
+import { tabBarHeight } from "../navigation/tab-bar-height"
 import { TOUCH_TARGET, colour, space, type } from "../design/tokens"
 
 /**
@@ -15,16 +17,17 @@ import { TOUCH_TARGET, colour, space, type } from "../design/tokens"
  * WHOSE club they are administering. Back goes to where this screen was opened from, and to the
  * Admin Centre landing when it was opened from outside.
  */
-export function AdminScreen({ section, children, refreshing = false, onRefresh, footer }: { section: string; children: React.ReactNode; refreshing?: boolean; onRefresh?: () => void; footer?: React.ReactNode }) {
+export function AdminScreen({ section, children, refreshing = false, onRefresh, footer, fallback = "/admin" }: { section: string; children: React.ReactNode; refreshing?: boolean; onRefresh?: () => void; footer?: React.ReactNode; fallback?: string }) {
   const insets = useSafeAreaInsets()
-  const router = useRouter()
   const { club } = useAppContexts()
-  const back = () => (router.canGoBack() ? router.back() : router.dismissTo("/admin"))
+  // An opener in another tab (More) says where it is with `returnTo`; otherwise Back pops, or lands on the Admin Centre.
+  const back = useOriginBack(fallback)
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
       {/* THE HEADER, in the brand's own forest ground -- the same dark green as the bottom bar and the
           launch screen, deliberately made app-wide (not a one-screen change) so every Club Admin
           section reads as one product rather than a light bar on some screens and a dark one on others. */}
+      <StatusBar style="light" />
       <View
         style={{
           paddingTop: insets.top + space.xs,
@@ -52,7 +55,10 @@ export function AdminScreen({ section, children, refreshing = false, onRefresh, 
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={{ paddingHorizontal: space.lg, paddingTop: space.xl, paddingBottom: insets.bottom + space.xxl + (footer ? 72 : 0), gap: space.xl }}
+        // THE BOTTOM NAVIGATION IS ABSOLUTE, SO ITS HEIGHT HAS TO BE RESERVED HERE. Padding by the
+        // safe-area inset alone leaves the last row under the bar -- which on Tournaments hid "Create
+        // New Tournament" entirely, so the screen's primary action could not be reached at all.
+        contentContainerStyle={{ paddingHorizontal: space.lg, paddingTop: space.xl, paddingBottom: tabBarHeight(insets.bottom) + space.lg + (footer ? 72 : 0), gap: space.xl }}
         refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colour.forest800} /> : undefined}
       >
         {children}

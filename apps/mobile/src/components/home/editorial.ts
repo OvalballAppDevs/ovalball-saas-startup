@@ -1,5 +1,7 @@
 import type { ImageSourcePropType } from "react-native"
 
+import { libraryAsset } from "../../media/stock-assets"
+
 /**
  * OVALBALL'S OWN EDITORIAL ARTWORK — the one place it is referenced.
  *
@@ -16,18 +18,22 @@ import type { ImageSourcePropType } from "react-native"
  *
  * BUNDLED, so a hero renders on first paint with nothing to fetch, and a stable
  * ground colour sits beneath each so nothing flashes if decoding is slow.
+ *
+ * ONE CATALOGUE. Each of these pictures is also a picture in the Stock Media Library, so it is taken from
+ * there by its library key (`src/media/stock-assets.ts`, the only place a library picture is required)
+ * rather than required a second time here.
  */
 export const editorial: {
   heroMatch: ImageSourcePropType | null
   heroTraining: ImageSourcePropType | null
   news: Record<"matchday" | "training" | "community" | "general", ImageSourcePropType | null>
 } = {
-  heroMatch: require("../../../assets/editorial/hero-match.jpg"),
-  heroTraining: require("../../../assets/editorial/hero-training.jpg"),
+  heroMatch: libraryAsset("matchday-hero-01"),
+  heroTraining: libraryAsset("training-session-01"),
   news: {
-    matchday: require("../../../assets/editorial/rugby-matchday.jpg"),
-    training: require("../../../assets/editorial/rugby-training.jpg"),
-    community: require("../../../assets/editorial/rugby-community.jpg"),
-    general: require("../../../assets/editorial/rugby-general.jpg"),
+    matchday: libraryAsset("matchday-scene-01"),
+    training: libraryAsset("training-session-02"),
+    community: libraryAsset("rugby-team-community-01"),
+    general: libraryAsset("rugby-team-general-01"),
   },
 }

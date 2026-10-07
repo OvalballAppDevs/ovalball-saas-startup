@@ -26,12 +26,17 @@
 // =====================================================================
 
 import { execFileSync } from "node:child_process"
+import fs from "node:fs"
 
-import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, summarise, enrolAuthenticator } from "./harness.mjs"
 
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saas-startup"
 const TAG = Math.random().toString(36).slice(2, 7)
-const CLUB_ADMIN = "uat.coach@ovalball.test"
+// THIS SUITE'S OWN CLUB ADMIN. Handing out a job is a capability override, and an override needs a recent
+// authenticator code (internal.require_recent_aal2) -- so the acting admin enrols one, through the product's own
+// setup. That is never done to a persistent persona (it would change their account), so the admin is this run's,
+// made a Club Admin of the review club for the run and removed with everything else matching uat.s8.%.TAG.
+const CLUB_ADMIN = `uat.s8.admin.${TAG}@ovalball.test`
 const TEAM_MANAGER = "uat.team.manager@ovalball.test"
 const OUTSIDER = "uat.unrelated@ovalball.test"
 
@@ -63,17 +68,45 @@ if (!clubId || !otherClubId) {
 }
 
 const VOL_EMAIL = `uat.s8.vol.${TAG}@ovalball.test`
+const MINE = `uat.s8.%.${TAG}@ovalball.test`
+// Sign-in is by password now (magic links were retired), so this run's people get the shared UAT browser
+// password -- set the way GoTrue stores one -- or they could never sign in.
+const SHARED_PASSWORD = process.env.UAT_BROWSER_PASSWORD || (() => {
+  try {
+    return fs.readFileSync(new URL("../../.env.local", import.meta.url), "utf8").match(/^UAT_BROWSER_PASSWORD=(.*)$/m)?.[1]?.trim() ?? ""
+  } catch {
+    return ""
+  }
+})()
+const withPassword = (userId) =>
+  sql(`update auth.users set encrypted_password = extensions.crypt('${SHARED_PASSWORD.replace(/'/g, "''")}', extensions.gen_salt('bf', 10))
+        where id = '${userId}'`)
 
 function teardown() {
   try {
+    // One block, in an operator session: the audit log and security events are append-only, and they refer to
+    // the disposable admin (the decisions they made), so the people can only go once their history has.
     sql(`
-      delete from public.capability_overrides where user_id in (select id from auth.users where email like 'uat.s8.vol.%@ovalball.test');
-      delete from public.role_assignments where membership_id in (
-        select id from public.club_memberships where user_id in (select id from auth.users where email like 'uat.s8.vol.%@ovalball.test'));
-      delete from public.club_memberships where user_id in (select id from auth.users where email like 'uat.s8.vol.%@ovalball.test');
-      delete from public.profiles where email like 'uat.s8.vol.%@ovalball.test';
-      delete from auth.identities where user_id in (select id from auth.users where email like 'uat.s8.vol.%@ovalball.test');
-      delete from auth.users where email like 'uat.s8.vol.%@ovalball.test';`)
+      do $$
+      declare
+        v_people uuid[] := array(select id from auth.users where email like 'uat.s8.%@ovalball.test');
+        v_records uuid[];
+      begin
+        perform set_config('ovalball.maintenance', 'on', true);
+        v_records := v_people
+          || array(select id from public.club_memberships where user_id = any(v_people))
+          || array(select id from public.role_assignments where membership_id in (select id from public.club_memberships where user_id = any(v_people)))
+          || array(select id from public.capability_overrides where user_id = any(v_people));
+        delete from public.capability_overrides where user_id = any(v_people);
+        delete from public.role_assignments where membership_id in (select id from public.club_memberships where user_id = any(v_people));
+        delete from public.club_memberships where user_id = any(v_people);
+        delete from public.notifications where user_id = any(v_people);
+        delete from public.security_events where actor_user_id = any(v_people) or subject_user_id = any(v_people);
+        delete from public.audit_log where changed_by = any(v_people) or actor_user_id = any(v_people) or record_id = any(v_records);
+        delete from public.profiles where id = any(v_people);
+        delete from auth.identities where user_id = any(v_people);
+        delete from auth.users where id = any(v_people);
+      end $$;`)
   } catch {
     // Asserted at the end rather than assumed.
   }
@@ -91,6 +124,18 @@ sql(`insert into public.profiles (id, first_name, surname, email, date_of_birth)
      values ('${volId}', 'Vera', 'Volunteer ${TAG}', '${VOL_EMAIL}', (current_date - interval '41 years')::date)`)
 const volMembership = sql(`insert into public.club_memberships (club_id, user_id, role, status)
                            values ('${clubId}', '${volId}', 'BASIC_USER', 'active') returning id`)
+withPassword(volId)
+
+const adminUserId = sql(`
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at,
+    raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token, email_change_token_new, email_change,
+    email_change_token_current, phone_change, phone_change_token, reauthentication_token)
+  values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${CLUB_ADMIN}', '',
+    now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', '', '', '', '', '') returning id`)
+sql(`insert into public.profiles (id, first_name, surname, email, date_of_birth)
+     values ('${adminUserId}', 'Ada', 'Admin ${TAG}', '${CLUB_ADMIN}', (current_date - interval '45 years')::date)`)
+sql(`insert into public.club_memberships (club_id, user_id, role, status) values ('${clubId}', '${adminUserId}', 'CLUB_ADMIN', 'active')`)
+withPassword(adminUserId)
 
 const browser = await launch()
 const pageErrors = []
@@ -147,6 +192,10 @@ try {
   // ==================================================================
   // C. A PRESET IS CONVENIENCE OVER LEGITIMATE GRANTS
   // ==================================================================
+  // Handing out a job is an override, and an override needs a recent authenticator code. This run's Club Admin
+  // sets one up through the product's own enrolment (which verifies a code), then comes back to the people.
+  await enrolAuthenticator(page, { email: CLUB_ADMIN, sql })
+  await go("/club/permissions")
   const memberCard = page.getByRole("button").filter({ hasText: `Volunteer ${TAG}` }).first()
   await memberCard.waitFor({ state: "visible", timeout: 30000 })
   await memberCard.click()
@@ -161,6 +210,12 @@ try {
     /Pitch Allocation/.test(opened) && /Calendar/.test(opened) && /Team Fixtures/.test(opened))
 
   await page.getByRole("button", { name: /Volunteer .* Pitch Allocation/ }).click()
+  // Choosing a job now opens the decision's own reason form (permissions-panel.tsx reasonForm), and nothing
+  // is recorded until it is submitted with "Give Job" -- the same as a person doing it.
+  const reasonField = page.locator(`#permission-reason-${volId}`)
+  await reasonField.waitFor({ state: "visible", timeout: 15000 })
+  await reasonField.fill("Runs pitch allocation on match days.")
+  await page.locator("form").getByRole("button", { name: "Give Job" }).click()
   await page.waitForTimeout(2000)
 
   const granted = sql(`select count(*) from public.capability_overrides
@@ -236,7 +291,7 @@ try {
 }
 
 record("cleanup: this run's disposable volunteer and every decision about them are gone",
-  sql(`select count(*) from auth.users where email = '${VOL_EMAIL}'`) === "0" &&
+  sql(`select count(*) from auth.users where email like 'uat.s8.%@ovalball.test'`) === "0" &&
     sql(`select count(*) from public.capability_overrides where user_id = '${volId}'`) === "0")
 
 process.exit(summarise() ? 0 : 1)

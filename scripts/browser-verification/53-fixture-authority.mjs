@@ -31,6 +31,10 @@ const status = JSON.parse(execFileSync("npx", ["supabase", "status", "-o", "json
 const API = status.API_URL
 const ANON_KEY = status.ANON_KEY
 const SERVICE_KEY = status.SERVICE_ROLE_KEY
+// signIn() signs in through the real password form, so this run's people carry the local UAT password.
+const PASSWORD = process.env.UAT_BROWSER_PASSWORD
+  || (fs.readFileSync(path.resolve(import.meta.dirname, "../../.env.local"), "utf8").split("\n").find((l) => l.startsWith("UAT_BROWSER_PASSWORD=")) ?? "").slice("UAT_BROWSER_PASSWORD=".length).trim().replace(/^["']|["']$/g, "")
+if (!PASSWORD) throw new Error("No UAT_BROWSER_PASSWORD in the environment or .env.local")
 
 const TAG = Date.now().toString(36).slice(-6)
 const SITE_ADMIN = "uat.fullsiteadmin@ovalball.test"
@@ -46,7 +50,7 @@ async function createIdentity(person) {
   const res = await fetch(`${API}/auth/v1/admin/users`, {
     method: "POST",
     headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ email: person.email, email_confirm: true }),
+    body: JSON.stringify({ email: person.email, password: PASSWORD, email_confirm: true }),
   })
   const body = await res.json()
   if (!body.id) throw new Error(`could not create ${person.email}: HTTP ${res.status}`)
@@ -227,10 +231,10 @@ sql(`insert into public.club_memberships (club_id, user_id, role, status) values
   ('${ids.club}', '${people.manager.id}', 'BASIC_USER', 'active'),
   ('${ids.club}', '${people.coach.id}', 'BASIC_USER', 'active'),
   ('${ids.club}', '${people.member.id}', 'BASIC_USER', 'active');
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'manager' from public.club_memberships where club_id='${ids.club}' and user_id='${people.manager.id}';
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'coach' from public.club_memberships where club_id='${ids.club}' and user_id='${people.coach.id}';`)
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'TEAM_MANAGER' from public.club_memberships where club_id='${ids.club}' and user_id='${people.manager.id}';
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'COACH' from public.club_memberships where club_id='${ids.club}' and user_id='${people.coach.id}';`)
 
 /** Runs create_fixture as one person through the real PostgREST endpoint the browser uses. */
 async function createAs(context, args) {

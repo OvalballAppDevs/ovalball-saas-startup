@@ -13,10 +13,11 @@ import { loadFamilyScreen, type FamilyRow } from "../../../src/family/data"
 import { removeChildAvatar, replaceChildAvatar } from "../../../src/identity/images"
 import { choosePhoto, takePhoto } from "../../../src/messages/pickers"
 import { PersonAvatar } from "../../../src/components/identity"
-import { Camera, ChevronRight, ExternalLink, Image as ImageIcon, KeyRound, X } from "../../../src/components/icons"
+import { Camera, ExternalLink, Image as ImageIcon, KeyRound, X } from "../../../src/components/icons"
 import { Button, Card, CardSkeleton, EmptyState, ErrorState } from "../../../src/components/ui"
 import { friendly, logDetail } from "../../../src/errors/translate"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../src/design/tokens"
+import { OvalballDetailHeader } from "../../../src/components/app-header"
 
 /**
  * ONE CHILD (CA-M9): their picture, their sides, what they may do for themselves, and their login.
@@ -140,16 +141,7 @@ export default function ChildScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <View style={{ paddingTop: insets.top + space.sm, paddingBottom: space.sm, paddingHorizontal: space.md, borderBottomWidth: 1, borderBottomColor: colour.line, flexDirection: "row", alignItems: "center", gap: space.xs }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} hitSlop={8} style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
-          <View style={{ transform: [{ rotate: "180deg" }] }}>
-            <ChevronRight size={22} color={colour.ink} />
-          </View>
-        </Pressable>
-        <Text accessibilityRole="header" numberOfLines={1} style={[type.heading, { color: colour.ink, flex: 1 }]}>
-          {title}
-        </Text>
-      </View>
+      <OvalballDetailHeader title={title} onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.lg }}>
         {problem && <ErrorState message={problem} onRetry={() => void load()} />}

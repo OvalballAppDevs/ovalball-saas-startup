@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 
-import { accessEventSentence } from "@ovalball/contracts/club/access-history"
+import { accessEventSentence, accessReasonText } from "@ovalball/contracts/club/access-history"
 
 /**
  * THE CLUB TIMELINE'S WORDS.
@@ -43,7 +43,9 @@ test("a preset reads as handing out a job, which is the intent the individual gr
 })
 
 test("membership transitions read in plain words", () => {
-  assert.equal(accessEventSentence("membership.suspended", null, null, null), "Membership suspended")
+  // People & Invitations: the membership's reversible pause is called Deactivate on both clients.
+  assert.equal(accessEventSentence("membership.suspended", null, null, null), "Membership deactivated")
+  assert.equal(accessEventSentence("membership.restored", null, null, null), "Membership reactivated")
   assert.equal(accessEventSentence("membership.revoked", null, null, null), "Removed from the club")
   assert.equal(accessEventSentence("invitation.revoked", null, null, null), "Invitation withdrawn")
 })
@@ -56,4 +58,14 @@ test("an event with nothing to name still reads as a sentence rather than a gap"
 test("AN UNKNOWN EVENT FALLS BACK TO ITS KEY, never to a guess", () => {
   assert.equal(accessEventSentence("something.brand.new", "x", "y", "z"), "something.brand.new")
   assert.equal(accessEventSentence("", null, null, null), "")
+})
+
+test("a recorded reason names the role, never its internal key, and is otherwise left as written", () => {
+  // Written by an earlier app version; the record is kept, the display reads as words.
+  assert.equal(accessReasonText("Set from Team Profile Staff (FIRST_AIDER)"), "Set from Team Profile Staff (First Aider)")
+  assert.equal(accessReasonText("Added from Team Profile Staff (TEAM_SAFEGUARDING_LEAD)"), "Added from Team Profile Staff (Team Safeguarding Lead)")
+  // Brackets that are not a role's key, and an ordinary reason, are untouched.
+  assert.equal(accessReasonText("Moved to the (U12) squad"), "Moved to the (U12) squad")
+  assert.equal(accessReasonText("Stepped down as coach"), "Stepped down as coach")
+  assert.equal(accessReasonText(null), null)
 })

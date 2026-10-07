@@ -89,7 +89,7 @@ function seed() {
       ('${ids.partClub}','${ids.clubAdmin}','CLUB_ADMIN','active')`)
   const m1 = one(`insert into public.club_memberships (club_id, user_id, role, status) values ('${ids.partClub}','${ids.tm1}','BASIC_USER','active') returning id`)
   const m2 = one(`insert into public.club_memberships (club_id, user_id, role, status) values ('${ids.partClub}','${ids.tm2}','BASIC_USER','active') returning id`)
-  sql(`insert into public.team_permissions (membership_id, team_id, permission) values ('${m1}','${ids.team1}','manager'),('${m2}','${ids.team2}','manager')`)
+  sql(`insert into testing.team_roles (membership_id, team_id, role_key) values ('${m1}','${ids.team1}','TEAM_MANAGER'),('${m2}','${ids.team2}','TEAM_MANAGER')`)
 
   ids.season = one(`select id from public.seasons where rugby_code='union' and not is_regression_fixture
     and current_date between coalesce(pre_season_starts_on, starts_on) and ends_on limit 1`)
@@ -233,15 +233,27 @@ begin
   delete from public.competition_matches where edition_id = '${ids.edition}';
   delete from public.competition_participants where edition_id = '${ids.edition}';
   delete from public.competition_stages where edition_id = '${ids.edition}';
-  delete from public.competition_editions where id = '${ids.edition}';
-  delete from public.competitions where id = '${ids.comp}';
-  delete from public.tournament_games where entry_id in (select id from public.tournament_team_entries where tournament_id='${ids.tourn}');
-  delete from public.tournament_entry_opponents where entry_id in (select id from public.tournament_team_entries where tournament_id='${ids.tourn}');
+  -- BY AUTHOR AS WELL AS BY ID. These suites exist to race CREATION, so they routinely produce rows
+  -- the happy path never named -- a second competition from the losing side of a race. Deleting only
+  -- the id the test planned for leaves those behind, and the next statement, removing the people who
+  -- created them, then dies on a foreign key. One failed run then wedges the suite permanently.
+  delete from public.competition_editions where id = '${ids.edition}'
+     or competition_id in (select id from public.competitions where created_by = any(v_people));
+  delete from public.competition_areas where competition_id in (select id from public.competitions where created_by = any(v_people));
+  delete from public.regulatory_competition_overlays where ovalball_competition_id in (select id from public.competitions where created_by = any(v_people));
+  delete from public.competitions where id = '${ids.comp}' or created_by = any(v_people);
+  -- A GAME BELONGS TO THE TOURNAMENT, not to one side's "entry". 20270605 replaced
+  -- tournament_games.entry_id/opponent_id with side_a_id/side_b_id, because a game is between any two
+  -- participating sides and the old pair could not express one between two visiting clubs. The column
+  -- this swept by no longer exists, so the sweep is written against the tournament itself -- which is
+  -- also simpler and cannot miss a game whose sides are not the host's.
+  delete from public.tournament_games where tournament_id = '${ids.tourn}';
+  delete from public.tournament_entry_opponents where entry_id in (select id from public.tournament_participants where tournament_id='${ids.tourn}');
   delete from public.tournament_team_entries where tournament_id = '${ids.tourn}';
   delete from public.tournament_participants where tournament_id = '${ids.tourn}';
   delete from public.tournaments where id = '${ids.tourn}';
   delete from public.notifications where user_id = any(v_people);
-  delete from public.team_permissions where membership_id in (select id from public.club_memberships where club_id in ('${ids.orgClub}','${ids.partClub}'));
+  delete from testing.team_roles where membership_id in (select id from public.club_memberships where club_id in ('${ids.orgClub}','${ids.partClub}'));
   delete from public.role_assignments where club_id in ('${ids.orgClub}','${ids.partClub}');
   delete from public.club_memberships where club_id in ('${ids.orgClub}','${ids.partClub}');
   delete from public.teams where club_id = '${ids.partClub}';

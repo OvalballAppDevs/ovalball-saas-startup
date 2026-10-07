@@ -47,9 +47,9 @@ const preferenceRows = () =>
        where p.user_id = '${rId}' and p.topic_key in (${TOUCHED_TOPICS.map((t) => `'${t}'`).join(", ")});`)
 const ORIGINAL_PREFERENCES = preferenceRows()
 
-const TEAM = sql(`select tp.team_id from public.team_permissions tp
+const TEAM = sql(`select tp.team_id from testing.team_roles tp
   join public.club_memberships cm on cm.id = tp.membership_id
-  where cm.user_id = (select id from auth.users where email = '${ACTOR.email}') and tp.permission = 'team_admin' limit 1;`)
+  where cm.user_id = (select id from auth.users where email = '${ACTOR.email}') and tp.role_key = 'TEAM_ADMINISTRATION' limit 1;`)
 const opponent = (name) => `QA-NOTIF Opponent ${name} ${TAG}`
 function teardown() {
   const mine = `select id from public.fixtures where notes = 'qa-notif-${TAG}'`

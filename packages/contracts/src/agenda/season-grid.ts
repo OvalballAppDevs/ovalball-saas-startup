@@ -22,7 +22,14 @@
 
 export interface SeasonGridEvent {
   id: string
-  kind: "fixture" | "training" | "event"
+  /**
+   * A TOURNAMENT IS ITS OWN KIND, not a fixture.
+   *
+   * Counting a festival among the week's matches would tell a coach the squad
+   * has five games in a week when it has two matches and a Sunday tournament,
+   * and the home/away split would include a day that has neither.
+   */
+  kind: "fixture" | "training" | "event" | "tournament"
   /** yyyy-mm-dd */
   date: string
   time: string | null
@@ -75,6 +82,8 @@ export interface SeasonWeek {
   trainingSessions: number
   /** Club events touching this week -- counted per EVENT, never per day it spans. */
   clubEvents: number
+  /** Tournaments touching this week -- counted per TOURNAMENT, never per day it spans. */
+  tournaments: number
   /** True when this week holds nothing at all: a rest week is a real answer, not an absence of data. */
   isRest: boolean
   /** How many distinct teams have something on. Drives club-density signalling. */
@@ -151,6 +160,9 @@ export function buildSeasonGrid(rangeStart: string, rangeEnd: string, events: Se
       // A seven-day event crossing this week is ONE event here, not seven.
       // The grid counts what is happening, not how many squares it touches.
       clubEvents: new Set(weekEvents.filter((e) => e.kind === "event").map((e) => e.id)).size,
+      // Counted per TOURNAMENT, never per day it spans -- a weekend festival is
+      // one thing the club is doing, exactly as a seven-day club event is.
+      tournaments: new Set(weekEvents.filter((e) => e.kind === "tournament").map((e) => e.id)).size,
       isRest: weekEvents.length === 0,
       teamCount: new Set(weekEvents.map((e) => e.laneId)).size,
     }

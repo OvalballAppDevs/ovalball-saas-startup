@@ -1,5 +1,8 @@
 "use server"
 
+import { resolveAddress, suggestAddresses } from "@/lib/address-lookup/lookup"
+import type { AddressResolveResult, AddressSuggestResult } from "@ovalball/contracts/address"
+
 import { createClient } from "@/lib/supabase/server"
 import { loadTeamCategoryGroups } from "@/lib/teams/catalog"
 import type { ClubDirectoryResult, RugbyCode } from "@/lib/signup/types"
@@ -74,4 +77,25 @@ export async function searchClubDirectory(
 export async function loadSignupTeamCatalogue(rugbyCode: "union" | "league") {
   const supabase = await createClient()
   return loadTeamCategoryGroups(supabase, { rugbyCode })
+}
+
+/**
+ * CANONICAL ADDRESS SEARCH FOR SIGN-UP.
+ *
+ * Deliberately UNAUTHENTICATED, because sign-up is: the person filling this in does not have an
+ * account yet, so the "must be signed in" boundary every other address action uses cannot apply here.
+ * That is safe for this specific pair -- searching an address reveals nothing about Ovalball or its
+ * members, the provider key stays on the server, and nothing is written. The real write boundary is
+ * account creation itself, which is authorised separately.
+ *
+ * It calls the SAME `lib/address-lookup/lookup.ts` as every other surface, so sign-up gets the
+ * identical provider, the identical `mapGooglePlace` mapping and the identical failure vocabulary.
+ * There is deliberately no sign-up-specific address parser.
+ */
+export async function lookupSignupAddress(query: string, sessionToken: string): Promise<AddressSuggestResult> {
+  return suggestAddresses(query, sessionToken)
+}
+
+export async function resolveSignupAddress(placeId: string, sessionToken: string): Promise<AddressResolveResult> {
+  return resolveAddress(placeId, sessionToken)
 }

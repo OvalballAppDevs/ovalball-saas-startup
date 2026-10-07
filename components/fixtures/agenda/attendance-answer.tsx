@@ -47,7 +47,7 @@ export function AttendanceAnswer({
   subject,
   what,
 }: {
-  kind: "fixture" | "training"
+  kind: "fixture" | "training" | "tournament"
   eventId: string
   playerId: string
   current: AnswerStatus | null

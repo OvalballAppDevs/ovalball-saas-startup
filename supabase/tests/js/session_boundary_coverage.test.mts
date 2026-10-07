@@ -156,7 +156,15 @@ const PROTECTED_HANDLERS = [
  * so a revoked or dead session returns no rows and the handler answers 404 --
  * the same answer a fixture somebody may not see gives, which is deliberate.
  */
-const TOKEN_AUTHENTICATED_HANDLERS = ["app/api/fixtures/[fixtureId]/forecast/route.ts"]
+const TOKEN_AUTHENTICATED_HANDLERS = [
+  "app/api/fixtures/[fixtureId]/forecast/route.ts",
+  // 20270750000000: the Ovalball app connects and disconnects GoCardless with its own bearer token; every database
+  // call runs as the caller (start: finance.gocardless.connect and the club's agreed terms; finish: only the person
+  // who started it, holding the one-time return handoff; disconnect: disconnect_gocardless's own authority).
+  "app/api/gocardless/oauth/app/start/route.ts",
+  "app/api/gocardless/oauth/app/finish/route.ts",
+  "app/api/gocardless/connection/disconnect/route.ts",
+]
 
 /**
  * Handlers that must work with NO Ovalball session, each for a stated reason. This is an explicit
@@ -167,6 +175,10 @@ const PRE_SESSION_HANDLERS: Record<string, string> = {
     "it is the endpoint that CREATES the session; requiring one would be circular",
   "app/api/gocardless/webhooks/route.ts":
     "authenticated by HMAC signature from GoCardless; no browser and no session exist",
+  "app/api/gocardless/oauth/app/begin/route.ts":
+    "opened by the phone's authentication-session browser, which has no Ovalball session; authorised only by the one-time begin token (stored as SHA-256, single use, three minutes) minted for a live session holding finance.gocardless.connect at a club that has agreed Ovalball's terms (20270750000000). It sets the state cookie and redirects to GoCardless; a code that journey yields can only be claimed by the person who started it, holding the one-time return handoff",
+  "app/api/gocardless/webhooks/replay/route.ts":
+    "called by a scheduler, not a person: authenticated by the GOCARDLESS_REPLAY_SECRET bearer (constant-time compare, 503 when unset); it only re-runs the signed webhook's own processor on events already in the inbox (20270744000000)",
   "app/api/platform-billing/webhooks/route.ts":
     "same, for Ovalball's own billing events",
   "app/email-assets/[asset]/route.ts":
@@ -233,6 +245,10 @@ const AUTH_SURFACES = [
   "app/login/actions.ts",
   "app/auth/oauth-actions.ts",
   "app/api/gocardless/oauth/callback/route.ts",
+  "app/api/gocardless/oauth/app/start/route.ts",
+  "app/api/gocardless/oauth/app/begin/route.ts",
+  "app/api/gocardless/oauth/app/finish/route.ts",
+  "app/api/gocardless/connection/disconnect/route.ts",
 ]
 
 test("S6-9 no auth surface hands a raw database message back to the browser", () => {

@@ -83,6 +83,27 @@ export function toPublicInvitationError(error: RawErrorLike): string {
   return "We couldn't accept this invitation right now. Please try again, or ask for a new invite link."
 }
 
+/**
+ * Same allowlist reasoning, for issue_invitation()'s refusals that tell the person what to change
+ * (20270739000000_one_way_to_bring_people_in.sql): a description that is really a role's name, a
+ * length, two levels of club access. Anything else is the generic line.
+ */
+const SAFE_STAFF_INVITATION_ERRORS = [
+  /^"[^"]{1,80}" is reserved for a role that carries access, so it cannot (be their role at the club|be used as a custom role)\. Choose that role instead\.$/,
+  /^Keep (their role at the club|their name) to 80 characters or fewer\.$/,
+  /^Keep each role name to 60 characters or fewer\.$/,
+  /^Choose one level of club access: Club Admin, Fixture Secretary or Member\.$/,
+  /^Head Coach and Assistant Coach belong to the Coach role\. Choose Coach, then the title\.$/,
+]
+
+export function toPublicStaffInvitationError(error: RawErrorLike): string {
+  const message = error.message ?? ""
+  if (String(error.code ?? "") === "22023" && SAFE_STAFF_INVITATION_ERRORS.some((pattern) => pattern.test(message))) {
+    return message
+  }
+  return toPublicSubmissionError()
+}
+
 /** Same allowlist reasoning as toPublicInvitationError, for accept_site_admin_invitation()'s own deliberately human-readable exception text (20260831260000_site_admin_management.sql). */
 const SAFE_SITE_ADMIN_INVITATION_ERROR_PREFIXES = [
   "You must be signed in to accept this invitation.",

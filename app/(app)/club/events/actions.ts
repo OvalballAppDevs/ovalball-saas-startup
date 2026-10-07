@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache"
 
 import { bulkLookupPostcodes } from "@/lib/geocoding/postcodes-io"
-import { searchUkAddresses, type AddressLookupResult } from "@/lib/address-lookup/lookup"
+import { resolveAddress, suggestAddresses } from "@/lib/address-lookup/lookup"
+import type { AddressResolveResult, AddressSuggestResult } from "@ovalball/contracts/address"
 import { createClient } from "@/lib/supabase/server"
 
 /**
@@ -25,14 +26,26 @@ import { createClient } from "@/lib/supabase/server"
  * club venue lookup -- the same searchUkAddresses the venue form already uses,
  * not a second integration.
  */
-export async function lookupEventAddress(query: string): Promise<AddressLookupResult> {
+export async function lookupEventAddress(query: string, sessionToken: string): Promise<AddressSuggestResult> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { status: "error", message: "You must be signed in." }
-  if (query.trim().length < 3) return { status: "ok", candidates: [] }
-  return searchUkAddresses(query)
+  if (!user) return { status: "invalid_query", reason: "You must be signed in." }
+  return suggestAddresses(query, sessionToken)
+}
+
+/** Second step: resolve one chosen suggestion into its full structured address. The coordinates on
+ * the resolved result are NOT what save_club_event ends up storing for an external location -- see
+ * the postcode-only bulkLookupPostcodes re-derivation below, which this deliberately does not
+ * shortcut. */
+export async function resolveEventAddress(placeId: string, sessionToken: string): Promise<AddressResolveResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { status: "invalid_query", reason: "You must be signed in." }
+  return resolveAddress(placeId, sessionToken)
 }
 
 export type SaveEventResult = { ok: true; eventId: string } | { ok: false; error: string }

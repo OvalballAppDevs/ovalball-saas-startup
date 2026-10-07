@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { resolvePersonalAvatarUrls } from "../personal-avatar"
 import type { Database } from "../database"
+import { canonicalRoleLabel, teamTitleLabel } from "../role-labels"
+import { endRoleAssignment, giveRole, setTeamRoleTitle } from "../club/people"
 
 type Client = SupabaseClient<Database>
 
@@ -24,25 +26,25 @@ type Client = SupabaseClient<Database>
  * shares FIRST_AIDER's own "VO" bundle (view-only plus `safeguarding.conversation.start`), so it can
  * reach the club's safeguarding contact but holds none of the confirmed officer's authority.
  */
-export const TEAM_STAFF_ROLE_KEYS = ["TEAM_ADMINISTRATION", "TEAM_MANAGER", "COACH", "FIRST_AIDER", "TEAM_SAFEGUARDING_LEAD"] as const
+export const TEAM_STAFF_ROLE_KEYS = ["TEAM_ADMINISTRATION", "TEAM_MANAGER", "COACH", "FIRST_AIDER", "TEAM_SAFEGUARDING_LEAD", "VOLUNTEER"] as const
 
-/** The two presentational coaching titles Section 13/14 allows -- `null` means the plain "Coach" label
- * with no extra title. Authority is always exactly COACH underneath; this never changes what a Coach
- * may do, only what their row is called. */
-export type CoachTitle = "HEAD_COACH" | "ASSISTANT_COACH" | null
-
-export const COACH_TITLE_LABEL: Record<Exclude<CoachTitle, null>, string> = {
-  HEAD_COACH: "Head Coach",
-  ASSISTANT_COACH: "Assistant Coach",
-}
+/**
+ * A team title: the Coach role's own HEAD_COACH / ASSISTANT_COACH, or -- since People & Invitations --
+ * the words a club gives any team role ("Physio" on a Volunteer). `null` is the role's plain name.
+ * Authority never changes with a title: it describes what somebody does, never what they may do.
+ */
+export type StaffTitle = string | null
 
 export interface TeamStaffRole {
   /** The role_assignments id -- what set_team_role_title and transition_role_assignment each address. */
   assignmentId: string
   roleKey: string
-  /** role_definitions.label, verbatim -- "Coach", "Team Manager", "First Aider". Never re-derived client-side. */
+  /** The catalogue's label -- "Coach", "Team Manager", "First Aider". */
   label: string
-  title: CoachTitle
+  /** Stored title (HEAD_COACH, ASSISTANT_COACH or the words typed). */
+  title: StaffTitle
+  /** What the row is called: the title in words where there is one, else the label. */
+  displayLabel: string
 }
 
 export interface TeamStaffMember {
@@ -61,7 +63,7 @@ export interface TeamStaffMember {
 /** The row's own deterministic sort key (Section 36) -- the SAME order the reader already put each
  * person's own roles in, read off their first (most senior) role. Two people sharing a rank fall back
  * to name, so the list never reorders itself between reads for no visible reason. */
-const ROLE_RANK: Record<string, number> = { TEAM_ADMINISTRATION: 1, TEAM_MANAGER: 2, COACH: 3, FIRST_AIDER: 4, TEAM_SAFEGUARDING_LEAD: 5 }
+const ROLE_RANK: Record<string, number> = { TEAM_ADMINISTRATION: 1, TEAM_MANAGER: 2, COACH: 3, FIRST_AIDER: 4, TEAM_SAFEGUARDING_LEAD: 5, VOLUNTEER: 6 }
 export function teamStaffSortKey(member: TeamStaffMember): number {
   return Math.min(...member.roles.map((r) => ROLE_RANK[r.roleKey] ?? 99), 99)
 }
@@ -86,8 +88,9 @@ export async function readTeamStaff(supabase: Client, teamId: string): Promise<T
     roles: ((r.roles as unknown as RawRole[]) ?? []).map((role) => ({
       assignmentId: role.assignmentId,
       roleKey: role.roleKey,
-      label: role.label,
-      title: (role.title as CoachTitle) ?? null,
+      label: canonicalRoleLabel(role.roleKey),
+      title: role.title ?? null,
+      displayLabel: teamTitleLabel(role.title) ?? canonicalRoleLabel(role.roleKey),
     })),
   }))
   return members.sort((a, b) => teamStaffSortKey(a) - teamStaffSortKey(b) || a.displayName.localeCompare(b.displayName))
@@ -101,32 +104,52 @@ export function teamStaffErrorMessage(error: unknown, fallback: string): string 
 }
 
 /**
- * GRANTS ONE MORE ROLE TO AN EXISTING MEMBERSHIP, ON THIS TEAM -- the canonical `assign_role` itself,
- * called with an EXPLICIT team id rather than through the club-only `assignAdditionalRole` helper
- * (`packages/contracts/src/club/people.ts`), which hardcodes `p_team_id: undefined` for its own,
- * club-scoped job. `assign_role`'s own authority check (`internal.team_people_level(club, team)`)
- * already asks the explicit team, never the caller's switched active context (Section 26) -- so this
- * is correct for a Club Admin managing a team they hold no personal role on, with no synthetic context
- * switch required.
+ * GRANTS ONE MORE ROLE TO AN EXISTING MEMBERSHIP, ON THIS TEAM, with the title it is to carry. The
+ * one implementation is `giveRole` (`club/people.ts`): the canonical `assign_role` called with an
+ * EXPLICIT team id, whose authority check (`internal.team_people_level(club, team)`) asks the team
+ * itself, never the caller's switched context -- correct for a Club Admin with no personal role here.
  */
-export async function grantTeamStaffRole(supabase: Client, membershipId: string, roleKey: string, teamId: string, reason: string): Promise<void> {
-  const { error } = await supabase.rpc("assign_role", { p_membership_id: membershipId, p_role_key: roleKey, p_team_id: teamId, p_reason: reason.trim() || undefined })
-  if (error) throw error
+export async function grantTeamStaffRole(supabase: Client, membershipId: string, roleKey: string, teamId: string, reason: string, title?: string | null): Promise<string> {
+  return giveRole(supabase, membershipId, roleKey, teamId, reason, title)
 }
 
 /** Ends exactly the one role assignment named -- every other role the person holds, on this team or any
- * other, is untouched (Section 24/25). The canonical `transition_role_assignment`, unchanged. */
-export async function revokeTeamStaffRole(supabase: Client, assignmentId: string, reason: string): Promise<void> {
-  const { error } = await supabase.rpc("transition_role_assignment", { p_assignment_id: assignmentId, p_to_state: "REVOKED", p_reason: reason.trim() || undefined, p_allow_no_club_admin: false })
-  if (error) throw error
+ * other, is untouched (Section 24/25). */
+export function revokeTeamStaffRole(supabase: Client, assignmentId: string, reason: string): Promise<void> {
+  return endRoleAssignment(supabase, assignmentId, reason)
 }
 
-/** The presentational Head Coach / Assistant Coach label -- attributes only, on a role assignment the
- * server has already confirmed is COACH. Authority never changes. */
-export async function setCoachTitle(supabase: Client, assignmentId: string, title: CoachTitle): Promise<void> {
-  // The generated RPC arg type is imprecisely non-nullable here (a known `supabase gen types` quirk
-  // for a text param with no SQL default) even though the function itself accepts and expects NULL to
-  // clear a title -- the cast reflects the real, tested server signature, not this call's own belief.
-  const { error } = await supabase.rpc("set_team_role_title", { p_assignment_id: assignmentId, p_title: title as string })
+/** A team role's title -- Head Coach, Assistant Coach, or words the club chose. Authority never changes. */
+export function setStaffTitle(supabase: Client, assignmentId: string, title: StaffTitle): Promise<void> {
+  return setTeamRoleTitle(supabase, assignmentId, title)
+}
+
+// ---------------------------------------------------------------------------------------------------
+// WHO COULD JOIN THIS TEAM'S STAFF
+// ---------------------------------------------------------------------------------------------------
+
+export interface StaffCandidate {
+  membershipId: string
+  userId: string
+  name: string
+  avatarStoragePath: string | null
+  /** What they already hold at THIS team. */
+  rolesHere: { assignmentId: string; roleKey: string; title: string | null }[]
+}
+
+/**
+ * The club's active members by name, for adding an existing person to a team's staff: `team_staff_candidates`,
+ * open to whoever may give a role at this team (a Club Admin, or the team's own Team Admin) -- which
+ * `club_people` is not. No contact details. The search runs on the server.
+ */
+export async function readTeamStaffCandidates(supabase: Client, teamId: string, search: string, limit = 20): Promise<StaffCandidate[]> {
+  const { data, error } = await supabase.rpc("team_staff_candidates", { p_team_id: teamId, p_search: search.trim() || undefined, p_limit: limit })
   if (error) throw error
+  return (data ?? []).map((r) => ({
+    membershipId: r.membership_id,
+    userId: r.user_id,
+    name: [r.first_name, r.surname].filter(Boolean).join(" ").trim() || "Unknown",
+    avatarStoragePath: r.avatar_storage_path ?? null,
+    rolesHere: ((r.team_roles as unknown as { id: string; role_key: string; title: string | null }[]) ?? []).map((t) => ({ assignmentId: t.id, roleKey: t.role_key, title: t.title ?? null })),
+  }))
 }

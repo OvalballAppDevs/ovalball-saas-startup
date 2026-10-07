@@ -8,6 +8,7 @@ import { setActiveContext } from "@/app/(app)/set-context"
 import { safeNextPath } from "@/lib/auth/safe-next"
 import { GENERIC_REFUSAL, redeemInvitation, type RedemptionResult } from "@/lib/invitations/redeem"
 import { createClient } from "@/lib/supabase/server"
+import { checkTeamCodeFit, type TeamCodeFit, type TeamCodeSubject } from "@ovalball/contracts/team/team-code"
 
 /**
  * Makes a newly granted context the active one, on the way out of an entrance.
@@ -81,7 +82,12 @@ export async function recordOwnDateOfBirth(input: {
   return { ok: true }
 }
 
-export async function acceptInvitation(input: { token?: string | null; code?: string | null }): Promise<RedemptionResult> {
+export async function acceptInvitation(input: {
+  token?: string | null
+  code?: string | null
+  /** Who a team code is being used for (20270741000000); every other invitation sends none. */
+  subject?: TeamCodeSubject | null
+}): Promise<RedemptionResult> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -89,13 +95,30 @@ export async function acceptInvitation(input: { token?: string | null; code?: st
 
   // Redemption raises rather than returns when there is no session, which is the one case the
   // generic answer would be actively unhelpful for -- the person can fix it.
-  if (!user) return { ok: false, reason: "SIGN_IN_REQUIRED", message: "Sign in to accept this invitation." }
+  if (!user) return { ok: false, reason: "SIGN_IN_REQUIRED", message: "Sign in to accept this invitation.", verdict: null }
 
   const token = input.token?.trim() || null
   const code = input.code?.trim() || null
-  if (!token && !code) return { ok: false, reason: null, message: GENERIC_REFUSAL }
+  if (!token && !code) return { ok: false, reason: null, message: GENERIC_REFUSAL, verdict: null }
 
-  const result = await redeemInvitation(supabase, { token, code })
+  const result = await redeemInvitation(supabase, { token, code, subject: input.subject ?? null })
   if (result.ok) revalidatePath("/dashboard")
   return result
+}
+
+/**
+ * The canonical fit of what a parent is typing for a child not on Ovalball yet (team codes place
+ * players, 20270741000000) -- the server's answer, never this page's. Null for no answer.
+ */
+export async function checkTeamCodeFitAction(
+  input: { token?: string | null; code?: string | null },
+  dateOfBirth: string,
+  playingPathway: "MALE" | "FEMALE"
+): Promise<TeamCodeFit | null> {
+  const supabase = await createClient()
+  try {
+    return await checkTeamCodeFit(supabase, { token: input.token?.trim() || null, code: input.code?.trim() || null }, dateOfBirth, playingPathway)
+  } catch {
+    return null
+  }
 }

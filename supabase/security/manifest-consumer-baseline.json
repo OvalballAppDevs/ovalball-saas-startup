@@ -4,18 +4,12 @@
   "known_drift": [
     "accept_invitation -> app/invite/[token]/accept-button.tsx",
     "approve_privileged_recovery -> app/(app)/account/security/actions.ts",
-    "cancel_privileged_recovery -> app/(app)/account/security/actions.ts",
     "decide_club_claim -> app/(app)/admin/claims/actions.ts",
     "delete_permission_group -> app/(app)/admin/permissions/actions.ts",
     "get_invitation_preview -> app/invite/[token]/page.tsx",
     "has_capability -> lib/permissions/has-capability.ts",
     "invite_player_account -> app/(app)/parent/children/actions.ts",
-    "issue_invitation -> app/(app)/club/people/actions.ts",
-    "my_site_capabilities -> app/(app)/layout.tsx",
-    "redeem_invitation -> app/join/actions.ts",
-    "request_privileged_recovery -> app/(app)/account/security/actions.ts",
-    "resend_invitation -> app/(app)/club/people/actions.ts",
-    "submit_club_claim -> app/signup/submit-signup.ts"
+    "request_privileged_recovery -> app/(app)/account/security/actions.ts"
   ],
   "notes": {
     "app/invite/[token]/": "Deleted by Convergence Step 3, which replaced the two-route invitation entry with /join. accept_invitation and get_invitation_preview are the legacy pair Step 3's ledger entry L7 retires in the contract half of its expand/contract -- so the right fix is the retirement, not a new consumer path.",

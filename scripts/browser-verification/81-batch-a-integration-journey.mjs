@@ -25,16 +25,24 @@
 // =====================================================================
 
 import { execFileSync } from "node:child_process"
+import fs from "node:fs"
 
 import { launch, newContext, signIn, APP, axeSource, record, recordAxe, summarise } from "./harness.mjs"
 
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saas-startup"
 const TAG = Math.random().toString(36).slice(2, 7)
-const STAFF = "uat.team.manager@ovalball.test"
-const GUARDIAN = "uat.guardian.two@ovalball.test"
+// THIS RUN'S OWN TEAM STAFF, GUARDIAN AND CHILD. The youth side used to be "the first team" of
+// uat.team.manager, read with an unordered limit 1; that persona now runs three teams (and has a password a
+// person set), so the side changed under the suite. The youth side is the review club's Under 12 Boys, named,
+// and the staff and family walking it are made for this run and removed with everything that names them.
+const PEOPLE = "uat.s81.%@ovalball.test"
+const STAFF = `uat.s81.manager.${TAG}@ovalball.test`
+const GUARDIAN = `uat.s81.guardian.${TAG}@ovalball.test`
 const ADULT = "uat.adult.player@ovalball.test"
 const OUTSIDER = "uat.preston.admin@ovalball.test"
 const NOTE = `BatchA ${TAG}`
+/** The canonical category named Parents' Player on a youth side and Players' Player on an adult one. */
+const AWARD = "FAMILY_OR_SELF_PLAYER"
 
 const sql = (q) =>
   execFileSync("docker", ["exec", "-i", CONTAINER, "psql", "-U", "postgres", "-d", "postgres", "-Atq", "-c", q], {
@@ -52,16 +60,107 @@ async function waitForSql(query, expected, timeoutMs = 8000) {
   return last
 }
 
-const staffId = sql(`select id from auth.users where email = '${STAFF}'`)
-const youthTeam = sql(`select ra.team_id from public.role_assignments ra
-                       join public.club_memberships cm on cm.id = ra.membership_id
-                       where cm.user_id = '${staffId}' and ra.state = 'ACTIVE' and ra.team_id is not null limit 1`)
-const guardianId = sql(`select id from auth.users where email = '${GUARDIAN}'`)
-const child = sql(`select p.id || '|' || p.first_name
-                   from public.guardians g join public.players p on p.id = g.player_id
-                   join public.player_team_memberships ptm on ptm.player_id = p.id and ptm.state = 'ACTIVE'
-                   where g.guardian_user_id = '${guardianId}' and g.status = 'active' and ptm.team_id = '${youthTeam}' limit 1`)
-const [childId, childName] = child ? child.split("|") : [null, null]
+function env(name) {
+  if (process.env[name]) return process.env[name]
+  try {
+    return fs.readFileSync(new URL("../../.env.local", import.meta.url), "utf8").match(new RegExp(`^${name}=(.*)$`, "m"))?.[1]?.trim() ?? ""
+  } catch {
+    return ""
+  }
+}
+const API = env("NEXT_PUBLIC_SUPABASE_URL") || "http://127.0.0.1:54321"
+const SERVICE_KEY = env("SUPABASE_SERVICE_ROLE_KEY")
+
+/** An adult who signs in with the shared UAT password. Coach and Team Manager need a date of birth showing that. */
+async function person(email, first, surname, dob) {
+  const res = await fetch(`${API}/auth/v1/admin/users`, {
+    method: "POST",
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: env("UAT_BROWSER_PASSWORD"), email_confirm: true }),
+  })
+  const id = (await res.json()).id
+  if (!id) throw new Error(`could not create ${email}: HTTP ${res.status}`)
+  sql(`update public.profiles set first_name = '${first}', surname = '${surname}', date_of_birth = '${dob}', setup_state = 'COMPLETE' where id = '${id}'`)
+  return id
+}
+
+const clubId = sql(`select c.id from public.clubs c join public.club_directory d on d.id = c.directory_id
+                    where d.normalized_key = 'ovalball-uat-rufc'`)
+const youthTeam = sql(`select id from public.teams
+                       where club_id = '${clubId}' and age_group = 'U12' and gender = 'boys' and squad_designation is null`)
+const adultTeam = sql(`select ptm.team_id from public.player_team_memberships ptm
+                       join public.players p on p.id = ptm.player_id
+                       join public.teams t on t.id = ptm.team_id
+                       where p.user_id = (select id from auth.users where email = '${ADULT}')
+                         and ptm.state = 'ACTIVE' and t.category = 'senior' order by t.display_name limit 1`)
+if (!youthTeam || !adultTeam) {
+  console.error("Missing UAT world: need the review club's Under 12 Boys and an adult side with a linked player.")
+  process.exit(1)
+}
+
+/** This run's people, their child and the history that names them (which only an operator session may remove). */
+function teardownPeople() {
+  sql(`do $$
+  declare
+    v_people uuid[] := array(select id from auth.users where email like '${PEOPLE}');
+    v_players uuid[] := array(select player_id from public.guardians where guardian_user_id = any(v_people));
+    v_records uuid[];
+  begin
+    perform set_config('ovalball.maintenance', 'on', true);
+    v_records := v_people || v_players
+      || array(select id from public.player_team_memberships where player_id = any(v_players))
+      || array(select id from public.guardians where guardian_user_id = any(v_people))
+      || array(select id from public.club_memberships where user_id = any(v_people))
+      || array(select id from public.role_assignments where user_id = any(v_people));
+    delete from public.notifications where user_id = any(v_people) or data ->> 'player_id' in (select unnest(v_players)::text);
+    delete from public.player_fixture_attendance where player_id = any(v_players);
+    delete from public.player_team_memberships where player_id = any(v_players);
+    delete from public.guardians where guardian_user_id = any(v_people) or player_id = any(v_players);
+    delete from public.players where id = any(v_players);
+    delete from public.role_assignments where user_id = any(v_people);
+    delete from public.club_memberships where user_id = any(v_people);
+    delete from public.audit_log where changed_by = any(v_people) or actor_user_id = any(v_people) or record_id = any(v_records);
+    delete from public.profiles where id = any(v_people);
+    delete from auth.users where id = any(v_people);
+    delete from public.audit_log where record_id = any(v_records);
+    delete from public.security_events where actor_user_id = any(v_people) or subject_user_id = any(v_people) or player_id = any(v_players);
+  end $$;`)
+}
+
+// THE YOUTH SIDE'S OWN AWARD SETTING IS PUT BACK EXACTLY. Staff switch the award on below, which writes the
+// team's row; the run notes what was there first and restores that, rather than clearing every setting of both
+// sides. A row a crashed run's own staff wrote is that run's, so it is removed before the note is taken.
+const SETTING = `from public.team_award_category_settings where team_id = '${youthTeam}' and category_key = '${AWARD}'`
+sql(`delete ${SETTING} and updated_by in (select id from auth.users where email like '${PEOPLE}')`)
+const settingBefore = sql(`select row_to_json(s)::text from (select enabled, display_name_override, updated_by, updated_at ${SETTING}) s`)
+const lit = (v) => (v === null || v === undefined ? "null" : `'${String(v).replace(/'/g, "''")}'`)
+function restoreSetting() {
+  if (!settingBefore) return sql(`delete ${SETTING}`)
+  const s = JSON.parse(settingBefore)
+  sql(`update public.team_award_category_settings
+          set enabled = ${s.enabled}, display_name_override = ${lit(s.display_name_override)},
+              updated_by = ${lit(s.updated_by)}, updated_at = ${lit(s.updated_at)}
+        where team_id = '${youthTeam}' and category_key = '${AWARD}'`)
+}
+const settingNow = () => sql(`select coalesce((select row_to_json(s)::text from (select enabled, display_name_override, updated_by, updated_at ${SETTING}) s), '')`)
+
+// A crashed run's fixtures name its people, so they go first.
+teardown()
+teardownPeople()
+const staffId = await person(STAFF, "Morgan", "Manager", "1984-02-09")
+sql(`insert into public.club_memberships (club_id, user_id, role, status) values ('${clubId}', '${staffId}', 'BASIC_USER', 'active');
+     insert into testing.team_roles (membership_id, team_id, role_key)
+       select id, '${youthTeam}', 'TEAM_MANAGER' from public.club_memberships where club_id = '${clubId}' and user_id = '${staffId}';`)
+// A guardian whose child plays for the youth side, at the canonical date of birth for its grade (the database
+// refuses a placement outside it).
+const guardianId = await person(GUARDIAN, "Gwen", "Guardian", "1983-06-14")
+const childId = sql(`with p as (
+    insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
+    values ('Wren', 'Batch', internal.date_of_birth_in_age_grade('union', 'U12'), true, 'MALE') returning id)
+  insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state, source)
+  select '${guardianId}', p.id, 'parent', 'active', 'ACTIVE', 'SELF_ADDED_CHILD' from p returning player_id`)
+sql(`insert into public.player_team_memberships (player_id, team_id, status) values ('${childId}', '${youthTeam}', 'active')`)
+const childName = sql(`select first_name from public.players where id = '${childId}'`)
 
 // THE PRIVACY ASSERTION HAS TO NAME THE EVIDENCE IT IS LOOKING FOR.
 //
@@ -75,37 +174,40 @@ const rosterDobs = sql(`select coalesce(string_agg(distinct p.date_of_birth::tex
   .split("|")
   .filter(Boolean)
 const leaksDob = (text) => rosterDobs.filter((d) => text.includes(d))
-const adultTeam = sql(`select ptm.team_id from public.player_team_memberships ptm
-                       join public.players p on p.id = ptm.player_id
-                       join public.teams t on t.id = ptm.team_id
-                       where p.user_id = (select id from auth.users where email = '${ADULT}')
-                         and ptm.state = 'ACTIVE' and t.category = 'senior' limit 1`)
-if (!youthTeam || !adultTeam) {
-  console.error("Missing UAT world: need a youth side with staff and an adult side with a linked player.")
-  process.exit(1)
-}
 
 function teardown() {
   try {
-    sql(`delete from public.match_award_votes where award_id in
+    // Opening voting tells the families who hold the vote; those notices are about this run's fixtures.
+    sql(`delete from public.notifications where data ->> 'fixture_id' in (select id::text from public.fixtures where notes like 'BatchA %');
+         delete from public.match_award_votes where award_id in
            (select id from public.match_awards where fixture_id in (select id from public.fixtures where notes like 'BatchA %'));
          delete from public.match_awards where fixture_id in (select id from public.fixtures where notes like 'BatchA %');
          delete from public.match_kudos where fixture_id in (select id from public.fixtures where notes like 'BatchA %');
          delete from public.player_fixture_attendance where fixture_id in (select id from public.fixtures where notes like 'BatchA %');
-         delete from public.team_award_category_settings where team_id in ('${youthTeam}', '${adultTeam}');
          delete from public.fixtures where notes like 'BatchA %';`)
   } catch {
     // Asserted at the end rather than assumed.
   }
 }
 
-teardown()
-
+// ONE MATCH PER DAY. Both sides keep their own season, and a fixed five days ago eventually lands on one of
+// their matches, which the database refuses. Each played match goes on the nearest earlier day on which that
+// side holds nothing -- asked with the team set the refusal itself uses.
+const lastFreeDay = (team) =>
+  sql(`select d::date::text from generate_series(current_date - 5, current_date - 65, interval '-1 day') d
+        where not exists (
+          select 1 from public.fixtures f
+           where f.kickoff_date = d::date and f.status <> 'Cancelled'
+             and (internal.fixture_side_effective_team_ids(f.owning_team_id, f.owning_scheduling_group_id)
+                  || case when f.opponent_team_id is null then array[]::uuid[]
+                     else internal.fixture_side_effective_team_ids(f.opponent_team_id, f.opponent_scheduling_group_id) end)
+                 && internal.fixture_side_effective_team_ids('${team}', null))
+        order by d desc limit 1`)
 const played = (team, label) =>
   sql(`insert into public.fixtures
        (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, game_type, status, source, notes,
         home_score, away_score, result_status)
-       values ('${team}', 'Home', 'BatchA Visitors ${TAG}', (current_date - 5)::date, '11:00', 'Friendly', 'Completed',
+       values ('${team}', 'Home', 'BatchA Visitors ${TAG}', '${lastFreeDay(team)}', '11:00', 'Friendly', 'Completed',
                'club_created', '${NOTE} ${label}', 31, 17, 'external_recorded')
        returning id`)
 const youthFixture = played(youthTeam, "youth")
@@ -127,17 +229,23 @@ try {
   record("A2 the youth side is youth and the adult side is adult",
     sql(`select internal.team_is_adult_side('${youthTeam}')::text`) === "false" &&
       sql(`select internal.team_is_adult_side('${adultTeam}')::text`) === "true")
-  const u18 = sql(`select id from public.teams where category = 'youth' and age_group in ('U17','U18') limit 1`)
+  // THE NAMES ARE THE CATALOGUE'S. They were written here as "Parents' Player" and "Players' Player", and the
+  // catalogue now says "... of the Match"; match_award_categories is the one place a youth and an adult name live.
+  const [youthName, adultName] = sql(`select name_youth || '|' || name_adult from public.match_award_categories
+                                      where category_key = '${AWARD}'`).split("|")
+  const u18 = sql(`select id from public.teams where category = 'youth' and age_group in ('U17','U18') order by id limit 1`)
   if (u18) {
     record("A3 U17/U18 remains a youth side, so it keeps the parents' electorate",
       sql(`select internal.team_is_adult_side('${u18}')::text`) === "false" &&
-        sql(`select internal.match_award_display_name('FAMILY_OR_SELF_PLAYER', '${u18}')`) === "Parents' Player")
+        sql(`select internal.match_award_display_name('${AWARD}', '${u18}')`) === youthName, youthName)
   } else {
     record("A3 U17/U18 remains a youth side, so it keeps the parents' electorate", true, "no U17/U18 side in the review world; covered by step12 suite")
   }
   record("A4 and the same canonical category is named for the age of the side it is on",
-    sql(`select internal.match_award_display_name('FAMILY_OR_SELF_PLAYER', '${youthTeam}')`) === "Parents' Player" &&
-      sql(`select internal.match_award_display_name('FAMILY_OR_SELF_PLAYER', '${adultTeam}')`) === "Players' Player")
+    youthName !== adultName &&
+      sql(`select internal.match_award_display_name('${AWARD}', '${youthTeam}')`) === youthName &&
+      sql(`select internal.match_award_display_name('${AWARD}', '${adultTeam}')`) === adultName,
+    `${youthName} / ${adultName}`)
 
   // ==================================================================
   // B. THE STAFF WALK -- Team to Match Centre and back
@@ -166,17 +274,37 @@ try {
   record("B6 and the way back is to the team, not to a fixture list", /team|under|men|women/i.test(back), back.slice(0, 40))
 
   // Staff switch on and open an award, so the family journey has one to answer.
-  const toggle = page.getByRole("button", { name: /^(On|Off)$/ }).first()
-  if ((await toggle.count()) > 0) {
-    await toggle.click()
-    await waitForSql(`select count(*) from public.team_award_category_settings where team_id = '${youthTeam}' and enabled`, "1")
+  //
+  // THE TEAM'S OWN SWITCH, ON ITS OWN ROW. The review club now runs every award by default
+  // (club_award_category_settings), so the first switch on the page could already say On, and pressing it
+  // turned the Parents' award off. Staff use that award's own row; if it is on only by the club's default
+  // they switch it off and on again, so the award is running by the team's decision.
+  const awardRow = page
+    .locator("li")
+    .filter({ hasText: youthName })
+    .filter({ has: page.getByRole("button", { name: /^(On|Off)$/ }) })
+    .first()
+  const toggle = awardRow.getByRole("button", { name: /^(On|Off)$/ })
+  const teamSwitch = `select coalesce((select enabled::text ${SETTING}), 'unset')`
+  const reload = async () => {
     await page.reload({ waitUntil: "domcontentloaded" })
     await page.waitForLoadState("networkidle").catch(() => {})
-    await page.getByRole("button", { name: "Open Voting" }).first().click()
-    await waitForSql(`select count(*) from public.match_awards where fixture_id = '${youthFixture}' and status = 'OPEN'`, "1")
+  }
+  if ((await toggle.count()) > 0) {
+    if ((await toggle.getAttribute("aria-pressed")) === "true") {
+      await toggle.click()
+      await waitForSql(teamSwitch, "false", 20000)
+      await reload()
+    }
+    await toggle.click()
+    await waitForSql(teamSwitch, "true", 20000)
+    await reload()
+    await awardRow.getByRole("button", { name: "Open Voting" }).click()
+    await waitForSql(`select count(*) from public.match_awards where fixture_id = '${youthFixture}' and category_key = '${AWARD}' and status = 'OPEN'`, "1")
   }
   record("B7 staff can run the team's award from the match itself",
-    sql(`select count(*) from public.match_awards where fixture_id = '${youthFixture}'`) === "1")
+    sql(teamSwitch) === "true" &&
+      sql(`select count(*) from public.match_awards where fixture_id = '${youthFixture}' and category_key = '${AWARD}'`) === "1")
 
   await page.addScriptTag({ content: axeSource() })
   const axeMc = await page.evaluate(async () => {
@@ -224,7 +352,7 @@ try {
     }
     await gctx.close()
   } else {
-    record("C1 a guardian is named as a Parent/Guardian of their own child", false, "no UAT guardian child in this team")
+    record("C1 a guardian is named as a Parent/Guardian of their own child", false, "this run's child could not be placed on the team")
   }
 
   // ==================================================================
@@ -285,14 +413,30 @@ try {
 } finally {
   await browser.close()
   teardown()
+  try {
+    restoreSetting()
+  } catch {
+    // Asserted at the end rather than assumed.
+  }
+  teardownPeople()
 }
 
+// THIS RUN'S, NOT THE DATABASE'S. These counts used to be over every award, kudos and team setting anywhere,
+// so the review club's own awards on its own matches failed this run's cleanup.
+const own = `'${youthFixture}', '${adultFixture}'`
 record(
   "cleanup: this run's fixtures, awards, votes, kudos and settings are gone",
   sql(`select count(*) from public.fixtures where notes like 'BatchA %'`) === "0" &&
-    sql(`select count(*) from public.match_awards`) === "0" &&
-    sql(`select count(*) from public.match_kudos`) === "0" &&
-    sql(`select count(*) from public.team_award_category_settings`) === "0"
+    sql(`select count(*) from public.match_awards where fixture_id in (${own})`) === "0" &&
+    sql(`select count(*) from public.match_kudos where fixture_id in (${own})`) === "0" &&
+    settingNow() === (settingBefore || ""),
+  settingBefore ? "the youth side's own setting restored" : "the youth side had no setting of its own, and has none again"
+)
+record(
+  "cleanup: this run's people and child are gone, with every notice about its fixtures",
+  sql(`select count(*) from auth.users where email like '${PEOPLE}'`) === "0" &&
+    sql(`select count(*) from public.players where id = '${childId}'`) === "0" &&
+    sql(`select count(*) from public.notifications where data ->> 'fixture_id' in (${own})`) === "0"
 )
 
 process.exit(summarise() ? 0 : 1)

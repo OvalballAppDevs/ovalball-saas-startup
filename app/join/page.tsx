@@ -4,6 +4,7 @@ import Link from "next/link"
 import { OvalballLogo } from "@/components/brand/ovalball-logo"
 import { createClient } from "@/lib/supabase/server"
 import { FALLBACK_PURPOSE, INVITATION_PURPOSE } from "@ovalball/contracts/invitations"
+import { readTeamCodeChoices } from "@ovalball/contracts/team/team-code"
 
 import { JoinPanel } from "./join-panel"
 
@@ -79,6 +80,12 @@ export default async function JoinPage({
     : { data: null }
   const hasName = Boolean(profile?.first_name?.trim() && profile?.surname?.trim())
 
+  // A TEAM'S CODE asks who it is for (20270741000000): the server's choices for this signed-in person.
+  const teamChoices =
+    user && usable && preview?.kind === "TEAM_JOIN_CODE"
+      ? await readTeamCodeChoices(supabase, { token, code }).catch(() => null)
+      : null
+
   return (
     <main className="brand-light-scope min-h-screen bg-chalk">
       <div className="border-b border-ink/8 px-4 py-5 md:px-8">
@@ -141,6 +148,7 @@ export default async function JoinPage({
           signedIn={Boolean(user)}
           hasInvitation={Boolean(usable)}
           needsName={Boolean(user) && !hasName}
+          teamChoices={teamChoices}
         />
       </div>
     </main>

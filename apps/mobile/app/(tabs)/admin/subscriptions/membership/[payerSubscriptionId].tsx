@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Linking, Text, View } from "react-native"
-import { useFocusEffect, useLocalSearchParams } from "expo-router"
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import {
   FINANCE_MANDATE_STATUS_LABEL,
   FINANCE_SUBSCRIPTION_STATUS_LABEL,
@@ -20,11 +20,11 @@ import {
 import { AdminScreen } from "../../../../../src/admin/screen"
 import { useAdminCentreAccess } from "../../../../../src/admin/access"
 import { useFinanceAuthority } from "../../../../../src/admin/finance-authority"
-import { Definition, FinancePill } from "../../../../../src/admin/finance-ui"
+import { Definition, FinancePill, NavRow } from "../../../../../src/admin/finance-ui"
 import { supabase } from "../../../../../src/auth/supabase"
 import { webUrl } from "../../../../../src/config/environment"
 import { Button, Card, CardSkeleton, EmptyState } from "../../../../../src/components/ui"
-import { colour, space, type } from "../../../../../src/design/tokens"
+import { colour, radius, space, type } from "../../../../../src/design/tokens"
 
 /**
  * ONE MEMBERSHIP'S OPERATIONAL DETAIL -- the website's `/club/finance/[payerSubscriptionId]`, natively.
@@ -38,8 +38,12 @@ import { colour, space, type } from "../../../../../src/design/tokens"
  *
  * CANCEL MEMBERSHIP is a provider write with the club's merchant token, held only by the web server. Where
  * the web offers it (`finance.payment.act`, an active payer), the phone hands off to the same page.
+ *
+ * THE MEMBER'S OWN PAGE (Club Memberships Part 2) -- where the membership stands this month, the reminder and who
+ * pays -- is one tap away, for the player this record belongs to.
  */
 export default function MembershipDetailScreen() {
+  const router = useRouter()
   const { payerSubscriptionId } = useLocalSearchParams<{ payerSubscriptionId: string }>()
   const { clubId } = useAdminCentreAccess()
   const { authority } = useFinanceAuthority(clubId)
@@ -120,6 +124,15 @@ export default function MembershipDetailScreen() {
             <Definition term="Direct Debit mandate">{detail.mandateStatus ? (FINANCE_MANDATE_STATUS_LABEL[detail.mandateStatus] ?? detail.mandateStatus) : "Not set up"}</Definition>
             <Definition term="Recurring subscription">{detail.subscriptionStatus ? (FINANCE_SUBSCRIPTION_STATUS_LABEL[detail.subscriptionStatus] ?? detail.subscriptionStatus) : "Not yet active"}</Definition>
           </Card>
+
+          <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+            <NavRow
+              first
+              label="Open in Members"
+              caption={`Where ${detail.playerName}'s membership stands this month, reminders and who pays`}
+              onPress={() => router.push({ pathname: "/admin/subscriptions/member/[playerId]", params: { playerId: detail.playerId } } as never)}
+            />
+          </View>
 
           {showCancel && (
             <Card style={{ gap: space.sm }}>

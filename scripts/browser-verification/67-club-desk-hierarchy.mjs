@@ -18,8 +18,10 @@
 // =====================================================================
 
 import { execFileSync } from "node:child_process"
+import { readFileSync } from "node:fs"
+import path from "node:path"
 
-import { launch, newContext, signIn, APP, record, summarise } from "./harness.mjs"
+import { launch, newContext, signIn, APP, record, summarise, SAMPLE_CREST_PNG, uploadStorageObject, removeStorageObject } from "./harness.mjs"
 
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saas-startup"
 const SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321"
@@ -70,7 +72,7 @@ begin
   values (v_club, v_admin, 'CLUB_ADMIN', 'active', 'SITE_ADMIN_ASSIGNMENT') returning id into v_mem;
   insert into public.club_memberships (club_id, user_id, role, status, source)
   values (v_club, v_member, 'BASIC_USER', 'active', 'SITE_ADMIN_ASSIGNMENT');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_mem, v_team, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_mem, v_team, 'COACH');
 
   insert into public.club_announcements (club_id, title, body, priority, status, visibility, published_at, created_by)
   values (v_club,'Pitch 2 is closed this weekend','Waterlogged after Friday''s rain.','URGENT','PUBLISHED','PUBLIC', now(), v_admin);
@@ -131,7 +133,7 @@ begin
   delete from public.fixtures where owning_team_id in (select id from public.teams where club_id = v_club);
   delete from public.club_articles where club_id = v_club;
   delete from public.club_announcements where club_id = v_club;
-  delete from public.team_permissions where membership_id in (select id from public.club_memberships where club_id = v_club);
+  delete from testing.team_roles where membership_id in (select id from public.club_memberships where club_id = v_club);
   delete from public.club_memberships where club_id = v_club;
   delete from public.teams where club_id = v_club;
   delete from public.clubs where id = v_club;
@@ -170,27 +172,9 @@ end $$;`)
  * strip is showing" while the product behaved perfectly. So the fixture uploads a crest a club could
  * plausibly have uploaded.
  */
-const LOGO_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAIAAAAErfB6AAABhUlEQVR4nO3RAQkAMAzAsPk3vasYhxKIgEJnZwmb7wWcMjjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4DiD4wyOMzjO4LgHq4NDqp+p9ZIAAAAASUVORK5CYII=",
-  "base64",
-)
-
-async function uploadLogo(path) {
-  const png = LOGO_PNG
-  const res = await fetch(`${SUPABASE}/storage/v1/object/club-logos/${path}`, {
-    method: "POST",
-    headers: { apikey: SERVICE_KEY, authorization: `Bearer ${SERVICE_KEY}`, "content-type": "image/png" },
-    body: png,
-  })
-  if (!res.ok && res.status !== 409) throw new Error(`logo upload failed: ${res.status} ${await res.text()}`)
-}
-
-async function removeLogo(path) {
-  await fetch(`${SUPABASE}/storage/v1/object/club-logos/${path}`, {
-    method: "DELETE",
-    headers: { apikey: SERVICE_KEY, authorization: `Bearer ${SERVICE_KEY}` },
-  }).catch(() => {})
-}
+// The image and the storage calls live in the harness (SAMPLE_CREST_PNG), shared with suite 76.
+const uploadLogo = (path) => uploadStorageObject("club-logos", path, SAMPLE_CREST_PNG)
+const removeLogo = (path) => removeStorageObject("club-logos", path)
 
 /** Everything the page says, in the order the DOM says it. */
 async function outline(page) {
@@ -207,6 +191,21 @@ teardown()
 seed()
 await uploadLogo(LOGO_PATH)
 sql(`update public.clubs set logo_storage_path = '${LOGO_PATH}' where slug = '${SLUG}'`)
+// signIn() signs in through the real password form. This run's people were made with no password, so they are
+// given the local UAT password through Supabase's own Auth admin API before anybody signs in.
+const PASSWORD = process.env.UAT_BROWSER_PASSWORD
+  || (readFileSync(path.resolve(import.meta.dirname, "../../.env.local"), "utf8").split("\n").find((l) => l.startsWith("UAT_BROWSER_PASSWORD=")) ?? "").slice("UAT_BROWSER_PASSWORD=".length).trim().replace(/^["']|["']$/g, "")
+for (const email of [ADMIN, ADMIN_B, MEMBER]) {
+  const id = sql(`select id from auth.users where email = '${email}'`)
+  if (!id) continue
+  const res = await fetch(`${SUPABASE}/auth/v1/admin/users/${id}`, {
+    method: "PUT",
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ password: PASSWORD }),
+  })
+  if (!res.ok) throw new Error(`could not set a password for ${email}: HTTP ${res.status}`)
+}
+
 const browser = await launch()
 try {
   // ---------------- CLUB ADMIN, BUSY CLUB, DESKTOP ----------------
@@ -358,10 +357,20 @@ try {
   // Club B has a kit and NO configured logo, which is the other half of the same rule.
   const identityB = await page3.evaluate(() => {
     const plate = document.querySelector("main header span.grid")
-    return { imgSrc: plate?.querySelector("img")?.getAttribute("src") ?? null, shirtDrawn: Boolean(plate?.querySelector("svg")) }
+    return {
+      plate: Boolean(plate),
+      imgSrc: plate?.querySelector("img")?.getAttribute("src") ?? null,
+      shirtDrawn: Boolean(plate?.querySelector("svg")),
+      text: plate?.textContent?.trim() ?? null,
+    }
   })
-  record("UX3-25 a club with no configured logo falls back to its shirt, as it always has",
-    identityB.imgSrc === null && identityB.shirtDrawn === true, JSON.stringify(identityB))
+  // THE RULE CHANGED ON PURPOSE (components/club-home/club-chrome.tsx, CrestPlate): "NO CREST SHOWS THE
+  // CLUB'S INITIALS, NOT ITS SHIRT" -- a shirt read as the club's badge, and nobody there ever chose it. What
+  // this check has always protected is that a club with no logo still shows an identity of its own, in the
+  // same place, and never somebody else's mark. That is what it asserts now.
+  record("UX3-25 a club with no configured logo shows its initials in the crest's place -- never a shirt, never another crest",
+    identityB.plate && identityB.imgSrc === null && identityB.shirtDrawn === false && /^[A-Z0-9]{2}$/.test(identityB.text ?? ""),
+    JSON.stringify(identityB))
   record("UX3-26 the two are independent: same kit rules, different logo outcome",
     Boolean(paintB) && paintB !== paintA?.background && identity.imgSrc !== identityB.imgSrc,
     `themeA=${paintA?.background} themeB=${paintB}`)

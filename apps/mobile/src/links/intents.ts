@@ -18,6 +18,7 @@
  * resolves to nothing is worse than an unrecognised link, because it looks handled.
  */
 
+import { parseMatchCentreSection, type MatchCentreSection } from "@ovalball/contracts/match-centre/sections"
 import { parseHubHref, type HubDestination } from "@ovalball/contracts/rugby-hub/destinations"
 
 export type LinkIntent =
@@ -51,32 +52,35 @@ export type LinkIntent =
   | { kind: "MESSAGE_THREAD"; conversationId: string; conversationKind: "direct" | "fixture" | "request" | "club" }
   /** Open the fixture list for whatever context the person is in. */
   | { kind: "FIXTURES" }
+  /** A Season Planner club day, sent or received (20270761000000). */
+  | { kind: "CLUB_DAY"; groupId: string }
   /**
-   * Open one fixture.
+   * Open one fixture -- which is its Match Centre, for everybody (owner brief, 2026-10-03).
    *
-   * THE ID IS NOT A PERMISSION, exactly as for a conversation. The detail screen reads the fixture
+   * THE ID IS NOT A PERMISSION, exactly as for a conversation. The Match Centre reads the fixture
    * through RLS; one this person may not see returns nothing and the screen says it is unavailable.
    *
-   * This is the route a fixture NOTIFICATION will use when M7 adds push -- a kick-off change, a
-   * cancellation, an availability chase. The destination exists now precisely so that adding push is
-   * about delivery rather than about inventing where a tap should land.
+   * `section` is the Match Centre section the link is about -- `?tab=attendance` on an attendance
+   * invitation, `?tab=rewards` on a vote opening -- so a notification lands on the exact thing it is
+   * about. Absent means Overview.
    */
-  | { kind: "FIXTURE"; fixtureId: string }
-  /** The Match Centre for one fixture. A foundation route today; the same address when M6 fills it. */
-  | { kind: "MATCH_CENTRE"; fixtureId: string }
+  | { kind: "FIXTURE"; fixtureId: string; section?: MatchCentreSection }
   /**
-   * ADD RESULT (owner correction pass, Section 21) -- a mobile-only shortcut from a past fixture row
-   * straight to `submit_fixture_result`'s entry screen. There is no external URL for this: it is never
-   * produced by `resolveIntent`, only built directly by the Fixtures screen, exactly the way the app
-   * builds `FIXTURE`/`MATCH_CENTRE` intents for its own in-app taps. It lives in this one table anyway,
-   * rather than a hand-built path, for the same reason every other fixture destination does.
+   * `/fixtures/<id>/match-centre`, the former participant address. Kept as a kind so a link that
+   * already exists still resolves; it is the same one Match Centre as `FIXTURE`.
+   */
+  | { kind: "MATCH_CENTRE"; fixtureId: string; section?: MatchCentreSection }
+  /**
+   * ADD RESULT -- the Fixtures list's shortcut from a past match straight to entering its score. It
+   * opens the Match Centre's Result section, where the one Match Result lives.
    */
   | { kind: "ADD_RESULT"; fixtureId: string }
+  /** ONE FIXTURE'S RESULT: the Match Centre's Result section. Every result notification and job. */
+  | { kind: "FIXTURE_RESULT"; fixtureId: string }
   /**
-   * EDIT FIXTURE (owner decision: Fixture Detail / Edit Fixture / Match Centre are now three separate
-   * destinations). Mobile-only, exactly like ADD_RESULT above -- built and reached only from Fixture
-   * Detail's own "Edit Fixture" button, gated on `fixture.fixture.edit` there before this is ever
-   * produced.
+   * EDIT FIXTURE -- editing is contextual in the Match Centre now. `/fixtures/<id>/edit` resolves here
+   * and opens it with the match details editor showing; the editor itself appears only where
+   * `fixture.fixture.edit` is held.
    */
   | { kind: "EDIT_FIXTURE"; fixtureId: string }
   /** Open the calendar, optionally anchored on a day a notification was about. */
@@ -90,6 +94,38 @@ export type LinkIntent =
    * it is not this person's.
    */
   | { kind: "TRAINING"; sessionId: string }
+  /**
+   * ONE TOURNAMENT -- the Tournament Centre, at the website's own address.
+   *
+   * ONE ADDRESS FOR EVERY VIEWER, exactly as a fixture has one. A parent whose
+   * child is playing, a coach whose side is entered and the club running the day
+   * all open `/tournaments/<id>`; the screen asks the server what this person may
+   * see and do, and renders accordingly. There is deliberately no participant
+   * address and no organiser address, because two addresses become two
+   * implementations and then two designs.
+   *
+   * THE ID IS NOT A PERMISSION. A tournament this person cannot see returns
+   * nothing and the screen says it is unavailable.
+   */
+  | { kind: "TOURNAMENT"; tournamentId: string }
+  /**
+   * AN EVENT -- `/events/<id>[?tab=<section>]`, the same address the website uses, opening the one Event
+   * Centre. The id is not a permission: an event this person may not see returns nothing.
+   */
+  | { kind: "EVENT"; eventId: string; section: string | null }
+  /**
+   * ONE TOURNAMENT GAME'S RESULT -- `/tournaments/result/<gameId>`, the address every result
+   * notification lands on, because each of them says a human has something to do about ONE score.
+   * The game id is not a permission: the screen returns nothing to anybody who is neither one of
+   * the two sides nor the organiser. `tournamentId`, when the link knows it, is where that screen sends
+   * a family instead -- the tournament's Agenda, which lists the game for them -- never a dead end.
+   */
+  | { kind: "TOURNAMENT_RESULT"; gameId: string; tournamentId?: string }
+  /**
+   * ONE DISPENSATION -- `/dispensations/<id>`, the record every dispensation notification opens
+   * (20270742000000). The screen asks the server what this person may read and do; the id grants nothing.
+   */
+  | { kind: "DISPENSATION"; dispensationId: string }
   /**
    * A Rugby Hub destination -- an article, a law, a position, a glossary term, the
    * landing itself. The web address IS the app address: `parseHubHref` (shared, in
@@ -117,7 +153,7 @@ export type LinkIntent =
    * app switches to only where the person already holds it (`ensureTeamContext`). The id says which
    * team; whether the person may see it is decided again by every read the screen makes.
    */
-  | { kind: "TEAM"; teamId: string; section: "home" | "people" | "player-requests" | "subscriptions" | "news" }
+  | { kind: "TEAM"; teamId: string; section: "home" | "people" | "player-requests" | "subscriptions" | "news" | "age-grade" }
   /**
    * SAFEGUARDING (CA-M11.1). The website addresses the club's safeguarding page at
    * `/club/settings/safeguarding` and a safeguarding conversation beneath it, and the officer-facing
@@ -141,6 +177,13 @@ export type LinkIntent =
   | { kind: "CLUB_GUARDIANS"; section: "overview" | "link-requests" | "join-requests" | "moves" }
   /** A link Ovalball issued but this build does not handle yet -- named so it can be reported honestly. */
   | { kind: "NOT_YET_SUPPORTED"; path: string }
+  /**
+   * A WEBSITE ADDRESS WHOSE NATIVE SCREEN IS ONE FIXED PLACE (notification correctness pass). These
+   * carried notifications for years and resolved to nothing natively, so a tap opened the website and a
+   * push tap opened nothing at all. `WEB_ADDRESS_TO_SCREEN` below is the whole table -- the same
+   * addresses, mapped once, here in the one resolver.
+   */
+  | { kind: "SCREEN"; pathname: string; params?: Record<string, string> }
   | { kind: "UNKNOWN" }
 
 /**
@@ -150,6 +193,33 @@ export type LinkIntent =
  */
 const PLANNED = ["/invitation", "/notifications", "/subscriptions"]
 
+/**
+ * Website addresses that notifications carry and that have one native home. Prefix matches (a support
+ * ticket id, a request id in the query) land on the same screen; the screen re-reads what is there.
+ */
+const WEB_ADDRESS_TO_SCREEN: { path: string; prefix: boolean; pathname: string; param?: [query: string, name: string] }[] = [
+  { path: "/clubhouse/opportunities", prefix: false, pathname: "/clubhouse/opportunities", param: ["highlight", "highlight"] },
+  { path: "/clubhouse/partnerships", prefix: false, pathname: "/clubhouse/partnerships" },
+  // Every "/clubhouse" the platform emits is about partner clubs (partner requests, calendar sharing,
+  // the finance page's partner-clubs link), whose native home is Partnerships.
+  { path: "/clubhouse", prefix: false, pathname: "/clubhouse/partnerships" },
+  { path: "/people", prefix: false, pathname: "/admin/people" },
+  { path: "/parent/children", prefix: false, pathname: "/family" },
+  // A parent's answer to their child's own team request (20270741000000): the request rides as `request`.
+  { path: "/parent/team-requests", prefix: false, pathname: "/family/team-request", param: ["request", "membershipId"] },
+  { path: "/account/security", prefix: false, pathname: "/security" },
+  { path: "/club/rollover", prefix: true, pathname: "/admin/rollover" },
+  { path: "/club/training", prefix: true, pathname: "/admin/training-planning" },
+  { path: "/support", prefix: true, pathname: "/support" },
+  { path: "/club/settings/ovalball-billing", prefix: false, pathname: "/admin/subscriptions/ovalball-billing" },
+  // Club Memberships (20270752000000: "GoCardless account verified"): the hub decides setup or settings.
+  { path: "/club/settings/subscriptions", prefix: false, pathname: "/admin/subscriptions" },
+  // The club's dispensations (20270742000000): the register the server fills for whoever may read it.
+  { path: "/dispensations", prefix: false, pathname: "/admin/safeguarding/dispensations" },
+  // An older notification may still carry the address that never existed on the website.
+  { path: "/club/settings/ovalball-plan", prefix: false, pathname: "/admin/subscriptions/ovalball-billing" },
+]
+
 /** The invitation path. Named here beside the resolver so a test can see "/join" is owned, not planned. */
 export const JOIN_PATH = "/join"
 
@@ -158,6 +228,9 @@ export const APP_SCHEMES = ["ovalball", "ovalball-dev", "ovalball-staging"] as c
 
 /** A calendar anchor is a civil date and nothing else. Anything other shape is ignored rather than guessed at. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/** A record id. A query value that is not one is ignored rather than routed. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** The conversation kinds this build can open. Anything else falls back to the inbox rather than guessing. */
 const THREAD_KINDS = ["direct", "fixture", "request", "club"] as const
@@ -229,6 +302,17 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
   }
 
   // MESSAGES: /messages, and /messages/<kind>/<id> for one conversation.
+  //
+  // AN ANNOUNCEMENT THREAD IS ITS OWN DESTINATION, matched BEFORE the generic kind check below --
+  // otherwise "announcement" fails THREAD_KINDS and falls into that branch's own catch-all, which
+  // silently opens the inbox instead (the bug this guard fixes). It genuinely is not one of
+  // THREAD_KINDS: a recipient who cannot reply still needs to read it, which is why the website
+  // gives it a dedicated screen (app/(app)/messages/announcement/[id]/) rather than reusing the
+  // generic conversation UI. No native screen exists for it yet, so this falls through to the
+  // website -- a known, named gap rather than a wrong guess.
+  if (path === "/messages/announcement" || path.startsWith("/messages/announcement/")) {
+    return { kind: "NOT_YET_SUPPORTED", path }
+  }
   if (path === "/messages") return { kind: "MESSAGES" }
   if (path.startsWith("/messages/")) {
     const parts = path.slice("/messages/".length).split("/").filter(Boolean)
@@ -244,27 +328,49 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
         conversationKind: conversationKind as (typeof THREAD_KINDS)[number],
       }
     }
-    // A messages link this build cannot open -- a support thread, an announcement, a shape that has
-    // changed -- lands in the inbox rather than nowhere. Somebody who tapped a message link should
-    // end up looking at their messages.
+    // A messages link this build cannot open -- a support thread, a shape that has changed -- lands
+    // in the inbox rather than nowhere. Somebody who tapped a message link should end up looking at
+    // their messages.
     return { kind: "MESSAGES" }
   }
 
-  // FIXTURES: /fixtures, /fixtures/<id>, and /fixtures/<id>/match-centre.
+  // FIXTURES: /fixtures, /fixtures/<id>[?tab=<section>], and the older section addresses.
   //
   // The web addresses a fixture at /fixtures/<id> and its Match Centre at the same id, so these are
   // the SAME paths rather than a mobile invention -- a link shared from a browser resolves here.
+  // `?tab=` names the Match Centre section; the website ignores it and lands on its own page.
+  //
+  // COMPETITION MATCH ADMINISTRATION (/fixtures/competitions/...) IS NOT A FIXTURE, matched first
+  // for the same reason the announcement guard above runs first: the generic matcher below splits
+  // on "/" and reads the FIRST segment as a fixture id regardless of what it actually is, so
+  // "/fixtures/competitions/requests" used to produce `{kind: "FIXTURE", fixtureId:
+  // "competitions"}` -- an attempt to open a fixture that cannot exist. This administration lives
+  // only on the website today; recognising the shape explicitly sends it there instead.
+  if (path === "/fixtures/competitions" || path.startsWith("/fixtures/competitions/")) {
+    return { kind: "NOT_YET_SUPPORTED", path }
+  }
   if (path === "/fixtures") return { kind: "FIXTURES" }
+  // A CLUB DAY, matched before the generic fixture shape (which would read "club-day" as a fixture id).
+  if (path.startsWith("/fixtures/club-day/")) {
+    const groupId = path.slice("/fixtures/club-day/".length).split("/").filter(Boolean)[0]
+    return groupId ? { kind: "CLUB_DAY", groupId } : { kind: "FIXTURES" }
+  }
   if (path.startsWith("/fixtures/")) {
     const parts = path.slice("/fixtures/".length).split("/").filter(Boolean)
-    const [fixtureId, section] = parts
+    const [fixtureId, part] = parts
     if (!fixtureId) return { kind: "FIXTURES" }
-    if (parts.length === 1) return { kind: "FIXTURE", fixtureId }
-    if (parts.length === 2 && (section === "match-centre" || section === "matchcentre")) {
-      return { kind: "MATCH_CENTRE", fixtureId }
+    const tab = parsed.searchParams.get("tab")
+    const section = tab ? parseMatchCentreSection(tab) : undefined
+    if (parts.length === 1) return section ? { kind: "FIXTURE", fixtureId, section } : { kind: "FIXTURE", fixtureId }
+    if (parts.length === 2 && (part === "match-centre" || part === "matchcentre")) {
+      return section ? { kind: "MATCH_CENTRE", fixtureId, section } : { kind: "MATCH_CENTRE", fixtureId }
     }
-    // A section of a fixture this build does not have a screen for -- the result, the team sheet --
-    // opens the fixture itself, which is where all of them live.
+    if (parts.length === 2 && part === "result") return { kind: "FIXTURE_RESULT", fixtureId }
+    // The website's editing address: the Match Centre with its details editor, which is drawn only for
+    // somebody the server says may edit -- anybody else simply sees the match.
+    if (parts.length === 2 && part === "edit") return { kind: "EDIT_FIXTURE", fixtureId }
+    // A part of a fixture this build has no address for -- the team sheet -- opens the Match
+    // Centre itself, which is where all of them live.
     return { kind: "FIXTURE", fixtureId }
   }
 
@@ -296,15 +402,49 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
   }
   if (path === "/guardian-requests") return { kind: "CLUB_GUARDIANS", section: "link-requests" }
 
+  // CLUB MEMBERSHIPS (Club Memberships Part 2): the website's /club/finance pages, each at its native home -- the
+  // overview, Members and one member, Reminders, a month's Payments, and one membership's record. Only these shapes:
+  // anything else under the address is left to the rules below rather than guessed at.
+  const memberships = clubMembershipsScreen(path, parsed.searchParams)
+  if (memberships) return memberships
+
   // A TEAM: /teams/<id> and its sections, the same addresses the website uses.
   if (path.startsWith("/teams/")) {
     const parts = path.slice("/teams/".length).split("/").filter(Boolean)
     const [teamId, section] = parts
     if (teamId) {
-      const known = ["people", "player-requests", "subscriptions", "news"] as const
+      const known = ["people", "player-requests", "subscriptions", "news", "age-grade"] as const
       const chosen = (known as readonly string[]).includes(section ?? "") ? (section as (typeof known)[number]) : "home"
       return { kind: "TEAM", teamId, section: chosen }
     }
+  }
+
+  // A DISPENSATION: /dispensations/<id>, the record itself. The bare register address lands on the
+  // officer's register, which the server fills for the officer, the Club Admins and the Fixtures Secretary.
+  if (path.startsWith("/dispensations/")) {
+    const dispensationId = path.slice("/dispensations/".length).split("/").filter(Boolean)[0]
+    if (dispensationId) return { kind: "DISPENSATION", dispensationId }
+  }
+
+  // A TOURNAMENT: /tournaments/<id>, the same address the website uses. A section
+  // beneath it that this build has no screen for opens the tournament itself,
+  // which is where all of them live -- the same rule a fixture's sections follow.
+  // A GAME'S RESULT, matched BEFORE the tournament itself -- otherwise "result" is read as a
+  // tournament id and every result notification opens a tournament that does not exist.
+  if (path.startsWith("/tournaments/result/")) {
+    const gameId = path.slice("/tournaments/result/".length).split("/").filter(Boolean)[0]
+    if (gameId) return { kind: "TOURNAMENT_RESULT", gameId }
+  }
+
+  if (path.startsWith("/tournaments/")) {
+    const tournamentId = path.slice("/tournaments/".length).split("/").filter(Boolean)[0]
+    if (tournamentId) return { kind: "TOURNAMENT", tournamentId }
+  }
+
+  // AN EVENT: /events/<id>, its section as ?tab=.
+  if (path.startsWith("/events/")) {
+    const eventId = path.slice("/events/".length).split("/").filter(Boolean)[0]
+    if (eventId) return { kind: "EVENT", eventId, section: parsed.searchParams.get("tab") }
   }
 
   // TRAINING: /training/<id>, the same address the website uses.
@@ -336,7 +476,42 @@ export function resolveIntent(url: string | null | undefined): LinkIntent {
     return { kind: "NOT_YET_SUPPORTED", path }
   }
 
+  // ONE TRAINING PLAN: Training Management with a plan named opens that plan, not the list of them.
+  const plan = path === "/club/training" ? parsed.searchParams.get("plan")?.trim() : null
+  if (plan && UUID.test(plan)) return { kind: "SCREEN", pathname: "/admin/training-planning/plan/[planId]", params: { planId: plan } }
+
+  const screen = WEB_ADDRESS_TO_SCREEN.find((s) => path === s.path || (s.prefix && path.startsWith(`${s.path}/`)))
+  if (screen) {
+    const value = screen.param ? parsed.searchParams.get(screen.param[0]) : null
+    return value && screen.param ? { kind: "SCREEN", pathname: screen.pathname, params: { [screen.param[1]]: value } } : { kind: "SCREEN", pathname: screen.pathname }
+  }
+
   return { kind: "UNKNOWN" }
+}
+
+/** A billing month as the website writes it in `?month=`: the first of a month. */
+const BILLING_MONTH = /^\d{4}-\d{2}-01$/
+
+/**
+ * `/club/finance[...]` -- the website's Club Memberships -- as the native screen for each. The ids say where to go;
+ * every screen asks the server what this person may see. A `?club=` naming the club only chooses: it is not read here.
+ */
+function clubMembershipsScreen(path: string, query: URLSearchParams): LinkIntent | null {
+  if (path !== "/club/finance" && !path.startsWith("/club/finance/")) return null
+  const parts = path.slice("/club/finance".length).split("/").filter(Boolean)
+  const month = query.get("month")
+  const monthParams = month && BILLING_MONTH.test(month) ? { month } : null
+  if (parts.length === 0) {
+    // The old finance page carried its month: that month's payments are what the link was about.
+    return monthParams ? { kind: "SCREEN", pathname: "/admin/subscriptions/payments", params: monthParams } : { kind: "SCREEN", pathname: "/admin/subscriptions" }
+  }
+  const [first, second] = parts
+  if (first === "members" && parts.length === 1) return { kind: "SCREEN", pathname: "/admin/subscriptions/members" }
+  if (first === "members" && parts.length === 2 && second && UUID.test(second)) return { kind: "SCREEN", pathname: "/admin/subscriptions/member/[playerId]", params: { playerId: second } }
+  if (first === "reminders" && parts.length === 1) return { kind: "SCREEN", pathname: "/admin/subscriptions/reminders" }
+  if (first === "payments" && parts.length === 1) return monthParams ? { kind: "SCREEN", pathname: "/admin/subscriptions/payments", params: monthParams } : { kind: "SCREEN", pathname: "/admin/subscriptions/payments" }
+  if (first && parts.length === 1 && UUID.test(first)) return { kind: "SCREEN", pathname: "/admin/subscriptions/membership/[payerSubscriptionId]", params: { payerSubscriptionId: first } }
+  return null
 }
 
 /** http and https carry their path in `pathname`; a custom scheme spreads it over host and pathname. */

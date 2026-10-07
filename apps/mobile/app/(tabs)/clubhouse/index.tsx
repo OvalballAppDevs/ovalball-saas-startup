@@ -6,6 +6,7 @@ import { Image } from "expo-image"
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 
 import { CLUBHOUSE_NOTIFICATION_TYPES, readNotificationPage, type FeedNotification } from "@ovalball/contracts/notifications/feed"
+import { readPeopleCapabilities } from "@ovalball/contracts/club/people"
 
 import { supabase } from "../../../src/auth/supabase"
 import { useAppContexts } from "../../../src/context/contexts"
@@ -15,7 +16,7 @@ import { Button, CardSkeleton } from "../../../src/components/ui"
 import { ClubCrest } from "../../../src/components/identity"
 import { editorial } from "../../../src/components/home/editorial"
 import { resolveIntent } from "../../../src/links/intents"
-import { narrowIntentForContext, routeForIntent } from "../../../src/links/destinations"
+import { routeForIntent } from "../../../src/links/destinations"
 import { webUrl } from "../../../src/config/environment"
 import { CalendarDays, ChevronRight, HeartHandshake, MapPin, Megaphone, Search, Users } from "../../../src/components/icons"
 import { colour, radius, space, surface, type } from "../../../src/design/tokens"
@@ -59,6 +60,9 @@ export default function ClubhouseHome() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [activity, setActivity] = useState<FeedNotification[] | null>(null)
   const [activityError, setActivityError] = useState(false)
+  // THE REFERRAL CARD IS FOR THE PEOPLE WHO CAN REFER, or see the club's referrals -- the server's answer
+  // at this club. It used to show to everyone and lead some of them to a screen they could not use.
+  const [canRefer, setCanRefer] = useState(false)
 
   const loadActivity = useCallback(async () => {
     try {
@@ -76,11 +80,14 @@ export default function ClubhouseHome() {
   useFocusEffect(
     useCallback(() => {
       void loadActivity()
-    }, [loadActivity])
+      const clubId = active?.clubId ?? (active?.kind === "club" ? active.id : null)
+      if (clubId) void readPeopleCapabilities(supabase, clubId).then((c) => setCanRefer(c.refer)).catch(() => setCanRefer(false))
+      else setCanRefer(false)
+    }, [loadActivity, active])
   )
 
   function openActivity(item: FeedNotification) {
-    const intent = narrowIntentForContext(resolveIntent(`ovalball://${item.href.replace(/^\//, "")}`), active?.kind ?? null)
+    const intent = resolveIntent(`ovalball://${item.href.replace(/^\//, "")}`)
     const route = routeForIntent(intent)
     if (route) {
       router.push(route as never)
@@ -144,7 +151,7 @@ export default function ClubhouseHome() {
           </View>
         )}
 
-        <ReferralPromoCard onPress={() => router.push("/clubhouse/refer" as never)} />
+        {canRefer && <ReferralPromoCard onPress={() => router.push("/clubhouse/refer" as never)} />}
 
         <View style={{ gap: space.sm }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -279,7 +286,7 @@ function ReferralPromoCard({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Refer a rugby club. Get one month free. Help grow the rugby community."
+      accessibilityLabel="Refer Clubs. Grow rugby together: recommend Ovalball to another club."
       onPress={onPress}
       style={({ pressed }) => ({
         borderRadius: radius.lg,
@@ -295,9 +302,9 @@ function ReferralPromoCard({ onPress }: { onPress: () => void }) {
         <Megaphone size={20} color={colour.onForest} strokeWidth={2} />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={[type.smallMedium, { color: colour.mint300 }]}>Refer a rugby club</Text>
-        <Text style={[type.heading, { color: colour.onForest, marginTop: 2 }]}>Get 1 month free</Text>
-        <Text style={[type.caption, { color: colour.onForestMuted, marginTop: 4 }]}>Help grow the rugby community</Text>
+        <Text style={[type.smallMedium, { color: colour.mint300 }]}>Refer Clubs</Text>
+        <Text style={[type.heading, { color: colour.onForest, marginTop: 2 }]}>Grow rugby together</Text>
+        <Text style={[type.caption, { color: colour.onForestMuted, marginTop: 4 }]}>Recommend Ovalball to another club</Text>
       </View>
       <ChevronRight size={20} color={colour.onForest} />
     </Pressable>

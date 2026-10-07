@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { TEAM_STAFF_PERMISSION_OPTIONS } from "@/lib/permissions/role-labels"
+import { TEAM_ROLE_OPTIONS } from "@ovalball/contracts/role-labels"
 
 import { grantTeamAccess, removeTeamAssignment } from "../actions"
 
@@ -54,7 +54,7 @@ export function TeamAccessEditor({
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [teamId, setTeamId] = useState("")
-  const [permission, setPermission] = useState(TEAM_STAFF_PERMISSION_OPTIONS[1].value as string)
+  const [permission, setPermission] = useState<string>(TEAM_ROLE_OPTIONS[0].value)
   const [reason, setReason] = useState("")
 
   async function handleRemove(id: string, teamId: string) {
@@ -132,7 +132,7 @@ export function TeamAccessEditor({
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <Label htmlFor="team-access-role">Role</Label>
               <select id="team-access-role" value={permission} onChange={(e) => setPermission(e.target.value)} className={FIELD}>
-                {TEAM_STAFF_PERMISSION_OPTIONS.map((o) => (
+                {TEAM_ROLE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>

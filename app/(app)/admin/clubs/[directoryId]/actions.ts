@@ -4,18 +4,26 @@ import { revalidatePath } from "next/cache"
 
 import { createClient } from "@/lib/supabase/server"
 import { toPublicSubmissionError } from "@/lib/errors/public-error"
-import { searchUkAddresses, type AddressLookupResult } from "@/lib/address-lookup/lookup"
+import { resolveAddress, suggestAddresses } from "@/lib/address-lookup/lookup"
+import type { AddressResolveResult, AddressSuggestResult } from "@ovalball/contracts/address"
 
 import { requireSiteAdmin } from "../../require-site-admin"
 import { ADMIN_VERIFICATION_STATUSES, type AdminVerificationStatus } from "./verification-status"
 
-/** Thin server-action wrapper -- searchUkAddresses itself is the real integration, see its own doc comment. */
-export async function lookupAddress(query: string): Promise<AddressLookupResult> {
+/** Thin server-action wrapper -- autocompleteUkAddresses itself is the real integration, see its own doc comment. */
+export async function lookupAddress(query: string, sessionToken: string): Promise<AddressSuggestResult> {
   const supabase = await createClient()
   const auth = await requireSiteAdmin(supabase, ["full", "club_data"])
-  if (!auth.ok) return { status: "error", message: auth.error }
-  if (query.trim().length < 3) return { status: "ok", candidates: [] }
-  return searchUkAddresses(query)
+  if (!auth.ok) return { status: "invalid_query", reason: auth.error }
+  return suggestAddresses(query, sessionToken)
+}
+
+/** Second step: resolve one chosen suggestion into its full structured address + coordinates. */
+export async function resolveDirectoryAddress(placeId: string, sessionToken: string): Promise<AddressResolveResult> {
+  const supabase = await createClient()
+  const auth = await requireSiteAdmin(supabase, ["full", "club_data"])
+  if (!auth.ok) return { status: "invalid_query", reason: auth.error }
+  return resolveAddress(placeId, sessionToken)
 }
 
 export type ActionResult = { ok: true } | { ok: false; error: string }

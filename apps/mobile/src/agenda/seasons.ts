@@ -104,6 +104,21 @@ export async function clubRugbyCode(supabase: SupabaseClient<Database>, clubId: 
   return data?.club_directory?.rugby_code ?? null
 }
 
+/**
+ * THE VIEWER'S CODE WHEN NO SINGLE CLUB IS IN VIEW -- a family reading all its children. One distinct
+ * code across the children's clubs is the family's code, exactly as the website's Calendar decides it
+ * (`app/(app)/calendar/page.tsx`). Without this a family had no code, the register's FIRST current season
+ * was taken -- Rugby League 2026, ending 31 October -- and a Union family's month arrows stopped at October.
+ * Children at clubs of both codes are left unscoped, as on the web: choosing one would be untrue of the other.
+ */
+export async function clubsRugbyCode(supabase: SupabaseClient<Database>, clubIds: string[]): Promise<string | null> {
+  const ids = Array.from(new Set(clubIds.filter(Boolean)))
+  if (ids.length === 0) return null
+  const { data } = await supabase.from("clubs").select("club_directory(rugby_code)").in("id", ids)
+  const codes = new Set((data ?? []).map((r) => r.club_directory?.rugby_code).filter((c): c is string => Boolean(c)))
+  return codes.size === 1 ? [...codes][0] : null
+}
+
 /** "2026/27 season" — the register's own name, never a label assembled from dates. */
 export function seasonLabel(season: SeasonRow | null): string {
   return season?.name ?? "Season"

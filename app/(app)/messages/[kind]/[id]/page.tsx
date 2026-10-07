@@ -368,7 +368,8 @@ export default async function ConversationThreadPage({
     supabase,
     (messages ?? []).map((m) => m.sender_user_id),
     header.clubIds,
-    header.teams
+    header.teams,
+    kind === "request" ? { fixtureRequestId: id } : { conversationId: header.conversationId ?? id }
   )
 
   const threadMessages: ThreadMessage[] = await Promise.all(

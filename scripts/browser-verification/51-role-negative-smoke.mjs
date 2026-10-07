@@ -251,10 +251,10 @@ sql(`insert into public.club_memberships (club_id, user_id, role, status) values
   ('${ids.club}', '${people.volunteer.id}', 'BASIC_USER', 'active'),
   ('${ids.club}', '${people.coach.id}', 'BASIC_USER', 'active'),
   ('${ids.club}', '${people.manager.id}', 'BASIC_USER', 'active');
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'coach' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.coach.id}';
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'manager' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.manager.id}';
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'COACH' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.coach.id}';
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'TEAM_MANAGER' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.manager.id}';
 insert into public.role_assignments (user_id, club_id, membership_id, role_key, state, source, granted_by, reason, confirmation_state, confirmed_at)
   select '${people.safeguarding.id}', '${ids.club}', id, 'SAFEGUARDING_OFFICER', 'ACTIVE', 'SAFEGUARDING_APPOINTMENT', '${people.admin.id}', 'role-negative smoke', 'CONFIRMED', now()
   from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.safeguarding.id}';
@@ -283,10 +283,10 @@ sql(`insert into public.club_memberships (club_id, user_id, role, status) values
   ('${ids.club}', '${people.teamAdmin.id}', 'BASIC_USER', 'active'),
   ('${ids.club}', '${people.otherTeamCoach.id}', 'BASIC_USER', 'active'),
   ('${ids.farClub}', '${people.farAdmin.id}', 'CLUB_ADMIN', 'active');
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'team_admin' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.teamAdmin.id}';
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team2}', 'coach' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.otherTeamCoach.id}';`)
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'TEAM_ADMINISTRATION' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.teamAdmin.id}';
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team2}', 'COACH' from public.club_memberships where club_id = '${ids.club}' and user_id = '${people.otherTeamCoach.id}';`)
 
 // Slice 4C: an archived fixture on the club's own team, so the Restore action has something real
 // to act on. fixtures no longer accepts a browser INSERT, so this is seeded as the owner.

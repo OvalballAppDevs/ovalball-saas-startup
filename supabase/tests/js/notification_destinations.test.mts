@@ -32,6 +32,9 @@ import { notificationHref } from "@/lib/notifications/destinations"
  */
 
 const ID = "11111111-1111-1111-1111-111111111111"
+// A SECOND id, deliberately different from the tournament's, so a route that reached for the wrong one
+// cannot pass by coincidence.
+const GAME = "22222222-2222-2222-2222-222222222222"
 const OTHER = "22222222-2222-2222-2222-222222222222"
 
 type Row = [type: string, data: Record<string, unknown>, expected: string]
@@ -41,7 +44,16 @@ const matrix: Row[] = [
   ["new_fixture_message", { fixture_id: ID }, `/messages/fixture/${ID}`],
   ["new_fixture_message", { fixture_request_id: ID }, `/messages/request/${ID}`],
   ["new_fixture_message", { club_conversation_id: ID }, `/messages/club/${ID}`],
-  ["fixture_staff_message", { fixture_id: ID }, `/messages/fixture/${ID}`],
+  // A staff message to families about one match is read in that match's Changing Room (Match Centre
+  // consolidation, 2026-10-03): the staff conversation is not theirs to open.
+  ["fixture_staff_message", { fixture_id: ID }, `/fixtures/${ID}?tab=changing-room`],
+  ["event_invitation", { event_id: ID }, `/events/${ID}?tab=attendance`],
+  ["event_reminder", { event_id: ID }, `/events/${ID}?tab=attendance`],
+  ["event_waitlist_promoted", { event_id: ID }, `/events/${ID}?tab=attendance`],
+  ["event_announcement", { event_id: ID }, `/events/${ID}?tab=messages`],
+  ["event_updated", { event_id: ID }, `/events/${ID}`],
+  ["event_postponed", { event_id: ID }, `/events/${ID}`],
+  ["event_cancelled", { event_id: ID }, `/events/${ID}`],
   ["club_message_request_received", { club_conversation_id: ID }, `/messages/club/${ID}`],
   ["club_message_request_declined", { club_conversation_id: ID }, `/messages/club/${ID}`],
   ["announcement_received", { announcement_id: ID }, `/messages/announcement/${ID}`],
@@ -55,18 +67,23 @@ const matrix: Row[] = [
   ["competition_match_changed", { competition_match_id: ID }, `/fixtures/competitions/requests?match=${ID}`],
   ["competition_match_cancelled", { competition_match_id: ID }, `/fixtures/competitions/requests?match=${ID}`],
   ["competition_match_response", { edition_id: ID }, `/fixtures/competitions/${ID}/issue`],
-  ["fixture_attendance_invitation", { fixture_id: ID }, `/fixtures/${ID}`],
-  ["fixture_attendance_reminder", { fixture_id: ID }, `/fixtures/${ID}`],
-  // CA-M8: a family's answer, told to the side's staff -- the register is on the fixture.
-  ["fixture_availability_responded", { fixture_id: ID, player_id: OTHER, team_id: OTHER }, `/fixtures/${ID}`],
+  // MATCH CENTRE SECTIONS (2026-10-03): each lands on the section it is about, as `?tab=`.
+  ["fixture_attendance_invitation", { fixture_id: ID }, `/fixtures/${ID}?tab=attendance`],
+  ["fixture_attendance_reminder", { fixture_id: ID }, `/fixtures/${ID}?tab=attendance`],
+  // CA-M8: a family's answer, told to the side's staff -- the register is in Attendance.
+  ["fixture_availability_responded", { fixture_id: ID, player_id: OTHER, team_id: OTHER }, `/fixtures/${ID}?tab=attendance`],
   ["fixture_kickoff_changed", { fixture_id: ID }, `/fixtures/${ID}`],
   ["fixture_kickoff_change_proposed", { fixture_id: ID }, `/fixtures/${ID}`],
   ["fixture_kickoff_change_declined", { fixture_id: ID }, `/fixtures/${ID}`],
-  ["fixture_pitch_changed", { fixture_id: ID }, `/fixtures/${ID}`],
-  ["fixture_result_final", { fixture_id: ID }, `/fixtures/${ID}`],
-  ["fixture_result_disputed", { fixture_id: ID }, `/fixtures/${ID}`],
-  ["fixture_result_awaiting_confirmation", { fixture_id: ID }, `/fixtures/${ID}`],
-  ["fixture_result_amendment_proposed", { fixture_id: ID }, `/fixtures/${ID}`],
+  ["fixture_meet_time_changed", { fixture_id: ID }, `/fixtures/${ID}`],
+  ["fixture_pitch_changed", { fixture_id: ID }, `/fixtures/${ID}?tab=arena`],
+  ["fixture_arrangements_changed", { fixture_id: ID }, `/fixtures/${ID}?tab=arena`],
+  ["match_award_voting_open", { fixture_id: ID, team_id: OTHER }, `/fixtures/${ID}?tab=rewards`],
+  ["match_award_received", { fixture_id: ID, player_id: OTHER }, `/fixtures/${ID}?tab=rewards`],
+  ["fixture_result_final", { fixture_id: ID }, `/fixtures/${ID}/result`],
+  ["fixture_result_disputed", { fixture_id: ID }, `/fixtures/${ID}/result`],
+  ["fixture_result_awaiting_confirmation", { fixture_id: ID }, `/fixtures/${ID}/result`],
+  ["fixture_result_amendment_proposed", { fixture_id: ID }, `/fixtures/${ID}/result`],
 
   // ---- Training Centre -----------------------------------------------
   ["training_session_cancelled", { training_session_id: ID }, `/training/${ID}`],
@@ -76,20 +93,47 @@ const matrix: Row[] = [
   ["training_plan_cancelled", { training_session_id: ID }, `/training/${ID}`],
   ["training_availability_responded", { training_session_id: ID, player_id: OTHER, team_id: OTHER }, `/training/${ID}`],
 
+  // ---- Training Planning ----------------------------------------------
+  // A PLAN, NOT A SESSION: these carry `training_plan_id` and open Training Management, the canonical
+  // surface where a plan is read and changed, naming the plan -- the website ignores the query, the app
+  // opens that plan. Sending them to one occurrence of a plan would answer a different question.
+  ["training_plan_created", { training_plan_id: ID }, `/club/training?plan=${ID}`],
+  ["training_plan_schedule_changed", { training_plan_id: ID }, `/club/training?plan=${ID}`],
+  ["training_plan_created", {}, "/club/training"],
+  ["tournament_schedule_changed", { tournament_id: ID, tournament_game_id: OTHER }, `/tournaments/result/${OTHER}`],
+  ["tournament_schedule_changed", { tournament_id: ID }, `/tournaments/${ID}`],
+
   // ---- Tournament Centre ----------------------------------------------
   ["tournament_invitation_received", { tournament_id: ID }, `/tournaments/${ID}`],
   ["tournament_invitation_responded", { tournament_id: ID }, `/tournaments/${ID}`],
   ["tournament_host_proposed", { tournament_id: ID }, `/tournaments/${ID}`],
   ["tournament_host_claimed", { tournament_id: ID }, `/tournaments/${ID}`],
   ["tournament_venue_changed", { tournament_id: ID }, `/tournaments/${ID}`],
+  ["tournament_schedule_published", { tournament_id: ID }, `/tournaments/${ID}`],
+  ["tournament_application_received", { tournament_id: ID }, `/tournaments/${ID}`],
+  ["tournament_application_decided", { tournament_id: ID }, `/tournaments/${ID}`],
+  ["tournament_cancelled", { tournament_id: ID }, `/tournaments/${ID}`],
+  ["tournament_side_advanced", { tournament_id: ID }, `/tournaments/${ID}`],
+  ["tournament_opponent_known", { tournament_id: ID }, `/tournaments/${ID}`],
   ["team_created_from_tournament_invitation", { tournament_id: ID }, `/tournaments/${ID}`],
+
+  // A RESULT NOTIFICATION LANDS ON THE GAME, not on the festival. Each of these says a human has
+  // something to do about ONE score -- confirm it, answer a contest, settle a disagreement -- and a
+  // route to the tournament leaves them to go looking for which game it was.
+  ["tournament_result_awaiting_confirmation", { tournament_id: ID, tournament_game_id: GAME }, `/tournaments/result/${GAME}`],
+  ["tournament_result_confirmed", { tournament_id: ID, tournament_game_id: GAME }, `/tournaments/result/${GAME}`],
+  ["tournament_result_contested", { tournament_id: ID, tournament_game_id: GAME }, `/tournaments/result/${GAME}`],
+  ["tournament_result_resolved", { tournament_id: ID, tournament_game_id: GAME }, `/tournaments/result/${GAME}`],
 
   // ---- Fixture requests -----------------------------------------------
   ["fixture_request_received", { fixture_request_id: ID }, `/messages/request/${ID}`],
   ["fixture_request_accepted", { fixture_request_id: ID }, `/messages/request/${ID}`],
+  ["fixture_request_accepted", { fixture_request_id: ID, fixture_id: ID }, `/fixtures/${ID}`],
   ["fixture_request_declined", { fixture_request_id: ID }, `/messages/request/${ID}`],
   ["fixture_request_countered", { fixture_request_id: ID }, `/messages/request/${ID}`],
   ["team_created_from_fixture_request", { fixture_request_id: ID }, `/messages/request/${ID}`],
+  ["club_day_request_received", { group_id: ID }, `/fixtures/club-day/${ID}`],
+  ["club_day_responded", { group_id: ID }, `/fixtures/club-day/${ID}`],
 
   // ---- Looking for Opposition (Clubhouse Sections 15/16) ---------------
   ["fixture_opportunity_cancelled", { opportunity_id: ID }, `/clubhouse/opportunities?highlight=${ID}`],
@@ -140,6 +184,12 @@ const matrix: Row[] = [
   ["safeguarding_guardian_call_up", {}, "/parent/children"],
   ["safeguarding_guardian_dispensation", {}, "/parent/children"],
   ["add_child_approved", {}, "/parent/children"],
+  // Team codes place players (20270741000000): the approvers decide on the team's own people page, and a
+  // parent answers their child's own request on the page both apps open for it.
+  ["team_place_requested", { team_id: "5e0c1f1e-6a54-4f53-9f8c-2f1e1f9b1a01", membership_id: "7a1b2c3d-0000-4000-8000-000000000001" }, "/teams/5e0c1f1e-6a54-4f53-9f8c-2f1e1f9b1a01/people"],
+  ["team_place_requested", {}, "/people"],
+  ["team_place_confirm_requested", { membership_id: "7a1b2c3d-0000-4000-8000-000000000001" }, "/parent/team-requests?request=7a1b2c3d-0000-4000-8000-000000000001"],
+  ["team_place_confirm_requested", {}, "/parent/team-requests"],
   ["add_child_declined", {}, "/parent/children"],
   ["club_join_approved", {}, "/parent/children"],
   ["player_information_requested", {}, "/parent/children"],
@@ -157,11 +207,18 @@ const matrix: Row[] = [
   // ---- A family's own membership money ----------------------------------
   ["gocardless_payment_failed", {}, "/parent/children"],
   ["gocardless_membership_cancelled", {}, "/parent/children"],
+  // A membership reminder lands on the membership it is about; an adult player's own is their payments page.
+  ["membership_reminder", { player_id: "p-1" }, "/parent/players/p-1/subscription"],
+  ["membership_reminder", { player_id: "p-1", self: true }, "/player/payments"],
+  ["membership_payer_released", { player_id: "p-1" }, "/parent/players/p-1/subscription"],
+  ["membership_payer_released", { player_id: "p-1", self: true }, "/player/payments"],
+  ["membership_team_attention", { team_id: "t-1" }, "/teams/t-1/subscriptions"],
+  ["membership_gocardless_verified", { club_id: "c-1" }, "/club/settings/subscriptions"],
 
   // ---- Ovalball's own billing, and Site Admin access --------------------
-  ["platform_trial_ending_soon", {}, "/club/settings/ovalball-plan"],
-  ["platform_trial_ended", {}, "/club/settings/ovalball-plan"],
-  ["platform_referral_reward_earned", {}, "/club/settings/ovalball-plan"],
+  ["platform_trial_ending_soon", {}, "/club/settings/ovalball-billing"],
+  ["platform_trial_ended", {}, "/club/settings/ovalball-billing"],
+  ["platform_referral_reward_earned", {}, "/club/settings/ovalball-billing"],
   ["site_admin_invitation_accepted", {}, "/admin/site-admins"],
   ["site_admin_commercial_access_changed", {}, "/admin/site-admins"],
   ["site_admin_competitions_access_changed", {}, "/admin/site-admins"],
@@ -185,12 +242,19 @@ test("every notification type lands on the surface that owns it", () => {
   }
 })
 
-test("a fixture notification always reaches Match Centre, never the calendar or the dashboard", () => {
-  // /fixtures/competitions/... is the competition family, not Match Centre.
-  const fixtureTypes = matrix.filter(([, , href]) => href.startsWith("/fixtures/") && !href.startsWith("/fixtures/competitions"))
+test("a fixture notification always reaches its fixture -- or, for a result, its result -- never the calendar or the dashboard", () => {
+  // /fixtures/competitions/... is the competition family, not Match Centre; /fixtures/club-day/... is a Season Planner
+  // club day (many fixture requests), not one fixture.
+  const fixtureTypes = matrix.filter(([, , href]) => href.startsWith("/fixtures/") && !href.startsWith("/fixtures/competitions") && !href.startsWith("/fixtures/club-day"))
   assert.ok(fixtureTypes.length >= 12, "the fixture block should cover the whole Match Centre family")
-  for (const [type] of fixtureTypes) {
-    assert.equal(notificationHref(type, { fixture_id: OTHER }), `/fixtures/${OTHER}`)
+  for (const [type, , href] of fixtureTypes) {
+    // A RESULT notification lands on the result itself (the submitted score and the confirm/dispute
+    // choice), never on fixture management; every other fixture notification lands on the fixture's
+    // one Match Centre, at most narrowed to a named section -- never on a different fixture address.
+    const got = notificationHref(type, { fixture_id: OTHER })
+    if (type.startsWith("fixture_result_")) assert.equal(got, `/fixtures/${OTHER}/result`, type)
+    else assert.match(got, new RegExp(`^/fixtures/${OTHER}(\\?tab=(attendance|arena|result|changing-room|rewards))?$`), type)
+    assert.equal(got.replace(OTHER, ID), href, `${type} matches its matrix row`)
   }
 })
 
@@ -201,12 +265,17 @@ test("a payload that lost its id degrades to the index, never to a broken route"
     ["training_session_cancelled", "/calendar"],
     ["training_attendance_reminder", "/calendar"],
     ["tournament_invitation_received", "/calendar"],
+    // Without a game id there is no one score to land on, so it degrades to the Calendar rather than
+    // to `/tournaments/result/undefined`.
+    ["tournament_result_contested", "/calendar"],
     ["new_fixture_message", "/messages"],
     ["fixture_staff_message", "/messages"],
     ["club_message_request_received", "/messages"],
     ["announcement_received", "/messages"],
     ["new_direct_message", "/messages"],
     ["fixture_request_received", "/fixtures"],
+    ["club_day_request_received", "/fixtures"],
+    ["club_day_responded", "/fixtures"],
     ["support_ticket_update", "/support"],
   ]
   for (const [type, expected] of degradations) {

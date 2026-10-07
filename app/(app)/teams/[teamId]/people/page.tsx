@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react"
 import { PageIdentity } from "@/components/shell/page-identity"
 import { hasCapability } from "@/lib/permissions/has-capability"
 import { createClient } from "@/lib/supabase/server"
+import { readTeamPlaceRequests } from "@ovalball/contracts/team/team-code"
 
 import { TeamPeople, type ClubMemberOption, type TeamPersonRow } from "../team-people"
 
@@ -52,6 +53,9 @@ export default async function TeamPeoplePage({ params }: { params: Promise<{ tea
     supabase.from("club_memberships").select("id, user_id").eq("club_id", team.club_id).eq("status", "active"),
   ])
 
+  // The approver's cards, for the people who may decide them (20270741000000). The server refuses everybody else.
+  const placeRequests = canManage ? await readTeamPlaceRequests(supabase, teamId).catch(() => null) : null
+
   const { data: profiles } = await supabase.rpc("get_club_member_directory", { p_club_id: team.club_id })
   const profileById = new Map((profiles ?? []).map((p) => [p.user_id, p]))
   const membershipIdByUserId = new Map((memberships ?? []).map((m) => [m.user_id, m.id]))
@@ -95,6 +99,7 @@ export default async function TeamPeoplePage({ params }: { params: Promise<{ tea
         clubMembers={clubMembers}
         canManage={canManage}
         canAssignTeamAdmin={canAssignTeamAdmin}
+        placeRequests={placeRequests}
       />
     </div>
   )

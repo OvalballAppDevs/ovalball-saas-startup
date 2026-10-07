@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { revokeSafeguardingOfficerInvitation as revokeOfficerInvitation } from "@ovalball/contracts/club/safeguarding"
 
 import { resolveClubCrestEmailUrl } from "@/lib/email/club-crest"
 import { sendEmailEvent } from "@/lib/email/send"
@@ -216,10 +217,18 @@ export async function resendSafeguardingOfficerInvitation(officerId: string): Pr
   return { ok: true, inviteLink }
 }
 
-export async function revokeSafeguardingOfficerInvitation(invitationId: string): Promise<ActionResult> {
+/**
+ * WITHDRAW the open invitation through the issuer that made it (M10): a canonical invitation through `revoke_invitation`
+ * (authority and a recorded reason on the server), an older legacy row through its own revoker. The same shared
+ * contract the phone uses -- one rule, not two.
+ */
+export async function revokeSafeguardingOfficerInvitation(invitation: { id: string; legacy: boolean }): Promise<ActionResult> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("revoke_safeguarding_officer_invitation", { p_invitation_id: invitationId })
-  if (error) return { ok: false, error: error.message }
+  try {
+    await revokeOfficerInvitation(supabase, invitation, "Withdrawn by the club")
+  } catch (cause) {
+    return { ok: false, error: cause instanceof Error ? cause.message : "That invitation could not be withdrawn." }
+  }
   revalidatePath("/club/settings/safeguarding")
   return { ok: true }
 }

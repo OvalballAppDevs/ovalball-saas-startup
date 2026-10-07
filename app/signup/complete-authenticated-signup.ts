@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server"
 import { CURRENT_TERMS_VERSION } from "@/lib/signup/terms"
 import { writeSignupRecords } from "@/lib/signup/complete-signup"
 import type { SignupFormState } from "@/lib/signup/types"
+import { referralSlugFrom } from "@ovalball/contracts/clubhouse/referral-link"
 
 export type CompleteAuthenticatedSignupResult = { ok: true } | { ok: false; error: string }
 
@@ -34,7 +35,8 @@ export type CompleteAuthenticatedSignupResult = { ok: true } | { ok: false; erro
  * same writeSignupRecords sequence the magic-link path uses.
  */
 export async function completeAuthenticatedSignup(
-  formState: SignupFormState
+  formState: SignupFormState,
+  referralSlug: string | null = null
 ): Promise<CompleteAuthenticatedSignupResult> {
   // Every required policy, checked on the server. A client that omits one
   // (or invents an extra) cannot create an account without it.
@@ -67,6 +69,7 @@ export async function completeAuthenticatedSignup(
     rugbyCode: formState.rugbyCode,
     // Server-side constant, deliberately not formState.
     termsVersion: CURRENT_TERMS_VERSION,
+    referralSlug: referralSlugFrom(referralSlug),
   })
 
   if (!result.completed) {

@@ -1,72 +1,75 @@
-import { useCallback, useEffect, useState } from "react"
-import { Linking, Platform, Pressable, Switch, Text, TextInput, View } from "react-native"
+import { useCallback, useState } from "react"
+import { Linking, Platform, Pressable, Text, View } from "react-native"
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
+import { Image } from "expo-image"
 import {
-  createClubPitch,
-  EMPTY_VENUE_INPUT,
-  pitchConfigurationInputFrom,
-  pitchConfigurationInputProblem,
+  clubPitchSummaryLabel,
   readClubVenues,
   readVenueCapabilities,
-  renameClubPitch,
-  saveClubVenue,
-  setClubPitchActive,
-  setClubPitchConfiguration,
   setDefaultVenue,
   setVenueActive,
+  setVenueChangingRoomActive,
+  venueAddressLine,
+  venueChangingRoomTypeLabel,
   venueErrorMessage,
-  venueInputFrom,
-  venueInputProblem,
   venueMapsQuery,
   type ClubPitch,
   type ClubVenue,
-  type PitchConfigurationInput,
   type VenueCapabilities,
-  type VenueInput,
+  type VenueChangingRoom,
 } from "@ovalball/contracts/club/venues"
-import { layoutAreaCount, layoutLabel, physicalSizeCategoryLabel, pitchConfigurationImpact, pitchConfigurationSummary, pitchPhysicalSizeUnits, type PitchConfigurationImpact } from "@ovalball/contracts/pitch-allocation"
+import { resolveVenueCover } from "@ovalball/contracts/venue-cover"
+import { bookingsAheadSentence, readResourceBookingsAhead } from "@ovalball/contracts/arena"
+import { resolvePitchCover } from "@ovalball/contracts/pitch-cover"
+import { resolveChangingRoomCover } from "@ovalball/contracts/changing-room-cover"
 
 import { AdminScreen } from "../../../../src/admin/screen"
 import { useAdminCentreAccess } from "../../../../src/admin/access"
 import { supabase } from "../../../../src/auth/supabase"
-import { CircleAlert, Plus } from "../../../../src/components/icons"
-import { Button, Card, CardSkeleton, ErrorState, StatusPill } from "../../../../src/components/ui"
+import { VenueLocationMap } from "../../../../src/venue/venue-location-map"
+import { PitchEditorSheet } from "../../../../src/venue/pitch-editor-sheet"
+import { ChangingRoomEditorSheet } from "../../../../src/venue/changing-room-editor-sheet"
+import { addPitchToVenue, addChangingRoomToVenue } from "../../../../src/venue/venue-detail-data"
+import type { PitchDraft, ChangingRoomDraft } from "../../../../src/venue/create-venue-logic"
+import { BottomSheet } from "../../../../src/components/bottom-sheet"
+import { Button, CardSkeleton, ErrorState, StatusPill } from "../../../../src/components/ui"
+import { ChevronRight, Crown, DoorOpen, Plus, Utensils } from "../../../../src/components/icons"
 import { friendly, logDetail, type FriendlyError } from "../../../../src/errors/translate"
-import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
+import { colour, radius, space, type } from "../../../../src/design/tokens"
+import { coverPhotoSource } from "../../../../src/media/stock-assets"
+import { IllustrativeTag } from "../../../../src/media/media-picker"
+
+
+type Tab = "overview" | "pitches" | "changing-rooms" | "settings"
 
 /**
- * ONE VENUE -- create ("new") or edit, natively (CA-M2).
- *
- * The four things the website does, on the same operations: name and address in one save
- * (`save_club_venue`: create_venue or update_venue, then set_venue_address -- the one writer of the
- * address), Make Home Ground (`set_default_venue`), Deactivate / Reactivate (`set_venue_active`;
- * there is no delete anywhere in the product), and the pitches at this ground (`create_club_pitch`,
- * `rename_club_pitch`, `set_club_pitch_active`). Every control appears only when the server says the
- * capability; every write is judged again by the server; the record is re-read after each.
- *
- * THE PIN IS NOT TYPED HERE. Coordinates come from the postcode through the platform's geocoding;
- * Open in Maps uses them only once the platform has confirmed them, and the postcode otherwise.
+ * VENUE DETAIL -- one shared screen with role-capability-filtered actions, matching the approved
+ * Venue Detail mock-up: a photographic hero (as content within `AdminScreen`'s own chrome, the same
+ * reconciliation Venues & Pitches Home already made), then Overview / Pitches / Changing Rooms /
+ * Settings tabs. Every read comes from `readClubVenues` -- the one canonical source Arena, Training
+ * Planning and Pitch Allocation already share -- so a pitch or changing room added here is visible
+ * everywhere else immediately, never a second venue/pitch/changing-room model.
  */
-export default function VenueScreen() {
+export default function VenueDetailScreen() {
   const router = useRouter()
-  const { venueId: param } = useLocalSearchParams<{ venueId: string }>()
-  const isNew = param === "new"
-  const venueId = isNew ? null : param
-  const { clubId, refresh: refreshAccess } = useAdminCentreAccess()
+  const { venueId } = useLocalSearchParams<{ venueId: string }>()
+  const { clubId } = useAdminCentreAccess()
 
   const [venue, setVenue] = useState<ClubVenue | null>(null)
   const [pitches, setPitches] = useState<ClubPitch[]>([])
-  const [draft, setDraft] = useState<VenueInput>(EMPTY_VENUE_INPUT)
-  const [dirty, setDirty] = useState(false)
+  const [changingRooms, setChangingRooms] = useState<VenueChangingRoom[]>([])
   const [caps, setCaps] = useState<VenueCapabilities>({ view: false, manageVenues: false, managePitches: false, allocate: false, viewAllocation: false })
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<FriendlyError | null>(null)
+  const [tab, setTab] = useState<Tab>("overview")
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null)
-  const [confirmDeactivate, setConfirmDeactivate] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const [addingPitch, setAddingPitch] = useState(false)
+  const [addingRoom, setAddingRoom] = useState(false)
 
   const load = useCallback(async () => {
-    if (!clubId) {
+    if (!clubId || !venueId) {
       setLoading(false)
       return
     }
@@ -74,92 +77,412 @@ export default function VenueScreen() {
     try {
       const [all, allowed] = await Promise.all([readClubVenues(supabase, clubId), readVenueCapabilities(supabase, clubId)])
       setCaps(allowed)
-      if (venueId) {
-        const found = all.venues.find((v) => v.id === venueId) ?? null
-        setVenue(found)
-        setPitches(all.pitches.filter((p) => p.venueId === venueId))
-        if (found) setDraft((d) => (dirty ? d : venueInputFrom(found)))
-      }
+      setVenue(all.venues.find((v) => v.id === venueId) ?? null)
+      setPitches(all.pitches.filter((p) => p.venueId === venueId && p.active))
+      setChangingRooms(all.changingRooms.filter((r) => r.venueId === venueId && r.active))
     } catch (cause) {
       const translated = friendly(cause, "this venue")
-      logDetail("admin:venue", translated)
+      logDetail("admin:venue-detail", translated)
       setLoadError(translated)
     } finally {
       setLoading(false)
     }
-    // dirty is read deliberately without being a dependency: a refocus must not restart the read mid-edit
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clubId, venueId])
 
-  useEffect(() => {
-    setLoading(true)
-    void load()
-  }, [load])
   useFocusEffect(
     useCallback(() => {
+      setLoading(true)
       void load()
     }, [load])
   )
 
-  function edit(patch: Partial<VenueInput>) {
-    setMessage(null)
-    setDirty(true)
-    setDraft((d) => ({ ...d, ...patch }))
-  }
-
-  function refused(cause: unknown) {
-    if ((cause as { code?: string }).code === "42501") {
-      setCaps((c) => ({ ...c, manageVenues: false, managePitches: false }))
-      void refreshAccess()
-    }
-  }
-
-  async function save() {
-    if (!clubId) return
+  async function run(op: () => Promise<void>, subject: string) {
     setBusy(true)
-    setMessage(null)
-    try {
-      const id = await saveClubVenue(supabase, clubId, venueId, draft)
-      setDirty(false)
-      if (isNew) {
-        router.replace(`/admin/venues/${id}` as never)
-        return
-      }
-      await load()
-      setMessage({ tone: "ok", text: "Saved. The pin is worked out from the postcode by Ovalball." })
-    } catch (cause) {
-      setMessage({ tone: "error", text: venueErrorMessage(cause, friendly(cause, "this venue").message) })
-      refused(cause)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function run(op: () => Promise<void>, subject: string, done?: string) {
-    setBusy(true)
-    setMessage(null)
+    setProblem(null)
     try {
       await op()
       await load()
-      if (done) setMessage({ tone: "ok", text: done })
     } catch (cause) {
-      setMessage({ tone: "error", text: venueErrorMessage(cause, friendly(cause, subject).message) })
-      refused(cause)
+      setProblem(venueErrorMessage(cause, friendly(cause, subject).message))
     } finally {
       setBusy(false)
     }
   }
 
-  const problem = venueInputProblem(draft)
-  const maps = venue ? venueMapsQuery(venue) : null
+  async function saveNewPitch(draft: PitchDraft) {
+    if (!clubId || !venue) return
+    await run(async () => {
+      await addPitchToVenue(supabase, clubId, venue.id, draft)
+    }, "this pitch")
+    setAddingPitch(false)
+  }
+
+  async function saveNewChangingRoom(draft: ChangingRoomDraft) {
+    if (!clubId || !venue) return
+    await run(async () => {
+      await addChangingRoomToVenue(supabase, clubId, venue.id, draft)
+    }, "this changing room")
+    setAddingRoom(false)
+  }
+
+  if (loading && !venue) {
+    return (
+      <AdminScreen section="Venue">
+        <CardSkeleton lines={4} />
+      </AdminScreen>
+    )
+  }
+  if (loadError) {
+    return (
+      <AdminScreen section="Venue">
+        <ErrorState message={loadError.message} onRetry={() => void load()} offline={loadError.retryable} />
+      </AdminScreen>
+    )
+  }
+  if (!venue) {
+    return (
+      <AdminScreen section="Venue">
+        <ErrorState message="This venue is not available to you." />
+      </AdminScreen>
+    )
+  }
+
+  const venuePhoto = coverPhotoSource("VENUE", resolveVenueCover({ supabase, coverImagePath: venue.coverImagePath, coverStockKey: venue.coverStockKey }), venue.id)
+  const address = venueAddressLine(venue)
+
+  return (
+    <AdminScreen section={venue.name} onRefresh={() => void load()} refreshing={false}>
+      <View style={{ height: 200, borderRadius: radius.lg, overflow: "hidden", backgroundColor: colour.line }}>
+        <Image source={venuePhoto} accessible={false} contentFit="cover" style={{ width: "100%", height: "100%" }} />
+        {/* Only the ground's own uploaded photo is the ground; a library picture -- chosen or standing in -- is not. */}
+        {!venue.coverImagePath && <IllustrativeTag />}
+      </View>
+
+      <View style={{ gap: 6 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flexWrap: "wrap" }}>
+          <Text accessibilityRole="header" style={[type.display, { color: colour.ink }]}>
+            {venue.name}
+          </Text>
+          {venue.isDefaultHome && <StatusPill label="Primary" tone="positive" />}
+          {!venue.active && <StatusPill label="Deactivated" tone="caution" />}
+        </View>
+        {!!address && <Text style={[type.small, { color: colour.inkMuted }]}>{address}</Text>}
+      </View>
+
+      <TabRow tab={tab} onChange={setTab} pitchCount={pitches.length} roomCount={changingRooms.length} />
+
+      {!!problem && <Text style={[type.small, { color: colour.danger }]}>{problem}</Text>}
+
+      {tab === "overview" && (
+        <OverviewTab
+          venue={venue}
+          pitchCount={pitches.length}
+          roomCount={changingRooms.length}
+          onEditVenue={() => router.push({ pathname: "/admin/venues/[venueId]/edit", params: { venueId: venue.id } } as never)}
+          onJumpToPitches={() => setTab("pitches")}
+          onJumpToRooms={() => setTab("changing-rooms")}
+          canManage={caps.manageVenues}
+        />
+      )}
+
+      {tab === "pitches" && (
+        <PitchesTab
+          pitches={pitches}
+          canManage={caps.managePitches}
+          onOpenPitch={(id) => router.push({ pathname: "/admin/venues/[venueId]/pitches/[pitchId]", params: { venueId: venue.id, pitchId: id } } as never)}
+          onAddPitch={() => setAddingPitch(true)}
+        />
+      )}
+
+      {tab === "changing-rooms" && (
+        <ChangingRoomsTab
+          available={venue.changingRoomsAvailable}
+          rooms={changingRooms}
+          canManage={caps.manageVenues}
+          onOpenRoom={(id) => router.push({ pathname: "/admin/venues/[venueId]/changing-rooms/[roomId]", params: { venueId: venue.id, roomId: id } } as never)}
+          onAddRoom={() => setAddingRoom(true)}
+          onGoToSettings={() => router.push({ pathname: "/admin/venues/[venueId]/edit", params: { venueId: venue.id } } as never)}
+        />
+      )}
+
+      {tab === "settings" && (
+        <SettingsTab
+          venue={venue}
+          canManage={caps.manageVenues}
+          busy={busy}
+          run={run}
+          onEditVenue={() => router.push({ pathname: "/admin/venues/[venueId]/edit", params: { venueId: venue.id } } as never)}
+        />
+      )}
+
+      <PitchEditorSheet visible={addingPitch} initial={null} onClose={() => setAddingPitch(false)} onSave={(d) => void saveNewPitch(d)} />
+      <ChangingRoomEditorSheet visible={addingRoom} initial={null} onClose={() => setAddingRoom(false)} onSave={(d) => void saveNewChangingRoom(d)} />
+    </AdminScreen>
+  )
+}
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "overview", label: "Overview" },
+  { key: "pitches", label: "Pitches" },
+  { key: "changing-rooms", label: "Changing Rooms" },
+  { key: "settings", label: "Settings" },
+]
+
+function TabRow({ tab, onChange, pitchCount, roomCount }: { tab: Tab; onChange: (t: Tab) => void; pitchCount: number; roomCount: number }) {
+  return (
+    <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: colour.line }}>
+      {TABS.map((t) => {
+        const active = t.key === tab
+        const label = t.key === "pitches" ? `Pitches (${pitchCount})` : t.key === "changing-rooms" ? `Changing Rooms (${roomCount})` : t.label
+        return (
+          <Pressable
+            key={t.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={label}
+            onPress={() => onChange(t.key)}
+            style={{ paddingVertical: space.sm, paddingHorizontal: space.sm, borderBottomWidth: 2, borderBottomColor: active ? colour.pitch600 : "transparent" }}
+          >
+            <Text style={[type.smallMedium, { color: active ? colour.forest800 : colour.inkMuted }]} numberOfLines={1}>
+              {label}
+            </Text>
+          </Pressable>
+        )
+      })}
+    </View>
+  )
+}
+
+function FacilityRow({ icon, label, value, last }: { icon: React.ReactNode; label: string; value: boolean; last?: boolean }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, padding: space.md, borderBottomWidth: last ? 0 : 1, borderBottomColor: colour.line }}>
+      {icon}
+      <Text style={[type.small, { color: colour.ink, flex: 1 }]}>{label}</Text>
+      <Text style={[type.smallMedium, { color: value ? colour.forest800 : colour.inkSubtle }]}>{value ? "Yes" : "No"}</Text>
+    </View>
+  )
+}
+
+function CountRow({ label, count, onPress, last }: { label: string; count: number; onPress: () => void; last?: boolean }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label}. ${count}`}
+      onPress={onPress}
+      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.sm, padding: space.md, borderBottomWidth: last ? 0 : 1, borderBottomColor: colour.line, backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent" })}
+    >
+      <Text style={[type.small, { color: colour.ink, flex: 1 }]}>{label}</Text>
+      <Text style={[type.smallMedium, { color: colour.ink }]}>{count}</Text>
+      <ChevronRight size={16} color={colour.inkSubtle} />
+    </Pressable>
+  )
+}
+
+function OverviewTab({
+  venue,
+  pitchCount,
+  roomCount,
+  onEditVenue,
+  onJumpToPitches,
+  onJumpToRooms,
+  canManage,
+}: {
+  venue: ClubVenue
+  pitchCount: number
+  roomCount: number
+  onEditVenue: () => void
+  onJumpToPitches: () => void
+  onJumpToRooms: () => void
+  canManage: boolean
+}) {
+  return (
+    <View style={{ gap: space.lg }}>
+      <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+        <FacilityRow icon={<Utensils size={18} color={colour.inkMuted} />} label="Catering available" value={venue.cateringAvailable} />
+        <FacilityRow icon={<DoorOpen size={18} color={colour.inkMuted} />} label="Changing rooms available" value={venue.changingRoomsAvailable} />
+        <FacilityRow icon={<Crown size={18} color={colour.inkMuted} />} label="Primary venue for the club" value={venue.isDefaultHome} last />
+      </View>
+
+      {venue.latitude !== null && venue.longitude !== null && venue.geocodeStatus === "success" && <VenueLocationMap latitude={venue.latitude} longitude={venue.longitude} />}
+
+      {!!venue.directions && (
+        <View style={{ gap: space.xs }}>
+          <Text style={[type.overline, { color: colour.inkSubtle }]}>ABOUT THIS VENUE</Text>
+          <Text style={[type.small, { color: colour.ink }]}>{venue.directions}</Text>
+        </View>
+      )}
+
+      <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+        <CountRow label="Total pitches" count={pitchCount} onPress={onJumpToPitches} />
+        <CountRow label="Total changing rooms" count={roomCount} onPress={onJumpToRooms} last />
+      </View>
+
+      {canManage && <Button label="Edit Venue Details" onPress={onEditVenue} />}
+    </View>
+  )
+}
+
+function PitchesTab({ pitches, canManage, onOpenPitch, onAddPitch }: { pitches: ClubPitch[]; canManage: boolean; onOpenPitch: (id: string) => void; onAddPitch: () => void }) {
+  return (
+    <View style={{ gap: space.md }}>
+      <View style={{ gap: 2 }}>
+        <Text style={[type.overline, { color: colour.inkSubtle }]}>PITCHES ({pitches.length})</Text>
+        <Text style={[type.small, { color: colour.inkMuted }]}>Manage the pitches at this venue.</Text>
+      </View>
+
+      {pitches.length === 0 && (
+        <View style={{ gap: space.md, alignItems: "center", padding: space.xl }}>
+          <Text style={[type.small, { color: colour.inkMuted }]}>No pitches added yet.</Text>
+        </View>
+      )}
+
+      {pitches.length > 0 && (
+        <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+          {pitches.map((p, i) => {
+            const cover = coverPhotoSource("PITCH", resolvePitchCover({ supabase, coverImagePath: p.coverImagePath, coverStockKey: p.coverStockKey }), p.id)
+            return (
+              <Pressable
+                key={p.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${p.displayName}. ${clubPitchSummaryLabel(p)}`}
+                onPress={() => onOpenPitch(p.id)}
+                style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.md, padding: space.md, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colour.line, backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent" })}
+              >
+                <Image source={cover} accessible={false} contentFit="cover" style={{ width: 56, height: 56, borderRadius: radius.md }} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[type.smallMedium, { color: colour.ink }]}>{p.displayName}</Text>
+                  <Text style={[type.caption, { color: colour.inkMuted }]}>{clubPitchSummaryLabel(p)}</Text>
+                </View>
+                <ChevronRight size={17} color={colour.inkSubtle} />
+              </Pressable>
+            )
+          })}
+        </View>
+      )}
+
+      {canManage && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add Pitch"
+          onPress={onAddPitch}
+          style={({ pressed }) => ({ minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm, borderRadius: radius.lg, borderWidth: 1, borderColor: colour.lineStrong, borderStyle: "dashed", backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent" })}
+        >
+          <Plus size={17} color={colour.forest800} />
+          <Text style={[type.smallMedium, { color: colour.forest800 }]}>Add Pitch</Text>
+        </Pressable>
+      )}
+    </View>
+  )
+}
+
+function ChangingRoomsTab({
+  available,
+  rooms,
+  canManage,
+  onOpenRoom,
+  onAddRoom,
+  onGoToSettings,
+}: {
+  available: boolean
+  rooms: VenueChangingRoom[]
+  canManage: boolean
+  onOpenRoom: (id: string) => void
+  onAddRoom: () => void
+  onGoToSettings: () => void
+}) {
+  if (!available) {
+    return (
+      <View style={{ gap: space.md }}>
+        <Text style={[type.overline, { color: colour.inkSubtle }]}>CHANGING ROOMS (0)</Text>
+        <View style={{ gap: space.md, alignItems: "center", padding: space.xl }}>
+          <Text style={[type.small, { color: colour.inkMuted, textAlign: "center" }]}>This venue does not currently offer changing rooms.</Text>
+          {canManage && <Button label="Turn On Changing Rooms" variant="secondary" onPress={onGoToSettings} />}
+        </View>
+      </View>
+    )
+  }
+
+  return (
+    <View style={{ gap: space.md }}>
+      <View style={{ gap: 2 }}>
+        <Text style={[type.overline, { color: colour.inkSubtle }]}>CHANGING ROOMS ({rooms.length})</Text>
+        <Text style={[type.small, { color: colour.inkMuted }]}>Manage the changing rooms at this venue.</Text>
+      </View>
+
+      {rooms.length === 0 && (
+        <View style={{ gap: space.md, alignItems: "center", padding: space.xl }}>
+          <Text style={[type.small, { color: colour.inkMuted }]}>No changing rooms added yet.</Text>
+        </View>
+      )}
+
+      {rooms.length > 0 && (
+        <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+          {rooms.map((r, i) => {
+            const cover = coverPhotoSource("CHANGING_ROOM", resolveChangingRoomCover({ supabase, coverImagePath: r.coverImagePath, coverStockKey: r.coverStockKey }), r.id)
+            return (
+              <Pressable
+                key={r.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${r.displayName}. ${venueChangingRoomTypeLabel(r.roomType)}`}
+                onPress={() => onOpenRoom(r.id)}
+                style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.md, padding: space.md, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colour.line, backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent" })}
+              >
+                <Image source={cover} accessible={false} contentFit="cover" style={{ width: 56, height: 56, borderRadius: radius.md }} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[type.smallMedium, { color: colour.ink }]}>{r.displayName}</Text>
+                  <Text style={[type.caption, { color: colour.inkMuted }]}>{venueChangingRoomTypeLabel(r.roomType)}</Text>
+                </View>
+                <ChevronRight size={17} color={colour.inkSubtle} />
+              </Pressable>
+            )
+          })}
+        </View>
+      )}
+
+      {canManage && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add Changing Room"
+          onPress={onAddRoom}
+          style={({ pressed }) => ({ minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm, borderRadius: radius.lg, borderWidth: 1, borderColor: colour.lineStrong, borderStyle: "dashed", backgroundColor: pressed ? "rgba(16,21,18,0.03)" : "transparent" })}
+        >
+          <Plus size={17} color={colour.forest800} />
+          <Text style={[type.smallMedium, { color: colour.forest800 }]}>Add Changing Room</Text>
+        </Pressable>
+      )}
+    </View>
+  )
+}
+
+/** ONE Edit Venue Details screen, reachable from two places. Overview offers it at the end of the
+ * venue summary; Settings offers it as the first thing in the venue's own administration list --
+ * which is where a person looking to change details goes first. Both push the SAME route
+ * (`/admin/venues/[venueId]/edit`), so there is no second form and no second save path. */
+function SettingsTab({
+  venue,
+  canManage,
+  busy,
+  run,
+  onEditVenue,
+}: {
+  venue: ClubVenue
+  canManage: boolean
+  busy: boolean
+  run: (op: () => Promise<void>, subject: string) => Promise<void>
+  onEditVenue: () => void
+}) {
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false)
+  // What is booked at the ground from today, in words, for the deactivation step.
+  const [bookingsAhead, setBookingsAhead] = useState<string | null>(null)
+  const maps = venueMapsQuery(venue)
 
   function openMaps() {
     if (!maps) return
     const url =
       maps.kind === "coordinates"
         ? Platform.OS === "ios"
-          ? `https://maps.apple.com/?ll=${maps.latitude},${maps.longitude}&q=${encodeURIComponent(venue?.name ?? "Venue")}`
-          : `geo:${maps.latitude},${maps.longitude}?q=${maps.latitude},${maps.longitude}(${encodeURIComponent(venue?.name ?? "Venue")})`
+          ? `https://maps.apple.com/?ll=${maps.latitude},${maps.longitude}&q=${encodeURIComponent(venue.name)}`
+          : `geo:${maps.latitude},${maps.longitude}?q=${maps.latitude},${maps.longitude}(${encodeURIComponent(venue.name)})`
         : Platform.OS === "ios"
           ? `https://maps.apple.com/?q=${encodeURIComponent(maps.query)}`
           : `geo:0,0?q=${encodeURIComponent(maps.query)}`
@@ -167,294 +490,43 @@ export default function VenueScreen() {
   }
 
   return (
-    <AdminScreen section={isNew ? "New Venue" : (venue?.name ?? "Venue")} onRefresh={() => void load()} refreshing={false}>
-      {loading && !venue && !isNew && <CardSkeleton lines={4} />}
-      {loadError && <ErrorState message={loadError.message} onRetry={() => void load()} offline={loadError.retryable} />}
-      {!loading && !loadError && !isNew && !venue && <ErrorState message="This venue is not available to you." />}
-
-      {(isNew || venue) && (
-        <>
-          <View style={{ gap: space.xs }}>
-            <Text accessibilityRole="header" style={[type.display, { color: colour.ink }]}>
-              {isNew ? "New Venue" : venue!.name}
-            </Text>
-            {venue && (
-              <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
-                {venue.isDefaultHome && <StatusPill label="Home Ground" tone="positive" />}
-                {!venue.active && <StatusPill label="Deactivated" tone="caution" />}
-                <StatusPill label={venue.geocodeStatus === "success" ? "Pinned on the map" : venue.geocodeStatus === "pending" ? "Pin pending" : "No pin yet"} tone="neutral" />
-              </View>
-            )}
-          </View>
-
-          {!caps.manageVenues && (
-            <View accessibilityRole="alert" style={{ flexDirection: "row", gap: space.sm, alignItems: "flex-start", padding: space.md, borderRadius: radius.md, backgroundColor: colour.warningSurface }}>
-              <CircleAlert size={18} color={colour.warning} />
-              <Text style={[type.small, { color: colour.warning, flex: 1 }]}>You can see this venue but not change it: that needs the club's venues permission.</Text>
-            </View>
-          )}
-
-          <Card style={{ gap: space.lg }}>
-            <Field label="Venue Name" value={draft.name} onChange={(v) => edit({ name: v })} editable={caps.manageVenues} />
-            <Field label="Address Line 1" value={draft.line1} onChange={(v) => edit({ line1: v })} editable={caps.manageVenues} />
-            <Field label="Address Line 2" value={draft.line2} onChange={(v) => edit({ line2: v })} editable={caps.manageVenues} />
-            <Field label="Town" value={draft.town} onChange={(v) => edit({ town: v })} editable={caps.manageVenues} />
-            <Field label="County" value={draft.county} onChange={(v) => edit({ county: v })} editable={caps.manageVenues} />
-            <Field label="Postcode" value={draft.postcode} onChange={(v) => edit({ postcode: v.toUpperCase() })} editable={caps.manageVenues} autoCapitalize="characters" />
-            <Field label="Directions" value={draft.directions} onChange={(v) => edit({ directions: v })} editable={caps.manageVenues} multiline placeholder="How to find the ground, where to park" />
-            {isNew && caps.manageVenues && (
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: TOUCH_TARGET }}>
-                <Text style={[type.small, { color: colour.ink, flex: 1 }]}>Make this the home ground</Text>
-                <Switch accessibilityLabel="Make this the home ground" value={draft.setDefault} onValueChange={(v) => edit({ setDefault: v })} trackColor={{ true: colour.pitch600, false: colour.lineStrong }} thumbColor={colour.surface} />
-              </View>
-            )}
-            {problem && caps.manageVenues && dirty && <Text style={[type.small, { color: colour.warning }]}>{problem}</Text>}
-            {message && (
-              <View accessibilityRole={message.tone === "error" ? "alert" : undefined} style={{ padding: space.md, borderRadius: radius.md, backgroundColor: message.tone === "error" ? colour.dangerSurface : colour.successSurface }}>
-                <Text style={[type.small, { color: message.tone === "error" ? colour.danger : colour.forest800 }]}>{message.text}</Text>
-              </View>
-            )}
-            {caps.manageVenues && (
-              <View style={{ flexDirection: "row", gap: space.sm }}>
-                {venue && dirty && <Button label="Discard" variant="secondary" onPress={() => { setDraft(venueInputFrom(venue)); setDirty(false); setMessage(null) }} disabled={busy} style={{ flex: 1 }} />}
-                <Button label={isNew ? "Add Venue" : "Save Changes"} onPress={() => void save()} busy={busy} disabled={!dirty || !!problem} style={{ flex: 2 }} />
-              </View>
-            )}
-          </Card>
-
-          {venue && (
-            <View style={{ gap: space.sm }}>
-              <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]}>
-                This Ground
-              </Text>
-              <Card style={{ gap: space.sm }}>
-                {maps && <Button label="Open in Maps" variant="secondary" onPress={openMaps} accessibilityHint={maps.kind === "coordinates" ? "Uses the pin Ovalball worked out from the postcode" : "Searches by the address"} />}
-                {caps.manageVenues && venue.active && !venue.isDefaultHome && <Button label="Make Home Ground" variant="secondary" onPress={() => void run(() => setDefaultVenue(supabase, venue.id), "this venue", "This is now the club's home ground.")} disabled={busy} />}
-                {caps.manageVenues && venue.active && !confirmDeactivate && <Button label="Deactivate Venue" variant="quiet" onPress={() => setConfirmDeactivate(true)} disabled={busy} />}
-                {caps.manageVenues && venue.active && confirmDeactivate && (
-                  <View style={{ gap: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: colour.warningSurface }}>
-                    <Text style={[type.small, { color: colour.warning }]}>Deactivate {venue.name}? It will no longer be offered for new fixtures or training. Everything already recorded there is kept, and it can be reactivated later.</Text>
-                    <View style={{ flexDirection: "row", gap: space.sm }}>
-                      <Button label="Keep" variant="secondary" onPress={() => setConfirmDeactivate(false)} disabled={busy} style={{ flex: 1 }} />
-                      <Button label="Confirm Deactivate" onPress={() => void run(async () => { await setVenueActive(supabase, venue.id, false); setConfirmDeactivate(false) }, "this venue", "Deactivated. Nothing recorded here was removed.")} busy={busy} style={{ flex: 1 }} />
-                    </View>
-                  </View>
-                )}
-                {caps.manageVenues && !venue.active && <Button label="Reactivate Venue" onPress={() => void run(() => setVenueActive(supabase, venue.id, true), "this venue", "Reactivated.")} busy={busy} />}
-              </Card>
-            </View>
-          )}
-
-          {venue && clubId && <PitchesSection clubId={clubId} venue={venue} pitches={pitches} canManage={caps.managePitches} busy={busy} run={run} />}
-        </>
-      )}
-    </AdminScreen>
-  )
-}
-
-function Field({ label, value, onChange, editable, multiline = false, placeholder, autoCapitalize = "words", keyboardType = "default" }: { label: string; value: string; onChange: (v: string) => void; editable: boolean; multiline?: boolean; placeholder?: string; autoCapitalize?: "none" | "words" | "sentences" | "characters"; keyboardType?: "default" | "decimal-pad" }) {
-  return (
-    <View style={{ gap: 6 }}>
-      <Text style={[type.smallMedium, { color: colour.ink }]}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label}
-        value={value}
-        onChangeText={onChange}
-        editable={editable}
-        multiline={multiline}
-        numberOfLines={multiline ? 3 : 1}
-        autoCapitalize={autoCapitalize}
-        autoCorrect={multiline}
-        placeholder={placeholder}
-        placeholderTextColor={colour.inkSubtle}
-        selectionColor={colour.pitch600}
-        keyboardType={keyboardType}
-        style={[type.body, { minHeight: multiline ? 88 : TOUCH_TARGET, paddingHorizontal: space.md, paddingVertical: multiline ? space.md : 0, textAlignVertical: multiline ? "top" : "center", borderRadius: radius.md, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: editable ? colour.surface : "rgba(16,21,18,0.03)", color: editable ? colour.ink : colour.inkMuted }]}
-      />
-    </View>
-  )
-}
-
-function PitchesSection({ clubId, venue, pitches, canManage, busy, run }: { clubId: string; venue: ClubVenue; pitches: ClubPitch[]; canManage: boolean; busy: boolean; run: (op: () => Promise<void>, subject: string, done?: string) => Promise<void> }) {
-  const [adding, setAdding] = useState(false)
-  const [name, setName] = useState("")
-  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
-  const [configuringId, setConfiguringId] = useState<string | null>(null)
-  return (
-    <View style={{ gap: space.sm }}>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]}>
-          Pitches
-        </Text>
-        {canManage && venue.active && !adding && (
-          <Pressable accessibilityRole="button" accessibilityLabel="Add Pitch" onPress={() => setAdding(true)} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 4, minHeight: TOUCH_TARGET, paddingHorizontal: space.sm, opacity: pressed ? 0.7 : 1 })}>
-            <Plus size={18} color={colour.forest800} strokeWidth={2.2} />
-            <Text style={[type.smallMedium, { color: colour.forest800 }]}>Add Pitch</Text>
-          </Pressable>
-        )}
-      </View>
-      <Card style={{ padding: 0, overflow: "hidden" }}>
-        {pitches.length === 0 && !adding && <Text style={[type.small, { color: colour.inkMuted, padding: space.lg }]}>No pitches at this ground yet.</Text>}
-        {pitches.map((p, i) => (
-          <View key={p.id} style={{ padding: space.lg, gap: space.sm, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colour.line, opacity: p.active ? 1 : 0.7 }}>
-            {renaming?.id === p.id ? (
-              <View style={{ gap: space.sm }}>
-                <Field label="Pitch Name" value={renaming.name} onChange={(v) => setRenaming({ id: p.id, name: v })} editable={!busy} />
-                <View style={{ flexDirection: "row", gap: space.sm }}>
-                  <Button label="Cancel" variant="secondary" onPress={() => setRenaming(null)} disabled={busy} style={{ flex: 1 }} />
-                  <Button label="Save Pitch" onPress={() => void run(async () => { await renameClubPitch(supabase, p.id, renaming.name); setRenaming(null) }, "this pitch")} busy={busy} disabled={!renaming.name.trim()} style={{ flex: 1 }} />
-                </View>
-              </View>
-            ) : configuringId === p.id ? (
-              <PitchConfigurationEditor
-                pitch={p}
-                busy={busy}
-                onCancel={() => setConfiguringId(null)}
-                onSave={async (input) => {
-                  await run(() => setClubPitchConfiguration(supabase, p.id, input), "this pitch", "Pitch configuration saved.")
-                  setConfiguringId(null)
-                }}
-              />
-            ) : (
-              <>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-                  <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>{p.displayName}</Text>
-                  {!p.active && <StatusPill label="Deactivated" tone="caution" />}
-                </View>
-                <Text style={[type.caption, { color: colour.inkMuted }]}>{pitchConfigurationSummary(p)}</Text>
-                {canManage && (
-                  <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
-                    <Button label="Rename" variant="secondary" onPress={() => setRenaming({ id: p.id, name: p.displayName })} disabled={busy} style={{ flex: 1 }} />
-                    <Button label="Configure" variant="secondary" onPress={() => setConfiguringId(p.id)} disabled={busy} style={{ flex: 1 }} />
-                    <Button label={p.active ? "Deactivate" : "Reactivate"} variant="quiet" onPress={() => void run(() => setClubPitchActive(supabase, p.id, !p.active), "this pitch")} disabled={busy} style={{ flex: 1 }} />
-                  </View>
-                )}
-              </>
-            )}
-          </View>
-        ))}
-        {adding && (
-          <View style={{ padding: space.lg, gap: space.sm, borderTopWidth: pitches.length ? 1 : 0, borderTopColor: colour.line }}>
-            <Field label="Pitch Name" value={name} onChange={setName} editable={!busy} placeholder="Pitch 3, Top field…" />
-            <View style={{ flexDirection: "row", gap: space.sm }}>
-              <Button label="Cancel" variant="secondary" onPress={() => { setAdding(false); setName("") }} disabled={busy} style={{ flex: 1 }} />
-              <Button label="Add Pitch" onPress={() => void run(async () => { await createClubPitch(supabase, clubId, name, venue.id); setAdding(false); setName("") }, "this pitch", "Pitch added at this ground.")} busy={busy} disabled={!name.trim()} style={{ flex: 1 }} />
-            </View>
-          </View>
-        )}
-      </Card>
-    </View>
-  )
-}
-
-const PHYSICAL_SIZE_OPTIONS = ["full", "three_quarter", "half", "custom"] as const
-const LAYOUT_OPTIONS = ["full_only", "two_halves", "four_quarters"] as const
-
-/**
- * CA-M11.2 Grounds & Pitches: what this physical pitch is, and how the club has chosen to use it
- * concurrently -- native, in-place (matching Rename's own established pattern in this screen), never
- * a WebView or web hand-off (Section 12's own explicit instruction).
- */
-function PitchConfigurationEditor({ pitch, busy, onCancel, onSave }: { pitch: ClubPitch; busy: boolean; onCancel: () => void; onSave: (input: PitchConfigurationInput) => Promise<void> }) {
-  const [draft, setDraft] = useState<PitchConfigurationInput>(() => pitchConfigurationInputFrom(pitch))
-  const [impact, setImpact] = useState<PitchConfigurationImpact | null>(null)
-  const [checkingImpact, setCheckingImpact] = useState(false)
-  const [impactChecked, setImpactChecked] = useState(false)
-
-  const problem = pitchConfigurationInputProblem(draft)
-  // Section 29's impact check is for NARROWING only -- widening (more areas, or a bigger physical size)
-  // can never turn an existing valid allocation into a new conflict, so it would be pure noise here.
-  const narrowing =
-    layoutAreaCount(draft.layout) < layoutAreaCount(pitch.layout) ||
-    pitchPhysicalSizeUnits({ physicalSizeCategory: draft.physicalSizeCategory, customLengthM: draft.physicalSizeCategory === "custom" ? Number(draft.customLengthM) || null : null, customWidthM: draft.physicalSizeCategory === "custom" ? Number(draft.customWidthM) || null : null }) <
-      pitchPhysicalSizeUnits(pitch)
-
-  function edit(patch: Partial<PitchConfigurationInput>) {
-    setImpactChecked(false)
-    setImpact(null)
-    setDraft((d) => ({ ...d, ...patch }))
-  }
-
-  async function handleSave() {
-    if (narrowing && !impactChecked) {
-      setCheckingImpact(true)
-      const result = await pitchConfigurationImpact(supabase, pitch.id)
-      setCheckingImpact(false)
-      setImpactChecked(true)
-      if (result.affectedDates.length > 0) {
-        setImpact(result)
-        return
-      }
-    }
-    await onSave(draft)
-  }
-
-  return (
     <View style={{ gap: space.md }}>
-      <View style={{ gap: 6 }}>
-        <Text style={[type.smallMedium, { color: colour.ink }]}>Pitch Size</Text>
-        <ChoiceRow options={PHYSICAL_SIZE_OPTIONS.map((c) => ({ value: c, label: physicalSizeCategoryLabel(c) }))} value={draft.physicalSizeCategory} onChange={(v) => edit({ physicalSizeCategory: v })} disabled={busy} />
+      <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, padding: space.md, borderBottomWidth: 1, borderBottomColor: colour.line }}>
+          <Text style={[type.small, { color: colour.ink, flex: 1 }]}>Primary venue for the club</Text>
+          <Text style={[type.smallMedium, { color: venue.isDefaultHome ? colour.forest800 : colour.inkSubtle }]}>{venue.isDefaultHome ? "Yes" : "No"}</Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, padding: space.md }}>
+          <Text style={[type.small, { color: colour.ink, flex: 1 }]}>Venue status</Text>
+          <StatusPill label={venue.active ? "Active" : "Deactivated"} tone={venue.active ? "positive" : "caution"} />
+        </View>
       </View>
 
-      {draft.physicalSizeCategory === "custom" && (
-        <View style={{ flexDirection: "row", gap: space.sm }}>
-          <View style={{ flex: 1 }}>
-            <Field label="Length (M)" value={draft.customLengthM} onChange={(v) => edit({ customLengthM: v })} editable={!busy} keyboardType="decimal-pad" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Field label="Width (M)" value={draft.customWidthM} onChange={(v) => edit({ customWidthM: v })} editable={!busy} keyboardType="decimal-pad" />
-          </View>
-        </View>
-      )}
+      {canManage && <Button label="Edit Venue Details" onPress={onEditVenue} />}
+      {maps && <Button label="Open in Maps" variant="secondary" onPress={openMaps} />}
+      {canManage && venue.active && !venue.isDefaultHome && <Button label="Make Primary Venue" variant="secondary" onPress={() => void run(() => setDefaultVenue(supabase, venue.id), "this venue")} disabled={busy} />}
+      {canManage && venue.active && <Button label="Deactivate Venue" variant="danger" onPress={() => { setConfirmDeactivate(true); void readResourceBookingsAhead(supabase, "VENUE", venue.id).then((b) => setBookingsAhead(bookingsAheadSentence(b))).catch(() => setBookingsAhead(null)) }} disabled={busy} />}
+      {canManage && !venue.active && <Button label="Reactivate Venue" onPress={() => void run(() => setVenueActive(supabase, venue.id, true), "this venue")} busy={busy} />}
 
-      <View style={{ gap: 6 }}>
-        <Text style={[type.smallMedium, { color: colour.ink }]}>How Can This Pitch Be Used?</Text>
-        <ChoiceRow options={LAYOUT_OPTIONS.map((l) => ({ value: l, label: layoutLabel(l) }))} value={draft.layout} onChange={(v) => edit({ layout: v })} disabled={busy} />
-        <Text style={[type.caption, { color: colour.inkMuted }]}>
-          {draft.layout === "full_only" ? "One fixture or training session at a time on this pitch." : `Up to ${draft.layout === "two_halves" ? 2 : 4} compatible-sized fixtures or training sessions at once.`}
+      <BottomSheet visible={confirmDeactivate} onClose={() => setConfirmDeactivate(false)} title="Deactivate This Venue?">
+        <Text style={[type.small, { color: colour.inkMuted }]}>
+          {venue.name} will no longer be offered for new fixtures or training. Everything already recorded here -- pitches, changing rooms, fixtures and sessions -- is kept, and the venue can be reactivated later.
         </Text>
-      </View>
-
-      {impact && impact.affectedDates.length > 0 && (
-        <View style={{ gap: 4, padding: space.md, borderRadius: radius.md, backgroundColor: colour.warningSurface }}>
-          <Text style={[type.smallMedium, { color: colour.warning }]}>
-            {impact.affectedDates.length} future date{impact.affectedDates.length === 1 ? "" : "s"} currently ha{impact.affectedDates.length === 1 ? "s" : "ve"} more than one booking on this pitch.
-          </Text>
-          <Text style={[type.caption, { color: colour.warning }]}>Narrowing this pitch's configuration may leave some of those overlapping. Nothing is moved or cancelled automatically -- review Pitch Allocation for those dates after saving.</Text>
-        </View>
-      )}
-
-      {problem && <Text style={[type.small, { color: colour.warning }]}>{problem}</Text>}
-
-      <View style={{ flexDirection: "row", gap: space.sm }}>
-        <Button label="Cancel" variant="secondary" onPress={onCancel} disabled={busy || checkingImpact} style={{ flex: 1 }} />
-        <Button label={impact && impact.affectedDates.length > 0 ? "Save Anyway" : "Save Pitch"} onPress={() => void handleSave()} busy={busy || checkingImpact} disabled={!!problem} style={{ flex: 1 }} />
-      </View>
-    </View>
-  )
-}
-
-/** A row of pressable choice chips -- the same selected/unselected treatment the pitch-allocation
- * Move sheet already uses for its own pitch picker, reused here for a small enum choice. */
-function ChoiceRow<T extends string>({ options, value, onChange, disabled }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void; disabled: boolean }) {
-  return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-      {options.map((o) => {
-        const selected = o.value === value
-        return (
-          <Pressable
-            key={o.value}
-            accessibilityRole="radio"
-            accessibilityState={{ selected, disabled }}
-            accessibilityLabel={o.label}
-            disabled={disabled}
-            onPress={() => onChange(o.value)}
-            style={{ minHeight: TOUCH_TARGET, paddingHorizontal: space.md, justifyContent: "center", borderRadius: radius.md, borderWidth: 1, borderColor: selected ? colour.pitch600 : colour.line, backgroundColor: selected ? colour.mint100 : colour.surface, opacity: disabled ? 0.6 : 1 }}
-          >
-            <Text style={[type.small, { color: selected ? colour.forest800 : colour.ink }]}>{o.label}</Text>
-          </Pressable>
-        )
-      })}
+        {!!bookingsAhead && (
+          <Text accessibilityRole="alert" style={[type.small, { color: colour.warning }]}>{`${bookingsAhead} They stay here until you move them, and Arena Planning shows each one as needing attention.`}</Text>
+        )}
+        <Button
+          label="Confirm Deactivate"
+          variant="danger"
+          onPress={() =>
+            void run(async () => {
+              await setVenueActive(supabase, venue.id, false)
+              setConfirmDeactivate(false)
+            }, "this venue")
+          }
+          busy={busy}
+        />
+      </BottomSheet>
     </View>
   )
 }

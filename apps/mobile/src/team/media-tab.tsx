@@ -8,12 +8,11 @@ import type { TeamProfileIdentity } from "@ovalball/contracts/team/profile"
 
 import { supabase } from "../auth/supabase"
 import { NotForYou } from "./screen"
-import { teamCoverPhotoSource } from "./cover-library"
-import { demoTeamCoverAsset } from "./team-cover-demo"
 import { PhotoBottomShade } from "../components/photo-gradient"
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../components/ui"
 import { Camera, Ellipsis, Image as ImageIcon, X } from "../components/icons"
 import { colour, radius, space, type } from "../design/tokens"
+import { teamCoverSource } from "../media/stock-assets"
 
 /**
  * MEDIA -- the fifth Team Profile tab (Section 5): the team's current cover and a preview of its real
@@ -66,7 +65,7 @@ export function MediaTab({
     return <ErrorState message={problem} onRetry={load} />
   }
 
-  const photo = teamCoverPhotoSource(identity.cover, demoTeamCoverAsset(identity))
+  const photo = teamCoverSource(identity.cover, identity)
   const coverCaption = identity.cover.kind === "cover" ? "Your club's own uploaded photo." : identity.cover.kind === "stock" ? "An Ovalball library photo." : "Ovalball's photography, standing in until your club sets one."
 
   return (

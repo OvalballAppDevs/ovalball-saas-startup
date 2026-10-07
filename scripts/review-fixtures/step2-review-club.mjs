@@ -697,7 +697,7 @@ function down({ quiet = false } = {}) {
         where g.player_id = p.id and p.surname in ('Ferreira', 'Kovac') and p.first_name in ('Leo', 'Mina');
       delete from public.players where surname in ('Ferreira', 'Kovac') and first_name in ('Leo', 'Mina');
 
-      delete from public.team_permissions tp using public.teams t where tp.team_id = t.id and t.club_id = v_club;
+      delete from testing.team_roles tp using public.teams t where tp.team_id = t.id and t.club_id = v_club;
       delete from public.role_assignments where club_id = v_club;
       delete from public.teams where club_id = v_club;
       delete from public.club_memberships where club_id = v_club;
@@ -761,8 +761,8 @@ function report() {
   console.log(sql(`
     select '  ' || rpad(u.email, 42) || rpad(coalesce(p.first_name,'') || ' ' || coalesce(p.surname,''), 20)
          || rpad(m.role, 20)
-         || coalesce((select string_agg(t.display_name || ' ' || tp.permission, ', ' order by t.display_name)
-                      from public.team_permissions tp join public.teams t on t.id = tp.team_id
+         || coalesce((select string_agg(t.display_name || ' ' || tp.role_key, ', ' order by t.display_name)
+                      from testing.team_roles tp join public.teams t on t.id = tp.team_id
                       where tp.membership_id = m.id), '-')
     from public.club_memberships m
     join auth.users u on u.id = m.user_id
@@ -845,8 +845,8 @@ function verify() {
   const actual = new Map()
   for (const line of sql(`
     select u.email || '|' || m.role || '|' ||
-           coalesce((select string_agg(t.display_name || ' ' || tp.permission, ', ' order by t.display_name)
-                     from public.team_permissions tp join public.teams t on t.id = tp.team_id
+           coalesce((select string_agg(t.display_name || ' ' || tp.role_key, ', ' order by t.display_name)
+                     from testing.team_roles tp join public.teams t on t.id = tp.team_id
                      where tp.membership_id = m.id), '-')
     from public.club_memberships m join auth.users u on u.id = m.user_id
     where m.club_id = ${q(clubId)}`).split(String.fromCharCode(10)).filter(Boolean)) {

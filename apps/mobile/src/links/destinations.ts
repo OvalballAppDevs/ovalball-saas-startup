@@ -1,7 +1,8 @@
-import { isFamilyFacingContext, type ActiveContextKind, type AgendaItem } from "@ovalball/contracts"
+import type { ActiveContextKind, AgendaItem } from "@ovalball/contracts"
+import type { MatchCentreSection } from "@ovalball/contracts/match-centre/sections"
 
 import { routeForHubDestination } from "../hub/route-table"
-import type { LinkIntent } from "./intents"
+import { resolveIntent, type LinkIntent } from "./intents"
 
 /**
  * WHERE AN EVENT OPENS — the single destination authority for this app.
@@ -12,68 +13,39 @@ import type { LinkIntent } from "./intents"
  * boundary that will hold in three.
  *
  * ---------------------------------------------------------------------------
- * LAYER A — THE PROJECTION.
+ * ONE GAME, ONE PLACE (owner brief, 2026-10-03).
  *
- *   a match, for a parent/guardian or a player -> the PARTICIPANT address
- *   a match, for anybody else                  -> the CANONICAL address
- *   training, for anybody                      -> the TRAINING CENTRE
+ *   a match, for anybody      -> the MATCH CENTRE, at `/fixtures/<id>`
+ *   one section of a match    -> the same address, `?tab=<section>`
+ *   training, for anybody     -> the TRAINING CENTRE
  *
- * The participant address (`/fixtures/<id>/match-centre`) cannot render
- * administration under any circumstances, because that route does not import it.
+ * There used to be two fixture addresses -- a participant one that could not draw
+ * administration and a canonical one that decided between the Match Centre and a
+ * Fixture Console -- and this module chose between them by context. That split is
+ * gone: Fixture Detail and Edit Fixture are sections and sheets of the one Match
+ * Centre, and every control in it is drawn from the server's per-fixture answer
+ * for this viewer (`get_match_centre_viewer`, `loadFixtureAuthority`). So there is
+ * nothing left here to narrow, and no context decides a fixture's address.
  *
- * The canonical address (`/fixtures/<id>`) is authority-aware: it asks
- * `get_match_centre_capabilities` for THIS viewer and THIS fixture and renders the
- * console only where `can_manage_fixture` is true. So "anybody else" is not a
- * grant -- a team manager who has not been delegated `fixture.fixture.edit` lands
- * on the Match Centre exactly as a parent does.
- *
- * WHY A CONTEXT KIND APPEARS HERE AT ALL, given that a role label is never
- * authority. It is not deciding what anybody MAY do; it is choosing which of two
- * addresses to use, and it only ever chooses the MORE restrictive one. A
- * family-facing context holds no fixture-management capability by construction --
- * `loadFixtureAuthority` returns nothing at all for one, because there is no scope
- * to ask at -- so sending it to a route that cannot draw administration removes a
- * possibility rather than granting one.
- *
+ * THE GUARD IS NOT IN THIS FILE. A hand-typed URL, a restored navigation stack or a
+ * link from outside the app does not pass through this module at all, so none of
+ * the protection that matters lives here. The Match Centre asks the server what this
+ * person may see and do, and the database re-checks every write.
  * ---------------------------------------------------------------------------
- * LAYER B — THE GUARD, which is not in this file.
  *
- * The canonical route's own gate, and then every control inside the console, and
- * then the database. A hand-typed URL, a restored navigation stack or a link from
- * outside the app does not pass through this module at all, so none of the
- * protection that matters lives here. This module makes the app ASK the right
- * question; the server decides the answer.
- * ---------------------------------------------------------------------------
+ * `contextKind` is still accepted so the many callers do not change shape, but no
+ * fixture destination depends on it any more.
  */
-export function agendaIntent(item: AgendaItem, contextKind: ActiveContextKind): LinkIntent {
+export function agendaIntent(item: AgendaItem, contextKind?: ActiveContextKind | null): LinkIntent {
+  void contextKind
   if (item.kind === "training") return { kind: "TRAINING", sessionId: item.eventId }
-  return isFamilyFacingContext(contextKind)
-    ? { kind: "MATCH_CENTRE", fixtureId: item.eventId }
-    : { kind: "FIXTURE", fixtureId: item.eventId }
-}
-
-/**
- * THE SAME NARROWING, FOR AN INTENT THAT CAME FROM OUTSIDE.
- *
- * A notification, a shared link or a push payload carries a CANONICAL href, and
- * the canonical href for every fixture notification is `/fixtures/<id>` -- which is
- * correct, and is the address the website uses too. It resolves to the deciding
- * route, which asks the server and would give a guardian the Match Centre anyway.
- *
- * This takes that one step further where the app already knows the viewer's
- * context: a family-facing context has its fixture intents narrowed to the
- * participant address BEFORE they are routed, so the two notifications a parent
- * actually receives -- an availability invitation and its reminder -- reach a route
- * that cannot draw administration rather than one that decides not to.
- *
- * It only ever narrows. A staff intent is returned untouched, and an intent for
- * anything other than a fixture is returned untouched, so nothing legitimate is
- * lost by passing everything through it.
- */
-export function narrowIntentForContext(intent: LinkIntent, contextKind: ActiveContextKind | null): LinkIntent {
-  if (intent.kind !== "FIXTURE") return intent
-  if (!contextKind || !isFamilyFacingContext(contextKind)) return intent
-  return { kind: "MATCH_CENTRE", fixtureId: intent.fixtureId }
+  // A TOURNAMENT HAS ONE ADDRESS, whoever is looking: the Tournament Centre renders administration
+  // only where the server says this viewer manages the tournament. A multi-day festival's three
+  // calendar rows all carry the same `eventId` and therefore land on the same Centre.
+  // ONE GAME OF A TOURNAMENT opens that game -- the one shared result screen -- not the festival.
+  if (item.kind === "tournament" && item.tournamentGame) return { kind: "TOURNAMENT_RESULT", gameId: item.tournamentGame.id, tournamentId: item.eventId }
+  if (item.kind === "tournament") return { kind: "TOURNAMENT", tournamentId: item.eventId }
+  return { kind: "FIXTURE", fixtureId: item.eventId }
 }
 
 /** An expo-router target: the typed route and its parameters, never a hand-built string. */
@@ -97,22 +69,40 @@ export function routeForIntent(intent: LinkIntent): Route | null {
       }
     case "FIXTURES":
       return { pathname: "/fixtures" }
-    // THE CANONICAL ADDRESS. Authority-aware: it renders the console only where the
-    // server says this viewer may manage this fixture, and the Match Centre
-    // otherwise. The console has no address of its own.
+    case "CLUB_DAY":
+      return { pathname: "/fixtures/planner/club-day/[groupId]", params: { groupId: intent.groupId } }
+    // THE MATCH CENTRE -- one address for every viewer and every older fixture address. The section a
+    // link is about rides as `tab`; editing as `edit`. What is drawn there is the server's answer.
     case "FIXTURE":
-      return { pathname: "/fixtures/[fixtureId]", params: { fixtureId: intent.fixtureId } }
-    // THE PARTICIPANT ADDRESS. Cannot render administration at all.
     case "MATCH_CENTRE":
-      return { pathname: "/fixtures/[fixtureId]/match-centre", params: { fixtureId: intent.fixtureId } }
+      return matchCentreRoute(intent.fixtureId, intent.section ? { tab: intent.section } : {})
+    // THE RESULT: every result notification and result job, for every viewer, and the Fixtures list's
+    // Add Result shortcut -- the one Match Result, in the Result section.
+    case "FIXTURE_RESULT":
     case "ADD_RESULT":
-      return { pathname: "/fixtures/[fixtureId]/add-result", params: { fixtureId: intent.fixtureId } }
+      return matchCentreRoute(intent.fixtureId, { tab: "result" })
     case "EDIT_FIXTURE":
-      return { pathname: "/fixtures/[fixtureId]/edit", params: { fixtureId: intent.fixtureId } }
+      return matchCentreRoute(intent.fixtureId, { edit: "details" })
     case "TRAINING":
       return { pathname: "/calendar/training/[sessionId]", params: { sessionId: intent.sessionId } }
+    // THE TOURNAMENT CENTRE. One address for every viewer, authority-aware like the
+    // canonical fixture address: the screen asks the server what this person may see
+    // and do. There is no second, organiser-only address.
+    case "TOURNAMENT":
+      return { pathname: "/tournaments/[tournamentId]", params: { tournamentId: intent.tournamentId } }
+    // THE ONE SHARED RESULT SCREEN. A side confirming, a side contesting and the organiser settling
+    // all land here; the screen resolves which of those this viewer is.
+    case "DISPENSATION":
+      return { pathname: "/dispensations/[id]", params: { id: intent.dispensationId } }
+    case "TOURNAMENT_RESULT":
+      return { pathname: "/tournaments/result/[gameId]", params: { gameId: intent.gameId, ...(intent.tournamentId ? { tournamentId: intent.tournamentId } : {}) } }
+    // THE CALENDAR ON THE DAY THE LINK IS ABOUT -- a link to a date that opened on today was a link to
+    // nothing ("View Calendar" from a tournament plan landed on an empty today, 20270736).
     case "CALENDAR":
-      return { pathname: "/calendar" }
+      return intent.date ? { pathname: "/calendar", params: { date: intent.date } } : { pathname: "/calendar" }
+    // THE EVENT CENTRE -- one address for every viewer; its section rides as `tab`.
+    case "EVENT":
+      return { pathname: "/calendar/event/[eventId]", params: intent.section ? { eventId: intent.eventId, tab: intent.section } : { eventId: intent.eventId } }
     // NEWS & ANNOUNCEMENTS. A story linked by the website's slugs opens the same native screen, which
     // resolves the slugs through the shared contract; nothing is decided from the address itself.
     case "NEWS":
@@ -141,6 +131,8 @@ export function routeForIntent(intent: LinkIntent): Route | null {
           return { pathname: "/subscriptions", params: { teamId: intent.teamId } }
         case "news":
           return { pathname: "/admin/news", params: { teamId: intent.teamId } }
+        case "age-grade":
+          return { pathname: "/team/age-grade", params: { teamId: intent.teamId } }
         default:
           return { pathname: "/", params: { teamId: intent.teamId } }
       }
@@ -167,6 +159,8 @@ export function routeForIntent(intent: LinkIntent): Route | null {
     case "JOIN":
       // The secret rides in the navigation params for one screen and is never written anywhere else.
       return { pathname: "/join", params: { ...(intent.token ? { t: intent.token } : {}), ...(intent.code ? { c: intent.code } : {}) } } as Route
+    case "SCREEN":
+      return intent.params ? { pathname: intent.pathname, params: intent.params } : { pathname: intent.pathname }
     case "AUTH_RECOVERY":
     case "AUTH_OAUTH":
     case "NOT_YET_SUPPORTED":
@@ -176,6 +170,28 @@ export function routeForIntent(intent: LinkIntent): Route | null {
 }
 
 /** The event's own route, for a screen that has a row and a context and wants to open it. */
-export function routeForAgendaItem(item: AgendaItem, contextKind: ActiveContextKind): Route | null {
+export function routeForAgendaItem(item: AgendaItem, contextKind?: ActiveContextKind | null): Route | null {
   return routeForIntent(agendaIntent(item, contextKind))
+}
+
+/**
+ * A CANONICAL HREF, RESOLVED TO A ROUTE -- the one function behind every entry point that starts
+ * from an href rather than an already-typed intent: the in-app notification list, a push tap and the
+ * foreground banner. A push tap and an in-app tap on the identical notification must resolve to the
+ * identical destination, so they share this rather than repeating it.
+ *
+ * `href` is the same canonical path `notificationHref(type, data)` and the website both produce
+ * (`/fixtures/<id>?tab=attendance`, `/tournaments/result/<id>`, …). It is turned into the app's own
+ * scheme rather than parsed directly, because `resolveIntent` reads a custom-scheme URL's first path
+ * segment as its host -- the same shape every other in-app link already goes through.
+ *
+ * `contextKind` is accepted for the callers' sake; no destination depends on it any more.
+ */
+export function routeForHref(href: string, contextKind?: ActiveContextKind | null): Route | null {
+  void contextKind
+  return routeForIntent(resolveIntent(`ovalball://${href.replace(/^\//, "")}`))
+}
+
+function matchCentreRoute(fixtureId: string, extra: { tab?: MatchCentreSection; edit?: "details" }): Route {
+  return { pathname: "/fixtures/[fixtureId]", params: { fixtureId, ...(extra.tab && extra.tab !== "overview" ? { tab: extra.tab } : {}), ...(extra.edit ? { edit: extra.edit } : {}) } }
 }

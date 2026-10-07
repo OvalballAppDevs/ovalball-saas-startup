@@ -144,9 +144,14 @@ function seed() {
   sql(`insert into public.club_memberships (club_id, user_id, role, status) values ('${ids.club}', '${ids.ca}', 'CLUB_ADMIN', 'active');`)
   sql(`insert into public.club_memberships (club_id, user_id, role, status) values ('${ids.club}', '${ids.ca2}', 'CLUB_ADMIN', 'active');`)
   ids.msTm = one(`insert into public.club_memberships (club_id, user_id, role, status) values ('${ids.club}', '${ids.tm}', 'BASIC_USER', 'active') returning id`)
-  sql(`insert into public.team_permissions (membership_id, team_id, permission) values ('${ids.msTm}', '${ids.team}', 'manager');`)
+  sql(`insert into testing.team_roles (membership_id, team_id, role_key) values ('${ids.msTm}', '${ids.team}', 'TEAM_MANAGER');`)
+  // In the U12 grade this season (the canonical resolver's date), and -- since 20270742000000 refuses a place
+  // outside the grade by any route -- moved onto the Under 14s under an approved dispensation for that side and
+  // season. This suite races the ROSTER (archive, move, restore, add), never the age grade.
   ids.player = one(`insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-    values ('Rrace', 'Child', (current_date - interval '11 years')::date, 'MALE') returning id`)
+    values ('Rrace', 'Child', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id`)
+  sql(`insert into public.player_team_dispensation (player_id, target_team_id, season_id, status, governing_body_reference, eligibility_rule_reference)
+    values ('${ids.player}', '${ids.team2}', internal.resolve_season_for_date('union', current_date), 'approved', 'RRACE', 'Roster race fixture');`)
 }
 
 /** Every team place this suite creates, including ones a later test replaces, so cleanup can take their
@@ -188,6 +193,7 @@ begin
     || array(select id from public.player_team_memberships where player_id = '${ids.player}')
     || array(select id from public.club_directory where normalized_key = 'rrace-${TAG}');
   delete from public.player_team_memberships where player_id = '${ids.player}';
+  delete from public.player_team_dispensation where player_id = '${ids.player}';
   delete from public.players where id = '${ids.player}';
   delete from public.role_assignments where club_id = '${ids.club}';
   delete from public.club_memberships where club_id = '${ids.club}';

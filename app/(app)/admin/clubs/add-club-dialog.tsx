@@ -1,5 +1,7 @@
 "use client"
 
+import { AddressLookupField } from "@/components/address/address-lookup-field"
+import { lookupDirectoryAddress, resolveDirectoryAddressForClub } from "./actions"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
@@ -156,6 +158,21 @@ export function AddClubDialog() {
                 </select>
               </div>
               <div>
+              {/* The same canonical address search as sign-up, venues and account details. */}
+              <div className="sm:col-span-2">
+                <AddressLookupField
+                  search={lookupDirectoryAddress}
+                  resolve={resolveDirectoryAddressForClub}
+                  onResolve={(a) =>
+                    setForm((f) => ({
+                      ...f,
+                      town: a.town ?? f.town,
+                      county: a.county ?? f.county,
+                      postcode: a.postcode ?? f.postcode,
+                    }))
+                  }
+                />
+              </div>
                 <Label htmlFor="add-town" className="text-ink/80">
                   Town
                 </Label>

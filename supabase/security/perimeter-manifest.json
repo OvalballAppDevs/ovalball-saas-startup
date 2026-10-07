@@ -294,12 +294,7 @@
       },
       "authenticated": {
         "select": "all",
-        "insert": "all",
-        "write_consumers": [
-          "lib/signup/complete-signup.ts"
-        ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns. Closed by 20270743000000 (One Door for Claims, Requests and Referrals): the table no longer takes a person's own insert; submit_club_claim is the one door, so what a request may say -- its state, its decider, its date, where it came from -- is the server's."
       }
     },
     "club_contacts": {
@@ -476,12 +471,7 @@
       },
       "authenticated": {
         "select": "all",
-        "insert": "all",
-        "write_consumers": [
-          "lib/signup/complete-signup.ts"
-        ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns. Closed by 20270743000000 (One Door for Claims, Requests and Referrals): the table no longer takes a person's own insert; request_club_membership is the one door, so what a request may say -- its state, its decider, its date, where it came from -- is the server's."
       }
     },
     "club_kits": {
@@ -584,10 +574,11 @@
           "invited_by",
           "inviting_club_id",
           "resulting_partnership_id",
+          "source",
           "status",
           "updated_at"
         ],
-        "select_reason": "Slice 5, Phase 2 O.5; NARROWED by Convergence Step 17 (Identity/Auth Slice 10). Row access is unchanged and RLS still limits these rows to the club's own administrators. The plaintext `token` column WAS readable by a signed-in administrator, temporarily and on purpose (D-S5-AUTO-6), because server actions read it back to build the emailed invitation link. Those actions moved to the canonical issuer, so the reason expired -- and this was the LAST client-readable plaintext legacy invitation token on the platform. The grant is now column-scoped and omits it, so a future column is absent by default rather than exposed by default."
+        "select_reason": "Slice 5, Phase 2 O.5; NARROWED by Convergence Step 17 (Identity/Auth Slice 10). Row access is unchanged and RLS still limits these rows to the club's own administrators. The plaintext `token` column WAS readable by a signed-in administrator, temporarily and on purpose (D-S5-AUTO-6), because server actions read it back to build the emailed invitation link. Those actions moved to the canonical issuer, so the reason expired -- and this was the LAST client-readable plaintext legacy invitation token on the platform. The grant is now column-scoped and omits it, so a future column is absent by default rather than exposed by default. `source` ADDED by 20270740000000 (One Referral Link per Club): 'invitation' for a club referred by name, 'link' for an introduction recorded when a club signed up through a referral link -- so Commercial Intelligence counts only invitations actually sent. It names how a row came about and nothing else; the same migration's `claim_id`, which points at the claim behind a link introduction, stays ungranted."
       }
     },
     "club_partnerships": {
@@ -597,12 +588,7 @@
       },
       "authenticated": {
         "select": "all",
-        "insert": "all",
-        "write_consumers": [
-          "app/(app)/partner-clubs/actions.ts"
-        ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns. Closed by 20270743000000 (One Door for Claims, Requests and Referrals): the table no longer takes a person's own insert; request_club_partnership is the one door, so what a request may say -- its state, its decider, its date, where it came from -- is the server's."
       }
     },
     "club_pitches": {
@@ -1003,7 +989,7 @@
         "write_consumers": [
           "lib/signup/complete-signup.ts"
         ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
+        "write_reason": "Direct application write (signup's request for a club the directory does not have); RLS decides which rows. Since 20270743000000 the trigger directory_requests_review_is_the_server_s sets everything after the asking -- status, review, the directory entry it produced and any bulk-import provenance -- when a person writes it.",
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },
@@ -1285,12 +1271,12 @@
       "authenticated": {
         "select": "all",
         "insert": "all",
-        "update": "all",
+        "update": "none",
         "write_consumers": [
           "app/(app)/admin/fixtures/actions.ts",
           "app/(app)/fixtures/new/actions.ts"
         ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
+        "write_reason": "Direct INSERT of a fresh request (RLS decides which rows; a client-insert guard keeps it undecided and in the creator's name). State changes go only through guarded RPCs: accept/decline/withdraw/counter (20270762000000).",
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },
@@ -2600,8 +2586,42 @@
         "select": "none"
       },
       "authenticated": {
-        "select": "all",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+        "select": [
+          "age_verdict",
+          "club_decided_at",
+          "club_decided_by",
+          "club_id",
+          "covers_pathway",
+          "created_at",
+          "decided_as",
+          "decided_at",
+          "decided_by",
+          "eligibility_rule_reference",
+          "expired_at",
+          "governing_body_decided_at",
+          "governing_body_decided_by",
+          "governing_body_reference",
+          "id",
+          "player_age_group",
+          "player_id",
+          "requested_as",
+          "requested_by",
+          "requires_governing_body",
+          "revoked_at",
+          "revoked_by",
+          "safeguarding_only",
+          "season_id",
+          "source_team_decided_at",
+          "source_team_decided_by",
+          "source_team_id",
+          "status",
+          "target_team_id",
+          "team_age_group",
+          "updated_at",
+          "withdrawn_at",
+          "withdrawn_by"
+        ],
+        "select_reason": "Row access decided by RLS (internal.may_read_dispensation, with the officer and club-wide branches hoisted). Column-level since 20270742000000: the record's private facts -- player_date_of_birth (the snapshot taken when it was asked for), reason (the requester's words), decision_note and decision_reason -- are not selectable by any browser role; public.dispensation_record hands them only to the family, the requester and the deciders."
       }
     },
     "player_team_memberships": {
@@ -2626,9 +2646,10 @@
           "granted_by",
           "approved_by",
           "approved_at",
-          "ended_by"
+          "ended_by",
+          "guardian_confirmation"
         ],
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns. Identity/Auth Slice 2: free-text reasons (reason, end_reason) are not readable."
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns. Identity/Auth Slice 2: free-text reasons (reason, end_reason) are not readable. guardian_confirmation ADDED by 20270741000000 (team codes place players): whether a child's own team request still waits for a parent, so the player and their family see it; the read policy hides an AWAITING row from roster viewers entirely."
       }
     },
     "players": {
@@ -3311,16 +3332,6 @@
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },
-    "tournament_team_entries": {
-      "classification": "PRIVATE",
-      "anon": {
-        "select": "none"
-      },
-      "authenticated": {
-        "select": "all",
-        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
-      }
-    },
     "tournaments": {
       "classification": "PRIVATE",
       "anon": {
@@ -3646,6 +3657,362 @@
         "select": "all",
         "select_reason": "Convergence Step 14: what a person is to a governing body. RLS restricts the read to the person themselves and to anybody who may view that body. No browser write path -- roles are granted through set_governing_body_role, which requires the body's own administrator or the explicit site.memberships.manage capability. Deliberately not role_assignments, which is club-bound."
       }
+    },
+    "club_award_category_settings": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Match Centre consolidation (20270727): a club's DEFAULT awards, which each team inherits unless it overrides them. RLS: readable where the viewer may see the club's profile or manage its settings; written only through set_club_award_category."
+      },
+      "classification": "PRIVATE"
+    },
+    "club_event_deliveries": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "Events (20270729): the idempotency ledger of invitations and automatic reminders. Server-only."
+      }
+    },
+    "club_event_guests": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "Events (20270729): external guests an organiser records, with contact details. No browser grant; organisers read them through get_event_guest_list and write them through save_event_guest."
+      }
+    },
+    "club_event_invitees": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "Events (20270729): people named on an event's invitation. No browser grant; read through get_event_guest_list / get_event_centre and written only through save_event."
+      }
+    },
+    "club_event_responses": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "Events (20270729): one answer per invited player or person, with party size and dietary counts. No browser grant: a household reads its own answers through get_event_centre / my_event_answers, organisers the aggregates and names through get_event_centre / get_event_guest_list."
+      }
+    },
+    "club_membership_terms_acceptances": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Club Memberships (20270748000000): row access decided by RLS (club finance holders; the per-player choice is narrower). Every write is a SECURITY DEFINER door; no browser role may insert, update or delete."
+      }
+    },
+    "club_public_sharing": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "Match Centre consolidation (20270727): whether a club shows its squads and photographs on public team pages. No browser grant: read through get_club_public_sharing and decided by internal.team_shares_publicly; written only through set_club_public_sharing."
+      },
+      "classification": "PRIVATE"
+    },
+    "facility_preferences": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Arena (20270738000000): ranked facility preferences, readable by the club's pitch-allocation viewers (RLS facility_preferences_select) and written only through save_facility_preferences. No person data."
+      }
+    },
+    "fixture_communication_recipients": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "Match Centre consolidation (20270727): who one announcement or reminder was sent to, so a family sees exactly what was sent to them in the Changing Room. No browser grant: read only through get_fixture_announcements, which returns the caller's own rows to a family and the side's own sends to its staff."
+      },
+      "classification": "PRIVATE"
+    },
+    "membership_player_products": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Club Memberships (20270748000000): row access decided by RLS (club finance holders; the per-player choice is narrower). Every write is a SECURITY DEFINER door; no browser role may insert, update or delete."
+      }
+    },
+    "membership_product_teams": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Club Memberships (20270748000000): row access decided by RLS (club finance holders; the per-player choice is narrower). Every write is a SECURITY DEFINER door; no browser role may insert, update or delete."
+      }
+    },
+    "membership_products": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Club Memberships (20270748000000): row access decided by RLS (club finance holders; the per-player choice is narrower). Every write is a SECURITY DEFINER door; no browser role may insert, update or delete."
+      }
+    },
+    "message_reactions": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "20270755000000: a reaction is visible exactly where its message is (RLS defers to fixture_messages' own visibility). No browser writes: set_message_reaction is the only door."
+      }
+    },
+    "message_reads": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "20270756000000: one row per (message, reader). Written only by mark_thread_read (the reader, through a message they can read); answered only to the sender by message_receipts. No browser role reads or writes it."
+      }
+    },
+    "notification_event_preferences": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "delete": "all",
+        "insert": "all",
+        "select": "all",
+        "select_reason": "Row access restricted to the caller's own rows by RLS.",
+        "update": "all",
+        "write_reason": "Phase D (20270711000000): one row per (user, event_key), the same self-row RLS shape as the pre-existing notification_preferences table. set_notification_event_preference is the governed write path (validates the event key and the mandatory-topic refusal); the table grant itself matches notification_preferences' own precedent rather than being locked to RPC-only like push_device_tokens. No client UI calls either path yet (Phase I of this programme); the DB layer is built and tested ahead of it."
+      },
+      "classification": "PRIVATE"
+    },
+    "notification_events": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all"
+      },
+      "classification": "PUBLIC_REFERENCE",
+      "reason": "Notifications platform programme Phase D (20270711000000): the catalogue of user-facing event families (e.g. 'Result disputes') inside a topic. Reference data, same shape as notification_topics/notification_types -- readable by anyone, writable by nobody at the API. Signed-in only since 20270718000000, matching notification_topics and notification_types (nothing reads event families signed out)."
+    },
+    "push_device_tokens": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "reason": "M7 push delivery (20270706000000), made RPC-only by 20270717000000: the phone registers and removes its own token through register_push_device_token / unregister_push_device_token (both live-session checked) and delivery reads it server-side, so no browser role reads a device token back.",
+        "select": "none"
+      },
+      "classification": "PRIVATE"
+    },
+    "team_media": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+      },
+      "classification": "PRIVATE",
+      "reason": "The canonical Team GALLERY (20270572). PRIVATE by deliberate safeguarding posture -- a private bucket, short-lived signed URLs, EXIF stripped at capture, no face or person tagging -- with roster visibility required to view and team/club management to upload or remove."
+    },
+    "team_public_sharing": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "Match Centre consolidation (20270727): a team's override of its club's public-sharing choice (null keeps the club's). No browser grant: read through get_club_public_sharing; written only through set_team_public_sharing."
+      },
+      "classification": "PRIVATE"
+    },
+    "team_squad_details": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Match Centre arena & public team page (20270728): a squad number and position on a player's place in one team. Row access by RLS (team.roster.view on that team); written only through set_team_squad_detail; shown publicly only through get_public_team_profile when the team shares its squad."
+      },
+      "classification": "PRIVATE"
+    },
+    "thread_read_cursors": {
+      "classification": "PRIVATE",
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none",
+        "select_reason": "20270756000000: where each person has read up to in a thread, so marking read never rescans history. Only mark_thread_read touches it."
+      }
+    },
+    "tournament_age_groups": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+      },
+      "classification": "PRIVATE",
+      "reason": "Which competitions a tournament runs. Read-scoped to the tournament's own visibility."
+    },
+    "tournament_application_teams": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+      },
+      "classification": "PRIVATE",
+      "reason": "The teams named on an application. Follows its application's visibility."
+    },
+    "tournament_applications": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+      },
+      "classification": "PRIVATE",
+      "reason": "A club ASKING to come to a public tournament. Private: who applied is the organiser's business."
+    },
+    "tournament_bracket_pairings": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "A knockout game's SCHEDULE -- its day, kick-off and pitch -- held separately from the game itself (20270654000000), because an organiser books the semi-final long before anybody has qualified for it. Read-only to the browser, with no client write policy: scheduling happens through the planning RPCs. Rows are visible exactly as the tournament they belong to is."
+      },
+      "classification": "PRIVATE"
+    },
+    "tournament_bracket_slots": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "The knockout draw as PLACES rather than as teams (20270650000000). A place holds a participant, a bye, or nothing at all with a sentence saying what fills it -- which is how a bracket prints \"Winner QF1\" without a club of that name existing. Read-only to the browser: there is deliberately NO client write policy, because a side moves up the bracket only when the server resolves a settled result into the place above it. Rows are visible exactly as the tournament they belong to is."
+      },
+      "classification": "PRIVATE"
+    },
+    "tournament_game_result_submissions": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Every claim anybody made about a tournament game's score, append-only. RLS narrows it to the two sides and the organiser: a contest IS two rows, and settling one means reading both. No browser role may insert, update or delete -- the lifecycle RPCs are the only way a claim is recorded."
+      },
+      "classification": "PRIVATE"
+    },
+    "tournament_plan_days": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+      },
+      "classification": "PRIVATE",
+      "reason": "Which of the tournament's own days a competition plays on. A trigger refuses a day outside tournaments.event_date..ends_on, so planning can never widen a tournament."
+    },
+    "tournament_plan_round_days": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Which day of a multi-day competition each knockout round is played on (20270659000000). Read-only to the browser; written through set_tournament_round_days, which validates the day against the competition's own selected days. Rows are visible exactly as the tournament they belong to is."
+      },
+      "classification": "PRIVATE"
+    },
+    "tournament_plan_table_sides": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+      },
+      "classification": "PRIVATE",
+      "reason": "Which participating side sits at which table, and in what order. A unique index enforces exactly one table per side within a plan."
+    },
+    "tournament_plan_tables": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+      },
+      "classification": "PRIVATE",
+      "reason": "A competition's tables -- pools, in the competition estate's vocabulary. The name is presentation; nothing references a table by it."
+    },
+    "tournament_plans": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
+      },
+      "classification": "PRIVATE",
+      "reason": "One plan per COMPETITION (tournament + age group): its settings, its table points and its publication state (20270615). Readable by anybody who can see the tournament; WRITABLE only through the governed planning RPCs -- the table carries no insert, update or delete policy at all."
+    },
+    "tournament_swiss_byes": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "all",
+        "select_reason": "A Swiss round's bye (20270725000000): which side sits the round out, once at most, awarded a win in the table. Read-only to the browser with no client write policy -- byes are made by the server when it pairs a round. Rows are visible exactly as the plan they belong to is (internal.tournament_plan_readable), so a draft's byes stay the organiser's."
+      },
+      "classification": "PRIVATE"
+    },
+    "venue_changing_rooms": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "insert": "all",
+        "select": "all",
+        "select_reason": "Row access decided by RLS policies; no browser role may read secret columns.",
+        "update": "all",
+        "write_reason": "venue_changing_rooms_insert/_update gate the write on the club that owns the ground; the grant is open and the POLICY decides, which is the shape club_pitches and venues already use."
+      },
+      "classification": "PRIVATE",
+      "reason": "A ground's changing rooms (20270591). Among signed-in people these are ordinary club information, the same posture club_pitches has. Anon's SELECT grant was REVOKED at 20270613: it shipped with the table and made every club's facilities readable with no session, which contradicted the decision Slice 4E had already taken for venues."
     }
   },
   "views": {
@@ -3662,14 +4029,15 @@
       "owner_rights_reason": "Convergence Step 6, ledger L17. Deliberately OWNER-RIGHTS. Its only WHERE clause is internal.has_site_capability('site.clubs.view'), so the capability is the boundary -- which is what keeps the private club_directory columns it projects reachable for a Site Admin now that the base table is no longer column-wide readable by every session. Same shape as Slice 7e's definer reads, expressed as a view because one already existed and re-deriving it as an RPC would have been a second projection of the same rows."
     },
     "admin_fixture_overview": {
-      "classification": "ADMIN_PROJECTION",
-      "security_invoker": true,
+      "classification": "CAPABILITY_GATED_PROJECTION",
+      "security_invoker": false,
       "anon": {
         "select": "none"
       },
       "authenticated": {
         "select": "all"
       },
+      "owner_rights_reason": "Deliberately OWNER-RIGHTS, and now gated: its only WHERE clause is internal.has_site_capability('site.fixtures.view') (20270614), the same shape admin_club_overview uses -- the capability IS the boundary, which is what lets a Site Admin look across every club without the base table being readable that way. Security invoker was considered and rejected for the same reason as the sibling: reading with the caller's rights would make a Site Admin's own screen depend on per-club membership they deliberately do not hold. The manifest previously recorded security_invoker true, which the database had never agreed with: measured, a signed-in stranger read 26 rows through this view against 0 from public.fixtures.",
       "reason": "Site Admin Fixture Management (security invoker since Phase 0)."
     },
     "admin_message_overview": {
@@ -3802,7 +4170,7 @@
       "authenticated": {
         "select": "all"
       },
-      "reason": "Notification preference catalogue for Account settings. Converted to security invoker; no anonymous consumer."
+      "reason": "Notification preference catalogue for Account settings. Converted to security invoker; no anonymous consumer. CREATE OR REPLACE VIEW in 20270706000000 silently regressed this to owner-rights (that statement does not preserve a prior SET (security_invoker = true)) -- caught by this perimeter test, restored by 20270710000000 using ALTER VIEW ... SET (security_invoker = true) specifically so it survives the next CREATE OR REPLACE too."
     },
     "permission_group_capabilities": {
       "classification": "PRIVATE",
@@ -3912,6 +4280,28 @@
         "select": "all"
       },
       "reason": "Slice 5. Invitations as an administrator sees them, with token_sha256 and code_hmac absent by construction so no query can leak a secret by accident. Rows follow the underlying table's RLS."
+    },
+    "notification_event_settings": {
+      "anon": {
+        "select": "all"
+      },
+      "authenticated": {
+        "select": "all"
+      },
+      "classification": "PUBLIC_REFERENCE",
+      "reason": "Phase D (20270711000000): the event catalogue plus has_type, so the UI can tell a row that genuinely controls a live notification type from one seeded ahead of its producer (schedule_published, draw_updates, knockout_progression, attendance, announcements -- Phase F/G).",
+      "security_invoker": true
+    },
+    "tournament_team_entries": {
+      "anon": {
+        "select": "none"
+      },
+      "authenticated": {
+        "select": "none"
+      },
+      "classification": "CAPABILITY_GATED_PROJECTION",
+      "reason": "Compatibility projection of tournament_participants for the host club's own sides, kept while the last readers move across (20270605). SECURITY INVOKER deliberately (20270608): created owner-rights, it let any signed-in session read every host side on the platform -- measured at 10 rows through the view against 2 read directly from the base table in the same session. Reading with the caller's rights puts tournament_participants_select_scoped, and therefore internal.tournament_visible_row, back in front of it.",
+      "security_invoker": true
     }
   },
   "functions": {
@@ -3986,6 +4376,15 @@
         "signature": "submit_public_support_ticket(text, text, text, text, text, text)",
         "reason": "Public contact and support forms.",
         "consumer": "app/public-support/actions.ts"
+      },
+      {
+        "consumer": "apps/mobile/app/(tabs)/clubhouse/team/[teamId].tsx (via readPublicTeamProfile in packages/contracts/src/match-centre/public-profiles.ts)",
+        "reason": "The public team page (Match Centre consolidation, owner brief 2026-10-03): a team named in a Match Centre opens a page anybody may read. A deliberate public PROJECTION of the canonical team rather than a widening of teams: SECURITY DEFINER, search_path pinned, one team id in. Public by default: the canonical display name, description, cover, category and club identity, and coaches/staff by name and role only (never a contact detail). The squad (first name and surname initial only) and team photographs are returned ONLY where the club or team has chosen to share them (internal.team_shares_publicly), so a private squad is never sent to be hidden. An archived, folded or inactive team, or a club that is not active, returns null. viewerIsMember is false for anon.",
+        "returns": [
+          "jsonb {teamId, name, description, coverImagePath, coverStockKey, category, ageGroup, rugbyCode, club{clubId, directoryId, name, slug, logoPath}, staff[{name, role}], squadShared, squad[{playerId, name}]|null, mediaShared, media[{id, path, caption}]|null, viewerIsMember}"
+        ],
+        "security_boundary": "squad and media only when shared (club default, team override); no date of birth, contact detail, photograph of a player, guardian or membership id",
+        "signature": "get_public_team_profile(uuid)"
       }
     ],
     "anon_internal_policy_helpers": [
@@ -4179,7 +4578,7 @@
         "signature": "apply_season_handover(uuid, integer)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -4259,8 +4658,11 @@
       },
       {
         "signature": "assign_role(uuid, text, uuid, text)",
-        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
-        "consumers": []
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/people.ts",
+          "app/(app)/teams/[teamId]/actions.ts"
+        ]
       },
       {
         "signature": "audience_unreachable(text, uuid, jsonb, boolean)",
@@ -4318,7 +4720,8 @@
         "signature": "cancel_club_event(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/events/actions.ts"
+          "app/(app)/club/events/actions.ts",
+          "packages/contracts/src/events/centre.ts"
         ]
       },
       {
@@ -4361,7 +4764,7 @@
         "signature": "cancel_privileged_recovery(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/account/security/actions.ts"
+          "app/(app)/account/security/recovery-actions.ts"
         ],
         "reason": "Phase 2 G. The account holder (or a guardian, for a child) stops a recovery while it waits. This is the defence against a social-engineered request."
       },
@@ -4378,13 +4781,6 @@
         "consumers": [
           "app/(app)/calendar/actions.ts",
           "app/(app)/calendar/training-session-actions.ts"
-        ]
-      },
-      {
-        "signature": "cast_match_award_vote(uuid, uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
         ]
       },
       {
@@ -4480,7 +4876,7 @@
         "signature": "clear_rollover_player_placement(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -4503,13 +4899,6 @@
         "consumers": [
           "app/(app)/people/[membershipId]/page.tsx",
           "packages/contracts/src/club/permissions.ts"
-        ]
-      },
-      {
-        "signature": "club_assignable_roles(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "packages/contracts/src/club/people.ts"
         ]
       },
       {
@@ -4558,13 +4947,6 @@
         "signature": "club_message_reports(uuid)",
         "category": "APPLICATION_RPC",
         "reason": "Slice 4F (J.10 line 520): the club Safeguarding Officer's message-report queue, gated on messaging.moderation.club_review with Ovalball moderation also admitted."
-      },
-      {
-        "signature": "club_people(uuid, text, text, integer, integer, uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "packages/contracts/src/club/people.ts"
-        ]
       },
       {
         "signature": "club_person_permission_scopes(uuid, uuid)",
@@ -4674,10 +5056,9 @@
       },
       {
         "signature": "configure_subscription_programme(uuid, boolean, integer, text, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/club/settings/subscriptions/actions.ts"
-        ]
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "consumers": [],
+        "reason": "Legacy programme door (Programme & Pricing). Since 20270748000000 it can only change settings -- never whether memberships are on (Activate/Pause own that). No client calls it; SQL suites build their worlds with it. Revoke when they no longer need it."
       },
       {
         "signature": "confirm_club_teams(uuid)",
@@ -4690,14 +5071,14 @@
         "signature": "confirm_mixed_boundary_rollover(uuid, boolean, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
         "signature": "confirm_rollover_team_proposal(uuid, text, text, text, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -4833,7 +5214,7 @@
         "signature": "create_next_season_scheduling_group(uuid, uuid, uuid[], text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -4847,7 +5228,8 @@
         "signature": "create_partner_invitation(uuid, uuid, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/partner-clubs/actions.ts"
+          "app/(app)/clubhouse/actions.ts",
+          "packages/contracts/src/clubhouse/actions.ts"
         ]
       },
       {
@@ -4905,7 +5287,6 @@
         "signature": "create_venue(uuid, text, text, boolean)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/actions.ts",
           "app/(app)/club/setup/actions.ts"
         ],
         "reason": "Convergence Step 6. Names a venue and sets its default flag. The address parameters were REMOVED: create_venue and update_venue wrote the derived single-line venues.address directly and never touched the structured columns, so editing a venue in Club Settings left address_line_1/town/county stale. set_venue_address is now the only writer of a venue address."
@@ -4989,13 +5370,6 @@
       },
       {
         "signature": "decide_player_call_up(uuid, text, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/club/player-moves/actions.ts"
-        ]
-      },
-      {
-        "signature": "decide_player_dispensation(uuid, text, boolean, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/club/player-moves/actions.ts"
@@ -5233,7 +5607,7 @@
         "category": "APPLICATION_RPC",
         "note": "Clubhouse Programme Section 6: the batched form of compatible_opponent_teams -- every compatible opposition team across the whole network for one team in a single call. Same authority (team-scoped fixture.request.create/.fixture.create) and the same internal.identities_can_play_fixture rule, kept textually parallel to compatible_opponent_teams deliberately. Minimal projection: team_id, club_id, display_name, age_group, gender -- no roster, no calendar, no fixture history.",
         "consumers": [
-          "packages/contracts/src/clubhouse/find-fixture.ts"
+          "app/(app)/clubhouse/find-fixture/actions.ts"
         ]
       },
       {
@@ -5304,7 +5678,7 @@
         "signature": "generate_rollover_proposal(uuid, text, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -5424,7 +5798,7 @@
         "signature": "get_gocardless_connection_status(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/settings/subscriptions/page.tsx"
+          "packages/contracts/src/club/finance.ts"
         ]
       },
       {
@@ -5528,7 +5902,6 @@
         "signature": "get_my_attendance_authority(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/app-context/match-centre-data.ts",
           "lib/app-context/training-centre-data.ts"
         ]
       },
@@ -5814,35 +6187,35 @@
         "signature": "handover_apply_blockers(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/page.tsx"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
         "signature": "handover_audit(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/page.tsx"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
         "signature": "handover_consequences(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/page.tsx"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
         "signature": "handover_state(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/page.tsx"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
         "signature": "handover_team_labels(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/page.tsx"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -5900,17 +6273,18 @@
         "signature": "issue_invitation(text, uuid, uuid, uuid, uuid, uuid, text, jsonb, integer)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/people/actions.ts"
+          "app/(app)/admin/site-admins/actions.ts",
+          "app/(app)/parent/children/actions.ts",
+          "app/(app)/people/actions.ts"
         ]
       },
       {
         "signature": "issue_invitation(text, uuid, uuid, uuid, uuid, uuid, text, jsonb, integer, uuid[], jsonb)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/people/actions.ts",
           "app/(app)/admin/site-admins/actions.ts",
           "app/(app)/parent/children/actions.ts",
-          "app/(app)/teams/[teamId]/join-code-actions.ts"
+          "app/(app)/people/actions.ts"
         ],
         "reason": "The one canonical issuer for all eight invitation kinds (Phase 2 O.1). It checks the caller's authority for the kind, club, team or child itself, applies the O.1 role ceiling, and returns the link token and human code ONCE -- only their hashes are stored, so this call is the only moment either exists."
       },
@@ -6004,7 +6378,7 @@
         "signature": "mark_graduating_player_left(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -6144,7 +6518,7 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "lib/auth/require-capability.ts",
-          "app/(app)/layout.tsx"
+          "packages/contracts/src/session-context.ts"
         ],
         "reason": "Phase 2 SA-4: Site Admin navigation renders from the database's site capabilities."
       },
@@ -6216,14 +6590,14 @@
         "signature": "place_graduating_player(uuid, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
         "signature": "plan_missing_placement_team(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -6285,10 +6659,9 @@
       },
       {
         "signature": "preview_first_payment_illustrative(uuid, date)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/club/settings/subscriptions/actions.ts"
-        ]
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "consumers": [],
+        "reason": "The old illustrative preview; replaced in both clients by membership_first_payment_example (20270748000000). Exercised by price_preview_containment.sql."
       },
       {
         "signature": "preview_my_fixture_contact_card(uuid, uuid)",
@@ -6497,13 +6870,6 @@
         ]
       },
       {
-        "signature": "redeem_invitation(text, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/join/actions.ts"
-        ]
-      },
-      {
         "signature": "redeem_my_recovery_code(text)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -6641,11 +7007,8 @@
       },
       {
         "signature": "remove_team_access(uuid, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "packages/contracts/src/club/people.ts",
-          "app/(app)/teams/[teamId]/actions.ts"
-        ]
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "consumers": []
       },
       {
         "signature": "remove_tournament_opponent(uuid)",
@@ -6747,17 +7110,11 @@
         ]
       },
       {
-        "signature": "request_player_dispensation(uuid, uuid, uuid, uuid, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/club/player-moves/actions.ts"
-        ]
-      },
-      {
         "signature": "request_player_playing_pathway(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/guardians-players.ts",
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -6786,7 +7143,9 @@
         "signature": "resend_invitation(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/people/actions.ts"
+          "app/(app)/governing/actions.ts",
+          "app/(app)/people/actions.ts",
+          "lib/invitations/share.ts"
         ]
       },
       {
@@ -6794,13 +7153,6 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/club/settings/safeguarding/actions.ts"
-        ]
-      },
-      {
-        "signature": "reserve_tournament_pitch(uuid, uuid, date, time without time zone, time without time zone)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/tournaments/actions.ts"
         ]
       },
       {
@@ -6826,8 +7178,8 @@
         "signature": "resolve_club_scheduling_buffers(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/calendar/pitch-allocation/data.ts",
-          "app/(app)/club/settings/pitch-allocation/page.tsx"
+          "app/(app)/club/settings/pitch-allocation/page.tsx",
+          "packages/contracts/src/pitch-allocation/board.ts"
         ]
       },
       {
@@ -6886,7 +7238,7 @@
         "signature": "resolve_rollover_group_flag(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -6929,7 +7281,8 @@
         "signature": "respond_to_club_partnership(uuid, boolean)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/partner-clubs/actions.ts"
+          "app/(app)/clubhouse/actions.ts",
+          "packages/contracts/src/clubhouse/actions.ts"
         ]
       },
       {
@@ -6998,7 +7351,8 @@
         "signature": "revoke_club_partnership(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/partner-clubs/actions.ts"
+          "app/(app)/clubhouse/actions.ts",
+          "packages/contracts/src/clubhouse/actions.ts"
         ]
       },
       {
@@ -7020,7 +7374,7 @@
         "signature": "revoke_player_dispensation(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/player-moves/actions.ts"
+          "packages/contracts/src/team/dispensation.ts"
         ]
       },
       {
@@ -7041,14 +7395,14 @@
         "signature": "rollover_placement_options(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
         "signature": "rollover_readiness(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/page.tsx"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -7334,14 +7688,8 @@
         "signature": "set_membership_governance_title(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/admin/clubs/[directoryId]/actions.ts"
-        ]
-      },
-      {
-        "signature": "set_notification_preference(text, boolean, boolean)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/account/actions.ts"
+          "app/(app)/admin/clubs/[directoryId]/actions.ts",
+          "packages/contracts/src/club/people.ts"
         ]
       },
       {
@@ -7388,7 +7736,8 @@
         "signature": "set_primary_club_role(uuid, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/people/actions.ts"
+          "packages/contracts/src/club/people.ts",
+          "packages/contracts/src/required-reasons.ts"
         ]
       },
       {
@@ -7400,14 +7749,14 @@
         "signature": "set_rollover_player_placement(uuid, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
         "signature": "set_rollover_player_planned_placement(uuid, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -7490,10 +7839,9 @@
       },
       {
         "signature": "set_subscription_price(uuid, integer, date)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/club/settings/subscriptions/actions.ts"
-        ]
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "consumers": [],
+        "reason": "Legacy one-price door. Refuses a club with several memberships (20270748000000); no client calls it -- prices are set on the membership. Exercised by SQL suites."
       },
       {
         "signature": "add_team_media(uuid, text, text)",
@@ -7518,10 +7866,8 @@
       },
       {
         "signature": "set_team_access(uuid, uuid, text, text)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/teams/[teamId]/actions.ts"
-        ]
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "consumers": []
       },
       {
         "signature": "set_team_alias(uuid, text)",
@@ -7549,7 +7895,7 @@
         "signature": "set_team_role_title(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "packages/contracts/src/team/staff.ts"
+          "packages/contracts/src/club/people.ts"
         ]
       },
       {
@@ -7936,13 +8282,6 @@
         ]
       },
       {
-        "signature": "submit_club_claim(uuid, text, text, jsonb)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/signup/submit-signup.ts"
-        ]
-      },
-      {
         "signature": "submit_fixture_result(uuid, integer, integer)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -7988,7 +8327,8 @@
         "signature": "team_people(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/teams/[teamId]/page.tsx"
+          "app/(app)/teams/[teamId]/people/page.tsx",
+          "packages/contracts/src/team/people.ts"
         ]
       },
       {
@@ -8027,7 +8367,8 @@
         "signature": "touch_last_active()",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/messages/[kind]/[id]/fixture-presence.tsx"
+          "app/(app)/messages/[kind]/[id]/fixture-presence.tsx",
+          "packages/contracts/src/messenger-presence.ts"
         ]
       },
       {
@@ -8041,8 +8382,8 @@
         "signature": "transition_club_membership(uuid, text, text, boolean)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/people/actions.ts",
-          "app/(app)/admin/clubs/[directoryId]/actions.ts"
+          "app/(app)/admin/clubs/[directoryId]/actions.ts",
+          "packages/contracts/src/club/people.ts"
         ]
       },
       {
@@ -8054,8 +8395,11 @@
       },
       {
         "signature": "transition_role_assignment(uuid, text, text, boolean)",
-        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
-        "consumers": []
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/people.ts",
+          "app/(app)/teams/[teamId]/actions.ts"
+        ]
       },
       {
         "signature": "unblock_user(uuid)",
@@ -8068,14 +8412,14 @@
         "signature": "undo_rollover_team_decision(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
         "signature": "unplan_handover_team(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/rollover/actions.ts"
+          "packages/contracts/src/club/handover.ts"
         ]
       },
       {
@@ -8132,7 +8476,7 @@
         "signature": "update_fixture_details(uuid, jsonb)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "lib/fixtures/fixture-editor.ts"
+          "apps/mobile/src/agenda/mutations.ts"
         ]
       },
       {
@@ -8145,7 +8489,7 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/admin/fixtures/[fixtureId]/meet-time-actions.ts",
-          "lib/fixtures/fixture-editor.ts"
+          "apps/mobile/src/agenda/mutations.ts"
         ]
       },
       {
@@ -8173,8 +8517,9 @@
         "signature": "update_fixture_schedule(uuid, date, time without time zone, uuid, uuid, text, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/calendar/pitch-allocation/actions.ts",
-          "lib/fixtures/update-fixture-schedule.ts"
+          "apps/mobile/src/agenda/mutations.ts",
+          "lib/fixtures/update-fixture-schedule.ts",
+          "packages/contracts/src/pitch-allocation/operations.ts"
         ]
       },
       {
@@ -8246,9 +8591,11 @@
         "consumers": []
       },
       {
+        "consumers": [
+          "packages/contracts/src/club/safeguarding.ts"
+        ],
         "signature": "welfare_member_view(uuid, text)",
-        "reason": "Slice 4G (J.12 line 549): a Safeguarding Officer's welfare lookup, with a required reason and a safeguarding.welfare_viewed event.",
-        "consumer": "app/(app)/club/settings/safeguarding/actions.ts"
+        "reason": "Slice 4G (J.12 line 549): a Safeguarding Officer's welfare lookup, with a required reason and a safeguarding.welfare_viewed event."
       },
       {
         "signature": "withdraw_announcement(uuid)",
@@ -8266,13 +8613,6 @@
         ]
       },
       {
-        "signature": "withdraw_match_award_vote(uuid)",
-        "category": "APPLICATION_RPC",
-        "consumers": [
-          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
-        ]
-      },
-      {
         "signature": "withdraw_match_kudos(uuid, uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -8284,6 +8624,1559 @@
         "category": "APPLICATION_RPC",
         "consumers": [
           "app/(app)/player/join/actions.ts"
+        ]
+      },
+      {
+        "signature": "accept_club_membership_terms(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270748000000: records the club's agreement to Ovalball's fee and use of its GoCardless account (who, when, which version); configure or connect holders; the version must be current.",
+        "consumers": [
+          "packages/contracts/src/membership/setup.ts"
+        ]
+      },
+      {
+        "signature": "activate_membership_programme(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270748000000: the ONLY door that switches Club Memberships on; re-derives readiness (terms, GoCardless connected and verified, fee, a priced membership with a team) whatever the client showed.",
+        "consumers": [
+          "packages/contracts/src/membership/setup.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/documents/actions.ts",
+          "packages/contracts/src/team/documents.ts"
+        ],
+        "reason": "Records a team document, reusing the club document library's authority rather than inventing a team.documents.* key beside it (20270574).",
+        "signature": "add_team_document(uuid, text, text, text, text, integer)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/app/(tabs)/admin/tournaments/new/teams.tsx",
+          "apps/mobile/src/tournaments/teams-tab.tsx"
+        ],
+        "signature": "add_tournament_participant_team(uuid, uuid, uuid, uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/src/tournaments/teams-tab.tsx"
+        ],
+        "reason": "Records a side at a tournament, matching a typed club name against the canonical directory BEFORE creating one, server-side -- a club administrator may record a club for one tournament they manage without being able to write to club_directory at large.",
+        "signature": "add_tournament_participant_team(uuid, uuid, uuid, uuid, text, text, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/pitch-allocation/board.ts"
+        ],
+        "reason": "Arena consolidation pass (20270737000000): every grade's pitch size for one rugby code from the one resolver (internal.age_grade_pitch_fit) -- Ovalball's verified Regulation 15 register first, then a grade's scheduling category, reported as such. Reference data, the same for every signed-in person; no club, team or person data.",
+        "signature": "age_grade_pitch_fits(text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/arena/api.ts"
+        ],
+        "reason": "Arena (20270738000000): applies a plan as one transaction through the canonical writers (set_fixture_facilities, update_fixture_schedule, override_training_session for a session's start) and a session's pitch and changing room; refuses a stale or locked change, a room for a session that did not ask for one, and any clash the finished arrangement causes. venue.pitch_allocation.manage at the club; every activity and resource must be that club's; the writers keep their own authority checks (a session's start needs training authority).",
+        "signature": "apply_arena_allocation(uuid, date, jsonb, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "A club ASKING to come to a public tournament, which becomes a participant only when the organiser accepts (decide_tournament_application). Granted but currently CALLED BY NOTHING -- the applying club's own surface is not built yet. Recorded here rather than silently granted; if the surface is abandoned the grant should be revoked rather than this entry kept.",
+        "signature": "apply_to_tournament(uuid, uuid, text, uuid[], text)"
+      },
+      {
+        "signature": "archive_membership_product(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270748000000: removes a membership nobody holds; never the last one of a programme that is on.",
+        "consumers": [
+          "packages/contracts/src/membership/setup.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/agenda/load.ts",
+          "lib/parent/family-agenda.ts"
+        ],
+        "signature": "attendance_is_open(fixtures)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts",
+          "packages/contracts/src/match-centre/rewards.ts"
+        ],
+        "signature": "cast_match_award_vote(uuid, uuid, uuid)"
+      },
+      {
+        "signature": "claim_gocardless_connect_code(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270750000000: hands GoCardless's code to the person who started the intent, holding the one-time return handoff, once, within five minutes; anybody else voids it.",
+        "consumers": [
+          "app/api/gocardless/oauth/app/finish/route.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/award-settings.ts"
+        ],
+        "signature": "clear_team_award_category(uuid, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/results.ts"
+        ],
+        "reason": "The organiser deliberately clears every result in a competition so it can be re-planned, with a reason that is recorded. The submissions are KEPT: clearing means the games no longer have results, not that nobody ever said anything. The only sanctioned way past the regeneration guard.",
+        "signature": "clear_tournament_plan_results(uuid, text)"
+      },
+      {
+        "signature": "club_access_summary(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/people.ts"
+        ]
+      },
+      {
+        "signature": "club_assignable_roles(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/people.ts"
+        ]
+      },
+      {
+        "signature": "club_member_membership(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270753000000: one player's membership for the club's finance viewers (finance.subscription.view at the club) -- the one standing, the membership, the payer (contact details only with people.member.view_contact), the adults the club may ask, Direct Debit words, monthly history with Ovalball's fee, and what the reader may do.",
+        "consumers": [
+          "packages/contracts/src/membership/member.ts"
+        ]
+      },
+      {
+        "signature": "club_membership_board(uuid, uuid, date)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/finance.ts",
+          "packages/contracts/src/membership/board.ts"
+        ]
+      },
+      {
+        "signature": "club_payouts(uuid, integer)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270754000000: the club's GoCardless payouts explained from GoCardless's own items -- members paid through Ovalball, GoCardless's fees (VAT included), Ovalball's fee, refunds, failures, the club's other GoCardless activity, and whether the items add up. finance.subscription.view at the club; no GoCardless ids.",
+        "consumers": [
+          "packages/contracts/src/membership/payouts.ts"
+        ]
+      },
+      {
+        "signature": "club_people(uuid, text, text, integer, integer, uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/people.ts"
+        ]
+      },
+      {
+        "signature": "confirm_team_place_request(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "Team codes place players (20270741000000). A parent confirms their child's own team request: an ACTIVE guardian of that player only, while it awaits them; the same answer for an unknown id and somebody else's child.",
+        "consumers": [
+          "packages/contracts/src/team/team-code.ts"
+        ]
+      },
+      {
+        "signature": "conversation_people(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/conversation-parties.ts",
+          "packages/contracts/src/resolve-identities.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/src/tournaments/edit-sheet.tsx"
+        ],
+        "reason": "How many sides dropping an age group would remove, so the organiser is told before it happens rather than after.",
+        "signature": "count_tournament_age_group_impact(uuid, text[])"
+      },
+      {
+        "signature": "create_membership_product(uuid, text, integer, uuid[])",
+        "category": "APPLICATION_RPC",
+        "reason": "20270748000000: a membership with its monthly price (at least £1) and teams; configure holders.",
+        "consumers": [
+          "packages/contracts/src/membership/setup.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/app/(tabs)/admin/tournaments/new/review.tsx"
+        ],
+        "reason": "A tournament is created once or not at all: one transaction for the tournament, its age groups, the host's sides and every participating club, replacing four-plus separate calls that could leave a real tournament carrying only some of its teams.",
+        "signature": "create_tournament_with_teams(uuid, text, date, date, time without time zone, text, text, uuid, text, text[], uuid[], jsonb, integer, text, time without time zone)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/venues.ts"
+        ],
+        "reason": "Adds a changing room to a venue the caller's club owns.",
+        "signature": "create_venue_changing_room(uuid, uuid, text, text, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/src/venue/create-venue-data.ts"
+        ],
+        "reason": "A ground and its pitches in one transaction, so a venue is never left without the pitches it was created to hold.",
+        "signature": "create_venue_with_pitches(uuid, text, text, text, text, text, text, text, text, boolean, boolean, boolean, text, text, jsonb, jsonb, numeric, numeric, text)"
+      },
+      {
+        "signature": "create_voice_message(message_target_type, uuid, text, integer, integer, uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270756000000: a voice note already uploaded to the conversation's own folder, under exactly internal.can_post_to_message_target (the attachment authority) and the club's attachment policy; AAC .m4a, <=2MB, 0.5-120s; idempotent by the caller's send reference.",
+        "consumers": [
+          "packages/contracts/src/messenger-voice.ts"
+        ]
+      },
+      {
+        "signature": "decide_dispensation(uuid, boolean, text, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "The one decision: the club's confirmed Safeguarding Officer or a Club Admin, once; never the requester or the child's family.",
+        "consumers": [
+          "packages/contracts/src/team/dispensation.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/src/tournaments/requests-tab.tsx"
+        ],
+        "reason": "An organiser accepting or rejecting a club's application to a public tournament.",
+        "signature": "decide_tournament_application(uuid, boolean)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/knockout.ts"
+        ],
+        "reason": "Records who went through from a LEVEL game, with a reason. A drawn knockout game has no winner until somebody with the authority says so; it is never decided by row order.",
+        "signature": "declare_tournament_game_winner(uuid, uuid, text)"
+      },
+      {
+        "signature": "decline_team_place_request(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "Team codes place players (20270741000000). A parent declines their child's own team request: the same authority as confirming it; the child is told.",
+        "consumers": [
+          "packages/contracts/src/team/team-code.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/schedule.ts"
+        ],
+        "reason": "Tournament planning correction pass (20270736000000): Delete Plan -- a competition back to not planned; its games, tables and settings go, its teams and the tournament's reserved pitches stay; refused while any game has a result; a published plan's teams are told it was withdrawn. ORGANISER ONLY (internal.can_manage_tournament).",
+        "signature": "delete_tournament_plan(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/notifications/feed.ts"
+        ],
+        "reason": "Dismisses one of the caller's own notifications from their inbox (soft, reversible). Scoped to auth.uid() inside the function; a notification id is not a permission. Dismissed is not resolved: the attention projection is untouched.",
+        "signature": "dismiss_notification(uuid)"
+      },
+      {
+        "signature": "dispensation_decisions_waiting()",
+        "category": "APPLICATION_RPC",
+        "reason": "What is waiting for this person's decision -- the Needs Attention source.",
+        "consumers": [
+          "packages/contracts/src/team/dispensation.ts"
+        ]
+      },
+      {
+        "signature": "dispensation_options(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "Whether a player fits a team, and whether this person may ask for a dispensation.",
+        "consumers": [
+          "packages/contracts/src/team/dispensation.ts"
+        ]
+      },
+      {
+        "signature": "dispensation_record(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "One record, filtered by internal.may_read_dispensation; the private facts only for the family, the requester and the deciders.",
+        "consumers": [
+          "packages/contracts/src/team/dispensation.ts"
+        ]
+      },
+      {
+        "signature": "dispensation_register(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "The club's register, for its Safeguarding Officer and Club Admins.",
+        "consumers": [
+          "packages/contracts/src/team/dispensation.ts"
+        ]
+      },
+      {
+        "signature": "event_audience_counts(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "signature": "family_membership_charge(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270751000000: what a family's Direct Debit collects for a player's membership, who pays Ovalball's fee, the collection day and the first payment; an active guardian or the player's own account only, for a club where the player has a place or a membership; a non-paying guardian learns only that somebody else pays.",
+        "consumers": [
+          "packages/contracts/src/membership/family-charge.ts"
+        ]
+      },
+      {
+        "signature": "family_membership_standing(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/subscriptions/family.ts"
+        ]
+      },
+      {
+        "signature": "family_team_requests()",
+        "category": "APPLICATION_RPC",
+        "reason": "Team codes place players (20270741000000). The requests a signed-in parent's children made themselves that wait on that parent -- their own children only, read for the confirm screen and its Action Required row.",
+        "consumers": [
+          "packages/contracts/src/team/team-code.ts"
+        ]
+      },
+      {
+        "signature": "finish_gocardless_connect_intent(uuid, boolean, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270750000000: records how the person's own claimed intent ended; grants nothing.",
+        "consumers": [
+          "app/api/gocardless/oauth/app/finish/route.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/knockout.ts"
+        ],
+        "reason": "Creates the opening round's games and schedules every later round's place against the competition's own days and pitches. A game is created only once BOTH its sides are real.",
+        "signature": "generate_tournament_knockout_fixtures(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/app/(tabs)/admin/tournaments/plan/[tournamentId].tsx"
+        ],
+        "reason": "Generates the DRAFT fixtures from the plan's own tables, then schedules them across the selected days and reserved pitches. Replaces only this plan's games, never a hand-made one. Generating is not publishing: the participant Agenda shows nothing until the plan's publication_state is PUBLISHED.",
+        "signature": "generate_tournament_plan_fixtures(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/arena/api.ts"
+        ],
+        "reason": "Arena (20270738000000): the Allocate sheet for one fixture or training session -- every ground, pitch and room with its state (preferred / available / occupied / unsuitable / current) and the engine's reason. Pitch-allocation viewers of the activity's club only.",
+        "signature": "get_arena_allocation_options(text, uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/arena/api.ts"
+        ],
+        "reason": "Arena (20270738000000): one day of a club's estate -- venues, pitches, rooms, every fixture / session / tournament / event, each claim on a resource, every clash in words, readiness and catering COUNTS. venue.pitch_allocation.view or .manage at the club only; catering numbers follow the Match Centre's and Event Centre's own visibility rules; never a person's name.",
+        "signature": "get_arena_day(uuid, date)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/arena/api.ts"
+        ],
+        "reason": "Arena (20270738000000): the Arena Hub -- estate counts, each ground with what is in use now, today at the club and the week ahead, on the club's own clock. Pitch-allocation viewers of the club only; built on get_arena_day and get_arena_range.",
+        "signature": "get_arena_hub(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/arena/api.ts"
+        ],
+        "reason": "Arena (20270738000000): the club's default and every team's facility preferences, with the club's grounds, pitches and rooms to choose from. Pitch-allocation viewers of the club only.",
+        "signature": "get_arena_preferences(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/arena/api.ts"
+        ],
+        "reason": "Arena (20270738000000): per-day counts for the Week and Month views and Plan Your Week (up to nine weeks). Pitch-allocation viewers of the club only; counts, no records.",
+        "signature": "get_arena_range(uuid, date, date)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/public-profiles.ts"
+        ],
+        "signature": "get_club_public_sharing(uuid)"
+      },
+      {
+        "signature": "get_event_centre(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "signature": "get_event_guest_list(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "signature": "get_event_messages(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/communications.ts"
+        ],
+        "signature": "get_fixture_announcements(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/facilities.ts"
+        ],
+        "signature": "get_fixture_facility_options(uuid, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Tournament Planning parity programme (20270724000000): the planner's read of what a Hybrid's knockout stage will be (\"1st Table A v 2nd Table B\") before anything is generated, from internal.hybrid_knockout_places -- the same seeding rule generation uses. Read-only; gated on internal.can_manage_tournament like every sibling planning read.",
+        "signature": "get_hybrid_knockout_preview(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/attendance.ts"
+        ],
+        "signature": "get_match_centre_attendance(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/src/match-centre/load.ts"
+        ],
+        "signature": "get_match_centre_viewer(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/rewards.ts"
+        ],
+        "signature": "get_match_rewards(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/rewards.ts"
+        ],
+        "signature": "get_player_recognition(uuid[])"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/arena/api.ts"
+        ],
+        "reason": "Arena (20270738000000): what is booked on a ground, a pitch or a changing room from today, by kind, from the one occupancy -- said before anybody deactivates it, so nothing is left on it unawares. Pitch-allocation viewers of the resource's club only; counts, never names.",
+        "signature": "get_resource_bookings_ahead(text, uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/public-profiles.ts"
+        ],
+        "signature": "get_team_squad_details(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/knockout.ts"
+        ],
+        "reason": "The draw as everybody entitled to see it reads it. The organiser gets their draft; everybody else gets what was published. Scores follow the tournament's own result visibility, not the draw's.",
+        "signature": "get_tournament_bracket(uuid, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Tournament Planning parity programme (20270726000000): the Fixtures list's read of PUBLISHED tournament games for the scope's own teams, one row per game, with the server's stage label and only a counted score. Gated per row on internal.tournament_visible_row and internal.tournament_plan_readable -- the same rules the Tournament Centre's game reads use -- so the team ids passed only narrow, never widen.",
+        "signature": "get_tournament_fixture_rows(uuid[], date, date)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/results.ts"
+        ],
+        "reason": "One tournament game's result in full -- state, both claims, every note and who said what -- for the two sides and the organiser only, plus what this caller may do, resolved by the same authorities the write path enforces.",
+        "signature": "get_tournament_game_result(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/participant-centre.ts"
+        ],
+        "reason": "The one read behind the participant Tournament Centre. SECURITY DEFINER because its privacy boundary cannot be delegated to a client: every club except the viewer's own is reduced to a single ATTENDING count before the payload is built. Refuses anybody internal.tournament_visible_row refuses.",
+        "signature": "get_tournament_participant_centre(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/src/tournaments/participant-attendance.tsx"
+        ],
+        "reason": "Knockout recovery session: My Team attendance names players by name for staff-level viewers only (club/team scope via internal.can), never merely for the tournament organiser or a guardian of one roster player.",
+        "signature": "get_tournament_participant_roster(uuid, uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/planning.ts"
+        ],
+        "reason": "The one read behind all four Planning steps. ORGANISER ONLY: refuses anybody without tournament.tournament.manage, because a draft plan is not a participant's business.",
+        "signature": "get_tournament_plan(uuid, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/planning.ts"
+        ],
+        "reason": "The generated draft plan for one competition, grouped table -> round -> games, with each table's membership. ORGANISER ONLY: refuses anybody without tournament.tournament.manage, because a draft is the organising club's workings. p_preview computes what generation would produce and creates nothing.",
+        "signature": "get_tournament_plan_draft(uuid, text, boolean)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Tournament Planning parity programme (20270720000000): the organiser's read of the one readiness calculation Generate and Publish enforce -- what a plan needs next and why. Same authority (internal.can_manage_tournament) every sibling planning RPC already uses.",
+        "signature": "get_tournament_plan_readiness(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/schedule.ts"
+        ],
+        "reason": "Tournament planning correction pass (20270736000000): View Plan's read -- one competition's games and knockout places with day, kick-off, pitch and length, the tournament's reserved pitches with their layout, the other competitions' occupancy and every clash in words. ORGANISER ONLY: a draft is the organising club's workings.",
+        "signature": "get_tournament_plan_schedule(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/schedule.ts"
+        ],
+        "reason": "Tournament planning correction pass (20270736000000): the Planning tab's read -- each competition's plan state (none, draft, published), its games, results and clashes -- creating nothing. ORGANISER ONLY.",
+        "signature": "get_tournament_plan_summaries(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/results.ts"
+        ],
+        "reason": "Every tournament game the caller is entitled to see the result state of -- all of them for the organiser, their own for a participating side, NOTHING for anybody else. Carries unsettled scores, so the entitlement is resolved in the function and never by the client.",
+        "signature": "get_tournament_results_overview(uuid, text, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/standings.ts"
+        ],
+        "reason": "One competition's standings, calculated from settled results only and ordered by the organiser's own tie-breakers. Honours tournaments.results_visibility; never returns an unsettled, contested or proposed score, which is what makes it safe for the wider audience a table has.",
+        "signature": "get_tournament_tables(uuid, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/rewards.ts"
+        ],
+        "signature": "give_match_award(uuid, uuid, text, uuid)"
+      },
+      {
+        "signature": "gocardless_inbox_health()",
+        "category": "APPLICATION_RPC",
+        "reason": "GoCardless webhook reliability (20270749000000): counts, timestamps and flags only; Full Site Admin with site.commercial.view.",
+        "consumers": [
+          "app/(app)/admin/system-health/page.tsx"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/notifications/feed.ts"
+        ],
+        "reason": "Clears the caller's own unread count, and nobody else's.",
+        "signature": "mark_all_notifications_read()"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/notifications/feed.ts"
+        ],
+        "reason": "Marks one of the caller's own notifications read. Scoped to auth.uid() inside the function; a notification id is not a permission.",
+        "signature": "mark_notification_read(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/notifications/feed.ts"
+        ],
+        "reason": "The inverse, same scoping.",
+        "signature": "mark_notification_unread(uuid)"
+      },
+      {
+        "signature": "mark_thread_read(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270756000000: the caller has read their thread up to this message -- refused unless internal.can_read_attached_message; records reads only for the caller, only of other people's live messages, idempotent; broadcasts a content-free message_read.",
+        "consumers": [
+          "packages/contracts/src/messenger-receipts.ts"
+        ]
+      },
+      {
+        "signature": "membership_charge_plan(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270748000000: what one enrolment collects (price, fee, who pays it, collection day) from its snapshots; the payer, finance viewers or the service role.",
+        "consumers": [
+          "lib/payments/gocardless/activate-membership.ts"
+        ]
+      },
+      {
+        "signature": "membership_first_payment_example(uuid, integer, date, integer, text, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270748000000: the worked example and the money receipt from the generator's own rules; price readers only.",
+        "consumers": [
+          "packages/contracts/src/membership/setup.ts"
+        ]
+      },
+      {
+        "signature": "membership_reminder_history(uuid, uuid, integer)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270753000000: who was reminded about their membership, when, by whom and why. Club finance viewers see the club's history with how many adults were told; a team's staff (finance.subscription.view at the team) see only their own team's players and never who or how many were told.",
+        "consumers": [
+          "packages/contracts/src/membership/member.ts"
+        ]
+      },
+      {
+        "signature": "membership_reminder_preview(uuid, uuid[], uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270753000000: what a membership reminder would do before it is sent -- how many families would be asked, who is left out and why, and the exact words from the one composer the sending uses. Exactly the sending rule (finance.enrolment.manage at the club, or finance.subscription.view at the named team); STABLE, so it records nothing; never who would be told.",
+        "consumers": [
+          "packages/contracts/src/membership/operate.ts"
+        ]
+      },
+      {
+        "signature": "membership_setup_state(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "Club Memberships Part 1 (20270748000000): the one read the website and the phone set a club up from -- connection state (never a token or organisation id), settings, memberships, the club's agreement and what is still missing. Finance holders only.",
+        "consumers": [
+          "packages/contracts/src/membership/setup.ts"
+        ]
+      },
+      {
+        "signature": "message_receipts(uuid[])",
+        "category": "APPLICATION_RPC",
+        "reason": "20270756000000: read count and first read time for the CALLER'S OWN messages only (max 200 ids), only where they can still read them; a direct conversation answers nothing across a block. No reader identities.",
+        "consumers": [
+          "packages/contracts/src/messenger-receipts.ts"
+        ]
+      },
+      {
+        "signature": "my_direct_presence()",
+        "category": "APPLICATION_RPC",
+        "reason": "20270755000000: when the other person in each of MY direct conversations was last active (the app's foreground heartbeat). Adults only, never across a personal block, never anyone I do not already share a direct conversation with: no presence directory.",
+        "consumers": [
+          "packages/contracts/src/messenger-presence.ts"
+        ]
+      },
+      {
+        "signature": "my_dispensations()",
+        "category": "APPLICATION_RPC",
+        "reason": "The requests a person made and those about their own children.",
+        "consumers": [
+          "packages/contracts/src/team/dispensation.ts"
+        ]
+      },
+      {
+        "signature": "my_event_answers(uuid[])",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/notifications/feed.ts"
+        ],
+        "reason": "The caller's own notification list, paged. Returns only rows whose user_id is the caller.",
+        "signature": "my_notifications(integer, timestamp with time zone, uuid, boolean)"
+      },
+      {
+        "signature": "my_team_requests()",
+        "category": "APPLICATION_RPC",
+        "reason": "Team codes place players (20270741000000). The requests the signed-in person made with a team code that still wait -- their own requests only -- so somebody whose only link to Ovalball so far is that request is shown it.",
+        "consumers": [
+          "packages/contracts/src/team/team-code.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/attendance.ts"
+        ],
+        "signature": "open_fixture_attendance(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/calendar/training-session-actions.ts",
+          "apps/mobile/src/agenda/training.ts"
+        ],
+        "reason": "Changes ONE occurrence of a training plan rather than the plan, which is almost always what somebody means by moving next Tuesday. Its trailing boolean (20270738) is this session's own \"Needs a changing room\"; Arena's apply moves a session's start only through it.",
+        "signature": "override_training_session(uuid, date, time without time zone, integer, uuid, uuid, boolean, text, text, text, integer, integer, boolean)"
+      },
+      {
+        "signature": "pause_membership_programme(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270748000000: stops new memberships, with a reason; members already enrolled keep paying.",
+        "consumers": [
+          "packages/contracts/src/membership/setup.ts"
+        ]
+      },
+      {
+        "signature": "postpone_event(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/arena/api.ts"
+        ],
+        "reason": "Arena (20270738000000): automatic allocation as a proposal -- deterministic, computed and returned, never stored. venue.pitch_allocation.manage at the club only.",
+        "signature": "preview_arena_allocation(uuid, date, uuid, boolean)"
+      },
+      {
+        "signature": "preview_event_invitations(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "The same pairings, computed by the same function, written nowhere. A preview calculated a second way would eventually disagree with the thing it previews.",
+        "signature": "preview_tournament_plan_fixtures(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Notifications platform programme Phase F (20270713000000): the governed tournament-plan publication path -- none existed before; publication_state was only ever read, never written through an RPC. Same authority (internal.can_manage_tournament) every sibling planning RPC already uses; same shape as the one other publish-RPC precedent in this codebase, publish_regulatory_content_set.",
+        "signature": "publish_tournament_plan(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/knockout.ts"
+        ],
+        "reason": "Redraws the WHOLE bracket at random. Organiser-only through can_manage_tournament, and refused once any game in the competition has a result.",
+        "signature": "randomise_tournament_bracket(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/team/documents.ts"
+        ],
+        "reason": "A team's documents, gated on the same library authority as the write.",
+        "signature": "read_team_documents(uuid)"
+      },
+      {
+        "signature": "record_dispensation_reference(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "A decider records the governing body's reference on an approval, once.",
+        "consumers": [
+          "packages/contracts/src/team/dispensation.ts"
+        ]
+      },
+      {
+        "signature": "redeem_invitation(text, text, jsonb)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/invitations/redeem.ts",
+          "packages/contracts/src/invitations/redeem.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/src/notifications/push.ts"
+        ],
+        "reason": "M7 (20270706000000, hardened to require a live session in 20270709000000): the one entry point that associates a device's Expo push token with the signed-in user. A device token is never authorization -- it says only where a push CAN be delivered.",
+        "signature": "register_push_device_token(text, text, text)"
+      },
+      {
+        "signature": "release_responsible_payer(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270753000000 (decision #11, DERIVED): finance.enrolment.manage at the club ends a payer's set-up so another guardian can take the membership on; refused while a GoCardless collection runs or a payment is on its way to the bank, so two Direct Debits never collect for one player; audited; the old payer is told.",
+        "consumers": [
+          "packages/contracts/src/membership/member.ts"
+        ]
+      },
+      {
+        "signature": "remove_event_guest(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "signature": "rename_membership_product(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270748000000: configure holders; unique among the club's active memberships.",
+        "consumers": [
+          "packages/contracts/src/membership/setup.ts"
+        ]
+      },
+      {
+        "signature": "request_club_membership(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "lib/signup/complete-signup.ts"
+        ]
+      },
+      {
+        "signature": "request_club_partnership(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/clubhouse/actions.ts"
+        ]
+      },
+      {
+        "signature": "request_dispensation(uuid, uuid, text, uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "Ask for an age-grade dispensation (guardian, team staff, club staff); never a grant.",
+        "consumers": [
+          "packages/contracts/src/team/dispensation.ts"
+        ]
+      },
+      {
+        "signature": "reserve_tournament_pitch(uuid, uuid, date, time without time zone, time without time zone, integer)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/tournaments/actions.ts",
+          "packages/contracts/src/tournaments/readiness.ts"
+        ],
+        "reason": " Since 20270736000000 it also records how the organiser has marked the pitch out for the day (p_playing_areas, 1-4; null is the club's layout) and refuses a reservation that strands a game or makes a clash."
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/results.ts"
+        ],
+        "reason": "The tournament organiser sets the canonical score for one of their own games -- settling a contest, recording a game for sides that are not on Ovalball, or correcting an agreed result. Attributable and never destructive: the resolution is appended to the audit trail.",
+        "signature": "resolve_tournament_game_result(uuid, integer, integer, text)"
+      },
+      {
+        "signature": "respond_to_event(uuid, uuid, text, integer, integer, jsonb, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/src/tournaments/participant-attendance.tsx",
+          "app/(app)/tournaments/actions.ts"
+        ],
+        "reason": "A family's answer to a tournament, on the one canonical attendance record. Authority is internal.resolve_attendance_response_source -- guardian, adult player, or a 16-17 year old with recorded consent -- and there is no staff override.",
+        "signature": "respond_to_tournament_attendance(uuid, uuid, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/notifications/feed.ts"
+        ],
+        "reason": "Undoes the caller's own dismissal of one notification. Scoped to auth.uid() inside the function; a notification id is not a permission.",
+        "signature": "restore_notification(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/arena/api.ts"
+        ],
+        "reason": "Arena (20270738000000): a club's changing-room times (access before kick-off, release after, turnaround). venue.pitch_allocation.manage at the club only.",
+        "signature": "save_arena_settings(uuid, jsonb)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/venues.ts"
+        ],
+        "reason": "Creates or edits a club's ground, including its canonical address and pin.",
+        "signature": "save_club_venue(uuid, uuid, text, text, text, text, text, text, text, text, boolean, boolean, boolean, numeric, numeric, text)"
+      },
+      {
+        "signature": "save_event(uuid, uuid, jsonb)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "signature": "save_event_guest(uuid, uuid, jsonb)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/arena/api.ts"
+        ],
+        "reason": "Arena (20270738000000): a club's default, or one team's, ranked venue / pitch / room preferences for one purpose. venue.pitch_allocation.manage at the club only (internal.arena_can_manage); every choice must be the club's own, live, and the right kind of resource; a team must be the club's.",
+        "signature": "save_facility_preferences(uuid, uuid, text, uuid[])"
+      },
+      {
+        "signature": "save_match_details(uuid, jsonb)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/src/agenda/mutations.ts",
+          "lib/fixtures/fixture-editor.ts"
+        ]
+      },
+      {
+        "signature": "save_membership_settings(uuid, integer, text, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270748000000: collection day, first payment and who pays Ovalball's fee; creates the programme switched off and never changes whether it is on.",
+        "consumers": [
+          "packages/contracts/src/membership/setup.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/tournaments/actions.ts",
+          "apps/mobile/src/tournaments/edit-sheet.tsx"
+        ],
+        "reason": "Creates or edits one tournament. Gained p_ends_at (20270609) so a festival can state when it finishes -- the hours a family plans around, which no derivation from games or pitch bookings can supply before a plan is published.",
+        "signature": "save_tournament(uuid, text, date, date, text, uuid, uuid, uuid, uuid, text, text, text, time without time zone, text, integer, time without time zone)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/tournaments/actions.ts"
+        ],
+        "reason": "A tournament game between ANY two participating sides (20270605). Replaces the host-centric entry/opponent signature, which could not express a game between two visiting clubs. Checks tournament.tournament.manage on the hosting club.",
+        "signature": "save_tournament_game(uuid, uuid, uuid, text, date, uuid, time without time zone, integer, uuid, text, integer, integer)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/schedule.ts"
+        ],
+        "reason": "Tournament planning correction pass (20270736000000): Edit Plan's one write -- any number of a plan's games or unpaired knockout places moved (day, kick-off, pitch, length) and validated as ONE arrangement by internal.tournament_schedule_conflicts (pitch capacity by layout and size, changeover, team clash, round order, reserved pitch) across every competition of the tournament; each team in a moved published game is told once. ORGANISER ONLY (internal.can_manage_tournament).",
+        "signature": "save_tournament_plan_schedule(uuid, jsonb)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/club/training/actions.ts",
+          "apps/mobile/src/agenda/training.ts",
+          "apps/mobile/src/training-planning/data.ts"
+        ],
+        "reason": "Creates or edits a training plan; occurrences are materialised from it. Its trailing boolean (20270738) is the team's \"Needs a changing room\" for every session of the plan.",
+        "signature": "save_training_plan(uuid, uuid, uuid, text, uuid, uuid, uuid, jsonb, integer, integer, text, boolean)"
+      },
+      {
+        "signature": "schedule_grounds(uuid[], uuid[], uuid[])",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/agenda/grounds.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Tournament Planning parity programme (20270720000000): Complete Scheduling -- gives a generated plan's games kick-off times and pitches from the reserved pitches without re-pairing, never moving a game that has a result. Same authority (internal.can_manage_tournament) every sibling planning RPC already uses. Since 20270736000000 it keeps the games an organiser placed by hand unless p_keep_hand_placed is false, places only where a pitch has room, and tells only the teams whose games moved.",
+        "signature": "schedule_tournament_plan(uuid, boolean)",
+        "consumers": [
+          "packages/contracts/src/tournaments/readiness.ts",
+          "packages/contracts/src/tournaments/schedule.ts"
+        ]
+      },
+      {
+        "signature": "search_event_invitable_people(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Names the seeds and draws everybody else around them. Never reads Round Robin standings: a progression between competitions is a different product idea. NO CLIENT CONSUMER YET -- the Draw step offers a random draw and a manual swap; seeding is built, tested (tournament_knockout section J) and reachable, and is listed here so its exposure is declared rather than discovered.",
+        "signature": "seed_tournament_bracket(uuid, uuid[])"
+      },
+      {
+        "signature": "send_conversation_message(text, uuid, text, uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270755000000: SECURITY INVOKER send with the sender's own client reference, so a retried send is one message; fixture_messages_insert_scoped (recipient authority, adult-only direct rule, blocks, policy) judges the insert exactly as a direct insert. Replies are confined to the same conversation by trigger.",
+        "consumers": [
+          "packages/contracts/src/messenger-send.ts"
+        ]
+      },
+      {
+        "signature": "send_event_invitations(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "signature": "send_event_message(uuid, text, text, text, boolean)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/events/centre.ts"
+        ]
+      },
+      {
+        "signature": "send_membership_reminders(uuid, uuid[], uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/membership/board.ts"
+        ]
+      },
+      {
+        "signature": "send_team_membership_attention(uuid)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/membership/board.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/arena/api.ts"
+        ],
+        "reason": "Arena (20270738000000): locks a fixture's pitch and rooms, or a session's pitch and its changing room, against automatic allocation. venue.pitch_allocation.manage at the activity's club only.",
+        "signature": "set_arena_lock(text, uuid, text[])"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/award-settings.ts"
+        ],
+        "signature": "set_club_award_category(uuid, text, boolean)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/venues.ts"
+        ],
+        "reason": "A pitch's description, for the club that owns the ground.",
+        "signature": "set_club_pitch_description(uuid, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/public-profiles.ts"
+        ],
+        "signature": "set_club_public_profile(uuid, jsonb)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/public-profiles.ts"
+        ],
+        "signature": "set_club_public_sharing(uuid, boolean, boolean)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/facilities.ts"
+        ],
+        "signature": "set_fixture_facilities(uuid, jsonb)"
+      },
+      {
+        "signature": "set_membership_product_price(uuid, integer, date)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270748000000: an effective-dated price (append-only, never in the past); members already enrolled keep theirs.",
+        "consumers": [
+          "packages/contracts/src/membership/setup.ts"
+        ]
+      },
+      {
+        "signature": "set_membership_product_teams(uuid, uuid[])",
+        "category": "APPLICATION_RPC",
+        "reason": "20270748000000: which of the club's teams a membership covers; a team moves from the membership it was in.",
+        "consumers": [
+          "packages/contracts/src/membership/setup.ts"
+        ]
+      },
+      {
+        "signature": "set_message_reaction(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270755000000: set, change or take back the caller's one reaction to a message, from a fixed set, only where internal.can_post_to_message (the insert policy's own per-container rule) allows; an unknown or inaccessible id gets the same refusal.",
+        "consumers": [
+          "packages/contracts/src/messenger-reactions.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Phase D (20270711000000): the write path for one event-level preference row, the same shape as set_notification_preference (only the named channel changes, a mandatory topic's in-app switch cannot be turned off, a live session is required). No client UI calls it yet (Phase I); the DB layer is built and tested ahead of it.",
+        "signature": "set_notification_event_preference(text, boolean, boolean, boolean)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/account/actions.ts",
+          "packages/contracts/src/notifications/preferences.ts"
+        ],
+        "reason": "M7 (20270706000000) added the push_enabled channel as a fourth parameter; the prior three-argument overload was dropped (20270708000000) after it was found still live alongside the new one, which PostgREST could not disambiguate for a three-named-argument call.",
+        "signature": "set_notification_preference(text, boolean, boolean, boolean)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/pitch-media.ts"
+        ],
+        "reason": "The governed cover write for a pitch: an uploaded path or a stock key from the server-side allow-list, never both.",
+        "signature": "set_pitch_cover(uuid, text, text)"
+      },
+      {
+        "signature": "set_player_membership_product(uuid, uuid, text)",
+        "category": "TESTED_API_WITHOUT_APPLICATION_CONSUMER",
+        "reason": "20270748000000 (OWNER-LOCKED 6 Oct 2026): a Club Admin switches which membership a player in differently-priced teams is set up with, recorded with a reason; refused while a Direct Debit is live. Granted and tested (membership_setup.sql); its Club Admin surface arrives with the Membership Board (Part 2). If that surface is abandoned, revoke rather than keep this entry.",
+        "consumers": []
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/public-profiles.ts"
+        ],
+        "signature": "set_team_media_public(uuid, boolean)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/public-profiles.ts"
+        ],
+        "signature": "set_team_public_profile(uuid, jsonb)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/public-profiles.ts"
+        ],
+        "signature": "set_team_public_sharing(uuid, boolean, boolean)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/match-centre/public-profiles.ts"
+        ],
+        "signature": "set_team_squad_detail(uuid, uuid, integer, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/src/tournaments/edit-sheet.tsx"
+        ],
+        "reason": "Which competitions a tournament runs. Dropping one removes its sides, in one statement over tournament_participants (20270606).",
+        "signature": "set_tournament_age_groups(uuid, text[])"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/knockout.ts"
+        ],
+        "reason": "The organiser's own arrangement of the draw, given in SEED order -- the order get_tournament_bracket publishes as drawOrder. Validates that the set is exactly this competition's sides, and is refused once any game has a result.",
+        "signature": "set_tournament_bracket_draw(uuid, uuid[], text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournament-media.ts"
+        ],
+        "reason": "The governed write for a tournament's own photograph: an uploaded path or a key from the server-side stock allow-list, never both, and only for the hosting club.",
+        "signature": "set_tournament_cover(uuid, text, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Tournament Planning parity programme (20270721000000): moves ONE generated game's day, kick-off and pitch -- never its sides or score -- refusing a played game, a non-playing day, a time outside the playing hours, an unreserved pitch and a side clash; tells both sides when the plan is already published. Same authority (internal.can_manage_tournament) every sibling planning RPC already uses.",
+        "signature": "set_tournament_game_schedule(uuid, date, time without time zone, uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Tournament Planning parity programme (20270724000000): a Hybrid's one new setting, how many sides from each table go through to the knockout stage (1-4). Same authority (internal.can_manage_tournament) every sibling planning RPC already uses; refused once the competition has results.",
+        "signature": "set_tournament_hybrid_settings(uuid, integer)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/knockout.ts"
+        ],
+        "reason": "The competition's knockout settings -- draw method, extra time, how a level game is settled, whether a third-place play-off is run. Organiser-only.",
+        "signature": "set_tournament_knockout_settings(uuid, text, integer, text, boolean)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/schedule.ts"
+        ],
+        "reason": "Tournament planning correction pass (20270736000000), owner's rule: how the organiser has marked a reserved pitch out for the tournament -- 1 to 4 games at once, or null for the club's own layout -- refused when the games already on it would not fit (TOURNAMENT_PITCH_IN_USE). ORGANISER ONLY (internal.can_manage_tournament).",
+        "signature": "set_tournament_pitch_areas(uuid, integer)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/app/(tabs)/admin/tournaments/plan/[tournamentId].tsx"
+        ],
+        "reason": "Which of the tournament's days this competition uses. Replaces the selection; a day outside the tournament's range is refused by the table's own trigger.",
+        "signature": "set_tournament_plan_days(uuid, date[])"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Records which shape of competition a plan is, so every surface reads one authority rather than inferring it. NO CLIENT CONSUMER: the format is written from the tournament's own record when a plan is started, and this entry point exists for an organiser changing it. Listed so its exposure is declared rather than discovered.",
+        "signature": "set_tournament_plan_format(uuid, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/app/(tabs)/admin/tournaments/plan/[tournamentId].tsx"
+        ],
+        "reason": "Game length, changeover, playing hours, TABLE POINTS (which are not match scores), the losing-bonus margin and the organiser's own tie-break order. A game longer than the age grade's RFU Regulation 15 length is refused by trigger. Exactly one signature: the previous one was dropped rather than overloaded, because two signatures both carrying defaults make every positional call ambiguous.",
+        "signature": "set_tournament_plan_settings(uuid, integer, integer, time without time zone, time without time zone, integer, integer, integer, integer, integer, integer, text[])"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/planning.ts"
+        ],
+        "signature": "set_tournament_plan_standings(uuid, boolean)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/app/(tabs)/admin/tournaments/plan/[tournamentId].tsx",
+          "packages/contracts/src/tournaments/schedule.ts"
+        ],
+        "reason": "Replaces the whole table arrangement as ONE atomic act, so a side is never momentarily at two tables or none. Refuses a side placed twice, a side left out, and a side from another competition. Since 20270736000000 a PUBLISHED plan's tables are not changed underneath its games: refused (TOURNAMENT_TABLES_REPLACE_GAMES) until p_replace_games confirms the games are generated again and every team told.",
+        "signature": "set_tournament_plan_tables(uuid, jsonb, boolean)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/results.ts"
+        ],
+        "reason": "Whether participating sides may submit their own results, and who may read a confirmed one. Deliberately independent of the tournament's own visibility: a club may list a festival publicly and still keep its scores inside it.",
+        "signature": "set_tournament_results_settings(uuid, boolean, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/knockout.ts"
+        ],
+        "reason": "Says which day of a multi-day competition each knockout round is played on. Validated against the days that competition actually plays.",
+        "signature": "set_tournament_round_days(uuid, jsonb)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Tournament Planning parity programme (20270725000000): how many rounds a Swiss competition plays (2-12). Same authority (internal.can_manage_tournament) every sibling planning RPC already uses; refused once the competition has results.",
+        "signature": "set_tournament_swiss_settings(uuid, integer)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/venues.ts"
+        ],
+        "reason": "Retires or restores one without deleting its history.",
+        "signature": "set_venue_changing_room_active(uuid, boolean)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/changing-room-media.ts"
+        ],
+        "reason": "The same governed cover write for a changing room.",
+        "signature": "set_venue_changing_room_cover(uuid, text, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/venue-media.ts"
+        ],
+        "reason": "The same governed cover write for a venue.",
+        "signature": "set_venue_cover(uuid, text, text)"
+      },
+      {
+        "signature": "start_gocardless_connect_intent(uuid, text, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "Mobile GoCardless connect (20270750000000): live session, finance.gocardless.connect at the club, the club's terms agreed, an Ovalball-app return address; returns a one-time begin token stored only as a hash.",
+        "consumers": [
+          "app/api/gocardless/oauth/app/start/route.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/app/(tabs)/admin/tournaments/plan/[tournamentId].tsx"
+        ],
+        "reason": "Begins -- or returns -- the DRAFT plan for one competition, seeded with every day the tournament runs and one table holding every side. Idempotent, so opening Planning twice never starts a second plan.",
+        "signature": "start_tournament_plan(uuid, text)"
+      },
+      {
+        "signature": "submit_club_claim(uuid, text, text, jsonb, text, jsonb)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/clubhouse/claim-actions.ts",
+          "apps/mobile/src/clubhouse/claims.ts",
+          "lib/signup/complete-signup.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/results.ts"
+        ],
+        "reason": "One side records, confirms or contests the score of its own tournament game. A matching score from the other side confirms it; a different one contests it without overwriting anything; a score against a side that is not on Ovalball is RECORDED, because there is nobody to confirm it. Mirrors public.submit_fixture_result. Re-checks fixture.result.record at club or team scope.",
+        "signature": "submit_tournament_game_result(uuid, integer, integer, text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Tournament Planning parity programme (20270725000000): the organiser's swap of two sides in the Swiss round about to start (the random Round 1 draw above all). Same planning authority; refused once the round has started, or if it would cause a rematch or a second bye; a published swap tells the sides it moves.",
+        "signature": "swap_tournament_swiss_sides(uuid, uuid, uuid)"
+      },
+      {
+        "signature": "team_code_choices(text, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "Team codes place players (20270741000000). Who a live team code could be for, with each one's canonical fit: the holder, the children they are an ACTIVE guardian of, and their club membership. Nothing about anybody else; nothing at all for a code that is not a live team code.",
+        "consumers": [
+          "packages/contracts/src/team/team-code.ts"
+        ]
+      },
+      {
+        "signature": "team_code_fit_check(date, text, text, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "Team codes place players (20270741000000). The canonical fit of a date of birth and gender typed for a child not on Ovalball yet, so the form can say whether they fit before anything is sent; only for a live team code, and only the verdict.",
+        "consumers": [
+          "packages/contracts/src/team/team-code.ts"
+        ]
+      },
+      {
+        "signature": "team_membership_board(uuid, date)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/membership/board.ts"
+        ]
+      },
+      {
+        "signature": "team_place_requests(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "Team codes place players (20270741000000). The approver's card: a team's waiting requests and what approving each does, for team.roster.manage at the team or club.roster.manage at the club only; requests waiting for a parent are counted, never described.",
+        "consumers": [
+          "packages/contracts/src/team/team-code.ts"
+        ]
+      },
+      {
+        "signature": "team_staff_candidates(uuid, text, integer)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/team/staff.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/team/subscriptions.ts"
+        ],
+        "reason": "Whether a team's membership collection is set up and healthy, for the club's own staff.",
+        "signature": "team_subscription_status(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Tournament Planning parity programme (20270722000000): whether any competition of a tournament keeps a table, read from the one rule (internal.tournament_plan_has_standings) so the Tables tab follows the organiser's choice rather than a client guess from the format. Read-only, gated on internal.tournament_visible_row.",
+        "signature": "tournament_keeps_standings(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/tournaments/planning.ts"
+        ],
+        "reason": "What regenerating a plan would discard -- total games, games already given a time or pitch, and games with a recorded result -- so the confirmation can name it instead of asking a generic 'are you sure'. ORGANISER ONLY.",
+        "signature": "tournament_plan_regeneration_cost(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "apps/mobile/src/notifications/push.ts"
+        ],
+        "reason": "M7 (20270706000000, hardened to require a live session in 20270709000000): removes this device's own token on sign-out. Deletes only a row owned by the caller.",
+        "signature": "unregister_push_device_token(text)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "reason": "Tournament Planning parity programme (20270720000000): the one explicit action that brings a knockout draw up to date with the competition's sides, keeping every drawn side's seed. Same authority (internal.can_manage_tournament) every sibling planning RPC already uses.",
+        "signature": "update_tournament_draw_membership(uuid)"
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "packages/contracts/src/club/venues.ts"
+        ],
+        "reason": "Edits one, same authority.",
+        "signature": "update_venue_changing_room(uuid, text, text)"
+      },
+      {
+        "signature": "withdraw_dispensation(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "The requester, or the child's parent, withdraws a request still waiting for a decision.",
+        "consumers": [
+          "packages/contracts/src/team/dispensation.ts"
+        ]
+      },
+      {
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/fixtures/[fixtureId]/community-actions.ts"
+        ],
+        "signature": "withdraw_match_award_vote(uuid, uuid)"
+      },
+      {
+        "signature": "mark_fixture_conversation_read(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270757000000: one conversation per opposing team -- the caller has read the conversation of this fixture, so their own unread new_fixture_message notifications for EVERY fixture sharing it are marked read. Refused unless internal.can_access_conversation; only ever sets read_at, only on the caller's rows.",
+        "consumers": [
+          "apps/mobile/src/messages/conversation.ts",
+          "app/(app)/messages/actions.ts"
+        ]
+      },
+      {
+        "signature": "my_contact_avatars(uuid[])",
+        "category": "APPLICATION_RPC",
+        "reason": "20270758000000: avatar storage paths ONLY for people the caller has a direct conversation with or may_direct_message to -- adults only, never across a block either way, max 200 ids; no other profile field. The avatars bucket policy then decides signing.",
+        "consumers": [
+          "packages/contracts/src/messenger-avatars.ts"
+        ]
+      },
+      {
+        "signature": "planner_club_day(uuid, uuid, date)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270760000000: the Season Planner's read model for one opponent + one date -- the caller's club teams, the opponent's compatible sides by canonical eligibility, and the caller's own commitments that week / with that opponent this season. internal.can_bulk_plan_fixtures (fixture.planner.use at CLUB scope or site fixture support) only; never the opponent's schedule.",
+        "consumers": [
+          "packages/contracts/src/fixtures/season-planner.ts"
+        ]
+      },
+      {
+        "signature": "planner_send_club_day(uuid, uuid, date, uuid, jsonb, uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270760000000: sends a club day as ordinary fixture requests (existing triggers decide eligibility, duplicates, notifications), re-checking every conflict at send time under a per-club advisory lock; per-team outcomes; idempotent by planner batch id. internal.can_bulk_plan_fixtures only -- team staff can never mass-schedule.",
+        "consumers": [
+          "packages/contracts/src/fixtures/season-planner.ts"
+        ]
+      },
+      {
+        "signature": "planner_season_board(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270760000000: every commitment of the caller's club teams in one season (fixtures from either side, open/declined requests, competition matches) for the live board. internal.can_bulk_plan_fixtures only.",
+        "consumers": [
+          "packages/contracts/src/fixtures/season-planner.ts"
+        ]
+      },
+      {
+        "signature": "planner_club_day_detail(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270761000000: one Season Planner club day as either club sees it (internal.club_day_side: club-scope fixture authority at the requesting or receiving club, else the same P0002 as a missing day) -- the two clubs, the date and each fixture's own canonical request state and notes.",
+        "consumers": [
+          "packages/contracts/src/fixtures/season-planner.ts"
+        ]
+      },
+      {
+        "signature": "planner_respond_club_day(uuid, text, uuid[], jsonb)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270761000000: the receiving club answers a club day -- accept/decline all still-open fixtures or the named ones -- through the canonical accept_fixture_request / canonical decline, each re-checked against fixture.request.respond for its team in its own savepoint, serialised on the group row; answered fixtures untouched; one grouped notice back only when something changed.",
+        "consumers": [
+          "packages/contracts/src/fixtures/season-planner.ts"
+        ]
+      },
+      {
+        "signature": "planner_note_club_day_fixture(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270761000000: a note on one fixture of a club day -- the receiving club's response_note (respond authority for that team) or the planning club's own note (planner authority).",
+        "consumers": [
+          "packages/contracts/src/fixtures/season-planner.ts"
+        ]
+      },
+      {
+        "signature": "planner_club_days(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270761000000: the club's season planner club days, sent and received, with each day's live request counts. Planner or club-scope respond authority at that club only.",
+        "consumers": [
+          "packages/contracts/src/fixtures/season-planner.ts"
+        ]
+      },
+      {
+        "signature": "planner_playing_days(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270761000000: the club's playing days -- club default, per kind of team, team overrides and each team's effective day -- and the season's team-structure state. internal.can_bulk_plan_fixtures only.",
+        "consumers": [
+          "packages/contracts/src/fixtures/season-planner.ts"
+        ]
+      },
+      {
+        "signature": "set_club_playing_days(uuid, smallint, smallint, smallint, smallint, smallint)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270761000000: writes the club default and per-kind playing days (club_scheduling_policy columns with no client grant). internal.can_bulk_plan_fixtures only.",
+        "consumers": [
+          "packages/contracts/src/fixtures/season-planner.ts"
+        ]
+      },
+      {
+        "signature": "set_team_playing_day(uuid, smallint)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270761000000: writes or clears one team's playing-day override (teams.preferred_playing_day, no client grant). internal.can_bulk_plan_fixtures for the team's club only.",
+        "consumers": [
+          "packages/contracts/src/fixtures/season-planner.ts"
+        ]
+      },
+      {
+        "signature": "decline_fixture_request(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270762000000: the answering side declines an open request; the server derives whose turn it is (the side that did not make the standing proposal), checks fixture.request.respond for that side, and records the decider and its note. Replaces the revoked direct UPDATE.",
+        "consumers": [
+          "packages/contracts/src/team/requests.ts",
+          "app/(app)/fixtures/actions.ts"
+        ]
+      },
+      {
+        "signature": "withdraw_fixture_request(uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270762000000: the requesting side withdraws its own open request (cancelled), checked against fixture.request.create for the requesting team or club. Replaces the revoked direct UPDATE.",
+        "consumers": [
+          "packages/contracts/src/team/requests.ts",
+          "app/(app)/fixtures/actions.ts"
+        ]
+      },
+      {
+        "signature": "allocate_fixture_pitch(uuid, uuid)",
+        "category": "APPLICATION_RPC",
+        "reason": "20270762000000 (H32): the Pitch Allocation board's placement writer, gated on venue.pitch_allocation.manage for the hosting club only -- independent of fixture edit.",
+        "consumers": [
+          "packages/contracts/src/pitch-allocation/operations.ts"
         ]
       }
     ],
@@ -8387,10 +10280,6 @@
     ],
     "service_role_only_public": [
       {
-        "signature": "apply_payment_status_transition(text, text, text, date, text)",
-        "reason": "Already server-only before Slice 1."
-      },
-      {
         "signature": "apply_platform_payment_status(uuid, text, text, text)",
         "reason": "Already server-only before Slice 1."
       },
@@ -8423,14 +10312,6 @@
         "reason": "Already server-only before Slice 1."
       },
       {
-        "signature": "reconcile_gocardless_billing_request(uuid, text, text, text, text, text, date)",
-        "reason": "Already server-only before Slice 1."
-      },
-      {
-        "signature": "reconcile_gocardless_subscription(uuid, text, text, text, uuid)",
-        "reason": "Already server-only before Slice 1."
-      },
-      {
         "signature": "reconcile_overdue_fixture_results()",
         "reason": "Already server-only before Slice 1."
       },
@@ -8457,6 +10338,50 @@
       {
         "signature": "update_gocardless_verification_status(uuid, text)",
         "reason": "Already server-only before Slice 1."
+      },
+      {
+        "signature": "apply_payment_status_transition(text, text, text, date, text, timestamp with time zone)",
+        "reason": "Server-only since Slice 1; observation time added by 20270744000000 and its default made clock_timestamp() by 20270749000000."
+      },
+      {
+        "signature": "attach_gocardless_connect_code(text, text)",
+        "reason": "20270750000000: the callback's app branch, after the browser's cookie equals the returned state; returns the intent, its return address and a one-time handoff, never the code."
+      },
+      {
+        "signature": "consume_gocardless_connect_begin(text, text)",
+        "reason": "20270750000000: the begin route, which has no session; authorised by the one-time begin token alone (single use, three minutes)."
+      },
+      {
+        "signature": "defer_gocardless_event(uuid, uuid, text)",
+        "reason": "20270749000000: parks an event for a club whose connection to that organisation is not live, without spending its retry budget."
+      },
+      {
+        "signature": "fail_gocardless_connect_intent(text, text)",
+        "reason": "20270750000000: the begin route and the callback close an intent that cannot go on."
+      },
+      {
+        "signature": "reconcile_gocardless_billing_request(uuid, text, text, text, text, text, date, timestamp with time zone, timestamp with time zone)",
+        "reason": "GoCardless reconciliation with observation order (20270749000000)."
+      },
+      {
+        "signature": "reconcile_gocardless_subscription(uuid, text, text, text, uuid, timestamp with time zone)",
+        "reason": "GoCardless reconciliation; stale observations ignored and final states never reopen (20270749000000)."
+      },
+      {
+        "signature": "record_gocardless_app_disconnected(text, timestamp with time zone)",
+        "reason": "20270749000000: GoCardless's app-disconnected webhook; ends only connections made before it (the 1-argument version is dropped)."
+      },
+      {
+        "signature": "record_gocardless_payment_app_fee(text, integer)",
+        "reason": "20270749000000: fills a missing app fee from GoCardless's own payment resource; never overwrites one."
+      },
+      {
+        "signature": "record_gocardless_payout(uuid, jsonb, jsonb)",
+        "reason": "20270754000000: the webhook records a payout and its items after re-reading them from GoCardless with the club's connection; idempotent (a replay replaces items); null items keep what is held."
+      },
+      {
+        "signature": "record_gocardless_refund(text, text, integer, text)",
+        "reason": "20270754000000: the webhook records a refund from GoCardless's own refund resource against Ovalball's payment; pending, confirmed or failed, never backwards."
       }
     ],
     "authenticated_internal": [
@@ -8535,6 +10460,7 @@
       "can_view_announcement_reply(uuid, uuid)",
       "can_view_direct_conversation(uuid)",
       "can_view_document_library(uuid, uuid)",
+      "can_view_fixture_attendance_of(uuid, uuid)",
       "can_view_safeguarding_conversation(uuid)",
       "can_view_team_conversation(uuid)",
       "can_view_tournament(uuid)",
@@ -8560,12 +10486,13 @@
       "decide_rollover_team_proposal(uuid, text, text, text, text, text, uuid)",
       "direct_messaging_allowed_for_club(uuid)",
       "direct_messaging_allowed_for_pair(uuid, uuid)",
-      "dispensation_team_ids()",
+      "dispensation_club_ids()",
+      "dispensation_is_approved(uuid)",
       "edition_season_for_code(text)",
       "effective_person()",
       "effective_training_session_status(text, date, time without time zone)",
+      "event_cover_access(text, boolean)",
       "expand_scheduling_group(uuid)",
-      "expire_due_dispensations()",
       "fixture_audience_players(uuid, text)",
       "fixture_audience_recipients(uuid, text)",
       "fixture_communication_team_ids(uuid)",
@@ -8605,13 +10532,19 @@
       "master_control_club(uuid, boolean)",
       "master_control_preamble(text, text, uuid)",
       "master_control_target(uuid)",
+      "may_access_team_gallery_media(text, boolean)",
       "may_address_player(uuid)",
       "may_ask_club_allocation(uuid)",
       "may_complete_player_profile(uuid)",
       "may_direct_message(uuid)",
       "may_edit_club_content(uuid, uuid)",
+      "may_manage_changing_room_media(text)",
       "may_manage_club_news_media(text)",
+      "may_manage_pitch_media(text)",
+      "may_manage_tournament_media(text)",
+      "may_manage_venue_media(text)",
       "may_publish_club_content(uuid, uuid)",
+      "may_read_dispensation(uuid)",
       "may_resolve_join_request(uuid, uuid)",
       "may_send_as(text, uuid)",
       "may_share_document_to_target(uuid, message_target_type, uuid)",
@@ -8649,7 +10582,6 @@
       "regulatory_fact_primary_occurrence(uuid)",
       "regulatory_school_year_start(text, uuid)",
       "regulatory_season_of(date, text)",
-      "request_player_dispensation_core(uuid, uuid, uuid, uuid, text, uuid)",
       "require_edition_organiser(uuid)",
       "require_recent_aal2(interval)",
       "resolve_age_grade_rule_bundle(text, uuid, date, uuid)",
@@ -8676,6 +10608,7 @@
       "rollover_planned_team_for(uuid, uuid, text)",
       "rollover_team_target_identity(uuid, uuid)",
       "safeguarding_dispensation_team_ids()",
+      "schedule_tournament_plan_games(uuid)",
       "season_phase(uuid, date)",
       "sender_identity_label(text, uuid, uuid)",
       "session_aal_ok()",
@@ -8685,9 +10618,14 @@
       "site_admin_role(uuid)",
       "site_admin_support_level(uuid)",
       "sync_competition_match_fixtures(uuid)",
+      "team_gallery_media_is_public(text)",
       "team_people_authority(uuid)",
       "team_playing_group_player_ids(uuid)",
       "teams_can_play_fixture(uuid, uuid)",
+      "tournament_participant_status(uuid)",
+      "tournament_plan_defaults(uuid, text)",
+      "tournament_plan_readable(uuid)",
+      "tournament_round_robin_pairs(uuid)",
       "tournament_visible_row(uuid)",
       "training_audience_players(uuid, text)",
       "training_audience_recipients(uuid, text)",
@@ -8701,19 +10639,24 @@
       "validate_fixture_group_participant(uuid, uuid, date, text)",
       "validate_mini_rugby_team_set(uuid, uuid[], uuid)",
       "validate_scheduling_group_season(uuid, uuid)",
+      "validate_tournament_plan_day()",
+      "validate_tournament_plan_duration()",
+      "validate_tournament_plan_table_side()",
       "viewable_fixture_clubs()",
       "viewable_fixture_teams()"
     ],
     "service_role_public": [
+      "accept_club_membership_terms(uuid, text)",
       "accept_directory_research_proposal(uuid)",
-      "accept_fixture_request(uuid, uuid, timestamp with time zone)",
       "accept_fixture_opportunity_response(uuid, timestamp with time zone)",
+      "accept_fixture_request(uuid, uuid, timestamp with time zone)",
       "accept_fixture_request_with_team_action(uuid, boolean, uuid)",
       "accept_guardian_invitation(text)",
       "accept_invitation(text)",
       "accept_player_account_invitation(text)",
       "accept_safeguarding_officer_invitation(text)",
       "accept_site_admin_invitation(text)",
+      "activate_membership_programme(uuid)",
       "active_email_logo_path()",
       "add_child_for_guardian(text, text, date, uuid, text, text)",
       "add_content_section(uuid, text, integer, uuid)",
@@ -8728,9 +10671,11 @@
       "admin_get_message_thread_content(uuid, uuid)",
       "admin_message_analytics(date, date, uuid, uuid, text)",
       "advance_club_setup(uuid, integer)",
+      "age_grade_pitch_fits(text)",
       "announcement_replies(uuid)",
       "announcement_sender_label(uuid)",
-      "apply_payment_status_transition(text, text, text, date, text)",
+      "apply_arena_allocation(uuid, date, jsonb, text)",
+      "apply_payment_status_transition(text, text, text, date, text, timestamp with time zone)",
       "apply_platform_payment_status(uuid, text, text, text)",
       "apply_season_handover(uuid, integer)",
       "approve_club_claim(uuid, text)",
@@ -8740,10 +10685,12 @@
       "approve_pending_team_membership(uuid)",
       "approve_player_club_join_request(uuid, uuid)",
       "archive_fixture(uuid, text)",
+      "archive_membership_product(uuid)",
       "archive_player_team_membership(uuid)",
       "archive_season(uuid, boolean)",
       "ask_opponent_to_confirm_team(uuid, uuid)",
       "assign_role(uuid, text, uuid, text)",
+      "attach_gocardless_connect_code(text, text)",
       "attach_platform_subscription_provider(uuid, text, text, text, text, text, text)",
       "audience_unreachable(text, uuid, jsonb, boolean)",
       "block_user(uuid)",
@@ -8769,6 +10716,7 @@
       "claim_disabled_email_suppression(text, text, text)",
       "claim_email_delivery(text, text, text, text, uuid, text, uuid, text)",
       "claim_external_fixture_result(uuid, uuid, integer, integer, text)",
+      "claim_gocardless_connect_code(uuid, text)",
       "claim_responsible_payer(uuid, uuid)",
       "claim_test_email_send(text, text, text)",
       "claim_tournament_host(uuid, uuid)",
@@ -8778,13 +10726,16 @@
       "clear_rollover_player_placement(uuid)",
       "clear_team_alias(uuid)",
       "close_match_award(uuid)",
-      "club_assignable_roles(uuid)",
+      "club_access_summary(uuid)",
+      "club_assignable_roles(uuid, uuid)",
       "club_competition_entries(uuid)",
       "club_credit_balance_pence(uuid)",
       "club_entitlements(uuid)",
       "club_has_entitlement(uuid, text)",
       "club_member_capabilities(uuid, text[])",
-      "club_people(uuid, text, text, integer, integer, uuid)",
+      "club_member_membership(uuid, uuid)",
+      "club_payouts(uuid, integer)",
+      "club_people(uuid, text, text, integer, integer, uuid, text, text)",
       "club_person_permission_scopes(uuid, uuid)",
       "club_person_permissions(uuid, uuid, text, uuid, text[])",
       "club_platform_billing_state(uuid)",
@@ -8805,7 +10756,9 @@
       "confirm_gocardless_refund(text, text, integer)",
       "confirm_mixed_boundary_rollover(uuid, boolean, text, text)",
       "confirm_rollover_team_proposal(uuid, text, text, text, text, text)",
+      "confirm_team_place_request(uuid)",
       "consume_auth_flow_state(text, text)",
+      "consume_gocardless_connect_begin(text, text)",
       "copy_regulatory_content_set_to_season(uuid, uuid, text)",
       "correct_club_rugby_code(uuid, text, text)",
       "counter_fixture_request(uuid, date, time without time zone, text, text, timestamp with time zone)",
@@ -8820,6 +10773,7 @@
       "create_fixture_message_with_attachment(uuid, uuid, text, text, text, text, integer)",
       "create_governing_body_competition(text, uuid, uuid)",
       "create_membership_obligations_for_period(uuid, date)",
+      "create_membership_product(uuid, text, integer, uuid[])",
       "create_missing_target_team(uuid)",
       "create_missing_tournament_team(uuid)",
       "create_next_season_scheduling_group(uuid, uuid, uuid[], text)",
@@ -8846,10 +10800,12 @@
       "deactivate_safeguarding_officer(uuid)",
       "deactivate_training_plan(uuid, text)",
       "decide_club_join_request(uuid, text, text)",
+      "decide_dispensation(uuid, boolean, text, text)",
       "decide_player_call_up(uuid, text, text)",
-      "decide_player_dispensation(uuid, text, boolean, text, text)",
-      "decline_player_club_join_request(uuid, text)",
       "decline_fixture_opportunity_response(uuid)",
+      "decline_player_club_join_request(uuid, text)",
+      "decline_team_place_request(uuid, text)",
+      "defer_gocardless_event(uuid, uuid, text)",
       "delete_canonical_club(uuid, text)",
       "delete_club_contact(uuid)",
       "delete_club_document(uuid)",
@@ -8862,6 +10818,10 @@
       "delete_tournament_game(uuid)",
       "direct_conversation_header(uuid)",
       "disconnect_gocardless(uuid, text)",
+      "dispensation_decisions_waiting()",
+      "dispensation_options(uuid, uuid)",
+      "dispensation_record(uuid)",
+      "dispensation_register(uuid)",
       "email_delivery_health()",
       "email_event_active(text)",
       "email_opted_out_user_ids(text, uuid[])",
@@ -8881,12 +10841,16 @@
       "export_finance_rows(uuid, date)",
       "extend_club_trial(uuid, integer, text)",
       "fail_directory_verification_run(uuid, text)",
+      "fail_gocardless_connect_intent(text, text)",
+      "family_membership_charge(uuid, uuid)",
+      "family_team_requests()",
       "find_fixture_candidate_availability(uuid, date[])",
       "find_fixture_candidate_availability_batch(uuid[], date[])",
       "find_fixture_candidate_game_week_batch(uuid[], date[])",
       "find_fixture_candidate_teams(uuid)",
       "find_fixture_candidate_teams_batch(uuid[])",
       "find_fixture_opportunities(uuid)",
+      "finish_gocardless_connect_intent(uuid, boolean, text)",
       "fixture_availability_summary(uuid[])",
       "fixture_communication_counts(uuid)",
       "fixture_editable_fields(uuid)",
@@ -8899,6 +10863,11 @@
       "generate_training_plan_sessions(uuid)",
       "geocode_pending_venues()",
       "get_active_subscription_impact(uuid)",
+      "get_arena_allocation_options(text, uuid)",
+      "get_arena_day(uuid, date)",
+      "get_arena_hub(uuid)",
+      "get_arena_preferences(uuid)",
+      "get_arena_range(uuid, date, date)",
       "get_canonical_team_type_impact(uuid)",
       "get_club_event_card(uuid)",
       "get_club_event_register(uuid)",
@@ -8937,6 +10906,7 @@
       "get_player_account_invitation_preview(text)",
       "get_player_permission_summary(uuid)",
       "get_regulatory_fact_search_context(uuid[], uuid)",
+      "get_resource_bookings_ahead(text, uuid)",
       "get_rugby_hub_identity_context(uuid)",
       "get_rugby_hub_rules(uuid, date, uuid)",
       "get_rugby_hub_rules_by_identity(text)",
@@ -8961,6 +10931,7 @@
       "get_training_register(uuid)",
       "get_training_session_card(uuid)",
       "give_match_kudos(uuid, uuid, uuid, text)",
+      "gocardless_inbox_health()",
       "governing_body_clubs(uuid)",
       "governing_body_competition_matches(uuid)",
       "governing_body_competitions(uuid)",
@@ -8998,6 +10969,11 @@
       "mark_graduating_player_left(uuid)",
       "mark_message_report_reviewed(uuid)",
       "mark_platform_provider_event_processed(uuid, text)",
+      "membership_charge_plan(uuid)",
+      "membership_first_payment_example(uuid, integer, date, integer, text, text)",
+      "membership_reminder_history(uuid, uuid, integer)",
+      "membership_reminder_preview(uuid, uuid[], uuid)",
+      "membership_setup_state(uuid)",
       "moderator_delete_message(uuid)",
       "move_player_team_membership(uuid, uuid, text)",
       "my_announcements(integer)",
@@ -9006,6 +10982,7 @@
       "my_capabilities(text, uuid, uuid, uuid)",
       "my_direct_conversations(integer)",
       "my_direct_message_candidates()",
+      "my_dispensations()",
       "my_governing_bodies()",
       "my_guardian_link_requests()",
       "my_impersonation()",
@@ -9013,6 +10990,7 @@
       "my_player_context()",
       "my_sender_identities()",
       "my_site_capabilities()",
+      "my_team_requests()",
       "my_unread_counts()",
       "my_unread_message_counts()",
       "nominate_safeguarding_officer(uuid, text, text, text)",
@@ -9021,6 +10999,7 @@
       "open_platform_billing_cycle(uuid, date, text)",
       "override_training_session(uuid, date, time without time zone, integer, uuid, uuid, boolean, text, text, text)",
       "pause_club_trial(uuid, text)",
+      "pause_membership_programme(uuid, text)",
       "place_graduating_player(uuid, uuid)",
       "plan_missing_placement_team(uuid)",
       "platform_commercial_overview()",
@@ -9028,6 +11007,7 @@
       "platform_eligible_recipients()",
       "platform_public_state()",
       "player_team_allocation(uuid, uuid)",
+      "preview_arena_allocation(uuid, date, uuid, boolean)",
       "preview_audience(text, uuid, jsonb, boolean, text, text)",
       "preview_directory_verification_scope(text, uuid, jsonb)",
       "preview_first_payment(uuid, uuid, date)",
@@ -9048,18 +11028,23 @@
       "reactivate_missing_tournament_team(uuid)",
       "reactivate_team(uuid)",
       "reactivate_training_plan(uuid)",
-      "reconcile_gocardless_billing_request(uuid, text, text, text, text, text, date)",
-      "reconcile_gocardless_subscription(uuid, text, text, text, uuid)",
+      "read_team_media(uuid, integer)",
+      "reconcile_gocardless_billing_request(uuid, text, text, text, text, text, date, timestamp with time zone, timestamp with time zone)",
+      "reconcile_gocardless_subscription(uuid, text, text, text, uuid, timestamp with time zone)",
       "reconcile_overdue_fixture_results()",
       "reconcile_referral_attribution(boolean)",
       "reconcile_tournament_participant(uuid)",
-      "read_team_media(uuid, integer)",
       "record_billing_request(uuid, uuid, text, text, text)",
       "record_competition_match_result(uuid, integer, integer, uuid)",
       "record_directory_verification_result(uuid, uuid, text, text, directory_verification_proposal_input[])",
+      "record_dispensation_reference(uuid, text)",
       "record_email_delivery_result(uuid, text, text, text, text, text, text)",
+      "record_gocardless_app_disconnected(text, timestamp with time zone)",
       "record_gocardless_event(text, text, text, jsonb, uuid)",
       "record_gocardless_payment(uuid, text, integer, text, date, text, uuid)",
+      "record_gocardless_payment_app_fee(text, integer)",
+      "record_gocardless_payout(uuid, jsonb, jsonb)",
+      "record_gocardless_refund(text, text, integer, text)",
       "record_gocardless_subscription(uuid, uuid, uuid, text, integer, text)",
       "record_payment_refund(uuid, integer, text)",
       "record_platform_provider_event(text, text, text, jsonb)",
@@ -9080,6 +11065,7 @@
       "reject_guardian_link_request(uuid, text)",
       "reject_pending_team_membership(uuid, text)",
       "rejoin_fixture_conversation(uuid, uuid)",
+      "release_responsible_payer(uuid, text)",
       "release_tournament_pitch(uuid)",
       "remove_fixture_conversation_participant(uuid, uuid, uuid)",
       "remove_guardian_relationship(uuid, text)",
@@ -9091,15 +11077,16 @@
       "remove_tournament_participant(uuid)",
       "remove_tournament_team_entry(uuid)",
       "rename_club_pitch(uuid, text)",
+      "rename_membership_product(uuid, text)",
       "reorder_club_pitches(uuid, uuid[])",
       "replace_competition_draft_matches(uuid, jsonb, uuid, integer)",
       "reply_to_announcement(uuid, text)",
       "report_fixture_message(uuid, text)",
       "request_additional_guardian(uuid, text)",
       "request_child_link(text, text, date, uuid, text, text)",
+      "request_dispensation(uuid, uuid, text, uuid, uuid)",
       "request_fixture_restoration(uuid)",
       "request_player_call_up(uuid, uuid, uuid, uuid, text)",
-      "request_player_dispensation(uuid, uuid, uuid, uuid, text)",
       "request_player_playing_pathway(uuid)",
       "request_to_join_club(uuid, uuid)",
       "request_venue_geocoding(uuid)",
@@ -9123,9 +11110,9 @@
       "respond_to_additional_guardian_request(uuid, text)",
       "respond_to_attendance(uuid, uuid, text)",
       "respond_to_club_conversation(uuid, boolean)",
-      "respond_to_fixture_opportunity(uuid, uuid, text)",
       "respond_to_club_partnership(uuid, boolean)",
       "respond_to_event_attendance(uuid, uuid, text)",
+      "respond_to_fixture_opportunity(uuid, uuid, text)",
       "respond_to_training_attendance(uuid, uuid, text)",
       "respond_tournament_invitation(uuid, boolean)",
       "respond_tournament_invitation_with_team_action(uuid, boolean, boolean)",
@@ -9145,6 +11132,7 @@
       "run_fixture_completion_check()",
       "run_season_transition_check()",
       "run_trial_expiry_check()",
+      "save_arena_settings(uuid, jsonb)",
       "save_club_announcement(uuid, uuid, uuid, text, text, text, text, timestamp with time zone, timestamp with time zone, text, text)",
       "save_club_article(uuid, uuid, uuid, text, text, text, text, text, text, text)",
       "save_club_contact(uuid, uuid, text, text, text, text, boolean)",
@@ -9154,6 +11142,8 @@
       "save_competition_rounds(uuid, jsonb)",
       "save_competition_stage(uuid, uuid, text, text, integer, jsonb, jsonb)",
       "save_email_template_draft(text, text, text, text, text, text, integer)",
+      "save_facility_preferences(uuid, uuid, text, uuid[])",
+      "save_membership_settings(uuid, integer, text, text)",
       "save_tournament(uuid, text, date, date, text, uuid, uuid, uuid, uuid, text, text)",
       "save_tournament_game(uuid, uuid, date, uuid, time without time zone, integer, uuid, text, integer, integer)",
       "save_training_plan(uuid, uuid, uuid, text, uuid, uuid, uuid, jsonb)",
@@ -9169,6 +11159,7 @@
       "send_support_reply(uuid, text)",
       "send_training_communication(uuid, text, text)",
       "set_account_status(uuid, text)",
+      "set_arena_lock(text, uuid, text[])",
       "set_capability_override(uuid, text, text, uuid, uuid, text, text, timestamp with time zone)",
       "set_club_announcement_status(uuid, text)",
       "set_club_article_featured(uuid, boolean)",
@@ -9184,12 +11175,15 @@
       "set_governing_body_role(uuid, uuid, text, text)",
       "set_guardian_player_permission(uuid, text, boolean)",
       "set_membership_governance_title(uuid, text)",
+      "set_membership_product_price(uuid, integer, date)",
+      "set_membership_product_teams(uuid, uuid[])",
       "set_notification_preference(text, boolean, boolean)",
       "set_obligation_exemption(uuid, text, text)",
       "set_platform_mode(text, text, uuid)",
       "set_platform_plan_terms(text, integer, text, boolean)",
       "set_platform_scheduling_defaults(integer, integer)",
       "set_player_avatar(uuid, text)",
+      "set_player_membership_product(uuid, uuid, text)",
       "set_player_playing_pathway(uuid, text)",
       "set_primary_club_role(uuid, text, text)",
       "set_responsible_payer(uuid, uuid, uuid, text, text)",
@@ -9211,11 +11205,11 @@
       "set_subscription_price(uuid, integer, date)",
       "set_team_access(uuid, uuid, text, text)",
       "set_team_alias(uuid, text)",
+      "set_team_award_category(uuid, text, boolean, text)",
+      "set_team_conversation_active(uuid, boolean)",
       "set_team_cover(uuid, text, text)",
       "set_team_description(uuid, text)",
       "set_team_role_title(uuid, text)",
-      "set_team_award_category(uuid, text, boolean, text)",
-      "set_team_conversation_active(uuid, boolean)",
       "set_updated_at()",
       "set_venue_active(uuid, boolean)",
       "set_venue_address(uuid, text, text, text, text, text, text, numeric, numeric, text)",
@@ -9230,6 +11224,7 @@
       "soft_delete_own_message(uuid)",
       "start_club_trial(uuid)",
       "start_directory_verification_run(text, uuid, jsonb)",
+      "start_gocardless_connect_intent(uuid, text, text)",
       "start_impersonation(uuid, text)",
       "start_or_get_club_conversation(uuid, uuid, text)",
       "start_or_get_safeguarding_officer_conversation(uuid, uuid, text)",
@@ -9240,15 +11235,19 @@
       "supersede_regulatory_source(uuid, uuid)",
       "swap_fixture_home_away(uuid)",
       "team_age_grade_attention(uuid, date)",
+      "team_code_choices(text, text)",
+      "team_code_fit_check(date, text, text, text)",
       "team_conversation_state(uuid)",
       "team_delete_fixture_message(uuid)",
       "team_people(uuid)",
       "team_people_counts(uuid)",
-      "team_staff(uuid)",
+      "team_place_requests(uuid)",
       "team_playing_group_recipient_context(uuid)",
       "team_playing_group_recipients(uuid)",
       "team_playing_group_summary(uuid)",
       "team_scheduling_availability(uuid, uuid, date, date)",
+      "team_staff(uuid)",
+      "team_staff_candidates(uuid, text, integer)",
       "touch_last_active()",
       "training_communication_counts(uuid)",
       "transition_club_membership(uuid, text, text, boolean)",
@@ -9285,6 +11284,7 @@
       "verify_regulatory_fact(uuid)",
       "verify_regulatory_reporting_route(uuid)",
       "withdraw_announcement(uuid)",
+      "withdraw_dispensation(uuid, text)",
       "withdraw_fixture_opportunity_response(uuid)",
       "withdraw_match_award_vote(uuid)",
       "withdraw_match_kudos(uuid, uuid)",
@@ -9362,6 +11362,8 @@
       "compute_team_display_name(text, text, text, text, text)",
       "current_platform_mode()",
       "decide_rollover_team_proposal(uuid, text, text, text, text, text, uuid)",
+      "dispensation_club_ids()",
+      "dispensation_is_approved(uuid)",
       "edition_season_for_code(text)",
       "effective_training_session_status(text, date, time without time zone)",
       "enforce_active_owning_team_for_fixture()",
@@ -9413,6 +11415,7 @@
       "is_own_linked_player(uuid)",
       "may_ask_club_allocation(uuid)",
       "may_complete_player_profile(uuid)",
+      "may_read_dispensation(uuid)",
       "may_resolve_join_request(uuid, uuid)",
       "may_send_as(text, uuid)",
       "message_realtime_topic(fixture_messages)",
@@ -9485,6 +11488,7 @@
       "rollover_identity_plan(uuid)",
       "rollover_planned_team_for(uuid, uuid, text)",
       "rollover_team_target_identity(uuid, uuid)",
+      "safeguarding_dispensation_team_ids()",
       "season_phase(uuid, date)",
       "set_fixture_message_conversation_id()",
       "set_rollover_proposal_canonical_ids()",
@@ -9586,6 +11590,10 @@
         "public": false,
         "reason": "Club document library."
       },
+      "event-covers": {
+        "public": false,
+        "reason": "Event cover pictures (20270729): private; read by the people who may see the event and written by its organisers (internal.event_cover_access)."
+      },
       "fixture-attachments": {
         "public": false,
         "reason": "Fixture conversation attachments."
@@ -9597,6 +11605,10 @@
       "support-attachments": {
         "public": false,
         "reason": "Support ticket attachments."
+      },
+      "team-gallery-media": {
+        "public": false,
+        "reason": "The Team Gallery's own bucket (20270572). PRIVATE deliberately, and the most safety-conscious posture the platform has: reached only through short-lived signed URLs, with internal.may_access_team_gallery_media re-deriving the team from the storage path itself, so a guessed path from another team is refused at the storage layer rather than only in the RPC. The older public-bucket convention that team covers and club news use was considered and rejected for photographs of children."
       }
     },
     "anon_write_policies": "none may admit anonymous callers without an authority helper"

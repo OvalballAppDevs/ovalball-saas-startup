@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Pressable, ScrollView, Text, View } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router"
+import { useOriginBack } from "../../../src/links/origin"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { routeForIntent } from "../../../src/links/destinations"
@@ -58,6 +59,8 @@ const AVAILABILITY_WINDOW_DAYS = 84
 export default function AddFixture() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  // Request Sent returns to wherever Add Fixture was opened (Fixtures, a club's page in the Clubhouse), not always Clubhouse.
+  const backToOrigin = useOriginBack("/fixtures")
   const { active } = useAppContexts()
   const params = useLocalSearchParams<{
     teamId?: string
@@ -327,7 +330,7 @@ export default function AddFixture() {
   if (sent) {
     return (
       <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-        <Header title="Request Sent" onBack={() => router.replace("/clubhouse" as never)} insets={insets} />
+        <Header title="Request Sent" onBack={backToOrigin} insets={insets} />
         <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.md }}>
           <Text style={[type.heading, { color: colour.ink }]}>
             {club?.name} has been asked to play
@@ -345,11 +348,11 @@ export default function AddFixture() {
             <SubmitButton label="View Requests" onPress={() => router.replace((active?.kind === "club" ? "/club/requests" : "/team/requests") as never)} />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Back to Clubhouse"
-              onPress={() => router.replace("/clubhouse" as never)}
+              accessibilityLabel="Done"
+              onPress={backToOrigin}
               style={{ minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center" }}
             >
-              <Text style={[type.smallMedium, { color: colour.forest800 }]}>Back to Clubhouse</Text>
+              <Text style={[type.smallMedium, { color: colour.forest800 }]}>Done</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -369,7 +372,7 @@ export default function AddFixture() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <Header title="Add Fixture" subtitle={teamName} onBack={() => router.back()} insets={insets} />
+      <Header title="Add Fixture" subtitle={teamName} onBack={backToOrigin} insets={insets} />
 
       <ScrollView
         contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.lg }}
@@ -526,9 +529,8 @@ export default function AddFixture() {
                             <Text numberOfLines={1} style={[type.smallMedium, { color: colour.ink }]}>
                               {option.displayName}
                             </Text>
-                            <Text style={[type.caption, { color: colour.inkMuted }]}>
-                              {[option.ageGroup, option.gender].filter(Boolean).join(" · ")}
-                            </Text>
+                            {/* One line: the display name already says the grade and the pathway ("Under 12 Girls"). A
+                                second line repeated them as stored keys ("U12 · girls"). */}
                           </View>
                           {selected && <Check size={18} color={colour.forest800} strokeWidth={2.6} />}
                         </Pressable>
@@ -701,7 +703,7 @@ function Header({
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Back to Fixtures"
+        accessibilityLabel="Back"
         onPress={onBack}
         hitSlop={8}
         style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}

@@ -84,20 +84,45 @@ export function monthWeeks(anchorIso: string): MonthCell[][] {
 export interface DayMarks {
   fixture: boolean
   training: boolean
+  /**
+   * A TOURNAMENT ON THIS DAY — its own mark, and its own dot.
+   *
+   * Not folded into `fixture`. A festival is the kind of day a club plans
+   * transport and a squad around, and a parent scanning a month needs to tell it
+   * apart from an ordinary Saturday match at a glance. A multi-day tournament
+   * marks every day it runs, because it IS on each of them.
+   */
+  tournament: boolean
+  /**
+   * A CLUB EVENT ON THIS DAY (20270729) -- a party, a meeting, a charity run. Its own flag so the day is
+   * spoken as "an event", and an event-only day is busy at all: before this, a day whose only item was
+   * the Christmas Party had no dot. A multi-day event marks every day it spans.
+   */
+  event: boolean
   /** True where something on this day is not going ahead, so the day can say so without colour. */
   cancelled: boolean
 }
 
 export function marksByDay(
-  items: { date: string; kind: "fixture" | "training"; status: string | null }[]
+  items: { date: string; kind: "fixture" | "training" | "tournament"; status: string | null }[],
+  /** Club events, one entry per day each covers (`eventDays`), with whether that event is cancelled. */
+  eventDays: { date: string; cancelled: boolean }[] = []
 ): Map<string, DayMarks> {
   const marks = new Map<string, DayMarks>()
+  const blank = (): DayMarks => ({ fixture: false, training: false, tournament: false, event: false, cancelled: false })
   for (const item of items) {
-    const existing = marks.get(item.date) ?? { fixture: false, training: false, cancelled: false }
+    const existing = marks.get(item.date) ?? blank()
     if (item.kind === "fixture") existing.fixture = true
+    else if (item.kind === "tournament") existing.tournament = true
     else existing.training = true
     if (item.status === "Cancelled") existing.cancelled = true
     marks.set(item.date, existing)
+  }
+  for (const day of eventDays) {
+    const existing = marks.get(day.date) ?? blank()
+    existing.event = true
+    if (day.cancelled) existing.cancelled = true
+    marks.set(day.date, existing)
   }
   return marks
 }

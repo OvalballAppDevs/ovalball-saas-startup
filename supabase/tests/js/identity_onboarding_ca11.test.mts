@@ -69,7 +69,33 @@ test("a removed context reconciles: the stored key is dropped, a forged key is n
   const provider = code(join(MOBILE, "src/context/contexts.tsx"))
   assert.match(provider, /reconcileSelectedKey\(contexts, selectedKey\)/, "the provider reconciles through the shared rule")
   assert.match(provider, /AsyncStorage\.removeItem\(SELECTED_CONTEXT_KEY\)/, "and forgets the stale key on disk")
-  assert.match(provider, /resolveOnboardingState\(\{ phase: status, contexts, storedKey: selectedKey, pendingInvitation: hasJoinSecret\(\) \}\)/, "one onboarding decision, made in the provider")
+  assert.match(provider, /resolveOnboardingState\(\{ phase: status, contexts, storedKey: selectedKey, pendingInvitation \}\)/, "one onboarding decision, made in the provider")
+  // A HELD INVITATION IS READ AS IT CHANGES (team codes place players, 20270741000000). Read once, the
+  // decision stayed "invitation" after Request Sent -> Continue let the secret go, and a child with no
+  // club yet landed on the placeholder drawn as a club ("Couldn't load the club") instead of the screen
+  // that says their request is waiting.
+  assert.match(provider, /const pendingInvitation = useSyncExternalStore\(subscribeJoinSecret, hasJoinSecret\)/, "the held invitation is subscribed to, not read once")
+  assert.match(provider, /\[status, contexts, selectedKey, pendingInvitation\]/, "and letting it go makes the decision again")
+})
+
+test("letting an invitation go is heard, after the render that let it go", async () => {
+  const { discardJoinSecret, hasJoinSecret, holdJoinSecret, subscribeJoinSecret } = await import("../../../apps/mobile/src/onboarding/join-secret")
+  let heard = 0
+  const stop = subscribeJoinSecret(() => heard++)
+  holdJoinSecret({ token: "abc123", code: null })
+  assert.equal(hasJoinSecret(), true)
+  assert.equal(heard, 0, "never during the render that took it up")
+  await Promise.resolve()
+  assert.equal(heard, 1, "told once it was taken up")
+  discardJoinSecret()
+  assert.equal(hasJoinSecret(), false, "let go at once")
+  await Promise.resolve()
+  assert.equal(heard, 2, "and told that it went")
+  stop()
+  holdJoinSecret({ token: "abc123", code: null })
+  await Promise.resolve()
+  assert.equal(heard, 2, "a listener that stopped hears nothing more")
+  discardJoinSecret()
 })
 
 test("the switcher names the kind of each place in words -- never an enum, never an id", () => {
@@ -116,28 +142,40 @@ test("an invitation link is a first-class intent; the secret rides in memory, ne
   const screen = code(join(MOBILE, "app/join.tsx"))
   assert.doesNotMatch(screen, /AsyncStorage|SecureStore|console\./, "the invitation screen stores or logs")
   assert.match(screen, /previewInvitation\(supabase, secret\)/)
-  assert.match(screen, /redeemInvitation\(supabase, secret\)/)
+  // The held secret goes straight to redemption; a team code adds only who it is for (20270741000000).
+  assert.match(screen, /redeemInvitation\(supabase, \{ \.\.\.secret, subject: subject \?\? null \}\)/)
   assert.match(screen, /reload\(\)/, "contexts are re-read from the server after acceptance")
   assert.match(screen, /leaveSession\(signOut, \{ keepInvitation: true \}\)/, "the wrong-account escape keeps the invitation and drops everything else")
   const gate = code(join(MOBILE, "app/_layout.tsx"))
   assert.match(gate, /holdJoinSecret\(\{ token: intent\.token, code: intent\.code \}\)/)
   assert.match(gate, /status === "signed-in" && hasJoinSecret\(\) && !onJoin/, "a held invitation is returned to after sign-in")
-  assert.match(gate, /intent\.kind === "TEAM"/, "a team link is delivered, not dropped")
+  // A team link is delivered, not dropped -- and so is every other routable link (integration audit): the
+  // hand-kept list of kinds this once checked for TEAM silently dropped event and tournament links.
+  assert.match(gate, /if \(routeForIntent\(intent\)\) \{\s*if \(status === "signed-in"\) deliver\(intent\)/, "a routable link is delivered, not dropped")
+  assert.doesNotMatch(gate, /intent\.kind === "MESSAGES" \|\|/, "a hand-kept allow-list of link kinds is back")
 })
 
 test("redemption is interpreted once, fails closed, and lands somewhere for every success", () => {
   assert.ok(!(SUCCESSFUL_REDEMPTION_OUTCOMES as readonly string[]).includes("REFUSED"))
   assert.deepEqual(interpretRedemption({ outcome: "MEMBERSHIP_ACTIVE" }, null), { ok: true, outcome: "MEMBERSHIP_ACTIVE", detail: { outcome: "MEMBERSHIP_ACTIVE" } })
-  assert.deepEqual(interpretRedemption({ outcome: "SOMETHING_NEW" }, null), { ok: false, reason: null, message: GENERIC_REFUSAL })
-  assert.deepEqual(interpretRedemption({ outcome: "REFUSED", message: "the invited address was x@y" }, null), { ok: false, reason: null, message: GENERIC_REFUSAL })
-  assert.deepEqual(interpretRedemption(null, { message: "boom" }), { ok: false, reason: null, message: GENERIC_REFUSAL })
+  assert.deepEqual(interpretRedemption({ outcome: "SOMETHING_NEW" }, null), { ok: false, reason: null, message: GENERIC_REFUSAL, verdict: null })
+  assert.deepEqual(interpretRedemption({ outcome: "REFUSED", message: "the invited address was x@y" }, null), { ok: false, reason: null, message: GENERIC_REFUSAL, verdict: null })
+  assert.deepEqual(interpretRedemption(null, { message: "boom" }), { ok: false, reason: null, message: GENERIC_REFUSAL, verdict: null })
   const actionable = interpretRedemption({ outcome: "REFUSED", reason: "AGE_ELIGIBILITY_REQUIRED", message: "Need a date of birth." }, null)
   assert.ok(!actionable.ok && actionable.message === "Need a date of birth." && actionable.reason === "AGE_ELIGIBILITY_REQUIRED")
-  assert.deepEqual([...ACTIONABLE_REASONS].sort(), ["AGE_ELIGIBILITY_REQUIRED", "MEMBERSHIP_REQUIRED", "ORGANISATION_ACCESS_SUSPENDED"])
+  // Team codes (20270741000000) add four, each about the person using the code or a child they are the
+  // guardian of -- never whether anybody else exists.
+  assert.deepEqual([...ACTIONABLE_REASONS].sort(), ["AGE_ELIGIBILITY_REQUIRED", "ALREADY_ON_TEAM", "ALREADY_USED", "DETAILS_REQUIRED", "GUARDIAN_REQUIRED", "MEMBERSHIP_REQUIRED", "NOT_ELIGIBLE", "ORGANISATION_ACCESS_SUSPENDED"])
+  const notFit = interpretRedemption({ outcome: "REFUSED", reason: "NOT_ELIGIBLE", verdict: "TOO_YOUNG", message: "That child can't join." }, null)
+  assert.ok(!notFit.ok && notFit.verdict === "TOO_YOUNG", "the canonical verdict travels with NOT_ELIGIBLE")
+  const stray = interpretRedemption({ outcome: "REFUSED", reason: "SOMETHING_ELSE", verdict: "TOO_YOUNG", message: "x" }, null)
+  assert.ok(!stray.ok && stray.verdict === null && stray.message === GENERIC_REFUSAL, "and nothing else carries a verdict or a specific message")
   for (const outcome of SUCCESSFUL_REDEMPTION_OUTCOMES) assert.ok(entranceOutcome(outcome, {}).landing, `${outcome} has no landing`)
   assert.equal(entranceOutcome("BODY_ROLE_ACTIVE", { constituent_body_id: "b1" }).contextKey, "governing:b1")
   assert.equal(entranceOutcome("SITE_ADMIN_ACTIVE", {}).contextKey, "site_admin")
   assert.equal(entranceOutcome("JOIN_REQUEST_PENDING", {}).landing, "PENDING", "a team code never grants access")
+  assert.equal(entranceOutcome("TEAM_PLACE_PENDING", {}).landing, "PENDING", "nor does asking for a team place")
+  assert.match(entranceOutcome("TEAM_PLACE_PENDING", { awaiting_guardian: true }).note ?? "", /parent or guardian needs to confirm/)
   // The website consumes the same interpretation.
   const web = read("lib/invitations/redeem.ts")
   assert.match(web, /from "@ovalball\/contracts\/invitations"/)

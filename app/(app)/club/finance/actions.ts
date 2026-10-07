@@ -7,8 +7,31 @@ import { cancelMembership } from "@/lib/payments/gocardless/cancel-membership"
 import { merchantTokenForClubPaymentAction } from "@/lib/payments/gocardless/merchant-token"
 import { retryGoCardlessPayment, createGoCardlessRefund } from "@/lib/payments/gocardless/payments"
 import { createClient } from "@/lib/supabase/server"
+import { reminderOutcomeSentence, sendMembershipReminders } from "@ovalball/contracts/membership/board"
+import { releaseResponsiblePayer } from "@ovalball/contracts/membership/member"
+import { previewMembershipReminders, sendRemindersInBatches, type ReminderPreview } from "@ovalball/contracts/membership/operate"
 
 export type ActionResult = { ok: true } | { ok: false; error: string }
+
+/**
+ * Every page of the club's Memberships area reads the same server answers, so a change made on one is a change on
+ * all of them: Overview, Members, a member's page, Reminders, Payments and the membership record.
+ */
+function revalidateMemberships() {
+  for (const path of ["/club/finance", "/club/finance/members", "/club/finance/reminders", "/club/finance/payments"]) revalidatePath(path)
+  revalidatePath("/club/finance/members/[playerId]", "page")
+  revalidatePath("/club/finance/[payerSubscriptionId]", "page")
+}
+
+/**
+ * The membership operations raise sentences written for people (a refusal, a daily limit, "cancel the membership
+ * first"); those are shown as they are. Anything else -- a database or provider message, a code -- is not shown raw.
+ */
+function readableSentence(cause: unknown, fallback: string): string {
+  const message = (cause as { message?: string } | null)?.message
+  const readable = message && /^[A-Z][^\n]{8,200}\.$/.test(message) && !/\b(violates|syntax|relation|function|column|constraint|null value|uuid)\b/i.test(message)
+  return readable ? message : fallback
+}
 
 async function requireFinanceCapability(clubId: string, capability: string) {
   const supabase = await createClient()
@@ -26,9 +49,9 @@ export async function generateObligationsForCurrentPeriod(clubId: string, billin
   if (!auth.ok) return auth
 
   const { error } = await auth.supabase.rpc("create_membership_obligations_for_period", { p_club_id: clubId, p_billing_period: billingPeriod })
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: readableSentence(error, "This month's obligations weren't generated. Try again.") }
 
-  revalidatePath("/club/finance")
+  revalidateMemberships()
   return { ok: true }
 }
 
@@ -37,9 +60,9 @@ export async function setObligationExemption(clubId: string, obligationId: strin
   if (!auth.ok) return auth
 
   const { error } = await auth.supabase.rpc("set_obligation_exemption", { p_obligation_id: obligationId, p_status: status, p_reason: reason })
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: readableSentence(error, "The month wasn't changed. Try again.") }
 
-  revalidatePath("/club/finance")
+  revalidateMemberships()
   return { ok: true }
 }
 
@@ -56,11 +79,12 @@ export async function retryFailedPayment(clubId: string, gocardlessPaymentDbId: 
 
   try {
     await retryGoCardlessPayment({ environment: tokenRow.environment as "sandbox" | "production", accessToken: tokenRow.access_token, gcPaymentId: payment.gc_payment_id })
-    revalidatePath("/club/finance")
+    revalidateMemberships()
     return { ok: true }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error."
-    return { ok: false, error: `Retry failed: ${message}` }
+    // GoCardless's own message can carry its error codes and ids: it is logged for the club's support, never shown.
+    console.error("retryFailedPayment: GoCardless refused the retry", error)
+    return { ok: false, error: "GoCardless didn't accept the retry. Try again later, or check the payment in GoCardless." }
   }
 }
 
@@ -86,7 +110,7 @@ export async function issueRefund(clubId: string, gocardlessPaymentDbId: string,
       amountMinor,
       idempotencyKey: `refund-${refundId}`,
     })
-    revalidatePath("/club/finance")
+    revalidateMemberships()
     return { ok: true }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error."
@@ -138,7 +162,7 @@ export async function cancelMembershipAction(payerSubscriptionId: string, reason
   })
   if (!result.ok) return result
 
-  revalidatePath("/club/finance")
+  revalidateMemberships()
   return { ok: true }
 }
 
@@ -155,7 +179,7 @@ export async function exportFinanceCsv(clubId: string, billingPeriod: string): P
   if (!auth.ok) return auth
 
   const { data, error } = await auth.supabase.rpc("export_finance_rows", { p_club_id: clubId, p_billing_period: billingPeriod })
-  if (error) return { ok: false, error: error.message }
+  if (error) return { ok: false, error: readableSentence(error, "The export couldn't be made. Try again.") }
 
   const escape = (value: string | number | null) => `"${String(value ?? "").replace(/"/g, '""')}"`
   // Base rate, sibling ordinal, sibling discount, and final membership
@@ -186,4 +210,75 @@ export async function exportFinanceCsv(clubId: string, billingPeriod: string): P
   ]
 
   return { ok: true, csv: lines.join("\n") }
+}
+
+/**
+ * A MEMBERSHIP REMINDER (20270746000000), to each player's responsible payer -- or, with nothing set up, to
+ * the guardians the one contact rule allows; never a child. The server decides who may send, who is asked,
+ * and holds a repeat back for 72 hours; this returns its outcome as a sentence. One member's Remind uses it.
+ */
+export async function remindMembers(clubId: string, playerIds: string[]): Promise<{ tone: "ok" | "error"; text: string; sent?: number }> {
+  const supabase = await createClient()
+  try {
+    const result = await sendMembershipReminders(supabase, { clubId, playerIds })
+    revalidateMemberships()
+    return { tone: "ok", text: reminderOutcomeSentence(result), sent: result.sent }
+  } catch (cause) {
+    return { tone: "error", text: readableSentence(cause, "The reminder wasn't sent. Try again.") }
+  }
+}
+
+/**
+ * THE REMINDERS SCREEN'S SEND (Part 2): any size of audience, in the server's own batches, one after another. A
+ * refusal part-way (the 100-a-day limit, say) stops there and is said beside what was already sent -- nothing is
+ * retried, so a family is never asked twice.
+ */
+export async function sendRemindersAction(clubId: string, playerIds: string[]): Promise<{ tone: "ok" | "error"; text: string; sent?: number }> {
+  const supabase = await createClient()
+  if (playerIds.length === 0) return { tone: "error", text: "Choose who to remind." }
+  const { result, error } = await sendRemindersInBatches((ids) => sendMembershipReminders(supabase, { clubId, playerIds: ids }), playerIds)
+  revalidateMemberships()
+  if (error) {
+    const why = readableSentence(error, result.sent > 0 ? "The rest weren't sent. Try again." : "The reminders weren't sent. Try again.")
+    return { tone: "error", text: result.sent > 0 ? `${reminderOutcomeSentence(result)} ${why}` : why, sent: result.sent }
+  }
+  return { tone: "ok", text: reminderOutcomeSentence(result), sent: result.sent }
+}
+
+/**
+ * What a reminder would say and to how many, before anybody presses Send: the server's own composer and the sending
+ * rule, recording nothing and telling nobody anything.
+ */
+export async function previewRemindersAction(clubId: string, playerIds: string[]): Promise<{ ok: true; preview: ReminderPreview } | { ok: false; error: string }> {
+  if (playerIds.length === 0) return { ok: true, preview: { willSend: 0, skipped: [], example: null, examples: [] } }
+  const supabase = await createClient()
+  try {
+    // The preview reads up to 500 at a time: each situation's message, with how many families get it.
+    return { ok: true, preview: await previewMembershipReminders(supabase, { clubId, playerIds: playerIds.slice(0, 500) }) }
+  } catch (cause) {
+    return { ok: false, error: readableSentence(cause, "The message couldn't be shown. Try again.") }
+  }
+}
+
+/**
+ * CHANGING WHO PAYS (decision #11): the current payer's set-up ends so another guardian can take the membership on.
+ * The server decides who may, and refuses while a Direct Debit is collecting or a payment is on its way to the bank
+ * -- so two collections can never run for one player. `collecting` marks the refusal whose way forward is Cancel
+ * Membership.
+ */
+export async function changeWhoPaysAction(payerSubscriptionId: string, reason: string): Promise<{ ok: true } | { ok: false; error: string; collecting: boolean }> {
+  if (reason.trim().length === 0) return { ok: false, error: "Say why the payer is changing.", collecting: false }
+  const supabase = await createClient()
+  try {
+    await releaseResponsiblePayer(supabase, { payerSubscriptionId, reason: reason.trim() })
+    revalidateMemberships()
+    return { ok: true }
+  } catch (cause) {
+    const e = (cause ?? {}) as { code?: string; message?: string }
+    return {
+      ok: false,
+      error: readableSentence(cause, "Who pays wasn't changed. Try again."),
+      collecting: e.code === "55000" && /is collecting/i.test(e.message ?? ""),
+    }
+  }
 }

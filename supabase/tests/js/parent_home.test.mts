@@ -120,6 +120,23 @@ test("the question names the child, in the words the Match Centre uses", () => {
   assert.equal(session.label, "Can Pippa make training?")
 })
 
+test("two sessions on different days are two rows that say which day", () => {
+  // Same time, same ground, a different evening: without the day the two jobs read as one listed twice.
+  const rows = attendanceAttention(
+    [
+      event({ key: "tue", date: "2026-10-06", kind: "training", them: null, homeAway: null, time: "18:00", venue: "Prairie Playing Fields" }),
+      event({ key: "thu", date: "2026-10-08", kind: "training", them: null, homeAway: null, time: "18:00", venue: "Prairie Playing Fields" }),
+    ],
+    TODAY
+  )
+  assert.equal(rows.length, 2)
+  assert.notEqual(rows[0].detail, rows[1].detail, "the two rows are indistinguishable")
+  rows.forEach((row, i) => {
+    const day = dayLabel(["2026-10-06", "2026-10-08"][i], TODAY)
+    assert.ok(row.detail?.startsWith(day), `"${row.detail}" does not open with its day (${day})`)
+  })
+})
+
 test("an adult player is asked about themselves", () => {
   const [item] = attendanceAttention([event({ key: "a", date: "2026-10-04" })], TODAY, { viewerIsThePlayer: true })
   assert.equal(item.label, "Can you make it?")
@@ -148,6 +165,17 @@ test("beyond the fortnight it is real rugby but not this fortnight's job", () =>
   assert.equal(attendanceAttention([event({ key: "edge", date: inside })], TODAY).length, 1)
   const outside = "2026-10-20"
   assert.deepEqual(attendanceAttention([event({ key: "far", date: outside })], TODAY), [])
+})
+
+test("a match whose attendance has not opened is not asked about -- the server would refuse the answer", () => {
+  // Match Centre consolidation (2026-10-03): attendance opens six days out by default, a club's own
+  // number when it sets one, or earlier when a side opens it. The row carries the server's own answer
+  // (`fixtures.attendance_is_open`); a row without one (training) keeps the horizon alone.
+  const notYet = event({ key: "later", date: "2026-10-12", attendanceOpen: false } as never)
+  const opened = event({ key: "early", date: "2026-10-12", attendanceOpen: true } as never)
+  assert.equal(needsAttendanceResponse(notYet, TODAY), false)
+  assert.equal(needsAttendanceResponse(opened, TODAY), true)
+  assert.deepEqual(attendanceAttention([notYet, opened], TODAY).map((a) => a.item?.key), ["early"])
 })
 
 test("close enough to be today's job is marked urgent, not hidden", () => {
@@ -382,14 +410,18 @@ test("narrowing cannot reach a row the read did not contain", () => {
 
 // --------------------------------------------------- where an event opens
 
-test("a parent's match opens the Match Centre, never fixture administration", () => {
+// MATCH CENTRE CONSOLIDATION (owner brief, 2026-10-03): a parent and a coach open the SAME Match
+// Centre at the same address; the server decides what each may see and do there. "Never fixture
+// administration" now holds because the administration a parent could reach no longer exists as a
+// surface -- participant_routing.test.mts pins that the address draws only the Match Centre.
+test("a parent's match opens the Match Centre", () => {
   for (const kind of ["parent", "family", "player"] as const) {
     const route = routeForAgendaItem(event({ key: "a", date: "2026-10-03", eventId: "fx-1" }), kind)
-    assert.deepEqual(route, { pathname: "/fixtures/[fixtureId]/match-centre", params: { fixtureId: "fx-1" } })
+    assert.deepEqual(route, { pathname: "/fixtures/[fixtureId]", params: { fixtureId: "fx-1" } })
   }
 })
 
-test("staff keep the fixture screen, where administration lives", () => {
+test("staff open the same one Match Centre, where their controls live in place", () => {
   for (const kind of ["team", "club", "site_admin"] as const) {
     const route = routeForAgendaItem(event({ key: "a", date: "2026-10-03", eventId: "fx-1" }), kind)
     assert.deepEqual(route, { pathname: "/fixtures/[fixtureId]", params: { fixtureId: "fx-1" } })
@@ -424,9 +456,9 @@ test("no participant event ever resolves to the planner, the importer or a new f
 
 test("the intent and the route are one table — no screen holds a second copy", () => {
   const intent = agendaIntent(event({ key: "a", date: "2026-10-03", eventId: "fx-9" }), "parent")
-  assert.deepEqual(intent, { kind: "MATCH_CENTRE", fixtureId: "fx-9" })
+  assert.deepEqual(intent, { kind: "FIXTURE", fixtureId: "fx-9" })
   assert.deepEqual(routeForIntent(intent), {
-    pathname: "/fixtures/[fixtureId]/match-centre",
+    pathname: "/fixtures/[fixtureId]",
     params: { fixtureId: "fx-9" },
   })
 })

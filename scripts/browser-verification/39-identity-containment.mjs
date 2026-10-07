@@ -125,7 +125,7 @@ try {
     coachInsert.status >= 400 && injected === 0, `HTTP ${coachInsert.status}, ${injected} probe rows exist`)
 
   const coachGuardianRowsBefore = Number(sql(`select count(*) from public.guardians where guardian_user_id='${coachId}'`))
-  const teamChild = sql(`select m.player_id from public.player_team_memberships m join public.team_permissions tp on tp.team_id=m.team_id join public.club_memberships cm on cm.id=tp.membership_id where cm.user_id='${coachId}' and m.status='active' limit 1`)
+  const teamChild = sql(`select m.player_id from public.player_team_memberships m join testing.team_roles tp on tp.team_id=m.team_id join public.club_memberships cm on cm.id=tp.membership_id where cm.user_id='${coachId}' and m.status='active' limit 1`)
   const coachLink = await rest("POST", "guardians", { token: coachToken, body: { guardian_user_id: coachId, player_id: teamChild, relationship_type: "guardian" } })
   const coachGuardianRowsAfter = Number(sql(`select count(*) from public.guardians where guardian_user_id='${coachId}'`))
   if (coachGuardianRowsAfter > coachGuardianRowsBefore) sql(`delete from public.guardians where guardian_user_id='${coachId}' and player_id='${teamChild}' and created_at > now() - interval '5 minutes'`)
@@ -188,7 +188,7 @@ try {
   const storedPhone = sql(`select coalesce(phone_number,'') from public.profiles where id='${guardianId}'`)
   record("B3 a person still edits their own profile details", storedPhone.replace(/\s/g, "") === phone.replace(/\s/g, ""), `database reads "${storedPhone}"`)
 
-  const teamId = sql(`select tp.team_id from public.team_permissions tp join public.club_memberships cm on cm.id=tp.membership_id where cm.user_id='${coachId}' and tp.permission='coach' limit 1`)
+  const teamId = sql(`select tp.team_id from testing.team_roles tp join public.club_memberships cm on cm.id=tp.membership_id where cm.user_id='${coachId}' and tp.role_key='COACH' limit 1`)
   const playerName = sql(`select p.first_name from public.player_team_memberships m join public.players p on p.id=m.player_id where m.team_id='${teamId}' and m.status='active' limit 1`)
   await coachPage.goto(`${APP}/teams/${teamId}`, { waitUntil: "domcontentloaded" })
   await coachPage.waitForLoadState("networkidle").catch(() => {})

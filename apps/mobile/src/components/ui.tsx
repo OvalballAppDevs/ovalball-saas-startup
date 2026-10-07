@@ -10,7 +10,7 @@ import {
   type ViewStyle,
 } from "react-native"
 
-import { CircleAlert, WifiOff } from "./icons"
+import { CircleAlert, Info, WifiOff } from "./icons"
 import { TOUCH_TARGET, colour, elevation, radius, space, type } from "../design/tokens"
 
 /**
@@ -29,18 +29,38 @@ export function Button({
   disabled = false,
   style,
   accessibilityHint,
+  icon,
+  trailing,
 }: {
   label: string
   onPress: () => void
-  variant?: "primary" | "secondary" | "quiet" | "danger"
+  /**
+   * `brand` is the approved Club Memberships designs' green (rugby700, the mockups' primary): the membership
+   * surfaces' primary action. It lives here, beside `primary`, so the one Button still owns every green; making it
+   * the app-wide primary is the owner's decision, one line below.
+   */
+  variant?: "primary" | "brand" | "secondary" | "quiet" | "danger"
   busy?: boolean
   disabled?: boolean
   style?: StyleProp<ViewStyle>
   accessibilityHint?: string
+  /**
+   * DECORATION BESIDE THE WORDS, never instead of them.
+   *
+   * `icon` sits before the label and `trailing` after it -- the calendar-mark-and-chevron shape the
+   * approved designs use for a primary action that leads somewhere. They are decorative: the label
+   * says the whole thing and carries the accessible name, so a screen reader is not read a chevron.
+   *
+   * They live on the ONE button rather than in a near-identical hand-rolled Pressable beside it,
+   * because a second button is how two buttons come to disagree about their own green.
+   */
+  icon?: React.ReactNode
+  trailing?: React.ReactNode
 }) {
   const inactive = disabled || busy
   const palette: Record<string, { bg: string; fg: string; border: string }> = {
     primary: { bg: colour.forest800, fg: colour.onForest, border: colour.forest800 },
+    brand: { bg: colour.rugby700, fg: colour.onForest, border: colour.rugby700 },
     secondary: { bg: colour.surface, fg: colour.ink, border: colour.lineStrong },
     quiet: { bg: "transparent", fg: colour.forest800, border: "transparent" },
     // Restrained, not alarming: an outlined pink/red surface (Decline), never a solid destructive fill.
@@ -73,7 +93,15 @@ export function Button({
       ]}
     >
       {busy && <ActivityIndicator size="small" color={shade.fg} />}
-      <Text style={[type.bodyMedium, { color: shade.fg }]}>{label}</Text>
+      {!busy && !!icon && <View accessible={false}>{icon}</View>}
+      <Text style={[type.bodyMedium, { color: shade.fg, textAlign: "center", flexShrink: 1 }]}>{label}</Text>
+      {/* THE TRAILING MARK SITS AT THE EDGE, not beside the words: the label stays optically centred
+          in the button whether or not there is a chevron, which is what keeps a row of buttons aligned. */}
+      {!!trailing && (
+        <View accessible={false} pointerEvents="none" style={{ position: "absolute", right: space.lg, top: 0, bottom: 0, justifyContent: "center" }}>
+          {trailing}
+        </View>
+      )}
     </Pressable>
   )
 }
@@ -118,6 +146,39 @@ export function SectionHeading({ children, action }: { children: string; action?
         {children}
       </Text>
       {action}
+    </View>
+  )
+}
+
+/**
+ * AN EXPLANATORY NOTE -- what will happen, or why a default is what it is.
+ *
+ * NOT A WARNING. Ovalball's amber is for something a person should worry about; this is the pale blue
+ * the app already uses for a training event, named `infoSurface`, carrying an information mark. A
+ * guidance sentence dressed as a caution teaches people to ignore cautions.
+ *
+ * The icon is decorative -- the sentence says the whole thing -- so it is hidden from a screen reader
+ * rather than announced as "information, information".
+ */
+export function InfoNote({ children, style }: { children: string; style?: StyleProp<ViewStyle> }) {
+  return (
+    <View
+      style={[
+        {
+          flexDirection: "row",
+          gap: space.sm,
+          alignItems: "flex-start",
+          backgroundColor: colour.infoSurface,
+          borderRadius: radius.md,
+          padding: space.md,
+        },
+        style,
+      ]}
+    >
+      <View accessible={false} style={{ paddingTop: 1 }}>
+        <Info size={15} color={colour.info} strokeWidth={2} />
+      </View>
+      <Text style={[type.caption, { flex: 1, color: colour.info, lineHeight: 18 }]}>{children}</Text>
     </View>
   )
 }

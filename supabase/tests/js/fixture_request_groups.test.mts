@@ -37,6 +37,8 @@ function req(overrides: Partial<TeamFixtureRequest> = {}): TeamFixtureRequest {
     counteredKickoffTime: null,
     counteredVenuePreference: null,
     counterNote: null,
+    responseNote: null,
+    groupSource: null,
     groupId: "group-1",
     resultingFixtureId: null,
     otherClubCrestUrl: null,

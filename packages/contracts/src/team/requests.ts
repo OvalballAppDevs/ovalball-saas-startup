@@ -49,6 +49,10 @@ export interface TeamFixtureRequest {
   counteredKickoffTime: string | null
   counteredVenuePreference: "home" | "away" | "either" | null
   counterNote: string | null
+  /** The answering club's note on THIS request -- never another request's, never the requester's own note. */
+  responseNote: string | null
+  /** Where the group came from: 'season_planner' marks one fixture of a Club Day. */
+  groupSource: string | null
   /** The group this request was sent as part of (owner correction pass, Section 17) -- several requests
    * sharing one `groupId` were sent/received together and belong on ONE inbox card, never N unrelated
    * ones. Real canonical identity, never invented. */
@@ -63,7 +67,7 @@ export interface TeamFixtureRequest {
 }
 
 export const REQUEST_FIELDS =
-  "id, status, venue_preference, preferred_kickoff_time, note, created_at, decided_at, updated_at, requesting_team_id, target_team_id, existing_fixture_id, countered_date, countered_kickoff_time, countered_venue_preference, counter_note, last_proposed_by_team_id, group_id, resulting_fixture_id, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(id, logo_storage_path, club_directory(name, logo_storage_path))), target:teams!fixture_requests_target_team_id_fkey(display_name, clubs(id, logo_storage_path, club_directory(name, logo_storage_path))), fixture_request_groups(proposed_date, raw_opponent_text, game_type)"
+  "id, status, venue_preference, preferred_kickoff_time, note, created_at, decided_at, updated_at, requesting_team_id, target_team_id, existing_fixture_id, countered_date, countered_kickoff_time, countered_venue_preference, counter_note, response_note, last_proposed_by_team_id, group_id, resulting_fixture_id, requester:teams!fixture_requests_requesting_team_id_fkey(display_name, clubs(id, logo_storage_path, club_directory(name, logo_storage_path))), target:teams!fixture_requests_target_team_id_fkey(display_name, clubs(id, logo_storage_path, club_directory(name, logo_storage_path))), fixture_request_groups(proposed_date, raw_opponent_text, game_type, source)"
 
 export type RequestRow = {
   id: string
@@ -81,12 +85,14 @@ export type RequestRow = {
   countered_kickoff_time: string | null
   countered_venue_preference: string | null
   counter_note: string | null
+  /** The answering club's own note on this one fixture (20270761000000); absent on rows read by older selects. */
+  response_note?: string | null
   last_proposed_by_team_id: string | null
   group_id: string
   resulting_fixture_id: string | null
   requester: { display_name: string | null; clubs: { logo_storage_path: string | null; club_directory: { name: string | null; logo_storage_path: string | null } | null } | null } | null
   target: { display_name: string | null; clubs: { logo_storage_path: string | null; club_directory: { name: string | null; logo_storage_path: string | null } | null } | null } | null
-  fixture_request_groups: { proposed_date: string | null; raw_opponent_text: string | null; game_type: string | null } | null
+  fixture_request_groups: { proposed_date: string | null; raw_opponent_text: string | null; game_type: string | null; source?: string | null } | null
 }
 
 export function projectRequest(r: RequestRow, teamId: string, supabase: Client): TeamFixtureRequest {
@@ -116,6 +122,8 @@ export function projectRequest(r: RequestRow, teamId: string, supabase: Client):
     counteredKickoffTime: r.countered_kickoff_time,
     counteredVenuePreference: (r.countered_venue_preference as TeamFixtureRequest["counteredVenuePreference"]) ?? null,
     counterNote: r.counter_note,
+    responseNote: r.response_note ?? null,
+    groupSource: r.fixture_request_groups?.source ?? null,
     groupId: r.group_id,
     resultingFixtureId: r.resulting_fixture_id,
     otherClubCrestUrl: other?.clubs ? resolveClubLogoUrl(supabase, other.clubs) : null,
@@ -171,41 +179,25 @@ export async function acceptFixtureRequest(supabase: Client, requestId: string):
 }
 
 /**
- * Declining is a plain status update the `fixture_requests_update_scoped` policy already covers -- either
- * side may decline or withdraw. No atomic multi-table write is needed the way acceptance requires.
- * Open to a live counter-proposal too, not just a fresh 'sent' request -- a standing suggestion is still
- * something the responding side may say no to outright, rather than being forced to counter again.
+ * Declining goes through `decline_fixture_request`, which decides on the server whose turn it is (the side that did not
+ * make the standing proposal), that the request is still open, and who declined -- the table itself is not writable
+ * from a client (20270762000000). Open to a live counter-proposal too: a standing suggestion is still something the
+ * answering side may say no to outright. `note` is that side's own note on this fixture.
  */
-export async function declineFixtureRequest(supabase: Client, requestId: string, userId: string): Promise<void> {
-  const { data, error } = await supabase
-    .from("fixture_requests")
-    .update({ status: "declined", decided_by: userId, decided_at: new Date().toISOString() })
-    .eq("id", requestId)
-    .in("status", ["sent", "counter_proposed"])
-    .select("id")
+export async function declineFixtureRequest(supabase: Client, requestId: string, note?: string | null): Promise<void> {
+  const { error } = await supabase.rpc("decline_fixture_request", { p_request_id: requestId, p_note: note ?? undefined })
   if (error) throw error
-  // A policy that filters rather than errors leaves the row untouched; say so rather than reporting a decline that did not happen.
-  if (!data || data.length === 0) throw Object.assign(new Error("You can't answer this request."), { code: "42501" })
 }
 
 /**
- * Withdrawing OUR OWN request (owner correction pass): the requesting side may pull an unresolved
- * request at any time -- while it is still freshly 'sent' or while a counter-proposal is standing --
- * without waiting for the other club to act first. This is deliberately `status: 'cancelled'`, never
- * `'declined'`: the enum already carries both meanings distinctly (a recipient who says no left this
- * declined; a requester who changes their mind withdrew it), and conflating the two would tell the other
- * club they were refused when in fact nobody on their side ever answered. The same
- * `fixture_requests_update_scoped` policy covers this write from the requesting club's side.
+ * Withdrawing OUR OWN request: the requesting side may pull an unresolved request at any time -- while it is still
+ * freshly 'sent' or while a counter-proposal is standing. Deliberately `cancelled`, never `declined`: a requester who
+ * changes their mind withdrew it; nobody on the other side answered. `withdraw_fixture_request` checks the requesting
+ * side's `fixture.request.create` on the server.
  */
-export async function withdrawFixtureRequest(supabase: Client, requestId: string, userId: string): Promise<void> {
-  const { data, error } = await supabase
-    .from("fixture_requests")
-    .update({ status: "cancelled", decided_by: userId, decided_at: new Date().toISOString() })
-    .eq("id", requestId)
-    .in("status", ["sent", "counter_proposed"])
-    .select("id")
+export async function withdrawFixtureRequest(supabase: Client, requestId: string): Promise<void> {
+  const { error } = await supabase.rpc("withdraw_fixture_request", { p_request_id: requestId })
   if (error) throw error
-  if (!data || data.length === 0) throw Object.assign(new Error("You can't withdraw this request."), { code: "42501" })
 }
 
 /**
@@ -386,12 +378,28 @@ export async function readTeamJoinCodes(supabase: Client, teamId: string): Promi
 }
 
 /** The plain code is returned ONCE, at issue; afterwards only its hint is ever readable. */
-export async function issueTeamJoinCode(supabase: Client, teamId: string): Promise<{ code: string | null; token: string | null; expiresAt: string | null }> {
-  const { data, error } = await supabase.rpc("issue_invitation", { p_kind: "TEAM_JOIN_CODE", p_team_id: teamId })
+/**
+ * A team's joining code. With no options it is the team's shared code (a poster, a QR on the
+ * touchline: up to 50 people). With an invitee it is a PERSONAL invitation to one player -- the same
+ * kind, used once, carrying their name so the club can see who it went to (People > Pending). Either
+ * way redeeming it opens a request the team or club decides; a code never grants anything itself.
+ */
+export async function issueTeamJoinCode(
+  supabase: Client,
+  teamId: string,
+  options: { inviteeName?: string | null } = {}
+): Promise<{ code: string | null; token: string | null; expiresAt: string | null; invitationId: string | null }> {
+  const personal = !!options.inviteeName?.trim()
+  const { data, error } = await supabase.rpc("issue_invitation", {
+    p_kind: "TEAM_JOIN_CODE",
+    p_team_id: teamId,
+    p_intended_outcome: personal ? { invitee_name: options.inviteeName!.trim() } : undefined,
+    p_max_uses: personal ? 1 : undefined,
+  })
   if (error) throw error
-  const row = (Array.isArray(data) ? data[0] : data) as { code?: string | null; token?: string | null; expires_at?: string | null } | null
+  const row = (Array.isArray(data) ? data[0] : data) as { invitation_id?: string | null; code?: string | null; token?: string | null; expires_at?: string | null } | null
   // CA-M11.1: the TOKEN is what the link and the QR carry (the website shows all three); returned once, never stored.
-  return { code: row?.code ?? null, token: row?.token ?? null, expiresAt: row?.expires_at ?? null }
+  return { code: row?.code ?? null, token: row?.token ?? null, expiresAt: row?.expires_at ?? null, invitationId: row?.invitation_id ?? null }
 }
 
 export async function revokeTeamJoinCode(supabase: Client, invitationId: string, reason: string): Promise<void> {

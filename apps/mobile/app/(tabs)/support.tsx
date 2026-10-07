@@ -18,7 +18,8 @@ import {
 import { ChevronRight, CircleHelp, Plus, X } from "../../src/components/icons"
 import { CardSkeleton, EmptyState, ErrorState } from "../../src/components/ui"
 import { friendly, logDetail } from "../../src/errors/translate"
-import { TOUCH_TARGET, colour, radius, space, type } from "../../src/design/tokens"
+import { TOUCH_TARGET, colour, onForest, radius, space, type } from "../../src/design/tokens"
+import { OvalballDetailHeader } from "../../src/components/app-header"
 
 /**
  * SUPPORT — a real destination, not a button that opens a browser.
@@ -69,54 +70,27 @@ export default function Support() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <View
-        style={{
-          paddingTop: insets.top + space.sm,
-          paddingBottom: space.sm,
-          paddingHorizontal: space.md,
-          borderBottomWidth: 1,
-          borderBottomColor: colour.line,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: space.xs,
-        }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={() => router.back()}
-          hitSlop={8}
-          style={({ pressed }) => ({
-            width: TOUCH_TARGET,
-            height: TOUCH_TARGET,
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: pressed ? 0.6 : 1,
-          })}
-        >
-          <View style={{ transform: [{ rotate: "180deg" }] }}>
-            <ChevronRight size={22} color={colour.ink} />
-          </View>
-        </Pressable>
-        <Text accessibilityRole="header" style={[type.heading, { color: colour.ink, flex: 1 }]}>
-          Support
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Raise a new support request"
-          onPress={() => setComposing(true)}
-          hitSlop={8}
-          style={({ pressed }) => ({
-            width: TOUCH_TARGET,
-            height: TOUCH_TARGET,
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: pressed ? 0.6 : 1,
-          })}
-        >
-          <Plus size={22} color={colour.forest800} />
-        </Pressable>
-      </View>
+      <OvalballDetailHeader
+        title="Support"
+        onBack={() => router.back()}
+        rightAction={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Raise a new support request"
+            onPress={() => setComposing(true)}
+            hitSlop={8}
+            style={({ pressed }) => ({
+              width: TOUCH_TARGET,
+              height: TOUCH_TARGET,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Plus size={22} color={onForest.primary} />
+          </Pressable>
+        }
+      />
 
       <ScrollView
         contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl, gap: space.md }}

@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { resolvePersonalAvatarUrl } from "./personal-avatar"
+import { loadContactAvatars } from "./messenger-avatars"
+import type { Database } from "./database"
 import type { ThreadMessage } from "./messenger-thread-types"
-import { loadThreadMessages } from "./messenger-thread"
+import { loadThreadMessages, type ThreadPageOptions } from "./messenger-thread"
 
 /**
  * READING A 1:1 CONVERSATION.
@@ -55,18 +56,18 @@ const UNAVAILABLE = "This conversation isn't available."
  * never a reason to show a different image, and never a reason to fail the whole thread.
  */
 async function resolveOtherAvatar(supabase: SupabaseClient, otherUserId: string): Promise<string | null> {
-  const { data } = await supabase
-    .from("profiles")
-    .select("avatar_storage_path")
-    .eq("id", otherUserId)
-    .maybeSingle()
-  return resolvePersonalAvatarUrl(supabase, data?.avatar_storage_path ?? null)
+  // Through the messaging contact reader: `profiles` is readable only by its owner, so a plain select returned
+  // nothing and every conversation header showed initials.
+  const avatars = await loadContactAvatars(supabase as SupabaseClient<Database>, [otherUserId])
+  return avatars.get(otherUserId) ?? null
 }
 
 export async function getDirectThread(
   supabase: SupabaseClient,
   conversationId: string,
   viewerId: string,
+  /** The newest page only, for a client that pages. Omitted, the whole thread is read -- the web's behaviour, unchanged. */
+  page?: ThreadPageOptions,
 ): Promise<DirectThreadView | null> {
   const { data: conversation } = await supabase
     .from("direct_conversations")
@@ -106,7 +107,7 @@ export async function getDirectThread(
     // an organisation that is not party to it.
     clubIds: [],
     teams: [],
-  })
+  }, page)
 
   // WHO SAID IT COMES FROM THE HEADER, not from a club lookup that deliberately was not done. Two
   // people, one of them you: the canonical resolver's "Ovalball user" fallback is right in general and
@@ -118,6 +119,8 @@ export async function getDirectThread(
     senderRoleLabel: "",
     senderClubName: "",
     senderAvatarUrl: m.isOwn ? null : otherAvatarUrl,
+    // A quote names its author the same way, for the same reason.
+    replyTo: m.replyTo ? { ...m.replyTo, senderName: m.replyTo.isOwn ? "You" : (header.other_display_name ?? "Ovalball user") } : m.replyTo,
   }))
 
   const canSend = header.can_send === true

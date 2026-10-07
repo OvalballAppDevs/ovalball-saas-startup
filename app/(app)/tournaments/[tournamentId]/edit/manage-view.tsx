@@ -438,7 +438,10 @@ function ScheduleSection({
           <select value={opponentId} onChange={(e) => setOpponentId(e.target.value)} className={cn(FIELD, "col-span-2")} aria-label="Opponent">
             <option value="">Opponent…</option>
             {entry.opponents.map((o) => (
-              <option key={o.id} value={o.id}>
+              // Valued by PARTICIPANT id -- what a game is actually between. The
+              // row's own id identifies the "who are we playing" record, which is
+              // not the same thing as the side.
+              <option key={o.id} value={o.participantId}>
                 {o.clubName}
               </option>
             ))}
@@ -471,8 +474,14 @@ function ScheduleSection({
                 setError(null)
                 const r = await saveTournamentGameAction(tournament.id, {
                   gameId: null,
-                  entryId: entry.id,
-                  opponentId,
+                  // Both sides by their PARTICIPANT id. An entry's own id is one;
+                  // the opponent select carries the other.
+                  sideAId: entry.id,
+                  sideBId: opponentId,
+                  // The grade comes from the entry, never from the opponent: the
+                  // database refuses a game between two different age groups, and
+                  // an entry is the side whose competition this is.
+                  ageGroup: entry.ageGroup ?? "",
                   gameDate: tournament.isMultiDay ? gameDate : tournament.startsOn,
                   startTime: time || null,
                   durationMinutes: Number(duration),

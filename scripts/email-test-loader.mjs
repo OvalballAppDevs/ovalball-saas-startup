@@ -52,7 +52,22 @@ registerHooks({
       const hit = firstExisting(base)
       if (hit) return { url: hit, shortCircuit: true }
     }
-    return nextResolve(specifier, context)
+    try {
+      return nextResolve(specifier, context)
+    } catch (error) {
+      // "next/server" -> "next/server.js". A package with no exports map (Next.js is one) has its subpaths
+      // resolved with an implied ".js" by CommonJS, TypeScript and every bundler; only Node's ESM resolver
+      // insists on the extension. Tried only after the normal resolution has failed, and the original
+      // error stands if the ".js" file does not exist either.
+      if (error?.code === "ERR_MODULE_NOT_FOUND" && /^(@[^/]+\/)?[^./@:][^/:]*\/[^:]+$/.test(specifier) && !/\.[cm]?js$/.test(specifier)) {
+        try {
+          return nextResolve(`${specifier}.js`, context)
+        } catch {
+          throw error
+        }
+      }
+      throw error
+    }
   },
 })
 

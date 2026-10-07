@@ -23,13 +23,20 @@
 // =====================================================================
 
 import { execFileSync } from "node:child_process"
+import fs from "node:fs"
 
 import { launch, newContext, signIn, APP, axeSource, record, recordAxe, summarise } from "./harness.mjs"
 
 const CONTAINER = process.env.SUPABASE_DB_CONTAINER || "supabase_db_ovalball-saas-startup"
 const TAG = Math.random().toString(36).slice(2, 7)
-const TEAM_MANAGER = "uat.team.manager@ovalball.test"
-const GUARDIAN = "uat.guardian.two@ovalball.test"
+// THIS RUN'S OWN MANAGER, GUARDIAN AND CHILD. The suite used to sign in as uat.team.manager and
+// uat.guardian.two and take "the manager's team" with an unordered limit 1. That persona now runs three teams
+// (and has a password a person set), so the team it got was one where no UAT guardian had a child. Both
+// journeys are now about one named team -- the review club's Under 12 Boys -- and the people walking them are
+// made for this run and removed with everything that names them.
+const PEOPLE = "uat.s50.%@ovalball.test"
+const TEAM_MANAGER = `uat.s50.manager.${TAG}@ovalball.test`
+const GUARDIAN = `uat.s50.guardian.${TAG}@ovalball.test`
 const NOTE = `S10 team ${TAG}`
 
 const sql = (q) =>
@@ -37,39 +44,116 @@ const sql = (q) =>
     encoding: "utf8",
   }).trim()
 
-const managerId = sql(`select id from auth.users where email = '${TEAM_MANAGER}'`)
-const teamId = sql(`select ra.team_id from public.role_assignments ra
-                    join public.club_memberships cm on cm.id = ra.membership_id
-                    where cm.user_id = '${managerId}' and ra.state = 'ACTIVE' and ra.team_id is not null limit 1`)
+function env(name) {
+  if (process.env[name]) return process.env[name]
+  try {
+    return fs.readFileSync(new URL("../../.env.local", import.meta.url), "utf8").match(new RegExp(`^${name}=(.*)$`, "m"))?.[1]?.trim() ?? ""
+  } catch {
+    return ""
+  }
+}
+const API = env("NEXT_PUBLIC_SUPABASE_URL") || "http://127.0.0.1:54321"
+const SERVICE_KEY = env("SUPABASE_SERVICE_ROLE_KEY")
+
+/** An adult who signs in with the shared UAT password. Coach and Team Manager need a date of birth showing that. */
+async function person(email, first, surname, dob) {
+  const res = await fetch(`${API}/auth/v1/admin/users`, {
+    method: "POST",
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: env("UAT_BROWSER_PASSWORD"), email_confirm: true }),
+  })
+  const id = (await res.json()).id
+  if (!id) throw new Error(`could not create ${email}: HTTP ${res.status}`)
+  sql(`update public.profiles set first_name = '${first}', surname = '${surname}', date_of_birth = '${dob}', setup_state = 'COMPLETE' where id = '${id}'`)
+  return id
+}
+
+const clubId = sql(`select c.id from public.clubs c join public.club_directory d on d.id = c.directory_id
+                    where d.normalized_key = 'ovalball-uat-rufc'`)
+const teamId = sql(`select id from public.teams
+                    where club_id = '${clubId}' and age_group = 'U12' and gender = 'boys' and squad_designation is null`)
 if (!teamId) {
-  console.error("Missing UAT team staff: run the local UAT seed.")
+  console.error("Missing the review club's Under 12 Boys: run the local UAT seed.")
   process.exit(1)
 }
 const teamName = sql(`select display_name from public.teams where id = '${teamId}'`)
 
-// A guardian whose child plays for that same team, so both journeys are about
-// one team rather than two unrelated ones.
-const guardianId = sql(`select id from auth.users where email = '${GUARDIAN}'`)
-const child = sql(`select p.id || '|' || p.first_name
-                   from public.guardians g join public.players p on p.id = g.player_id
-                   join public.player_team_memberships ptm on ptm.player_id = p.id and ptm.state = 'ACTIVE'
-                   where g.guardian_user_id = '${guardianId}' and g.status = 'active' and ptm.team_id = '${teamId}' limit 1`)
-const [childId, childName] = child ? child.split("|") : [null, null]
-
 function teardown() {
   try {
-    sql(`delete from public.player_fixture_attendance where fixture_id in (select id from public.fixtures where notes like 'S10 team %');
+    // The answer below tells the team's staff; those notices are about this run's fixture, so they go with it.
+    sql(`delete from public.notifications where data ->> 'fixture_id' in (select id::text from public.fixtures where notes like 'S10 team %');
+         delete from public.player_fixture_attendance where fixture_id in (select id from public.fixtures where notes like 'S10 team %');
          delete from public.fixtures where notes like 'S10 team %';`)
   } catch {
     // Asserted at the end rather than assumed.
   }
 }
 
-teardown()
+/** This run's people, their child and the history that names them (which only an operator session may remove). */
+function teardownPeople() {
+  sql(`do $$
+  declare
+    v_people uuid[] := array(select id from auth.users where email like '${PEOPLE}');
+    v_players uuid[] := array(select player_id from public.guardians where guardian_user_id = any(v_people));
+    v_records uuid[];
+  begin
+    perform set_config('ovalball.maintenance', 'on', true);
+    v_records := v_people || v_players
+      || array(select id from public.player_team_memberships where player_id = any(v_players))
+      || array(select id from public.guardians where guardian_user_id = any(v_people))
+      || array(select id from public.club_memberships where user_id = any(v_people))
+      || array(select id from public.role_assignments where user_id = any(v_people));
+    delete from public.notifications where user_id = any(v_people) or data ->> 'player_id' in (select unnest(v_players)::text);
+    delete from public.player_fixture_attendance where player_id = any(v_players);
+    delete from public.player_team_memberships where player_id = any(v_players);
+    delete from public.guardians where guardian_user_id = any(v_people) or player_id = any(v_players);
+    delete from public.players where id = any(v_players);
+    delete from public.role_assignments where user_id = any(v_people);
+    delete from public.club_memberships where user_id = any(v_people);
+    delete from public.audit_log where changed_by = any(v_people) or actor_user_id = any(v_people) or record_id = any(v_records);
+    delete from public.profiles where id = any(v_people);
+    delete from auth.users where id = any(v_people);
+    delete from public.audit_log where record_id = any(v_records);
+    delete from public.security_events where actor_user_id = any(v_people) or subject_user_id = any(v_people) or player_id = any(v_players);
+  end $$;`)
+}
 
+teardown()
+teardownPeople()
+
+const managerId = await person(TEAM_MANAGER, "Morgan", "Manager", "1984-02-09")
+sql(`insert into public.club_memberships (club_id, user_id, role, status) values ('${clubId}', '${managerId}', 'BASIC_USER', 'active');
+     insert into testing.team_roles (membership_id, team_id, role_key)
+       select id, '${teamId}', 'TEAM_MANAGER' from public.club_memberships where club_id = '${clubId}' and user_id = '${managerId}';`)
+
+// A guardian whose child plays for that same team, so both journeys are about
+// one team rather than two unrelated ones. The child's date of birth is the
+// canonical one for the grade: the database refuses a placement outside it.
+const guardianId = await person(GUARDIAN, "Gwen", "Guardian", "1983-06-14")
+const childId = sql(`with p as (
+    insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
+    values ('Wren', 'Teamhome', internal.date_of_birth_in_age_grade('union', 'U12'), true, 'MALE') returning id)
+  insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state, source)
+  select '${guardianId}', p.id, 'parent', 'active', 'ACTIVE', 'SELF_ADDED_CHILD' from p returning player_id`)
+sql(`insert into public.player_team_memberships (player_id, team_id, status) values ('${childId}', '${teamId}', 'active')`)
+const childName = sql(`select first_name from public.players where id = '${childId}'`)
+
+// WHAT IS NEXT, ON A REAL TEAM'S CALENDAR. Under 12 Boys keeps its own season: a fixed twelve days ahead
+// landed on one of its matches (one match per day, refused) and sat behind the five things What's Next shows.
+// So the fixture is on the first day from tomorrow on which the team holds no match -- asked with the team set
+// the refusal itself uses.
+const kickoff = sql(`select d::date::text from generate_series(current_date + 1, current_date + 60, interval '1 day') d
+  where not exists (
+    select 1 from public.fixtures f
+     where f.kickoff_date = d::date and f.status <> 'Cancelled'
+       and (internal.fixture_side_effective_team_ids(f.owning_team_id, f.owning_scheduling_group_id)
+            || case when f.opponent_team_id is null then array[]::uuid[]
+               else internal.fixture_side_effective_team_ids(f.opponent_team_id, f.opponent_scheduling_group_id) end)
+           && internal.fixture_side_effective_team_ids('${teamId}', null))
+  order by d limit 1`)
 const fixtureId = sql(`insert into public.fixtures
   (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, game_type, status, source, notes)
-  values ('${teamId}', 'Home', 'S10 Visitors ${TAG}', (current_date + 12)::date, '11:00', 'Friendly', 'Booked', 'club_created', '${NOTE}')
+  values ('${teamId}', 'Home', 'S10 Visitors ${TAG}', '${kickoff}', '11:00', 'Friendly', 'Booked', 'club_created', '${NOTE}')
   returning id`)
 
 const browser = await launch()
@@ -145,12 +229,14 @@ try {
     const answer = guardian.getByRole("group", { name: new RegExp(`${childName}.*${TAG}`, "i") }).first()
     const hasAnswer = (await answer.count()) > 0
     record("B4 and the answer is offered on the team's own row", hasAnswer)
+    const answered = `select status from public.player_fixture_attendance
+                      where fixture_id = '${fixtureId}' and player_id = '${childId}'`
     if (hasAnswer) {
-      await answer.getByRole("button", { name: /^I'm Available/ }).click()
-      await guardian.waitForTimeout(2000)
+      await answer.getByRole("button", { name: /^I'm Attending/ }).click()
+      // Wait for the write, not for a duration: under a busy machine two seconds was sometimes not enough.
+      for (let i = 0; i < 60 && sql(answered) !== "ATTENDING"; i++) await guardian.waitForTimeout(250)
     }
-    const stored = sql(`select status from public.player_fixture_attendance
-                        where fixture_id = '${fixtureId}' and player_id = '${childId}'`)
+    const stored = sql(answered)
     record("B5 which writes the same canonical record every other surface writes",
       stored === "ATTENDING", stored || "(nothing stored)")
 
@@ -158,13 +244,13 @@ try {
     const pressed = await guardian
       .getByRole("group", { name: new RegExp(`${childName}.*${TAG}`, "i") })
       .first()
-      .getByRole("button", { name: /^I'm Available/ })
+      .getByRole("button", { name: /^I'm Attending/ })
       .getAttribute("aria-pressed")
       .catch(() => null)
     record("B6 and after a reload the server's answer is what the team page shows", pressed === "true", String(pressed))
     await gctx.close()
   } else {
-    record("B1 a guardian reaches the same team", false, "no UAT guardian has a child in this team")
+    record("B1 a guardian reaches the same team", false, "this run's child could not be placed on the team")
   }
 
   // ==================================================================
@@ -188,10 +274,15 @@ try {
 } finally {
   await browser.close()
   teardown()
+  teardownPeople()
 }
 
 record("cleanup: this run's fixture and every answer against it are gone",
   sql(`select count(*) from public.fixtures where notes like 'S10 team %'`) === "0" &&
     sql(`select count(*) from public.player_fixture_attendance where fixture_id = '${fixtureId}'`) === "0")
+record("cleanup: this run's manager, guardian and child are gone, with every notice about the fixture",
+  sql(`select count(*) from auth.users where email like '${PEOPLE}'`) === "0" &&
+    sql(`select count(*) from public.players where id = '${childId}'`) === "0" &&
+    sql(`select count(*) from public.notifications where data ->> 'fixture_id' = '${fixtureId}' or data ->> 'player_id' = '${childId}'`) === "0")
 
 process.exit(summarise() ? 0 : 1)

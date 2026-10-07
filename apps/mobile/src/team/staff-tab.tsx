@@ -1,26 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native"
+import { Pressable, Text, View } from "react-native"
+import { useRouter } from "expo-router"
 
 import {
-  COACH_TITLE_LABEL,
-  TEAM_STAFF_ROLE_KEYS,
   grantTeamStaffRole,
   readTeamStaff,
   revokeTeamStaffRole,
-  setCoachTitle,
+  setStaffTitle,
   teamStaffErrorMessage,
-  type CoachTitle,
   type TeamStaffMember,
 } from "@ovalball/contracts/team/staff"
-import { readClubPeople, type ClubPerson } from "@ovalball/contracts/club/people"
+import { readAssignableRoles } from "@ovalball/contracts/club/people"
+import { roleDisplayLabel } from "@ovalball/contracts/role-labels"
 
 import { supabase } from "../auth/supabase"
 import { NotForYou } from "./screen"
 import { PersonAvatar } from "../components/identity"
 import { BottomSheet } from "../components/bottom-sheet"
 import { Button, CardSkeleton, EmptyState, ErrorState } from "../components/ui"
-import { Check, ChevronRight, Info, Search, UserPlus, Users } from "../components/icons"
+import { ChevronRight, UserPlus } from "../components/icons"
 import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
+import { TeamRoleSelector, type TeamRolePicks } from "../people/team-roles"
 
 /**
  * STAFF -- every legitimate person running this team, and every role they actually hold (Team Profile
@@ -38,7 +38,7 @@ export function StaffTab({
   rosterVisible,
   canManageRoles,
 }: {
-  identity: { id: string; clubId: string }
+  identity: { id: string; clubId: string; teamName: string }
   rosterVisible: boolean
   /** `people.role.assign_team` -- the exact authority assign_role/transition_role_assignment already
    * re-check, asked with this team's own explicit id (Section 5/26), never inferred from a role name. */
@@ -47,8 +47,8 @@ export function StaffTab({
   const [staff, setStaff] = useState<TeamStaffMember[] | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [refused, setRefused] = useState(false)
-  const [addOpen, setAddOpen] = useState(false)
   const [managing, setManaging] = useState<TeamStaffMember | null>(null)
+  const router = useRouter()
 
   const load = useCallback(async () => {
     setProblem(null)
@@ -117,7 +117,7 @@ export function StaffTab({
       </View>
 
       {staff.length === 0 ? (
-        <EmptyState title="No staff added yet" body="Coaches, managers and team staff will appear here." icon={<UserPlus size={22} color={colour.inkSubtle} />} />
+        <EmptyState title="No staff yet" body="Coaches, managers and team staff appear here once they are added." icon={<UserPlus size={22} color={colour.inkSubtle} />} />
       ) : (
         <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: colour.line, backgroundColor: colour.surface, overflow: "hidden" }}>
           {staff.map((member, i) => (
@@ -132,22 +132,19 @@ export function StaffTab({
         </View>
       )}
 
-      {canManageRoles && <Button label="Add Staff Member" onPress={() => setAddOpen(true)} />}
-
-      {addOpen && (
-        <AddStaffSheet
-          clubId={identity.clubId}
-          teamId={identity.id}
-          existingStaff={staff}
-          onClose={() => setAddOpen(false)}
-          onDone={() => {
-            setAddOpen(false)
-            void load()
-          }}
+      {/* ADD STAFF MEMBERS IS THE ONE FRONT DOOR (People & Invitations): the same screen Home's Add to Club
+          opens, with this team chosen -- invite somebody new (the one staff invitation) or add an existing
+          person. Explicit ids from this profile, never the switched context. */}
+      {canManageRoles && (
+        <Button
+          label="Add Staff Members"
+          onPress={() => router.push({ pathname: "/team/add-staff", params: { clubId: identity.clubId, teamId: identity.id, teamName: identity.teamName } } as never)}
         />
       )}
+
       {managing && (
         <ManageStaffSheet
+          clubId={identity.clubId}
           teamId={identity.id}
           member={managing}
           onClose={() => setManaging(null)}
@@ -169,9 +166,7 @@ function StaffRow({
   canManage: boolean
   onManage: () => void
 }) {
-  const roleLine = member.roles
-    .map((r) => (r.roleKey === "COACH" && r.title ? COACH_TITLE_LABEL[r.title] : r.label))
-    .join(" · ")
+  const roleLine = member.roles.map((r) => r.displayLabel).join(" · ")
 
   return (
     <Pressable
@@ -213,461 +208,10 @@ function StaffRowSkeleton({ first }: { first: boolean }) {
   )
 }
 
-/**
- * THE ONE ROLE CATALOGUE, shared by Add Staff Member and Manage Staff Member (Section 4 addendum,
- * Section 5/8: "Do not maintain separate role vocabulary"). TEAM_ADMINISTRATION is a senior,
- * rarely-delegated role (`visible: false` in the canonical catalogue -- "do not expose arbitrary
- * platform roles") and is deliberately never offered here. TEAM_MANAGER/COACH/FIRST_AIDER/
- * TEAM_SAFEGUARDING_LEAD all share the identical `assignable_by` ceiling ({SITE, CLUB, TEAM_ADMIN}),
- * confirmed against the live `role_definitions` rows, so nothing here decides per-role assignability
- * beyond the one `canManageRoles` gate that already re-asks that exact authority server-side.
- *
- * Display order follows the owner's own suggested order (Team Manager, then the coaching family, then
- * First Aider, then Team Safeguarding Lead); the underlying `roles[]` array a person carries stays
- * canonical and never depends on this order.
- */
-const ROLE_LABEL: Record<(typeof TEAM_STAFF_ROLE_KEYS)[number], string> = {
-  TEAM_ADMINISTRATION: "Team Administration",
-  TEAM_MANAGER: "Team Manager",
-  COACH: "Coach",
-  FIRST_AIDER: "First Aider",
-  TEAM_SAFEGUARDING_LEAD: "Team Safeguarding Lead",
-}
-const ROLE_DESCRIPTION: Record<(typeof TEAM_STAFF_ROLE_KEYS)[number], string> = {
-  TEAM_ADMINISTRATION: "",
-  TEAM_MANAGER: "Manages day-to-day team operations.",
-  COACH: "Leads or supports the team's coaching.",
-  FIRST_AIDER: "Provides team first-aid support.",
-  TEAM_SAFEGUARDING_LEAD: "Team-level safeguarding contact.",
-}
-const GRANTABLE_ROLES: (typeof TEAM_STAFF_ROLE_KEYS)[number][] = ["TEAM_MANAGER", "COACH", "FIRST_AIDER", "TEAM_SAFEGUARDING_LEAD"]
-const COACH_TITLE_DESCRIPTION: Record<Exclude<CoachTitle, null> | "plain", string> = {
-  HEAD_COACH: "Lead coaching role.",
-  plain: "Coaching role.",
-  ASSISTANT_COACH: "Supports coaching delivery.",
-}
-
-function setsEqual(a: Set<string>, b: Set<string>): boolean {
+function sameRoles(a: TeamRolePicks, b: TeamRolePicks): boolean {
   if (a.size !== b.size) return false
-  for (const v of a) if (!b.has(v)) return false
+  for (const [k, v] of a) if (!b.has(k) || (b.get(k) ?? null) !== (v ?? null)) return false
   return true
-}
-
-/**
- * ONE SELECTABLE ROLE CARD -- a checkbox, the role's own label and a one-line description, reused for
- * every role and by both Add and Manage (Section 4 addendum Section 5: "polished selectable
- * cards/check rows"). Coach nests its own coaching-title picker directly underneath when checked,
- * rather than exposing Head Coach/Coach/Assistant Coach as three separate top-level checkboxes --
- * canonical authority is always exactly one COACH assignment, and this shape makes that structurally
- * impossible to violate from the UI (never "Head Coach + Coach + Assistant Coach" simultaneously).
- */
-function RoleSelector({
-  selected,
-  onToggle,
-  coachTitle,
-  onSetCoachTitle,
-  lockedKeys,
-  disabled,
-}: {
-  selected: Set<string>
-  onToggle: (key: string) => void
-  coachTitle: CoachTitle
-  onSetCoachTitle: (t: CoachTitle) => void
-  lockedKeys?: Set<string>
-  disabled?: boolean
-}) {
-  return (
-    <View style={{ gap: space.sm }}>
-      {GRANTABLE_ROLES.map((key) => {
-        const locked = lockedKeys?.has(key) ?? false
-        const on = selected.has(key)
-        return (
-          <View key={key}>
-            <RoleCard
-              label={ROLE_LABEL[key]}
-              description={ROLE_DESCRIPTION[key]}
-              checked={on}
-              disabled={disabled || locked}
-              suffix={locked ? "(already held)" : undefined}
-              onPress={() => onToggle(key)}
-            />
-            {key === "COACH" && on && (
-              <View style={{ marginLeft: space.xl, marginTop: space.xs, gap: 2 }}>
-                {(["HEAD_COACH", null, "ASSISTANT_COACH"] as CoachTitle[]).map((t) => (
-                  <TitleRadio
-                    key={t ?? "plain"}
-                    label={t ? COACH_TITLE_LABEL[t] : "Coach"}
-                    description={COACH_TITLE_DESCRIPTION[t ?? "plain"]}
-                    checked={coachTitle === t}
-                    disabled={disabled}
-                    onPress={() => onSetCoachTitle(t)}
-                  />
-                ))}
-              </View>
-            )}
-          </View>
-        )
-      })}
-    </View>
-  )
-}
-
-function RoleCard({
-  label,
-  description,
-  checked,
-  disabled,
-  suffix,
-  onPress,
-}: {
-  label: string
-  description: string
-  checked: boolean
-  disabled?: boolean
-  suffix?: string
-  onPress: () => void
-}) {
-  return (
-    <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked, disabled: !!disabled }}
-      accessibilityLabel={`${label}${suffix ? ` ${suffix}` : ""}`}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "flex-start",
-        gap: space.md,
-        paddingVertical: space.sm,
-        paddingHorizontal: space.md,
-        borderRadius: radius.md,
-        borderWidth: 1,
-        borderColor: checked ? colour.forest800 : colour.line,
-        backgroundColor: checked ? "rgba(16,61,44,0.06)" : colour.surface,
-        opacity: pressed && !disabled ? 0.8 : disabled ? 0.6 : 1,
-      })}
-    >
-      <View style={{ width: 22, height: 22, borderRadius: 6, marginTop: 1, borderWidth: 1.5, borderColor: checked ? colour.forest800 : colour.lineStrong, backgroundColor: checked ? colour.forest800 : "transparent", alignItems: "center", justifyContent: "center" }}>
-        {checked && <Check size={15} color={colour.onForest} strokeWidth={3} />}
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[type.smallMedium, { color: disabled ? colour.inkSubtle : colour.ink }]}>{label}{suffix ? ` ${suffix}` : ""}</Text>
-        {!!description && <Text style={[type.caption, { color: colour.inkMuted, marginTop: 2 }]}>{description}</Text>}
-      </View>
-    </Pressable>
-  )
-}
-
-function TitleRadio({
-  label,
-  description,
-  checked,
-  disabled,
-  onPress,
-}: {
-  label: string
-  description: string
-  checked: boolean
-  disabled?: boolean
-  onPress: () => void
-}) {
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked, disabled: !!disabled }}
-      accessibilityLabel={label}
-      disabled={disabled}
-      onPress={onPress}
-      style={{ minHeight: TOUCH_TARGET - 8, flexDirection: "row", alignItems: "center", gap: space.sm, opacity: disabled ? 0.6 : 1 }}
-    >
-      <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: checked ? colour.forest800 : colour.lineStrong, alignItems: "center", justifyContent: "center" }}>
-        {checked && <View style={{ width: 9, height: 9, borderRadius: 4.5, backgroundColor: colour.forest800 }} />}
-      </View>
-      <Text style={[type.small, { color: colour.ink }]}>{label} <Text style={{ color: colour.inkMuted }}>· {description}</Text></Text>
-    </Pressable>
-  )
-}
-
-type AddStep = "method" | "invite-gap" | "search" | "roles" | "confirm"
-
-/**
- * ADD STAFF MEMBER -- choose an existing club person or (for now, honestly) find that inviting a new
- * one is not yet a real flow; search existing club people (Section 17: never a new identity); choose
- * role(s) (Section 20); review before mutating (Section 4 addendum Section 7 -- never mutate straight
- * from the checkbox screen).
- */
-function AddStaffSheet({
-  clubId,
-  teamId,
-  existingStaff,
-  onClose,
-  onDone,
-}: {
-  clubId: string
-  teamId: string
-  existingStaff: TeamStaffMember[]
-  onClose: () => void
-  onDone: () => void
-}) {
-  const [step, setStep] = useState<AddStep>("method")
-  const [query, setQuery] = useState("")
-  const [people, setPeople] = useState<ClubPerson[] | null>(null)
-  const [picked, setPicked] = useState<ClubPerson | null>(null)
-  const [roles, setRoles] = useState<Set<string>>(new Set())
-  const [title, setTitle] = useState<CoachTitle>(null)
-  const [busy, setBusy] = useState(false)
-  const [problem, setProblem] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (step !== "search") return
-    let live = true
-    setPeople(null)
-    void readClubPeople(supabase, clubId, { search: query, filter: "all", limit: 30 })
-      .then((page) => {
-        if (live) setPeople(page.people)
-      })
-      .catch(() => {
-        if (live) setPeople([])
-      })
-    return () => {
-      live = false
-    }
-  }, [clubId, query, step])
-
-  const already = picked ? existingStaff.find((m) => m.membershipId === picked.membershipId) : null
-  const alreadyHeld = new Set((already?.roles ?? []).map((r) => r.roleKey))
-  const fullName = picked ? `${picked.firstName ?? ""} ${picked.surname ?? ""}`.trim() || "Ovalball member" : ""
-  const newRoles = [...roles].filter((k) => !alreadyHeld.has(k))
-
-  function toggleRole(key: string) {
-    if (alreadyHeld.has(key)) return
-    setRoles((prior) => {
-      const next = new Set(prior)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
-
-  async function submit() {
-    if (!picked?.membershipId || newRoles.length === 0) return
-    setBusy(true)
-    setProblem(null)
-    const succeeded: string[] = []
-    const failed: string[] = []
-    for (const roleKey of newRoles) {
-      try {
-        await grantTeamStaffRole(supabase, picked.membershipId, roleKey, teamId, `Added from Team Profile Staff (${roleKey})`)
-        succeeded.push(roleKey)
-      } catch (caught) {
-        failed.push(`${ROLE_LABEL[roleKey as keyof typeof ROLE_LABEL] ?? roleKey}: ${teamStaffErrorMessage(caught, "couldn't be added")}`)
-      }
-    }
-    // A coaching title only ever applies once Coach itself is genuinely held. For a Coach role granted
-    // in THIS call, assign_role returns no assignment id, so the fresh roster is re-read to find it --
-    // closing a gap the original Add flow had, where a title picked alongside a brand-new Coach grant
-    // was silently dropped rather than ever being set.
-    if (title && succeeded.includes("COACH")) {
-      try {
-        const fresh = await readTeamStaff(supabase, teamId)
-        const coachAssignment = fresh.find((m) => m.membershipId === picked.membershipId)?.roles.find((r) => r.roleKey === "COACH")
-        if (coachAssignment) await setCoachTitle(supabase, coachAssignment.assignmentId, title)
-      } catch {
-        // Non-fatal: the role itself is granted; the title is cosmetic and can be set from Manage.
-      }
-    } else if (title && alreadyHeld.has("COACH")) {
-      const existingCoach = already?.roles.find((r) => r.roleKey === "COACH")
-      if (existingCoach) {
-        try {
-          await setCoachTitle(supabase, existingCoach.assignmentId, title)
-        } catch {
-          // Non-fatal, as above.
-        }
-      }
-    }
-    setBusy(false)
-    if (failed.length === 0) {
-      onDone()
-      return
-    }
-    // HONEST PARTIAL FAILURE (Section 20): never reported as a plain success once anything failed.
-    setProblem(succeeded.length > 0 ? `Added ${succeeded.length} of ${newRoles.length} roles. ${failed.join("; ")}` : failed.join("; "))
-  }
-
-  return (
-    <BottomSheet visible onClose={onClose} title={step === "confirm" ? "Confirm" : step === "roles" ? "Assign Roles" : step === "invite-gap" ? "Invite a New Staff Member" : "Add Staff Member"}>
-      {step === "method" && (
-        <View style={{ gap: space.md }}>
-          <MethodCard
-            label="Select from Club People"
-            description="Choose an existing parent, player or member from your club."
-            onPress={() => setStep("search")}
-          />
-          <MethodCard
-            label="Invite a New Staff Member"
-            description="Share a QR code or invite code for someone to join and then assign their role."
-            onPress={() => setStep("invite-gap")}
-          />
-        </View>
-      )}
-
-      {step === "invite-gap" && (
-        <View style={{ gap: space.md }}>
-          <View style={{ borderRadius: radius.md, backgroundColor: colour.chalk, padding: space.md, flexDirection: "row", gap: space.sm }}>
-            <Info size={16} color={colour.inkMuted} />
-            <Text style={[type.small, { color: colour.inkMuted, flex: 1 }]}>
-              Inviting someone who is not yet on Ovalball is not available from the app yet -- it needs a
-              dedicated team-staff invitation, which does not exist in the platform today. Add this
-              person once they have joined the club another way, or invite them from the club's own
-              invitation tools on the website.
-            </Text>
-          </View>
-          <Button label="Select from Club People Instead" onPress={() => setStep("search")} />
-          <Button label="Back" variant="secondary" onPress={() => setStep("method")} />
-        </View>
-      )}
-
-      {step === "search" && (
-        <View style={{ gap: space.md, minHeight: 320 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: TOUCH_TARGET, paddingHorizontal: space.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colour.lineStrong, backgroundColor: colour.chalk }}>
-            <Search size={18} color={colour.inkSubtle} />
-            <TextInput
-              accessibilityLabel="Search people"
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search club members..."
-              placeholderTextColor={colour.inkSubtle}
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={[type.body, { flex: 1, minHeight: TOUCH_TARGET, color: colour.ink }]}
-            />
-          </View>
-          {people === null ? (
-            <CardSkeleton lines={3} />
-          ) : people.length === 0 ? (
-            <EmptyState title="No people match" body="Try a different name." icon={<Search size={22} color={colour.inkSubtle} />} />
-          ) : (
-            <ScrollView style={{ maxHeight: 360 }}>
-              {people.filter((p) => p.membershipId && p.state === "ACTIVE").map((p, i) => (
-                <Pressable
-                  key={p.membershipId}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${p.firstName ?? ""} ${p.surname ?? ""}`.trim() || "Ovalball member"}
-                  onPress={() => {
-                    setPicked(p)
-                    setRoles(new Set())
-                    setTitle(null)
-                    setProblem(null)
-                    setStep("roles")
-                  }}
-                  style={({ pressed }) => ({ minHeight: TOUCH_TARGET + 12, flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colour.line, opacity: pressed ? 0.7 : 1 })}
-                >
-                  <PersonAvatar name={`${p.firstName ?? ""} ${p.surname ?? ""}`.trim()} url={null} size={40} />
-                  <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]} numberOfLines={1}>
-                    {`${p.firstName ?? ""} ${p.surname ?? ""}`.trim() || "Ovalball member"}
-                  </Text>
-                  {existingStaff.some((m) => m.membershipId === p.membershipId) && (
-                    <Text style={[type.caption, { color: colour.inkSubtle }]}>Already staff</Text>
-                  )}
-                </Pressable>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-      )}
-
-      {step === "roles" && picked && (
-        <View style={{ gap: space.md }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-            <PersonAvatar name={fullName} url={null} size={44} />
-            <Text style={[type.smallMedium, { color: colour.ink, flex: 1 }]}>{fullName}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Choose someone else" onPress={() => { setPicked(null); setRoles(new Set()); setStep("search") }} hitSlop={8}>
-              <Text style={[type.small, { color: colour.forest800 }]}>Change</Text>
-            </Pressable>
-          </View>
-
-          {already && (
-            <View style={{ borderRadius: radius.md, backgroundColor: colour.chalk, padding: space.md }}>
-              <Text style={[type.caption, { color: colour.inkMuted }]}>
-                Already on this team: {already.roles.map((r) => r.label).join(" · ")}
-              </Text>
-            </View>
-          )}
-
-          <View>
-            <Text style={[type.smallMedium, { color: colour.ink }]}>Select Team Role(s)</Text>
-            <Text style={[type.caption, { color: colour.inkMuted }]}>You can assign multiple roles.</Text>
-          </View>
-
-          <RoleSelector selected={roles} onToggle={toggleRole} coachTitle={title} onSetCoachTitle={setTitle} lockedKeys={alreadyHeld} />
-
-          <Button label="Continue" onPress={() => setStep("confirm")} disabled={newRoles.length === 0} />
-        </View>
-      )}
-
-      {step === "confirm" && picked && (
-        <View style={{ gap: space.md }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-            <PersonAvatar name={fullName} url={null} size={44} />
-            <View style={{ flex: 1 }}>
-              <Text style={[type.smallMedium, { color: colour.ink }]}>{fullName}</Text>
-              {already && <Text style={[type.caption, { color: colour.inkMuted }]}>Already on this team: {already.roles.map((r) => r.label).join(" · ")}</Text>}
-            </View>
-          </View>
-
-          <Text style={[type.smallMedium, { color: colour.ink }]}>Roles to be assigned</Text>
-          <View style={{ gap: 6 }}>
-            {newRoles.map((k) => (
-              <Text key={k} style={[type.small, { color: colour.ink }]}>
-                {k === "COACH" && title ? COACH_TITLE_LABEL[title] : ROLE_LABEL[k as keyof typeof ROLE_LABEL]}
-              </Text>
-            ))}
-          </View>
-
-          <View style={{ borderRadius: radius.md, backgroundColor: colour.chalk, padding: space.md, flexDirection: "row", gap: space.sm }}>
-            <Info size={16} color={colour.inkMuted} />
-            <Text style={[type.caption, { color: colour.inkMuted, flex: 1 }]}>
-              {fullName} will be added to this team with the selected role(s). They will have the
-              appropriate team access based on these roles.
-            </Text>
-          </View>
-
-          {!!problem && <Text style={[type.small, { color: colour.danger }]}>{problem}</Text>}
-
-          <Button label="Confirm and Add" onPress={submit} busy={busy} />
-        </View>
-      )}
-    </BottomSheet>
-  )
-}
-
-function MethodCard({ label, description, onPress }: { label: string; description: string; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${label}. ${description}`}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: space.md,
-        padding: space.md,
-        borderRadius: radius.lg,
-        borderWidth: 1,
-        borderColor: colour.line,
-        backgroundColor: pressed ? "rgba(16,21,18,0.03)" : colour.surface,
-      })}
-    >
-      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colour.chalk, alignItems: "center", justifyContent: "center" }}>
-        <Users size={20} color={colour.forest800} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[type.smallMedium, { color: colour.ink }]}>{label}</Text>
-        <Text style={[type.caption, { color: colour.inkMuted, marginTop: 2 }]}>{description}</Text>
-      </View>
-      <ChevronRight size={17} color={colour.inkSubtle} />
-    </Pressable>
-  )
 }
 
 /**
@@ -678,73 +222,66 @@ function MethodCard({ label, description, onPress }: { label: string; descriptio
  * what the server holds, never a role the server rejected.
  */
 function ManageStaffSheet({
+  clubId,
   teamId,
   member,
   onClose,
   onChanged,
 }: {
+  clubId: string
   teamId: string
   member: TeamStaffMember
   onClose: () => void
   onChanged: () => void
 }) {
-  const initialKeys = useMemo(() => new Set(member.roles.map((r) => r.roleKey)), [member.membershipId])
-  const initialCoach = useMemo(() => member.roles.find((r) => r.roleKey === "COACH")?.title ?? null, [member.membershipId])
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(initialKeys))
-  const [title, setTitle] = useState<CoachTitle>(initialCoach)
+  // Team Admin is access on top of a role, managed from the person's own record: it is never staged here,
+  // and Save never touches it.
+  const roles = useMemo(() => member.roles.filter((r) => r.roleKey !== "TEAM_ADMINISTRATION"), [member])
+  const initial = useMemo<TeamRolePicks>(() => new Map(roles.map((r) => [r.roleKey, r.title])), [roles])
+  const [selected, setSelected] = useState<TeamRolePicks>(() => new Map(initial))
+  const [assignable, setAssignable] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
-  const hasChanges = !setsEqual(selected, initialKeys) || (selected.has("COACH") && title !== initialCoach)
+  useEffect(() => {
+    let live = true
+    void readAssignableRoles(supabase, clubId, teamId).then((r) => live && setAssignable(r.map((x) => x.roleKey))).catch(() => live && setAssignable([]))
+    return () => {
+      live = false
+    }
+  }, [clubId, teamId])
 
-  function toggle(key: string) {
-    setProblem(null)
-    setSelected((prior) => {
-      const next = new Set(prior)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
+  const hasChanges = !sameRoles(selected, initial)
 
   async function save() {
     setBusy(true)
     setProblem(null)
-    const currentKeys = new Set(member.roles.map((r) => r.roleKey))
-    const toGrant = [...selected].filter((k) => !currentKeys.has(k))
-    const toRevoke = member.roles.filter((r) => !selected.has(r.roleKey))
+    const currentKeys = new Set(roles.map((r) => r.roleKey))
+    const toGrant = [...selected.keys()].filter((k) => !currentKeys.has(k))
+    const toRevoke = roles.filter((r) => !selected.has(r.roleKey))
+    const toRetitle = roles.filter((r) => selected.has(r.roleKey) && (selected.get(r.roleKey) ?? null) !== (r.title ?? null))
     const failures: string[] = []
 
     for (const key of toGrant) {
       try {
-        await grantTeamStaffRole(supabase, member.membershipId, key, teamId, `Set from Team Profile Staff (${key})`)
+        await grantTeamStaffRole(supabase, member.membershipId, key, teamId, "Set on the team's Staff tab", selected.get(key) ?? null)
       } catch (caught) {
-        failures.push(`${ROLE_LABEL[key as keyof typeof ROLE_LABEL] ?? key}: ${teamStaffErrorMessage(caught, "couldn't be added")}`)
+        failures.push(`${roleDisplayLabel(key, selected.get(key))}: ${teamStaffErrorMessage(caught, "couldn't be added")}`)
       }
     }
     for (const role of toRevoke) {
       try {
-        await revokeTeamStaffRole(supabase, role.assignmentId, `Removed from Team Profile Staff (${role.roleKey})`)
+        await revokeTeamStaffRole(supabase, role.assignmentId, "Removed on the team's Staff tab")
       } catch (caught) {
-        failures.push(`${ROLE_LABEL[role.roleKey as keyof typeof ROLE_LABEL] ?? role.roleKey}: ${teamStaffErrorMessage(caught, "couldn't be removed")}`)
+        failures.push(`${role.displayLabel}: ${teamStaffErrorMessage(caught, "couldn't be removed")}`)
       }
     }
-
-    let fresh: TeamStaffMember[] = []
-    try {
-      fresh = await readTeamStaff(supabase, teamId)
-    } catch {
-      fresh = []
-    }
-    let freshMember = fresh.find((m) => m.membershipId === member.membershipId) ?? null
-    const freshCoach = freshMember?.roles.find((r) => r.roleKey === "COACH")
-    if (selected.has("COACH") && freshCoach && freshCoach.title !== title) {
+    for (const role of toRetitle) {
       try {
-        await setCoachTitle(supabase, freshCoach.assignmentId, title)
-        freshMember = { ...freshMember!, roles: freshMember!.roles.map((r) => (r.roleKey === "COACH" ? { ...r, title } : r)) }
+        await setStaffTitle(supabase, role.assignmentId, selected.get(role.roleKey) ?? null)
       } catch (caught) {
-        failures.push(`Coaching title: ${teamStaffErrorMessage(caught, "couldn't be set")}`)
+        failures.push(`${role.displayLabel} title: ${teamStaffErrorMessage(caught, "couldn't be set")}`)
       }
     }
 
@@ -754,9 +291,12 @@ function ManageStaffSheet({
     if (failures.length > 0) {
       setProblem(failures.join("; "))
       // Never leave the sheet showing a role the server rejected -- re-sync to exactly what it holds.
-      const settled = freshMember ?? member
-      setSelected(new Set(settled.roles.map((r) => r.roleKey)))
-      setTitle(settled.roles.find((r) => r.roleKey === "COACH")?.title ?? null)
+      try {
+        const fresh = (await readTeamStaff(supabase, teamId)).find((m) => m.membershipId === member.membershipId)
+        setSelected(new Map((fresh?.roles ?? []).filter((r) => r.roleKey !== "TEAM_ADMINISTRATION").map((r) => [r.roleKey, r.title])))
+      } catch {
+        setSelected(new Map(initial))
+      }
       return
     }
     onClose()
@@ -790,18 +330,16 @@ function ManageStaffSheet({
           <PersonAvatar name={member.displayName} url={member.avatarUrl} size={44} />
           <View style={{ flex: 1 }}>
             <Text style={[type.smallMedium, { color: colour.ink }]}>{member.displayName}</Text>
-            <Text style={[type.caption, { color: colour.inkMuted }]}>
-              {member.roles.map((r) => (r.roleKey === "COACH" && r.title ? COACH_TITLE_LABEL[r.title] : r.label)).join(" · ") || "No roles held"}
-            </Text>
+            <Text style={[type.caption, { color: colour.inkMuted }]}>{member.roles.map((r) => r.displayLabel).join(" · ") || "No roles held"}</Text>
           </View>
         </View>
 
         <Text style={[type.smallMedium, { color: colour.ink }]}>Team Roles</Text>
-        <RoleSelector selected={selected} onToggle={toggle} coachTitle={title} onSetCoachTitle={setTitle} disabled={busy} />
+        <TeamRoleSelector assignable={assignable} value={selected} onChange={setSelected} disabled={busy} />
 
         {!!problem && <Text style={[type.small, { color: colour.danger }]}>{problem}</Text>}
 
-        <Button label="Save Changes" onPress={save} busy={busy} disabled={!hasChanges} />
+        <Button label="Save Changes" onPress={save} busy={busy} disabled={!hasChanges || [...selected.values()].some((t) => t !== null && t.trim() === "")} />
 
         <View style={{ height: 1, backgroundColor: colour.line, marginVertical: space.xs }} />
 

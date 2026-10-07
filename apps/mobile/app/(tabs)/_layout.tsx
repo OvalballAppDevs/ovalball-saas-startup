@@ -3,9 +3,12 @@ import { Text, View, type ColorValue } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useAppContexts } from "../../src/context/contexts"
+import { useSession } from "../../src/auth/session"
+import { usePresenceHeartbeat } from "../../src/messages/presence"
 import { projectTabs, type TabKey } from "../../src/context/tab-projection"
 import { BookOpen, CalendarDays, Ellipsis, House, MapPin, MessageSquare, OvalIcon, Receipt } from "../../src/components/icons"
 import { colour, type } from "../../src/design/tokens"
+import { tabBarHeight } from "../../src/navigation/tab-bar-height"
 
 /**
  * THE BOTTOM BAR — the phone's own navigation, not the desktop sidebar compressed.
@@ -25,10 +28,17 @@ import { colour, type } from "../../src/design/tokens"
 export default function TabsLayout() {
   const insets = useSafeAreaInsets()
   const { active } = useAppContexts()
+  const { session } = useSession()
+  // ONE HEARTBEAT FOR THE WHOLE SIGNED-IN APP, foreground only -- what "Online" means everywhere.
+  usePresenceHeartbeat(Boolean(session?.user))
   const visible = projectTabs({ kind: active?.kind ?? null })
   const shown = new Set(visible.map((t) => t.key))
   const pathname = usePathname()
-  const onFocusedConfirmationScreen = pathname === "/fixtures/request-fixtures" || pathname === "/fixtures/request-sent"
+  const onFocusedConfirmationScreen =
+    pathname === "/fixtures/request-fixtures" ||
+    pathname === "/fixtures/request-sent" ||
+    // The Season Planner's club-day flow is focused work with its own pinned actions; its home keeps the bar.
+    (pathname.startsWith("/fixtures/planner/") && pathname !== "/fixtures/planner")
 
   // NAMED, NOT INLINE, because one nested screen (Request Fixtures' own Request Sent confirmation,
   // below) needs to explicitly restore this exact style -- `options.tabBarStyle` is not deep-merged
@@ -38,7 +48,7 @@ export default function TabsLayout() {
     backgroundColor: colour.forest950,
     borderTopColor: "rgba(255,255,255,0.08)",
     borderTopWidth: 1,
-    height: 58 + insets.bottom,
+    height: tabBarHeight(insets.bottom),
     paddingTop: 6,
     paddingBottom: insets.bottom > 0 ? insets.bottom : 6,
   }
@@ -136,6 +146,11 @@ const ALL: { key: TabKey; title: string }[] = [
   // auto-registered by the router with the library's "missing icon" glyph -- which is exactly the two
   // stray arrow cells the owner saw beside More (CA-M11.1). News and Announcements are reached from
   // Home and More, never from the bar.
+  // The participant Tournament Centre -- opened from the Calendar, a link or a notification, never
+  // from the bar.
+  { key: "tournaments", title: "Tournament" },
+  // One age-grade dispensation (20270742000000): opened from a notification, Needs Attention or a register.
+  { key: "dispensations", title: "Dispensation" },
   { key: "news", title: "News" },
   { key: "announcements", title: "Announcements" },
   { key: "more", title: "More" },

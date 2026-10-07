@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react"
-import { Pressable, ScrollView, Text, View } from "react-native"
+import { Pressable, ScrollView, Switch, Text, View } from "react-native"
 import { Image } from "expo-image"
 import { useFocusEffect, useRouter } from "expo-router"
 
 import { loadTeamProfile, loadTeamProfileIdentity, type TeamProfileIdentity } from "@ovalball/contracts/team/profile"
 import { addTeamMediaPhoto, readTeamMedia, removeTeamMediaPhoto, setTeamCover, teamMediaErrorMessage, type TeamMediaItem } from "@ovalball/contracts/team/media"
+import { setTeamMediaPublic } from "@ovalball/contracts/match-centre/public-profiles"
 
 import { supabase } from "../auth/supabase"
 import { GalleryGrid, PhotoViewer } from "./media-tab"
@@ -148,6 +149,36 @@ function ManagePhotoSheet({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  // ON THE PUBLIC PAGE, photo by photo. Only ever shown publicly where the team shares media at all
+  // (Awards & Public Pages); the server applies both.
+  const [shared, setShared] = useState<boolean | null>(null)
+  const [sharing, setSharing] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    void supabase
+      .from("team_media")
+      .select("shared_publicly")
+      .eq("id", item.id)
+      .maybeSingle()
+      .then(({ data }) => live && setShared(Boolean(data?.shared_publicly)))
+    return () => {
+      live = false
+    }
+  }, [item.id])
+
+  async function toggleShared(next: boolean) {
+    setSharing(true)
+    setProblem(null)
+    try {
+      await setTeamMediaPublic(supabase, item.id, next)
+      setShared(next)
+    } catch (caught) {
+      setProblem(friendly(caught, "this photo").message)
+    } finally {
+      setSharing(false)
+    }
+  }
 
   async function remove() {
     setBusy(true)
@@ -169,6 +200,16 @@ function ManagePhotoSheet({
         )}
         {!confirmDelete ? (
           <>
+            {shared !== null && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: space.md, minHeight: TOUCH_TARGET }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[type.small, { color: colour.ink }]}>Show on Public Page</Text>
+                  <Text style={[type.caption, { color: colour.inkMuted }]}>Appears in Media only while the team shares photos publicly.</Text>
+                </View>
+                <Switch accessibilityLabel="Show on public page" value={shared} disabled={sharing} onValueChange={(v) => void toggleShared(v)} trackColor={{ true: colour.pitch600, false: colour.lineStrong }} />
+              </View>
+            )}
+            {!!problem && <Text style={[type.small, { color: colour.danger }]}>{problem}</Text>}
             <Pressable accessibilityRole="button" accessibilityLabel="Set as cover photo" onPress={onSetCover} style={{ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: space.sm }}>
               <Camera size={18} color={colour.ink} />
               <Text style={[type.small, { color: colour.ink }]}>Set as Cover</Text>

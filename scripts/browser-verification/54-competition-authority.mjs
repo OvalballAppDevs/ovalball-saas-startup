@@ -32,6 +32,10 @@ const status = JSON.parse(execFileSync("npx", ["supabase", "status", "-o", "json
 const API = status.API_URL
 const ANON_KEY = status.ANON_KEY
 const SERVICE_KEY = status.SERVICE_ROLE_KEY
+// signIn() signs in through the real password form, so this run's people carry the local UAT password.
+const PASSWORD = process.env.UAT_BROWSER_PASSWORD
+  || (fs.readFileSync(path.resolve(import.meta.dirname, "../../.env.local"), "utf8").split("\n").find((l) => l.startsWith("UAT_BROWSER_PASSWORD=")) ?? "").slice("UAT_BROWSER_PASSWORD=".length).trim().replace(/^["']|["']$/g, "")
+if (!PASSWORD) throw new Error("No UAT_BROWSER_PASSWORD in the environment or .env.local")
 
 const TAG = Date.now().toString(36).slice(-6)
 const people = {
@@ -47,7 +51,7 @@ async function createIdentity(person) {
   const res = await fetch(`${API}/auth/v1/admin/users`, {
     method: "POST",
     headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ email: person.email, email_confirm: true }),
+    body: JSON.stringify({ email: person.email, password: PASSWORD, email_confirm: true }),
   })
   const body = await res.json()
   if (!body.id) throw new Error(`could not create ${person.email}: HTTP ${res.status}`)
@@ -86,15 +90,20 @@ begin
   delete from public.competition_stages where edition_id = any(v_eds);
   delete from public.competition_editions where id = any(v_eds);
   delete from public.competitions where normalized_key = 'uat-s4d-cup-${tag}';
-  delete from public.tournament_games where entry_id in (select id from public.tournament_team_entries where tournament_id = any(v_tourns));
-  delete from public.tournament_entry_opponents where entry_id in (select id from public.tournament_team_entries where tournament_id = any(v_tourns));
+  -- Games belong to a tournament and are played between its participants (side_a_id / side_b_id); the
+  -- result links to a participant do not cascade, so they go first. (entry_id left tournament_games when
+  -- the participant model replaced team entries.)
+  delete from public.tournament_game_result_submissions where game_id in (select id from public.tournament_games where tournament_id = any(v_tourns));
+  delete from public.tournament_games where tournament_id = any(v_tourns);
+  delete from public.tournament_entry_opponents where entry_id in (select id from public.tournament_participants where tournament_id = any(v_tourns))
+     or participant_id in (select id from public.tournament_participants where tournament_id = any(v_tourns));
   delete from public.tournament_team_entries where tournament_id = any(v_tourns);
   delete from public.tournament_participants where tournament_id = any(v_tourns);
   delete from public.tournament_pitches where tournament_id = any(v_tourns);
   delete from public.tournaments where id = any(v_tourns);
   delete from public.notifications where user_id = any(v_people);
   delete from public.fixtures where owning_team_id in (select id from public.teams where club_id = any(v_clubs));
-  delete from public.team_permissions where membership_id in (select id from public.club_memberships where club_id = any(v_clubs));
+  delete from testing.team_roles where membership_id in (select id from public.club_memberships where club_id = any(v_clubs));
   delete from public.role_assignments where club_id = any(v_clubs);
   delete from public.club_memberships where club_id = any(v_clubs);
   delete from public.club_setup_state where club_id = any(v_clubs);
@@ -194,12 +203,12 @@ sql(`insert into public.club_memberships (club_id, user_id, role, status) values
   ('${ids.partClub}','${people.manager2.id}','BASIC_USER','active'),
   ('${ids.partClub}','${people.coach.id}','BASIC_USER','active'),
   ('${ids.partClub}','${people.member.id}','BASIC_USER','active');
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'manager' from public.club_memberships where club_id='${ids.partClub}' and user_id='${people.manager.id}';
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team2}', 'manager' from public.club_memberships where club_id='${ids.partClub}' and user_id='${people.manager2.id}';
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, '${ids.team}', 'coach' from public.club_memberships where club_id='${ids.partClub}' and user_id='${people.coach.id}';`)
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'TEAM_MANAGER' from public.club_memberships where club_id='${ids.partClub}' and user_id='${people.manager.id}';
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team2}', 'TEAM_MANAGER' from public.club_memberships where club_id='${ids.partClub}' and user_id='${people.manager2.id}';
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, '${ids.team}', 'COACH' from public.club_memberships where club_id='${ids.partClub}' and user_id='${people.coach.id}';`)
 
 ids.season = one(`select id from public.seasons where rugby_code='union' and not is_regression_fixture
   and current_date between coalesce(pre_season_starts_on, starts_on) and ends_on limit 1`)

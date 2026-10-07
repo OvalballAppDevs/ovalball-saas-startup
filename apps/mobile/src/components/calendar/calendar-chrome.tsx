@@ -38,9 +38,13 @@ export function CalendarHeading({
         gap: space.sm,
       }}
     >
+      {/* The month is the heading of the whole screen, so it is never cut short: with the season control beside
+          it, "September 2026" did not fit and read "Septem…". It scales down to fit instead. */}
       <Text
         accessibilityRole="header"
         numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.65}
         style={[type.title, { color: onForest.primary, fontSize: 26, flexShrink: 1 }]}
       >
         {monthLabel(anchor)}

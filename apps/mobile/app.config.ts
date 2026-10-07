@@ -38,11 +38,18 @@ const config: ExpoConfig = {
   name: identity.name,
   slug: "ovalball",
   version: "0.1.0",
-  // A DISTINCT HOME-SCREEN ICON FOR THE DEV BUILD ONLY (owner request, physical review). Never the
-  // real Ovalball brand mark -- this exists so the development app is visually unmistakable from the
-  // real one when both sit on the same device, exactly the reasoning "one binary identity per
-  // environment" above already states. staging/production are untouched: no `icon` override here
-  // means they keep whatever they already resolve to.
+  /**
+   * THE OVALBALL MARK -- the oval, with the movement behind it.
+   *
+   * Full bleed, square, and with NO rounded-corner mask baked in: iOS applies its own, and an icon
+   * that carries its own corners ends up with two of them.
+   *
+   * THE DEV BUILD KEEPS A DISTINCT ICON (owner request, physical review) so it is unmistakable from
+   * the real app when both sit on one home screen. It is now the SAME mark inverted onto chalk rather
+   * than an unrelated image -- still obviously not the real app at a glance, but no longer pretending
+   * to be a different product.
+   */
+  icon: "./assets/icons/ovalball-icon.png",
   ...(ENVIRONMENT === "development" ? { icon: "./assets/icons/icon-dev.png" } : {}),
   // PORTRAIT ONLY, on the phone. Ovalball on a touchline is a one-handed, upright product; a landscape
   // layout for it is a design job nobody has done, and rotating into an untested one is worse than not
@@ -64,17 +71,52 @@ const config: ExpoConfig = {
       // (which the Ovalball mobile chrome rule now uses on every forest screen) require this to be
       // false to work at all; left true, every `<StatusBar style=.../>` throws exactly this error.
       UIViewControllerBasedStatusBarAppearance: false,
+      // IOS 26 TRAPS AN APP THAT HAS NOT ADOPTED SCENE LIFECYCLE. Rebuilding the native project after
+      // adding expo-video produced an Info.plist with no scene manifest, and the app died on launch in
+      // `__UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` before a single frame. It is
+      // declared HERE rather than patched into `ios/`, because that directory is generated and
+      // gitignored -- a hand edit there is lost by the next prebuild, which is exactly how this
+      // surfaced. One scene, the app delegate's own window: Expo's AppDelegate already drives it.
+      /**
+       * IOS 26 TRAPS AN APP THAT HAS NOT ADOPTED SCENE LIFECYCLE.
+       *
+       * Rebuilding the native project against the current Xcode killed the app on launch in
+       * `__UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`, before a single frame --
+       * and no Info.plist tinkering fixed it, because the check wants a real scene DELEGATE, not a
+       * declaration. Expo 57.0.26 ships one (`ExpoAppSceneDelegate`, exported to Objective-C as
+       * `EXExpoAppSceneDelegate`) but its prebuild template does not wire it up, so the app has to
+       * name it here.
+       *
+       * Declared in the config rather than patched into `ios/`, which is generated and gitignored:
+       * a hand edit there is erased by the next prebuild, which is how this surfaced in the first
+       * place.
+       */
+      UIApplicationSceneManifest: {
+        UIApplicationSupportsMultipleScenes: false,
+        UISceneConfigurations: {
+          UIWindowSceneSessionRoleApplication: [
+            {
+              UISceneConfigurationName: "Default Configuration",
+              UISceneDelegateClassName: "EXExpoAppSceneDelegate",
+            },
+          ],
+        },
+      },
     },
   },
   android: {
     package: identity.bundle,
-    adaptiveIcon: { backgroundColor: "#123D2C" },
+    adaptiveIcon: { foregroundImage: "./assets/icons/ovalball-icon.png", backgroundColor: "#123D2C" },
   },
   web: {
     bundler: "metro",
     output: "single",
   },
   plugins: [
+    // iOS 26 scene lifecycle: the manifest above names Expo's scene delegate, and this makes the
+    // generated AppDelegate the provider that delegate requires. It lives as a plugin because `ios/`
+    // is generated -- a hand edit there is erased by the next prebuild, and was.
+    "./plugins/with-scene-lifecycle-app-delegate",
     ["expo-router", {}],
     ["expo-secure-store", {}],
     // The camera reads an invitation's QR code (CA-M11.1) and nothing else; the sentence is the one iOS shows.
@@ -85,6 +127,18 @@ const config: ExpoConfig = {
     // the `com.apple.developer.applesignin` entitlement this plugin needs to be present at all.
     "expo-web-browser",
     "expo-apple-authentication",
+    // The Tournament Created conversion plays as a short silent clip; expo-video is the SDK 57
+    // player, and the plugin is what makes the native view available to a build.
+    "expo-video",
+    // Voice notes in Messages. Recording starts only when somebody taps the microphone, and the sentence is
+    // the one iOS shows the first time they do.
+    ["expo-audio", { microphonePermission: "Ovalball uses the microphone to record voice notes you choose to send in Messages." }],
+    // M7 -- native push delivery. No custom permission string here: unlike camera, iOS's own
+    // notification prompt text is not configurable, which is exactly why the Ovalball-styled
+    // pre-prompt in the permission screen has to do that persuading itself, before this one ever
+    // fires. No icon/color override yet -- there is no android/ project to prebuild against this
+    // session, and a proper monochrome tray icon is a follow-up rather than a placeholder asset.
+    "expo-notifications",
     // The launch screen is the brand ground, so the first rendered frame is the same colour and
     // the app never flashes white on the way in.
     [
@@ -120,6 +174,15 @@ const config: ExpoConfig = {
     authGoogleEnabled: process.env.EXPO_PUBLIC_AUTH_GOOGLE_ENABLED ?? "",
     authAppleEnabled: process.env.EXPO_PUBLIC_AUTH_APPLE_ENABLED ?? "",
     authFacebookEnabled: process.env.EXPO_PUBLIC_AUTH_FACEBOOK_ENABLED ?? "",
+    /**
+     * The Clubhouse research PREVIEW overlay, a local review aid that is off in every shipped build.
+     * It arrives through `extra` like everything else rather than being read from `process.env` inside
+     * the app: a direct read there is a second, unreviewed channel into the bundle, which is the thing
+     * `mobile_foundation`'s configuration rule exists to prevent. Nothing about the flag being a
+     * development convenience makes it an exception -- that is exactly when a second channel gets
+     * opened and left open.
+     */
+    clubhouseResearchPreview: process.env.EXPO_PUBLIC_CLUBHOUSE_RESEARCH_PREVIEW ?? "",
   },
 }
 

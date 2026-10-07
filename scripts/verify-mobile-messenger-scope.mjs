@@ -11,8 +11,11 @@
  *
  *   CHOOSE FILE. A document in an Ovalball conversation comes from the club's library -- a place with an
  *   owner, a category and a revision -- not from whatever happens to be on one person's handset. So the
- *   menu has no such row AND `expo-document-picker` is not a dependency: two barriers, because removing
- *   the row alone leaves the capability one import away.
+ *   menu has no such row AND the messenger may not import a device file picker: two barriers, because
+ *   removing the row alone leaves the capability one import away. The picker itself is not banned from
+ *   the whole app any more -- Team Documents legitimately uploads from a device -- so the second
+ *   barrier is now an explicit owner list (DOCUMENT_PICKER_OWNERS) rather than the absence of the
+ *   dependency. Everything outside that list, messenger included, still fails this gate on import.
  *
  *   CREATE IMAGE. No AI image generation, and no entry point that exists only to explain that the
  *   platform cannot do it. The owner does not want the idea present in the interface at all.
@@ -62,10 +65,53 @@ if (sheet) {
   }
 }
 
-// ---------------------------------------------------------------- no file picker anywhere
+// ---------------------------------------------------------------- the device file picker has ONE owner
+/**
+ * TEAM DOCUMENTS OWNS `expo-document-picker`, AND NOTHING ELSE MAY.
+ *
+ * The original rule banned the dependency from the whole app. That was the right rule when nothing in
+ * Ovalball needed a device file picker: the messenger's "Choose File" row was the only plausible
+ * reason to add it, so absence of the dependency was a clean second barrier behind absence of the row.
+ *
+ * Team Documents (`app/(tabs)/teams/[teamId]/documents.tsx`) then legitimately needed one -- a club
+ * document is uploaded from somewhere, and that is the product that does the uploading. The blanket ban
+ * therefore started failing on correct, shipped product, which is a failing checker rather than a
+ * failing app: the gate has been red on committed code since 2026-09-28.
+ *
+ * SO THE RULE IS NARROWED TO ITS ACTUAL INTENT, NOT RELAXED. The messenger still may not acquire the
+ * capability, and neither may any other surface: the picker may be imported by exactly the files named
+ * below, and a new importer anywhere else fails this gate and has to be argued for deliberately. That
+ * keeps the second barrier the owner asked for -- "removing the row alone leaves the capability one
+ * import away" -- while letting the one product that owns it do its job.
+ */
+const DOCUMENT_PICKER_OWNERS = [
+  // Team Documents: uploads a club document from the device into the club's own library.
+  "apps/mobile/src/team/team-documents-screen.tsx",
+  // Club Documents: the club library's own Upload screen (Club Admin), receiving a file into the same library.
+  "apps/mobile/src/documents/upload-screen.tsx",
+]
+
 const pkg = JSON.parse(read(join(MOBILE, "package.json")) ?? "{}")
 const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) }
-check(!("expo-document-picker" in deps), "expo-document-picker is not a dependency of the mobile app")
+
+// The dependency may exist ONLY while a declared owner actually uses it. If Team Documents ever stops
+// importing it, the dependency has to go too -- otherwise the capability sits in the bundle with no
+// product behind it, which is exactly the "one import away" state the ban existed to prevent.
+const ownersThatImport = DOCUMENT_PICKER_OWNERS.filter((rel) => {
+  const body = read(join(ROOT, rel))
+  return body !== null && /^\s*import[^\n]*expo-document-picker/m.test(body)
+})
+if ("expo-document-picker" in deps) {
+  check(
+    ownersThatImport.length > 0,
+    "expo-document-picker is a dependency only while a declared owner uses it",
+  )
+} else {
+  check(
+    ownersThatImport.length === 0,
+    "a declared owner imports expo-document-picker, so it must be a dependency",
+  )
+}
 
 const sources = []
 const walk = (dir) => {
@@ -84,12 +130,17 @@ for (const path of sources) {
   const relative = path.slice(ROOT.length + 1)
   // A COMMENT EXPLAINING THE ABSENCE IS NOT A RESTORATION. Only real code counts: an import of the
   // picker, or a call into it.
+  const mayPickDocuments = DOCUMENT_PICKER_OWNERS.includes(relative)
   check(
-    !/^\s*import[^\n]*expo-document-picker/m.test(body),
-    "no source file imports expo-document-picker",
+    mayPickDocuments || !/^\s*import[^\n]*expo-document-picker/m.test(body),
+    "only a declared owner (Team Documents, Club Documents upload) imports expo-document-picker",
     relative
   )
-  check(!/DocumentPicker\.getDocumentAsync/.test(body), "no source file opens a device file picker", relative)
+  check(
+    mayPickDocuments || !/DocumentPicker\.getDocumentAsync/.test(body),
+    "only a declared owner (Team Documents, Club Documents upload) opens a device file picker",
+    relative
+  )
   check(
     !/images?\/generations|dall-e|gpt-image|generateImage\(/i.test(body),
     "no source file reaches for image generation",

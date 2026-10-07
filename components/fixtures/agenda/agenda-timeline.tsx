@@ -64,6 +64,7 @@ function byDay(items: AgendaItem[]): DayGroup[] {
  */
 function answerSubject(item: AgendaItem): string {
   if (item.kind === "training") return `training on ${item.date}`
+  if (item.kind === "tournament") return `${item.name ?? "the tournament"} on ${item.date}`
   const them = item.them?.clubName ?? "the opposition"
   return `${them} on ${item.date}`
 }

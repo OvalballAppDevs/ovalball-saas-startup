@@ -72,7 +72,10 @@ export function PersonAvatar({
       {url ? (
         <Image source={{ uri: url }} style={{ width: size, height: size }} contentFit="cover" transition={120} />
       ) : (
-        <Text style={[type.smallMedium, { color: colour.forest800, fontSize: size * 0.36 }]}>{initials ?? initialsOf(name)}</Text>
+        // The letters are sized to the circle, which does not grow with the reader's text size, so neither
+        // do they (scaled, they overflowed it and were cut off). The line height is the letters' own: the
+        // small style's would clip a large avatar's initials to their lower half. The name is spoken either way.
+        <Text allowFontScaling={false} style={[type.smallMedium, { color: colour.forest800, fontSize: size * 0.36, lineHeight: Math.ceil(size * 0.36 * 1.25) }]}>{initials ?? initialsOf(name)}</Text>
       )}
     </View>
   )
@@ -117,7 +120,10 @@ export function ClubCrest({
       {url ? (
         <Image source={{ uri: url }} style={{ width: size * 0.78, height: size * 0.78 }} contentFit="contain" transition={120} />
       ) : (
-        <Text style={[type.smallMedium, { color: colour.forest800, fontSize: size * 0.3 }]}>{initialsOf(clubName)}</Text>
+        // As the avatar's: the tile does not grow with the reader's text size, so neither do its letters (scaled,
+        // they overflowed it and were cropped at the largest sizes), and the line height is the letters' own. The
+        // club's name is spoken either way.
+        <Text allowFontScaling={false} style={[type.smallMedium, { color: colour.forest800, fontSize: size * 0.3, lineHeight: Math.ceil(size * 0.3 * 1.25) }]}>{initialsOf(clubName)}</Text>
       )}
     </View>
   )

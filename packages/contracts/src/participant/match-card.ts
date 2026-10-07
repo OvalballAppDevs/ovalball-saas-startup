@@ -1,3 +1,5 @@
+import { formatHasBracket } from "../tournaments/knockout"
+import type { TournamentCover } from "../tournament-cover"
 import type { AgendaItem, AgendaSide } from "../agenda/load"
 import { ATTENDANCE_STATE_WORDS } from "../availability/vocabulary"
 import { matchTypeLabel } from "../fixtures/game-type"
@@ -188,6 +190,102 @@ export interface ParticipantTraining {
   attendance: AgendaItem["attendance"]
   attendanceWord: string
   spoken: string
+}
+
+/**
+ * ONE TOURNAMENT, AS A FAMILY READS IT ON THE CALENDAR.
+ *
+ * THE SHAPE COMES FROM THE SUPPLIED DESIGN, not from a card invented alongside it. The row shows, in
+ * this order: the hours stacked in the time column, the tournament's own PHOTOGRAPH as the thumbnail,
+ * the tournament's NAME, then a line of "Tournament . <age group>", then who is hosting, then where.
+ *
+ * WHY EACH OF THOSE IS THERE. The name is the only thing that identifies a festival. The age group is
+ * what tells a parent of two which of their children this belongs to -- the one question a club's
+ * calendar cannot answer any other way, because a tournament has no opposition to name it by. The host
+ * is who to ask about it. The photograph is the tournament's own canonical cover, the same selection
+ * the list card and the detail hero draw, so one choice changes all three.
+ *
+ * NOT A MATCH AND NOT A SESSION. `projectParticipantMatch` would want an opposition crest, a home/away
+ * and a scoreline, none of which exist here; `projectParticipantTraining` would title it "Training
+ * Session". Three kinds of day, three projections, one card frame.
+ */
+export interface ParticipantTournament {
+  /** The festival's own name. The title, because nothing else identifies it. */
+  title: string
+  /** "09:00", or null where no start was recorded. */
+  start: string | null
+  /** "14:30", shown under the start. Null means the organiser has not said -- never a guess. */
+  end: string | null
+  /** "Tournament . U12", or "Knockout . U12" for a cup -- the type and the competition. */
+  typeLine: string
+  /**
+   * WHETHER THIS DAY'S COMPETITION IS A CUP, so the card can draw the format mark in the agreed
+   * knockout accent. It changes the colour of one icon and one short line and nothing else: the card,
+   * its cover, its spacing, its attendance and where it goes are identical whatever the format is,
+   * because a cup day and a league day are the same kind of event.
+   */
+  knockout: boolean
+  /** "Hosted by Ovalball UAT RUFC", or null where the host's identity did not resolve. */
+  hostedBy: string | null
+  venue: string | null
+  /** The canonical cover selection. The client turns `stock` and `none` into an asset it can load. */
+  cover: TournamentCover
+  /** "Day 2 of 3" for a festival that runs more than one day; null otherwise. */
+  day: string | null
+  cancelled: boolean
+  status: string | null
+  child: FamilyMember | null
+  attendance: AgendaItem["attendance"]
+  attendanceWord: string
+  spoken: string
+}
+
+export function projectParticipantTournament(item: AgendaItem, family: FamilyProjection): ParticipantTournament {
+  const child = memberFor(family, item.playerId)
+  const details = item.tournament
+  const start = item.time ? item.time.slice(0, 5) : null
+  const attendanceWord = ATTENDANCE_STATE_WORDS[item.attendance ?? "AWAITING"]
+  const cancelled = item.status === "cancelled" || item.status === "Cancelled"
+  const day = item.dayOfSpan ? `Day ${item.dayOfSpan.day} of ${item.dayOfSpan.of}` : null
+  const title = item.name ?? "Tournament"
+  // "Tournament . U12", or just "Tournament" for a side whose grade did not resolve. The separator is
+  // the one the rest of the app's meta lines use; the grade is never invented to fill the gap.
+  // A CUP SAYS SO. "Knockout . U12" rather than "Tournament . U12" -- the same line, in the same place,
+  // naming the format a parent will hear used at the ground. A round robin is untouched.
+  const knockout = formatHasBracket(details?.format)
+  const kind = knockout ? "Knockout" : "Tournament"
+  const typeLine = details?.ageGroup ? `${kind} \u00b7 ${details.ageGroup}` : kind
+  const hostedBy = details?.hostClubName ? `Hosted by ${details.hostClubName}` : null
+
+  return {
+    title,
+    start,
+    end: details?.endTime ?? null,
+    typeLine,
+    knockout,
+    hostedBy,
+    venue: item.venue,
+    cover: details?.cover ?? { kind: "none" },
+    day,
+    cancelled,
+    status: item.status,
+    child,
+    attendance: item.attendance,
+    attendanceWord,
+    spoken: [
+      child ? `${child.shortLabel}, ${child.teamName}.` : null,
+      `${title}.`,
+      `${typeLine.replace(" \u00b7 ", ", ")}.`,
+      day ? `${day}.` : null,
+      start ? (details?.endTime ? `${start} to ${details.endTime}.` : `${start}.`) : null,
+      hostedBy ? `${hostedBy}.` : null,
+      item.venue ? `${item.venue}.` : null,
+      cancelled ? "Cancelled." : null,
+      child ? `${attendanceWord}.` : null,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  }
 }
 
 export function projectParticipantTraining(

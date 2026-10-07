@@ -2,22 +2,26 @@ import { redirect } from "next/navigation"
 import { cookies } from "next/headers"
 import { Users } from "lucide-react"
 
+import { readDispensationRegister, type DispensationRecord } from "@ovalball/contracts/team/dispensation"
+
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { createClient } from "@/lib/supabase/server"
 import { loadStaffPlayers } from "@/lib/players/staff-players"
+import { DispensationRegister } from "@/components/dispensations/dispensation-register"
 
 import { ClubSettingsNav } from "../settings/club-settings-nav"
 import { resolveClubSettingsNavCapabilities } from "../settings/resolve-nav-capabilities"
 import { CallUpPanel, type CallUpFixtureOption, type CallUpPlayerOption, type CallUpRow, type CallUpTeamOption } from "./call-up-panel"
-import { DispensationPanel, type DispensationRow } from "./dispensation-panel"
+import { DispensationRequestPanel } from "./dispensation-panel"
 
 /**
  * RESUME SEASON HANDOVER Sections 23-25: real UI over the existing
  * call-up and dispensation domains. Every action re-authorizes
- * server-side via the RPCs themselves (has_capability + the specific
- * source-team/club checks each stage requires) -- this page's own
- * queries only decide what to SHOW, never what a click is allowed to do.
+ * server-side via the RPCs themselves -- this page's own queries only
+ * decide what to SHOW, never what a click is allowed to do. Dispensations
+ * are the one workflow (20270742000000): asked for here, decided on each
+ * record by the club's Safeguarding Officer or a Club Admin.
  */
 export default async function PlayerMovesPage() {
   const supabase = await createClient()
@@ -37,10 +41,9 @@ export default async function PlayerMovesPage() {
 
   const { data: club } = await supabase.from("clubs").select("id, club_directory(rugby_code, name)").eq("id", activeClub).maybeSingle()
   if (!club) redirect("/dashboard")
-  const rugbyCode = (club.club_directory?.rugby_code ?? "union") as "union" | "league"
   const todayIso = new Date().toISOString().slice(0, 10)
 
-  const [{ data: teams }, { data: memberships }, { data: fixtureRows }, { data: currentSeason }] = await Promise.all([
+  const [{ data: teams }, { data: memberships }, { data: fixtureRows }] = await Promise.all([
     supabase.from("teams").select("id, display_name, category, age_group, gender").eq("club_id", activeClub).eq("active", true).order("display_name"),
     supabase
       .from("player_team_memberships")
@@ -55,15 +58,6 @@ export default async function PlayerMovesPage() {
       .gte("kickoff_date", todayIso)
       .neq("status", "Cancelled")
       .order("kickoff_date"),
-    supabase
-      .from("seasons")
-      .select("id, name")
-      .eq("rugby_code", rugbyCode)
-      .eq("is_regression_fixture", false)
-      .lte("starts_on", todayIso)
-      .gte("ends_on", todayIso)
-      .limit(1)
-      .maybeSingle(),
   ])
 
   const teamOptions: CallUpTeamOption[] = (teams ?? []).map((t) => ({
@@ -90,7 +84,7 @@ export default async function PlayerMovesPage() {
     gender: m.teams?.gender ?? null,
   }))
 
-  const [{ data: callUpRows }, { data: dispensationRows }] = await Promise.all([
+  const [{ data: callUpRows }, dispensations] = await Promise.all([
     canCallUps
       ? supabase
           .from("fixture_player_call_up")
@@ -101,18 +95,12 @@ export default async function PlayerMovesPage() {
           .order("created_at", { ascending: false })
       : Promise.resolve({ data: null }),
     canDispensations
-      ? supabase
-          .from("player_team_dispensation")
-          .select(
-            "id, status, eligibility_rule_reference, governing_body_reference, source_team_id, player_id, source_team:source_team_id(display_name), target_team:target_team_id(display_name), seasons(name)"
-          )
-          .or(`source_team_id.in.(${(teams ?? []).map((t) => t.id).join(",") || "00000000-0000-0000-0000-000000000000"}),target_team_id.in.(${(teams ?? []).map((t) => t.id).join(",") || "00000000-0000-0000-0000-000000000000"})`)
-          .order("created_at", { ascending: false })
-      : Promise.resolve({ data: null }),
+      ? readDispensationRegister(supabase as unknown as Parameters<typeof readDispensationRegister>[0], activeClub).catch(() => [] as DispensationRecord[])
+      : Promise.resolve([] as DispensationRecord[]),
   ])
 
   const clubTeamIds = new Set((teams ?? []).map((t) => t.id))
-  const movementPlayers = await loadStaffPlayers(supabase, [...(callUpRows ?? []), ...(dispensationRows ?? [])].map((r) => r.player_id))
+  const movementPlayers = await loadStaffPlayers(supabase, (callUpRows ?? []).map((r) => r.player_id))
   const callUps: CallUpRow[] = (callUpRows ?? []).map((r) => ({
     id: r.id,
     playerName: movementPlayers.get(r.player_id)?.displayName || "Unknown player",
@@ -127,19 +115,6 @@ export default async function PlayerMovesPage() {
     canDecide: clubTeamIds.has(r.source_team_id),
   }))
 
-  const dispensations: DispensationRow[] = (dispensationRows ?? []).map((r) => ({
-    id: r.id,
-    playerName: movementPlayers.get(r.player_id)?.displayName || "Unknown player",
-    sourceTeamId: r.source_team_id,
-    sourceTeamName: r.source_team?.display_name ?? "Unknown team",
-    targetTeamName: r.target_team?.display_name ?? "Unknown team",
-    seasonName: r.seasons?.name ?? "Unknown season",
-    eligibilityRuleReference: r.eligibility_rule_reference,
-    governingBodyReference: r.governing_body_reference,
-    status: r.status as DispensationRow["status"],
-    canDecideSourceTeam: clubTeamIds.has(r.source_team_id),
-    canDecideClub: true, // decide_player_dispensation itself enforces is_club_admin for the club/governing_body stages -- this only controls whether the button renders.
-  }))
 
 
   return (
@@ -150,7 +125,8 @@ export default async function PlayerMovesPage() {
       </div>
       <h1 className="mt-2 font-display text-display-l text-ink">Player Moves</h1>
       <p className="mt-2 max-w-xl text-sm text-ink-muted">
-        Borrow a player for a single fixture, or move one onto a different team for the season -- both need the source team&apos;s consent first.
+        Borrow a player for a single fixture, or ask for a player to play outside their age grade this season. A dispensation is an exception the
+        club&apos;s Safeguarding Officer or a Club Admin decides.
       </p>
 
       <ClubSettingsNav active="playerMoves" {...navCaps} />
@@ -158,7 +134,18 @@ export default async function PlayerMovesPage() {
       <div className="mt-8 space-y-6">
         {canCallUps && <CallUpPanel teams={teamOptions} fixtures={fixtureOptions} players={playerOptions} rows={callUps} />}
         {canDispensations && (
-          <DispensationPanel seasonId={currentSeason?.id ?? null} seasonName={currentSeason?.name ?? null} teams={teamOptions} players={playerOptions} rows={dispensations} />
+          <section aria-labelledby="player-moves-dispensations" className="rounded-lg border border-ink/10 bg-white p-6">
+            <h2 id="player-moves-dispensations" className="font-display text-lg text-ink">
+              Dispensations
+            </h2>
+            <p className="mt-1.5 text-sm text-ink-muted">
+              A child outside a team&apos;s age grade can only be placed there with an approved dispensation, for that team and season.
+            </p>
+            <DispensationRequestPanel teams={teamOptions} players={playerOptions} />
+            <div className="mt-6 border-t border-ink/10 pt-4">
+              <DispensationRegister records={dispensations} emptyText="No dispensations yet." />
+            </div>
+          </section>
         )}
       </div>
     </div>

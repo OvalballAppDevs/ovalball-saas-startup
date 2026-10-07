@@ -44,11 +44,18 @@ const sql = (q) =>
     encoding: "utf8",
   }).trim()
 
+// THE TEAM IS NAMED. The persona manages three teams since 2026-10-04 (Under 12 Boys, Under 7 Mixed, Under 8
+// Mixed), and an unordered `limit 1` picked one while the dashboard led with another. This suite is about
+// the review club's Under 12 Boys, so it asks for that team -- and opens the dashboard IN that team's
+// context (below), exactly as the person would by switching to it.
 const teamId = sql(`
-  select tp.team_id from public.team_permissions tp
+  select tp.team_id from testing.team_roles tp
     join public.club_memberships m on m.id = tp.membership_id
     join auth.users u on u.id = m.user_id
-   where u.email = '${MANAGER}' limit 1`)
+    join public.teams t on t.id = tp.team_id
+    join public.clubs c on c.id = t.club_id
+   where u.email = '${MANAGER}' and tp.role_key = 'TEAM_MANAGER'
+     and c.slug = 'ovalball-uat-rufc' and t.age_group = 'U12' and t.gender = 'boys' and t.squad_designation is null`)
 if (!teamId) {
   console.error(`No team for ${MANAGER}. Run: node scripts/review-fixtures/step2-review-club.mjs enrich-team-ops`)
   process.exit(1)
@@ -68,6 +75,7 @@ try {
   const page = await ctx.newPage()
   page.on("pageerror", (e) => pageErrors.push(String(e?.message ?? e)))
   await signIn(page, MANAGER)
+  await page.context().addCookies([{ name: "ovalball_ctx", value: `team:${teamId}`, url: APP }])
 
   // =====================================================================
   // A. THE TEAM'S OWN HOME
@@ -89,8 +97,17 @@ try {
 
   if (nextFixtureId) {
     record("A4 Next Up names a real fixture", /Next Up/i.test(body))
-    const matchCentre = page.getByRole("link", { name: /Match Centre/i }).first()
-    record("A5 with a way into the Match Centre for it", await matchCentre.isVisible().catch(() => false))
+    // Next Up is the team's next FIXTURE OR TRAINING, whichever comes first; only a fixture has a Match
+    // Centre. The suite's own next fixture can sit behind an earlier training session, so the check reads
+    // which kind the card is showing rather than assuming it.
+    const nextUpCard = page.locator('section[aria-labelledby="team-next"]')
+    const nextUpTitle = ((await nextUpCard.locator("p.text-lg").first().innerText().catch(() => "")) ?? "").trim()
+    const matchCentre = nextUpCard.getByRole("link", { name: /Match Centre/i })
+    if (nextUpTitle === "Training") {
+      record("A5 Next Up is a training session, which carries no Match Centre link", (await matchCentre.count()) === 0, nextUpTitle)
+    } else {
+      record("A5 with a way into the Match Centre for it", await matchCentre.first().isVisible().catch(() => false), nextUpTitle)
+    }
   }
 
   // Needs Attention is DERIVED. It is present only when domain state says so, which is the whole
@@ -240,14 +257,22 @@ try {
     )
   }
 
-  // And the bounded view is NOT club finance.
-  await page.goto(`${APP}/club/finance`, { waitUntil: "domcontentloaded", timeout: 75000 })
-  const financeUrl = new URL(page.url()).pathname
-  record(
-    "E4 team-scoped finance does not open the club's finance surface",
-    financeUrl !== "/club/finance" || !/Expected revenue/i.test(await page.locator("body").innerText()),
-    financeUrl,
-  )
+  // And the bounded view is NOT club finance. Club Memberships Part 2 made /club/finance the club's Memberships area,
+  // with each section on its own route -- every one of them is the club's finance surface, so every one is asked.
+  // Sent away, or (were the gate ever to fail open) none of the area's own words on the page: its money panel, the
+  // ledger's sections and metric cards.
+  const clubFinanceSurface = /Expected revenue|What These Mean|Club receives|Of what is outstanding|Payments in |Who to Remind|Show Members/i
+  for (const path of ["/club/finance", "/club/finance/members", "/club/finance/reminders", "/club/finance/payments"]) {
+    await page.goto(`${APP}${path}`, { waitUntil: "domcontentloaded", timeout: 75000 })
+    const financeUrl = new URL(page.url()).pathname
+    record(
+      path === "/club/finance"
+        ? "E4 team-scoped finance does not open the club's finance surface"
+        : `E4 team-scoped finance does not open the club's finance surface (${path})`,
+      financeUrl !== path || !clubFinanceSurface.test(await page.locator("body").innerText()),
+      financeUrl,
+    )
+  }
 
   await ctx.close()
 
@@ -312,6 +337,7 @@ try {
   const phonePage = await phone.newPage()
   phonePage.on("pageerror", (e) => pageErrors.push(String(e?.message ?? e)))
   await signIn(phonePage, MANAGER)
+  await phonePage.context().addCookies([{ name: "ovalball_ctx", value: `team:${teamId}`, url: APP }])
   for (const width of [390, 360]) {
     await phonePage.setViewportSize({ width, height: 844 })
     await phonePage.goto(`${APP}/dashboard`, { waitUntil: "domcontentloaded", timeout: 75000 })

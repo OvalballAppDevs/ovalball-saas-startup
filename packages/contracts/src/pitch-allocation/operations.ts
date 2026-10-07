@@ -66,6 +66,22 @@ export async function allocateFixtureOnPitch(
     targetPitchId = changes.pitchId
   }
   const targetKickoffTime = changes.kickoffTime !== undefined ? changes.kickoffTime : fixture.kickoff_time
+  const pitchChanges = targetPitchId !== fixture.pitch_id
+  const kickoffChanges = (targetKickoffTime ?? null) !== (fixture.kickoff_time ?? null)
+
+  // PLACEMENT IS PITCH-ALLOCATION AUTHORITY (20270762000000): a pitch-only move goes through `allocate_fixture_pitch`,
+  // which asks `venue.pitch_allocation.manage` for the hosting club and nothing else -- a fixture editor without it is
+  // refused here. A kick-off move is a fixture edit and stays with the schedule writer.
+  if (pitchChanges && !kickoffChanges) {
+    const { error: placeError } = await supabase.rpc("allocate_fixture_pitch", { p_fixture_id: fixtureId, p_pitch_id: targetPitchId as string })
+    if (placeError) return refused(fixtureId, placeError.message)
+    return { ok: true, fixtureId, appliedPitchId: targetPitchId ?? null, appliedKickoffTime: fixture.kickoff_time ?? null, kickoffProposed: false }
+  }
+  if (pitchChanges) {
+    // Both: place the pitch with allocation authority first, then move the time as a fixture edit (pitch unchanged).
+    const { error: placeError } = await supabase.rpc("allocate_fixture_pitch", { p_fixture_id: fixtureId, p_pitch_id: targetPitchId as string })
+    if (placeError) return refused(fixtureId, placeError.message)
+  }
 
   const { data: result, error } = await supabase
     .rpc("update_fixture_schedule", {
@@ -88,16 +104,11 @@ export async function allocateFixtureOnPitch(
 }
 
 /**
- * Take a fixture OFF its pitch. The board on the website has no control for this; the website's
- * Fixture Detail does it through `update_fixture_pitch` with no pitch, which is the canonical way to
- * clear a pitch (and what the phone's fixture console already calls). Same RPC, same audit.
+ * Take a fixture OFF its pitch from the board -- the same placement writer the board uses to put one on.
  */
 export async function clearFixturePitch(supabase: Client, fixtureId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await supabase.rpc("update_fixture_pitch", {
-    p_fixture_id: fixtureId,
-    p_pitch_id: null as unknown as string,
-    p_pitch_text: null as unknown as string,
-  })
+  // Taking a fixture off its pitch is placement too: pitch-allocation authority (20270762000000).
+  const { error } = await supabase.rpc("allocate_fixture_pitch", { p_fixture_id: fixtureId, p_pitch_id: null as unknown as string })
   return error ? { ok: false, error: error.message } : { ok: true }
 }
 

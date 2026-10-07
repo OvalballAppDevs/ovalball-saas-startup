@@ -45,7 +45,7 @@ export function HomeAttention() {
 
   return (
     <View style={{ paddingHorizontal: space.lg, gap: space.sm }}>
-      <NeedsAttention items={rows} />
+      <NeedsAttention items={rows} total={read.items.length} />
       {more > 0 && (
         <Pressable
           accessibilityRole="button"

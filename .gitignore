@@ -82,3 +82,4 @@ research-ingestion/**
 
 # Browser-verification screenshots. Evidence for a run, never source.
 .screenshots/
+apps/mobile/src/clubhouse/preview-overlay-data.generated.json

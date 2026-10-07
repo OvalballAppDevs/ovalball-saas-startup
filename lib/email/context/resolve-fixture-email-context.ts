@@ -6,6 +6,8 @@ import { resolveDirectoryCrestEmailUrl, resolveClubCrestEmailUrl } from "@/lib/e
 import { compactTeamLabel } from "@/lib/teams/compact-label"
 import type { Database } from "@/types/database.types"
 
+import { loadScheduleGrounds } from "@ovalball/contracts/agenda/grounds"
+
 /**
  * THE CANONICAL FIXTURE EMAIL CONTEXT.
  *
@@ -168,7 +170,7 @@ export async function resolveFixtureEmailContext(
   const { data: f } = await supabase
     .from("fixtures")
     .select(
-      "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, kickoff_amendment_proposed_at, venue_id, pitch_id, competition_edition_id"
+      "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, kickoff_amendment_proposed_at, venue_id, venue_address, pitch_id, competition_edition_id"
     )
     .eq("id", fixtureId)
     .maybeSingle()
@@ -179,7 +181,7 @@ export async function resolveFixtureEmailContext(
   const homeTeamId = isHomeOwning ? f.owning_team_id : f.opponent_team_id
   const awayTeamId = isHomeOwning ? f.opponent_team_id : f.owning_team_id
 
-  const [home, away, venueRow, pitchRow, competitionRow, attendanceRows] = await Promise.all([
+  const [home, away, venueRow, pitchRow, competitionRow, attendanceRows, viewerRow, grounds] = await Promise.all([
     resolveSide(supabase, homeTeamId, homeTeamId ? null : f.opponent_directory_id),
     resolveSide(supabase, awayTeamId, awayTeamId ? null : f.opponent_directory_id),
     f.venue_id
@@ -190,9 +192,21 @@ export async function resolveFixtureEmailContext(
       ? supabase.from("competition_editions").select("competitions(name)").eq("id", f.competition_edition_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.from("player_fixture_attendance").select("status").eq("fixture_id", fixtureId),
+    // WHERE IT IS, FOR BOTH SIDES -- the same server answer Match Centre uses (`get_match_centre_viewer.ground`,
+    // the one ground rule). The email goes to both clubs, but the reads above run as whoever acted: a visiting
+    // coach cannot read the host's venue or pitch rows, and a fixture with no venue of its own is played at the
+    // host's default ground, which no direct read finds.
+    supabase.rpc("get_match_centre_viewer", { p_fixture_id: fixtureId }),
+    loadScheduleGrounds(supabase, { fixtureIds: [fixtureId] }),
   ])
 
   const venue = venueRow.data
+  const serverGround = ((viewerRow.data as { ground?: Record<string, unknown> | null } | null)?.ground ?? null) as {
+    name: string | null
+    address: string | null
+    postcode: string | null
+  } | null
+  const listedGround = grounds.get(fixtureId) ?? null
   const counts = { attending: 0, cannotAttend: 0, unsure: 0, awaitingResponse: 0 }
   for (const row of attendanceRows.data ?? []) {
     if (row.status === "ATTENDING") counts.attending += 1
@@ -224,8 +238,16 @@ export async function resolveFixtureEmailContext(
             ),
             postcode: venue.postcode,
           }
-        : null,
-      pitchName: pitchRow.data?.display_name ?? null,
+        : serverGround?.name
+          ? {
+              name: serverGround.name,
+              addressLines: (serverGround.address ?? "").split(",").map((l) => l.trim()).filter(Boolean),
+              postcode: serverGround.postcode,
+            }
+          : f.venue_address
+            ? { name: f.venue_address.split(",")[0]?.trim() || f.venue_address, addressLines: [f.venue_address], postcode: null }
+            : null,
+      pitchName: pitchRow.data?.display_name ?? listedGround?.pitchName ?? null,
       competitionName: competition?.name ?? null,
       attendanceCounts: counts,
     },

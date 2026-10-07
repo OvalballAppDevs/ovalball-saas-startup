@@ -64,7 +64,7 @@ export default function ReferralTermsPage() {
         <p>None of the following earns anything:</p>
         <LegalList
           items={[
-            "the club opening your invitation, or registering on Ovalball",
+            "the club opening your invitation or your club’s referral link, or registering on Ovalball",
             "the club starting a free trial, however long it runs",
             "the club choosing a plan",
             "the club setting up a Direct Debit",
@@ -90,7 +90,23 @@ export default function ReferralTermsPage() {
         <p>
           A referred club can earn a reward for one referring club only. Where more than one club
           claims to have introduced the same club, the first qualifying referral earns the reward
-          and the others do not.
+          and the others do not. Referrals are taken in the order the introductions were made,
+          whichever way they were made; if the first club cannot receive the reward when it is
+          earned, the next club that can receives it instead.
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="How a club is introduced">
+        <p>
+          Your club can introduce another club in two ways: by sending an invitation to a named
+          club, or by sharing your club&rsquo;s referral link. A club that signs up through your
+          link and claims its place on {PRODUCT_NAME} is recorded as introduced by your club, dated
+          when it signed up, once {PRODUCT_NAME} approves its claim.
+        </p>
+        <p>
+          A link counts only for a club already listed in the {PRODUCT_NAME} Club Directory, and
+          only when it is used on the device the club signs up on. Opening or sharing a link earns
+          nothing by itself.
         </p>
       </LegalSection>
 

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { loadContactAvatars } from "./messenger-avatars"
+
 import { getClubConversationSummaries, getConversationSummaries } from "./conversations"
 import type { SessionContext } from "./session-context"
 import type { MessengerRow } from "./messenger-view-model"
@@ -39,6 +41,23 @@ const REPLY_MODE_LABEL: Record<string, string> = {
   NO_REPLY: "Announcement",
   PRIVATE_REPLY: "Reply privately",
   GROUP_DISCUSSION: "Group discussion",
+}
+
+/** "Sat 17 Oct" (with the year when it is not this one), in UK time. Null when the fixture has no date yet. */
+/** "Under 12 Boys vs Calder Moor U12 · Sat 17 Oct" -- our side named once where both share a label. */
+export function fixtureContext(mine: string, opposition: string | null | undefined, date: string | null, now: Date = new Date()): string {
+  const sides = opposition && opposition !== mine ? `${mine} vs ${opposition}` : mine
+  return [sides, matchDay(date, now)].filter(Boolean).join(" · ")
+}
+
+export function matchDay(date: string | null | undefined, now: Date = new Date()): string | null {
+  if (!date) return null
+  const at = new Date(date.length === 10 ? `${date}T12:00:00Z` : date)
+  if (Number.isNaN(at.getTime())) return null
+  const year = at.toLocaleDateString("en-GB", { year: "numeric", timeZone: "Europe/London" })
+  const thisYear = now.toLocaleDateString("en-GB", { year: "numeric", timeZone: "Europe/London" })
+  const part = (options: Intl.DateTimeFormatOptions) => at.toLocaleDateString("en-GB", { ...options, timeZone: "Europe/London" })
+  return [part({ weekday: "short" }), part({ day: "numeric" }), part({ month: "short" }), year !== thisYear ? year : null].filter(Boolean).join(" ")
 }
 
 /** "Priya: Can we move to 10:30?" -- who said it, then what they said. */
@@ -101,6 +120,7 @@ async function getMyAnnouncementRows(supabase: SupabaseClient<Database>): Promis
  */
 async function getMyDirectRows(supabase: SupabaseClient<Database>): Promise<MessengerRow[]> {
   const { data } = await supabase.rpc("my_direct_conversations", { p_limit: 50 })
+  const avatars = await loadContactAvatars(supabase, (data ?? []).map((d) => d.other_user_id))
 
   return (data ?? []).map((d) => ({
     key: `direct:${d.conversation_id}`,
@@ -109,6 +129,8 @@ async function getMyDirectRows(supabase: SupabaseClient<Database>): Promise<Mess
     // No crest: a direct conversation is with a person, and borrowing their
     // club's badge would attribute a private message to an organisation.
     logoUrl: null,
+    avatarUrl: avatars.get(d.other_user_id) ?? null,
+    otherUserId: d.other_user_id,
     title: d.other_display_name ?? "Ovalball user",
     context: "Direct message",
     preview: d.last_message_from_me ? preview("You", d.last_message_preview) : d.last_message_preview,
@@ -155,11 +177,16 @@ export async function getMessengerRows(
       // WHY, on one line: our team against theirs. The kind of conversation
       // (fixture or request) is carried by the marker on the crest, so it is
       // not also spelled out here.
-      context: `${c.myTeamDisplayName} vs ${c.oppositionLabel}`,
+      // AND WHICH MATCH: one conversation per opposing team, so the date names the next (or latest) game in it.
+      // Where both sides carry the same label ("Under 12 Boys" against "Under 12 Boys") the title has already
+      // said who the opposition is, so the line names our side once rather than repeating it.
+      context: fixtureContext(c.myTeamDisplayName, c.oppositionLabel, c.date),
       preview: preview(c.latestMessageSenderName, c.latestMessagePreview),
       status: c.status,
       statusLabel: STATUS_LABELS[c.status] ?? c.status,
-      activityAt: c.latestMessageAt ?? c.date,
+      // THE LAST MESSAGE, never the match date: a fixture three weeks away must not sit above today's
+      // messages. The match itself is named in the context line.
+      activityAt: c.latestMessageAt,
       unreadCount: c.unreadCount,
     })),
     ...clubConversations.map((c) => ({

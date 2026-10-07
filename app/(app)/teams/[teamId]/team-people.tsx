@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { TEAM_STAFF_PERMISSION_OPTIONS } from "@/lib/permissions/role-labels"
+import { TEAM_ROLE_OPTIONS } from "@ovalball/contracts/role-labels"
+import type { TeamPlaceRequest, TeamPlaceRequests } from "@ovalball/contracts/team/team-code"
 
 import {
   approveTeamJoinRequest,
@@ -13,6 +14,7 @@ import {
   removeTeamMember,
   restorePlayerMembership,
 } from "./actions"
+import { PlaceRequestCards } from "./place-request-cards"
 
 /**
  * TEAM PEOPLE
@@ -52,9 +54,8 @@ export interface ClubMemberOption {
   name: string
 }
 
-/** Kept for the assignment control, which still speaks in single permissions. */
-/** The canonical three, not a fourth local copy of their wording. */
-const PERMISSION_OPTIONS = TEAM_STAFF_PERMISSION_OPTIONS
+/** The catalogue's team roles, by canonical key -- one list for both clients, never a local copy. */
+const PERMISSION_OPTIONS = TEAM_ROLE_OPTIONS
 
 type TabKey = "coach" | "guardian" | "player" | "requests"
 
@@ -83,6 +84,7 @@ export function TeamPeople({
   clubMembers,
   canManage,
   canAssignTeamAdmin,
+  placeRequests = null,
 }: {
   teamId: string
   people: TeamPersonRow[]
@@ -90,15 +92,19 @@ export function TeamPeople({
   canManage: boolean
   /** Team Admin is given by the club (or Ovalball); a Team Admin gives Coach and Team Manager only. */
   canAssignTeamAdmin: boolean
+  /** The approver's cards for the people waiting (20270741000000): read only for those who may decide them. */
+  placeRequests?: TeamPlaceRequests | null
 }) {
   const [rows, setRows] = useState(people)
-  const [tab, setTab] = useState<TabKey>("coach")
+  const [cards, setCards] = useState(placeRequests)
+  // Somebody waiting is the first thing a person who may decide it is shown.
+  const [tab, setTab] = useState<TabKey>(() => (canManage && people.some((p) => p.status === "requested") ? "requests" : "coach"))
   const [pendingRowId, setPendingRowId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const [assigning, setAssigning] = useState(false)
   const [selectedMembership, setSelectedMembership] = useState("")
-  const [selectedPermission, setSelectedPermission] = useState<(typeof PERMISSION_OPTIONS)[number]["value"]>("coach")
+  const [selectedPermission, setSelectedPermission] = useState<(typeof PERMISSION_OPTIONS)[number]["value"]>("COACH")
 
   const requests = useMemo(() => rows.filter((r) => r.status === "requested"), [rows])
   const byTab = useMemo(() => {
@@ -118,6 +124,15 @@ export function TeamPeople({
     else setError(result.error)
   }
 
+  function decided(request: TeamPlaceRequest, approved: boolean) {
+    setCards((prev) => (prev ? { ...prev, requests: prev.requests.filter((r) => r.membershipId !== request.membershipId) } : prev))
+    setRows((prev) =>
+      approved
+        ? prev.map((r) => (r.rowId === request.membershipId ? { ...r, status: "active", requestedAt: null } : r))
+        : prev.filter((r) => r.rowId !== request.membershipId)
+    )
+  }
+
   async function handleAssign() {
     if (!selectedMembership) return
     setAssigning(true)
@@ -130,8 +145,9 @@ export function TeamPeople({
     }
     const member = clubMembers.find((m) => m.membershipId === selectedMembership)
     const label = PERMISSION_OPTIONS.find((p) => p.value === selectedPermission)?.label ?? "Coach"
+    // ADDITIVE: the person keeps every role they already hold here; the new one joins them.
     setRows((prev) => [
-      ...prev.filter((r) => !(r.kind === "coach" && r.personId === selectedMembership)),
+      ...prev,
       {
         kind: "coach",
         rowId: result.teamPermissionId,
@@ -174,7 +190,14 @@ export function TeamPeople({
 
       {error && <p className="mt-3 text-sm text-destructive-text">{error}</p>}
 
-      {byTab.length === 0 ? (
+      {tab === "requests" && canManage && cards && (cards.requests.length > 0 || cards.awaitingGuardian > 0 || cards.awaitingDispensation > 0) ? (
+        <PlaceRequestCards
+          data={cards}
+          pendingId={pendingRowId}
+          onApprove={(request) => run(request.membershipId, () => approveTeamJoinRequest(teamId, request.membershipId), () => decided(request, true))}
+          onDecline={(request, reason) => run(request.membershipId, () => declineTeamJoinRequest(teamId, request.membershipId, reason), () => decided(request, false))}
+        />
+      ) : byTab.length === 0 ? (
         <p className="mt-4 rounded-lg border border-dashed border-ink/15 bg-white/60 px-4 py-6 text-center text-sm text-ink-muted">
           {TABS.find((t) => t.key === tab)?.empty}
         </p>
@@ -307,7 +330,7 @@ export function TeamPeople({
               aria-label="Role in this team"
               className="h-10 rounded-lg border border-ink/15 bg-white px-3 text-sm outline-none focus-visible:border-pitch-600 focus-visible:ring-2 focus-visible:ring-pitch-400"
             >
-              {PERMISSION_OPTIONS.filter((p) => canAssignTeamAdmin || p.value !== "team_admin").map((p) => (
+              {PERMISSION_OPTIONS.filter((p) => canAssignTeamAdmin || p.value !== "TEAM_ADMINISTRATION").map((p) => (
                 <option key={p.value} value={p.value}>
                   {p.label}
                 </option>

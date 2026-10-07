@@ -1,5 +1,4 @@
-import { useCallback } from "react"
-import { useNavigation, useRouter } from "expo-router"
+import { useOriginBack } from "./origin"
 
 /**
  * BACK, TO THE SURFACE THE SCREEN BELONGS TO.
@@ -18,14 +17,7 @@ import { useNavigation, useRouter } from "expo-router"
  * replaces the parked screen with the agenda the person expected.
  */
 export function useBackToSurface(surface: "/calendar" | "/fixtures" | "/hub"): () => void {
-  const router = useRouter()
-  const navigation = useNavigation()
-  return useCallback(() => {
-    const state = navigation.getState()
-    if (state && state.index > 0) {
-      router.back()
-      return
-    }
-    router.dismissTo(surface)
-  }, [navigation, router, surface])
+  // ONE BACK RULE (M2): the canonical origin helper, with this surface as the landing when nothing else applies. An
+  // opener's `returnTo` is honoured without overwriting the screen beneath when that screen already IS the origin.
+  return useOriginBack(surface)
 }

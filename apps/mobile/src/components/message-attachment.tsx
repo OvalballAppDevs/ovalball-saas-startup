@@ -3,6 +3,7 @@ import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native"
 import { Image } from "expo-image"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { ThreadAttachment, ThreadDocumentShare } from "@ovalball/contracts"
+import { documentCategoryLabel } from "@ovalball/contracts/documents/categories"
 
 import { openAttachment } from "../messages/open-attachment"
 import { readableSize } from "../messages/documents"
@@ -62,7 +63,7 @@ export function MessageDocumentShare({ share, mine }: { share: ThreadDocumentSha
       sizeBytes={share.sizeBytes}
       signedUrl={share.signedUrl}
       title={share.title}
-      label={share.category ? `Club document · ${share.category}` : "Club document"}
+      label={share.category ? `Club document · ${documentCategoryLabel(share.category)}` : "Club document"}
     />
   )
 }

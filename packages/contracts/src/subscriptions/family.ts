@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "../database"
+import { STANDING_LABEL, reasonSentence, type MembershipReason, type MembershipStanding } from "../membership/board"
 
 /**
  * A FAMILY'S MEMBERSHIP, AS A PARENT SEES IT.
@@ -14,8 +15,9 @@ import type { Database } from "../database"
  * anything copied it.
  *
  * AND THE AUTHORITY IS THE FAMILY'S, NOT A STAFF CAPABILITY.
- * `get_enrolment_eligibility` is the canonical entry point the parent page uses --
- * a guardian's or an adult player's own relationship to that child and that club.
+ * `family_membership_standing` is the canonical entry point -- a guardian's or the
+ * linked player's own relationship to that child, checked on the server -- and the
+ * parent page's own `get_enrolment_eligibility` decides who may SET UP a membership.
  * `finance.subscription.view` is a TEAM STAFF rule for a different question
  * ("what does this squad owe") and is deliberately not consulted here.
  *
@@ -34,6 +36,8 @@ export const MANDATE_STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
   expired: "Expired",
   consumed: "Replaced by a newer mandate",
+  suspended_by_payer: "Suspended at your bank",
+  blocked: "Blocked by GoCardless",
 }
 
 /** GoCardless subscription statuses, in the web's own words. */
@@ -53,7 +57,11 @@ export const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
  * would have parents chasing a bank over nothing. Only a genuine absence or a
  * genuine failure is attention.
  */
-export type SubscriptionAttention = "none" | "setup_required" | "failed"
+/**
+ * A family's task, if any. `start_required` (20270753000000): the payer's Direct Debit is in place but they never
+ * started the membership, so nothing is collected until they do.
+ */
+export type SubscriptionAttention = "none" | "setup_required" | "start_required" | "failed"
 
 export interface FamilySubscription {
   playerId: string
@@ -81,17 +89,37 @@ export interface FamilySubscription {
  * The family's membership state for one child at one club, or null where the club
  * runs no subscription programme at all -- which is not a problem to report, it is
  * simply a club that does not collect subscriptions through Ovalball.
+ *
+ * ONE STANDING, THE SAME ONE THE CLUB AND THE TEAM SEE (20270747000000). It used to
+ * be worked out here from rows only the PAYER can read, so a second guardian saw
+ * "setup required" for a healthy membership, and a payment that failed while the
+ * Direct Debit was live projected nothing -- the payment-failed notice was then
+ * paired to an item that did not exist. `family_membership_standing` is the family's
+ * own door to `internal.membership_standing`: the server checks that the reader is
+ * the child's active guardian or the linked player, and says only whether the reader
+ * is the payer.
+ *
+ * ATTENTION IS STILL ONLY A GENUINE ABSENCE OR A GENUINE FAILURE. Money with the bank,
+ * being retried or scheduled is GoCardless doing its job (Collecting), and an ordinary
+ * month not yet collected is not a task; nothing set up, a Direct Debit to finish, and
+ * a payment or Direct Debit that failed are.
  */
 export async function loadFamilySubscription(
   supabase: SupabaseClient<Database>,
   input: { playerId: string; playerName: string; clubId: string }
 ): Promise<FamilySubscription | null> {
-  const { data: eligibility } = await supabase
-    .rpc("get_enrolment_eligibility", { p_player_id: input.playerId, p_club_id: input.clubId })
-    .maybeSingle()
+  const { data, error } = await supabase.rpc("family_membership_standing", { p_player_id: input.playerId, p_club_id: input.clubId })
+  if (error) throw error
+  const row = (data ?? {}) as {
+    programme_enabled?: boolean
+    standing?: MembershipStanding | null
+    reason?: MembershipReason | null
+    has_payer?: boolean
+    payer_is_you?: boolean
+  }
   // NO PROGRAMME IS NOT A GAP. A club that has not configured subscriptions has
   // nothing for a parent to see, and a card saying so would be furniture.
-  if (!eligibility || !eligibility.programme_enabled) return null
+  if (!row.programme_enabled) return null
 
   const base = {
     playerId: input.playerId,
@@ -99,61 +127,31 @@ export async function loadFamilySubscription(
     clubId: input.clubId,
     programmeName: "Membership",
   }
-
-  // NOTHING SET UP YET. The one state that is genuinely a job for the parent.
-  if (!eligibility.existing_payer_subscription_id) {
-    return {
-      ...base,
-      statusLabel: null,
-      attention: "setup_required",
-      detail: "Payment has not been set up yet.",
-    }
+  // SOMEBODY ELSE PAYS (20270753000000): the server says only that it is in hand -- never the payer's figures or how
+  // their Direct Debit is doing -- so there is nothing here for this reader to do.
+  if (row.has_payer && !row.payer_is_you) {
+    return { ...base, statusLabel: "Set up by someone else", attention: "none", detail: "Someone else looks after the payments for this membership." }
   }
-
-  const { data: subscription } = await supabase
-    .from("gocardless_subscriptions")
-    .select("status")
-    .eq("payer_subscription_id", eligibility.existing_payer_subscription_id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (subscription?.status) {
-    const label = SUBSCRIPTION_STATUS_LABEL[subscription.status] ?? subscription.status
-    return {
-      ...base,
-      statusLabel: label,
-      // A cancelled or finished membership is a fact, not a failure to chase.
-      attention: "none",
-      detail: null,
-    }
+  if (!row.standing || !row.reason) {
+    return { ...base, statusLabel: null, attention: "setup_required", detail: "Payment has not been set up yet." }
   }
-
-  /*
-    A PAYER EXISTS BUT NO SUBSCRIPTION DOES, so the mandate is where the truth is:
-    still with the bank, or failed. Only the second is a job.
-  */
-  const { data: billingRequest } = await supabase
-    .from("gocardless_billing_requests")
-    .select("id")
-    .eq("payer_subscription_id", eligibility.existing_payer_subscription_id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  const { data: mandate } = billingRequest
-    ? await supabase.from("gocardless_mandates").select("status").eq("billing_request_id", billingRequest.id).maybeSingle()
-    : { data: null }
-
-  if (!mandate?.status) {
-    return { ...base, statusLabel: null, attention: "setup_required", detail: "Payment setup is not finished." }
-  }
-  const label = MANDATE_STATUS_LABEL[mandate.status] ?? mandate.status
-  const failed = mandate.status === "failed" || mandate.status === "expired" || mandate.status === "cancelled"
+  const attention = familyAttention(row.standing, row.reason)
   return {
     ...base,
-    statusLabel: label,
-    attention: failed ? "failed" : "none",
-    detail: failed ? label : null,
+    statusLabel: STANDING_LABEL[row.standing],
+    attention,
+    detail: attention === "none" ? null : attention === "start_required" ? FAMILY_START_SENTENCE : reasonSentence(row.reason, "team"),
   }
+}
+
+/** To the payer, whose task it is: the Direct Debit is set up, and the membership is waiting for them to start it. */
+export const FAMILY_START_SENTENCE = "Your Direct Debit is set up, but the membership hasn't started. Start it so the club can collect it."
+
+/** Only a genuine absence, a membership waiting to be started, or a genuine failure is a family's task; a processing state never is. */
+export function familyAttention(standing: MembershipStanding, reason: MembershipReason): SubscriptionAttention {
+  if (standing === "NOT_SET_UP") return "setup_required"
+  if ((standing === "DUE" || standing === "OVERDUE") && reason === "NOT_STARTED") return "start_required"
+  if ((standing === "DUE" || standing === "OVERDUE") && reason === "SETUP_UNFINISHED") return "setup_required"
+  const failed = standing === "ACTION_NEEDED" && (reason === "PAYMENT_FAILED" || reason === "CHARGED_BACK" || reason === "PAYMENT_CANCELLED" || reason === "MANDATE_PROBLEM")
+  return failed ? "failed" : "none"
 }

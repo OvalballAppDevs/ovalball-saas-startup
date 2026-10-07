@@ -3,7 +3,10 @@ import { Linking, Pressable, Text, View } from "react-native"
 import { useFocusEffect } from "expo-router"
 
 import { resolveFamilyScope } from "@ovalball/contracts"
+import { familyFeeSentence } from "@ovalball/contracts/membership/family-charge"
+import { feePercent } from "@ovalball/contracts/membership/setup"
 import { formatMinor, loadFamilySubscriptionDetail, type FamilySubscriptionDetail } from "@ovalball/contracts/subscriptions/family-detail"
+import { FAMILY_START_SENTENCE } from "@ovalball/contracts/subscriptions/family"
 
 import { supabase } from "../auth/supabase"
 import { useSession } from "../auth/session"
@@ -15,7 +18,7 @@ import { PersonAvatar } from "../components/identity"
 import { CircleAlert, ExternalLink, Receipt } from "../components/icons"
 import { Card, CardSkeleton, EmptyState, ErrorState, StatusPill } from "../components/ui"
 import { friendly, logDetail } from "../errors/translate"
-import { colour, space, type } from "../design/tokens"
+import { TOUCH_TARGET, colour, space, type } from "../design/tokens"
 
 /**
  * A FAMILY'S MEMBERSHIPS (CA-M9): what applies, whom it covers, what it costs, where it stands, and
@@ -75,8 +78,26 @@ export function FamilySubscriptions() {
     <View style={{ gap: space.md }}>
       {rows.map((row) => {
         const member = projection.members.find((m) => m.playerId === row.summary.playerId) ?? null
-        const tone = row.summary.attention === "failed" ? "caution" : row.summary.attention === "setup_required" ? "caution" : "positive"
-        const label = row.summary.attention === "failed" ? "Action required" : row.summary.attention === "setup_required" ? "Setup required" : (row.summary.statusLabel ?? "Set up")
+        // SOMEBODY ELSE PAYS (20270753000000): the reader is told it is in hand and nothing of the payer's -- no amount,
+        // no Direct Debit, no task. The server answers `youPay: false` for exactly this reader.
+        const someoneElsePays = row.charge?.youPay === false || (!row.youAreThePayer && row.summary.statusLabel === "Set up by someone else")
+        const startRequired = !someoneElsePays && row.summary.attention === "start_required"
+        const tone = someoneElsePays || row.summary.attention === "none" ? "positive" : "caution"
+        const label = someoneElsePays
+          ? "Set up by someone else"
+          : row.summary.attention === "failed"
+            ? "Action required"
+            : row.summary.attention === "setup_required"
+              ? "Setup required"
+              : startRequired
+                ? "Start required"
+                : (row.summary.statusLabel ?? "Set up")
+        // Who pays Ovalball's fee and what the Direct Debit collects (owner-locked: the parent is told which).
+        const charge = !someoneElsePays && row.charge?.youPay && row.charge.monthlyAmountMinor !== null ? row.charge : null
+        const feeSentence = charge ? familyFeeSentence(charge, member?.clubName ?? "The club") : null
+        // The one task, in the family's words: starting a membership whose Direct Debit is already in place says so.
+        const task = someoneElsePays ? null : startRequired ? FAMILY_START_SENTENCE : row.nextStep
+        const handOff = someoneElsePays ? null : startRequired ? "Start on the Website" : row.nextStep ? "Set Up on the Website" : "Manage on the Website"
         return (
           <Card key={row.summary.playerId} style={{ gap: space.md }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
@@ -88,32 +109,46 @@ export function FamilySubscriptions() {
               <StatusPill label={label} tone={tone} />
             </View>
 
-            <View style={{ gap: 6 }}>
-              {row.monthlyAmountMinor !== null && <Line label="Amount" value={`${formatMinor(row.monthlyAmountMinor, row.currency)} a month`} />}
-              <Line label="Collected" value={row.frequencyLabel} />
-              {!!row.siblingDiscount && <Line label="Discount" value={row.siblingDiscount.description} />}
-              {!!row.directDebit && <Line label="Direct Debit" value={row.directDebit.statusLabel} />}
-              {!!row.ongoing && <Line label="Membership" value={row.ongoing.statusLabel} />}
-              {!!row.thisMonth && <Line label="This month" value={`${formatMinor(row.thisMonth.amountDueMinor, row.currency)} · ${row.thisMonth.statusLabel}${row.thisMonth.prorated ? " (part month)" : ""}`} />}
-              {row.youAreThePayer && <Line label="Payer" value="You" />}
-            </View>
+            {someoneElsePays ? (
+              <Text style={[type.small, { color: colour.inkMuted }]}>{row.summary.detail ?? "Someone else looks after the payments for this membership."}</Text>
+            ) : (
+              <>
+                <View style={{ gap: 6 }}>
+                  {row.monthlyAmountMinor !== null && <Line label="Amount" value={`${formatMinor(row.monthlyAmountMinor, row.currency)} a month`} />}
+                  {charge?.feeBearer === "PAYER" && (charge.monthlyFeeMinor ?? 0) > 0 && (
+                    <Line label={`Ovalball's Fee (${feePercent(charge.feeBps)})`} value={`${formatMinor(charge.monthlyFeeMinor ?? 0, row.currency)} a month`} />
+                  )}
+                  {charge && charge.monthlyCollectMinor !== null && <Line label="Monthly Direct Debit" value={`${formatMinor(charge.monthlyCollectMinor, row.currency)} a month`} />}
+                  <Line label="Collected" value={row.frequencyLabel} />
+                  {!!row.siblingDiscount && <Line label="Discount" value={row.siblingDiscount.description} />}
+                  {!!row.directDebit && <Line label="Direct Debit" value={row.directDebit.statusLabel} />}
+                  {!!row.ongoing && <Line label="Membership" value={row.ongoing.statusLabel} />}
+                  {!!row.thisMonth && <Line label="This Month" value={`${formatMinor(row.thisMonth.amountDueMinor, row.currency)} · ${row.thisMonth.statusLabel}${row.thisMonth.prorated ? " (part month)" : ""}`} />}
+                  {row.youAreThePayer && <Line label="Payer" value="You" />}
+                </View>
+                {!!feeSentence && <Text style={[type.caption, { color: colour.inkMuted }]}>{feeSentence}</Text>}
+              </>
+            )}
 
-            {!!row.nextStep && (
+            {!!task && (
               <View style={{ flexDirection: "row", gap: space.sm, alignItems: "flex-start", padding: space.md, borderRadius: 12, backgroundColor: colour.warningSurface }}>
                 <CircleAlert size={16} color={colour.warning} strokeWidth={2.2} />
-                <Text style={[type.small, { color: colour.warning, flex: 1 }]}>{row.nextStep}</Text>
+                <Text style={[type.small, { color: colour.warning, flex: 1 }]}>{task}</Text>
               </View>
             )}
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${row.nextStep ? "Set up on the Ovalball website" : "Manage on the Ovalball website"}. Opens the website`}
-              onPress={() => void Linking.openURL(`${webUrl}${row.webPath}`)}
-              style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 6, opacity: pressed ? 0.6 : 1 })}
-            >
-              <Text style={[type.smallMedium, { color: colour.forest800 }]}>{row.nextStep ? "Set up on the website" : "Manage on the website"}</Text>
-              <ExternalLink size={14} color={colour.forest800} />
-            </Pressable>
+            {handOff && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${handOff}. Opens the Ovalball website`}
+                onPress={() => void Linking.openURL(`${webUrl}${row.webPath}`)}
+                hitSlop={8}
+                style={({ pressed }) => ({ minHeight: TOUCH_TARGET, flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", opacity: pressed ? 0.6 : 1 })}
+              >
+                <Text style={[type.smallMedium, { color: colour.forest800 }]}>{handOff}</Text>
+                <ExternalLink size={14} color={colour.forest800} />
+              </Pressable>
+            )}
           </Card>
         )
       })}

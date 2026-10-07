@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from "react-native"
+import { Image } from "expo-image"
 import type { ClubTheme, AgendaItem, FamilyMember } from "@ovalball/contracts"
 import { ATTENDANCE_STATE_WORDS } from "@ovalball/contracts/availability"
 import { needsAttendanceResponse } from "@ovalball/contracts"
@@ -15,9 +16,13 @@ import {
   statusTone,
   type StatusTone,
 } from "../agenda/presentation"
+import { formatHasBracket } from "@ovalball/contracts/tournaments/knockout"
+
+import { coverPhotoSource } from "../media/stock-assets"
+import { KNOCKOUT_RED } from "../tournaments/knockout-planning"
 import { ChildMark } from "./child-mark"
 import { ClubCrest, PersonAvatar } from "./identity"
-import { Clock, Flag, MapPin, OvalIcon, Users } from "./icons"
+import { Clock, Flag, MapPin, OvalIcon, Trophy, Users } from "./icons"
 import { TOUCH_TARGET, colour, radius, space, type } from "../design/tokens"
 
 /**
@@ -75,6 +80,11 @@ export function AgendaRow({
   const home = homeAwayLabel(item.homeAway)
   const time = kickoffLabel(item.time)
   const training = item.kind === "training"
+  // A TOURNAMENT IS NEITHER. It has no opposition crest to draw, no home-or-away to
+  // badge and no single scoreline -- so it takes its own mark and its own title
+  // line rather than borrowing a fixture's.
+  const tournament = item.kind === "tournament"
+  const knockout = tournament && formatHasBracket(item.tournament?.format)
 
   return (
     <Pressable
@@ -114,9 +124,19 @@ export function AgendaRow({
           says "Home" or "Away" in full, because a screen reader should hear the fact rather than a
           description of a badge. TBD and Not Applicable are real states and take a neutral mark rather
           than being quietly rendered as home. */}
-      {!training && !!home && <HomeAwayBadge home={home} />}
+      {!training && !tournament && !!home && <HomeAwayBadge home={home} />}
 
-      {training ? (
+      {tournament ? (
+        /* THE TOURNAMENT'S OWN PHOTOGRAPH, in the slot a fixture gives the opposition crest. The
+           supplied design shows the cover on the tournament's calendar row, and this is the same
+           canonical selection resolved by the same chain -- never a second thumbnail. */
+        <Image
+          source={coverPhotoSource("TOURNAMENT", item.tournament?.cover ?? { kind: "none" })}
+          style={{ width: 46, height: 38, borderRadius: radius.md, backgroundColor: colour.chalk }}
+          accessible={false}
+          contentFit="cover"
+        />
+      ) : training ? (
         <View
           accessible={false}
           style={{
@@ -151,7 +171,9 @@ export function AgendaRow({
             },
           ]}
         >
-          {training ? "Training" : opponentLine(item)}
+          {/* THE TOURNAMENT'S OWN NAME. A festival is the thing a family is going to,
+              and "Under 12 Boys" alone would not tell them which Saturday this is. */}
+          {tournament ? (item.name ?? "Tournament") : training ? "Training" : opponentLine(item)}
         </Text>
 
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, flexWrap: "wrap" }}>
@@ -164,7 +186,37 @@ export function AgendaRow({
           {/* THE CLASSIFICATION, from the one taxonomy (`fixtures.game_type`), in the same words as the
               Calendar card, the Match Centre and the Team Home. Absent where nothing is recorded -- a
               fixture with no type is not "Friendly". */}
-          {!training && !!matchTypeLabel(item.gameType) && <Meta icon={<Flag size={12} color={colour.inkMuted} />} text={matchTypeLabel(item.gameType)!} />}
+          {!training && !tournament && !!matchTypeLabel(item.gameType) && <Meta icon={<Flag size={12} color={colour.inkMuted} />} text={matchTypeLabel(item.gameType)!} />}
+          {/* THE DESIGN'S SECOND LINE: the type and the competition. The age group is the fact that
+              tells a parent of two children which of them this belongs to, and a tournament has no
+              opposition to carry that the way a fixture does. The day-of-span is appended only for a
+              festival that runs more than one, because "Day 1 of 1" is noise. */}
+          {/* THE FORMAT MARK, AND ONLY THE FORMAT MARK. A cup is distinguished by the accent on this
+              one line -- the same icon in the same place, in the knockout red, naming the format. The
+              row, the cover, the spacing, the destination and the attendance are identical: a cup day
+              and a league day are the same kind of event, and a Calendar that drew them as two kinds
+              would be saying something false about the product. A round robin is untouched. */}
+          {tournament && (
+            <Meta
+              icon={<Trophy size={12} color={knockout ? KNOCKOUT_RED : colour.inkMuted} />}
+              tint={knockout ? KNOCKOUT_RED : undefined}
+              text={
+                [
+                  item.tournament?.ageGroup
+                    ? `${knockout ? "Knockout" : "Tournament"} \u00b7 ${item.tournament.ageGroup}`
+                    : knockout
+                      ? "Knockout"
+                      : "Tournament",
+                  item.dayOfSpan ? `Day ${item.dayOfSpan.day} of ${item.dayOfSpan.of}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" \u00b7 ")
+              }
+            />
+          )}
+          {tournament && !!item.tournament?.hostClubName && (
+            <Meta icon={<OvalIcon size={12} color={colour.inkMuted} />} text={`Hosted by ${item.tournament.hostClubName}`} />
+          )}
         </View>
       </View>
 
@@ -289,13 +341,13 @@ export function HomeAwayBadge({
   )
 }
 
-function Meta({ icon, text, strong }: { icon?: React.ReactNode; text: string; strong?: boolean }) {
+function Meta({ icon, text, strong, tint }: { icon?: React.ReactNode; text: string; strong?: boolean; tint?: string }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 3, maxWidth: "100%" }}>
       {icon}
       <Text
         numberOfLines={1}
-        style={[type.caption, { color: strong ? colour.forest800 : colour.inkMuted, fontSize: 11 }]}
+        style={[type.caption, { color: tint ?? (strong ? colour.forest800 : colour.inkMuted), fontSize: 11 }]}
       >
         {text}
       </Text>

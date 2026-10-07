@@ -17,21 +17,17 @@ type Client = SupabaseClient<Database>
 export type PartnershipActionResult = { ok: true } | { ok: false; error: string }
 
 /**
- * club_partnerships_insert_scoped (can_manage_club_fixtures) is the real authorization boundary; this
- * only forwards the insert. The unique partial index (club_partnerships_unique_active_pair_idx) is
- * what actually prevents a duplicate pending/active relationship, surfaced here as a plain-language
- * error rather than a raw constraint code.
+ * request_club_partnership (20270743000000) is the one door, for the website and the app alike: it checks the
+ * caller manages the asking club, and always writes a PENDING request from the person asking -- only the other
+ * club can make it active. (The table no longer takes a direct insert: one let a Club Admin write an ACTIVE
+ * partnership with any club.) A duplicate pending/active relationship comes back as the server's own sentence.
  */
-export async function requestPartnership(supabase: Client, viewerClubId: string, partnerClubId: string, userId: string): Promise<PartnershipActionResult> {
-  const { error } = await supabase.from("club_partnerships").insert({
-    requesting_club_id: viewerClubId,
-    partner_club_id: partnerClubId,
-    requested_by: userId,
+export async function requestPartnership(supabase: Client, viewerClubId: string, partnerClubId: string): Promise<PartnershipActionResult> {
+  const { error } = await supabase.rpc("request_club_partnership", {
+    p_requesting_club_id: viewerClubId,
+    p_partner_club_id: partnerClubId,
   })
-  if (error) {
-    if (error.code === "23505") return { ok: false, error: "You already have a pending or active relationship with this club." }
-    return { ok: false, error: error.message }
-  }
+  if (error) return { ok: false, error: error.message }
   return { ok: true }
 }
 

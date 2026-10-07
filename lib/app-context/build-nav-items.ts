@@ -125,8 +125,8 @@ const CLUB_SECTIONS: { key: string; label: string; icon: string; hrefs: string[]
     label: "Club Management",
     icon: "Settings",
     // The bin lives here, with the other things you go looking for on purpose, rather than beside the
-    // jobs people arrive to do.
-    hrefs: ["/club/training", "/club/settings", "/club/calendar/deleted-events"],
+    // jobs people arrive to do. Memberships is the club's running of its members' Direct Debits (Part 2).
+    hrefs: ["/club/training", "/club/finance", "/club/settings", "/club/calendar/deleted-events"],
   },
 ]
 
@@ -260,7 +260,7 @@ export function buildClubSections(items: NavItem[], activeTeamId?: string | null
           hrefs: ["/agenda", "/calendar"],
         },
         { key: "people", label: "People", icon: "Users", hrefs: [`/teams/${activeTeamId}/people`] },
-        { key: "money", label: "Subscriptions", icon: "Receipt", hrefs: [`/teams/${activeTeamId}/subscriptions`] },
+        { key: "money", label: "Memberships", icon: "Receipt", hrefs: [`/teams/${activeTeamId}/subscriptions`] },
         { key: "comms", label: "Communications", icon: "MessageSquare", hrefs: ["/messages", "/documents"] },
         // Knowledge rather than a daily job, so it sits last -- but named and visible, not swept into
         // the "More" drawer that ungrouped items fall into.
@@ -503,11 +503,12 @@ export function buildNavItems(
     items.push({ href: `/teams/${activeContext.id}/people`, label: "People" })
   }
 
-  // SUBSCRIPTIONS, where the bounded team-scoped finance capability is held. `teamFinance` is resolved
+  // MEMBERSHIPS, where the bounded team-scoped finance capability is held. `teamFinance` is resolved
   // by the caller from the capability engine at TEAM scope -- never from a role name, and never from
-  // the fact that somebody happens to be a manager.
+  // the fact that somebody happens to be a manager. Named as the page names itself (Club Memberships
+  // Part 2): the club's area and a team's view of the same standing are both Memberships.
   if (inTeamContext && activeContext.id && teamFinance) {
-    items.push({ href: `/teams/${activeContext.id}/subscriptions`, label: "Subscriptions" })
+    items.push({ href: `/teams/${activeContext.id}/subscriptions`, label: "Memberships" })
   }
 
   // RUGBY HUB, FROM THE TEAM.
@@ -635,6 +636,16 @@ export function buildNavItems(
       */
       if (activeContext.kind === "club" && activeContext.clubRoleKey === "SAFEGUARDING_OFFICER" && clubNav?.canSafeguarding) {
         items.push({ href: "/club/settings/safeguarding", label: "Safeguarding" })
+      }
+      /*
+        MEMBERSHIPS (Club Memberships Part 2) -- the club running its members' Direct Debits: who is up
+        to date, who needs action, reminders and each month's payments. Gated on the canonical decision
+        for `finance.subscription.view` at the club (`clubNav`), never on a role: whoever the club has
+        given its finance view to finds it, and a Team Manager's team-scope view does not (their team's
+        Memberships is in the team context). The page asks the same key again server-side.
+      */
+      if (activeContext.kind === "club" && clubNav?.canSubscriptionViewFinance) {
+        items.push({ href: "/club/finance", label: "Memberships" })
       }
       /*
         THE ROLE KEY, NOT THE PRINTED WORD.

@@ -48,12 +48,27 @@ const DECLARED_HOLDERS: Record<string, string> = {
 
 /** Anything importing the factory is a call site, not a holder, and is listed here so the set stays visible. */
 const DECLARED_CALL_SITES = [
+  // 20270750000000: the begin route has no session and is authorised by the one-time begin token alone, which the
+  // database checks (consume_gocardless_connect_begin: single use, three minutes); it learns only the intent's state.
+  "app/api/gocardless/oauth/app/begin/route.ts",
+  // 20270750000000: the callback's APP branch, reached by a browser with no Ovalball session. It attaches GoCardless's
+  // code only when the httpOnly cookie equals the returned state, and never reads or returns a token; the website's
+  // own branch is unchanged and runs as the signed-in person.
+  "app/api/gocardless/oauth/callback/route.ts",
   "app/api/gocardless/webhooks/route.ts",
+  // 20270744000000: re-processes inbox events GoCardless stopped redelivering. Authorised by a bearer secret
+  // (GOCARDLESS_REPLAY_SECRET, compared in constant time; the route answers 503 when it is not configured) --
+  // it is a scheduler's door, never a person's, and runs only the same processor the signed webhook runs.
+  "app/api/gocardless/webhooks/replay/route.ts",
   "app/api/platform-billing/webhooks/route.ts",
   "lib/payments/gocardless/activate-membership.ts",
   "lib/payments/gocardless/cancel-membership.ts",
   "lib/payments/gocardless/merchant-token.ts",
   "lib/payments/gocardless/reconcile.ts",
+  // 20270744000000: revokes tokens a disconnect already removed from their connection. Authority was decided
+  // by disconnect_gocardless (finance.gocardless.connect) before the token was queued; this only empties that
+  // server-only queue, through two service-role-only functions, and never returns or logs a token.
+  "lib/payments/gocardless/token-revocation.ts",
   "lib/payments/gocardless/verification.ts",
 ]
 

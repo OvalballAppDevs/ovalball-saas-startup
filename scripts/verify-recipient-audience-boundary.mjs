@@ -146,10 +146,18 @@ for (const retired of ["internal.notifiable_users_for_players", "internal.player
 const RESOLVES_RECIPIENTS = /insert\s+into\s+public\.notifications/i
 const NAMED_AS_RESOLVER = /(recipient|audience|notifiable|notify_)/i
 const TAKES_PLAYER_ACCOUNT = /\bplayers\b[\s\S]{0,400}?\buser_id\s+is\s+not\s+null/i
+// AN `exists (...)` IS NOT A RECIPIENT READ, and cannot be: it returns a boolean. `redeem_invitation`
+// asks "does this player already have a login?" to REFUSE the link -- one account is one person -- and
+// counting that as audience resolution is exactly the false positive this guard's own note warns
+// about, the one that teaches people to ignore it. Existence tests over `players` are removed before
+// the recipient shape is looked for; everything else is matched as before.
+const withoutExistenceGuards = (body) =>
+  body.replace(/exists\s*\(\s*select\s+1\s+from\s+public\.players\b[\s\S]*?\)/gi, "exists (/* guard */)")
+
 for (const [name, { file, body }] of finalDefinitions) {
   if (name === CANONICAL) continue
   if (!RESOLVES_RECIPIENTS.test(body) && !NAMED_AS_RESOLVER.test(name)) continue
-  if (!TAKES_PLAYER_ACCOUNT.test(body)) continue
+  if (!TAKES_PLAYER_ACCOUNT.test(withoutExistenceGuards(body))) continue
   if (body.includes(CANONICAL)) continue
   problems.push(
     `${name} (final definition in ${file}) resolves recipients and reads a player's own user_id directly. ` +

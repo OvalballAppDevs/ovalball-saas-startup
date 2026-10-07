@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { resolveParticipantIdentities } from "./resolve-identities"
-import type { ThreadMessage } from "./messenger-thread-types"
+import { summariseReactions } from "./messenger-reactions"
+import { matchDay } from "./messenger-rows"
+import type { ThreadMessage, ThreadReplyQuote } from "./messenger-thread-types"
 import type { Database } from "./database"
 
 /**
@@ -29,7 +31,7 @@ import type { Database } from "./database"
 // infers as `unknown` -- which silently removes every type guarantee this
 // module is supposed to give its two callers.
 const MESSAGE_SELECT =
-  "id, body, sender_user_id, created_at, kind, deleted_at, deleted_by_role, fixture_message_attachments(id, storage_path, original_filename, mime_type, size_bytes), fixture_message_document_refs(document_id, club_documents(id, title, category, mime_type, size_bytes, original_filename, storage_path)), fixture_message_contact_cards(display_name_snapshot, role_snapshot, club_name_snapshot, team_name_snapshot, telephone_snapshot)"
+  "id, body, sender_user_id, created_at, kind, deleted_at, deleted_by_role, fixture_id, reply_to_message_id, client_message_id, message_reactions(emoji, user_id), fixture_message_attachments(id, storage_path, original_filename, mime_type, size_bytes, duration_ms), fixture_message_document_refs(document_id, club_documents(id, title, category, mime_type, size_bytes, original_filename, storage_path)), fixture_message_contact_cards(display_name_snapshot, role_snapshot, club_name_snapshot, team_name_snapshot, telephone_snapshot)"
 
 export interface ThreadScope {
   /**
@@ -113,11 +115,13 @@ async function buildMessages(
   rows: MessageRow[]
 ): Promise<ThreadMessage[]> {
   const messages = rows
+  const [parents, matchDays] = await Promise.all([loadReplyParents(supabase, messages), loadMatchDays(supabase, messages)])
   const identities = await resolveParticipantIdentities(
     supabase,
-    messages.map((m) => m.sender_user_id),
+    [...new Set([...messages.map((m) => m.sender_user_id), ...[...parents.values()].map((p) => p.sender_user_id)])],
     scope.clubIds,
-    scope.teams
+    scope.teams,
+    scope.key.column === "fixture_request_id" ? { fixtureRequestId: scope.key.value } : { conversationId: scope.key.value }
   )
 
   return Promise.all(
@@ -147,6 +151,7 @@ async function buildMessages(
               filename: attachmentRow.original_filename,
               mimeType: attachmentRow.mime_type,
               sizeBytes: attachmentRow.size_bytes,
+              durationMs: attachmentRow.duration_ms ?? null,
               signedUrl:
                 (await supabase.storage.from("fixture-attachments").createSignedUrl(attachmentRow.storage_path, 3600)).data
                   ?.signedUrl ?? null,
@@ -196,7 +201,82 @@ async function buildMessages(
         attachment,
         documentShare,
         contactCard,
+        replyTo: quoteFor(m.reply_to_message_id, parents, identities, userId),
+        reactions: isDeleted ? [] : summariseReactions(m.message_reactions, userId),
+        clientMessageId: isOwn ? (m.client_message_id ?? null) : null,
+        matchDay: m.kind === "system_event" && m.fixture_id ? (matchDays.get(m.fixture_id) ?? null) : null,
       }
     })
   )
+}
+
+/**
+ * WHICH MATCH A MATCH UPDATE IS ABOUT. One conversation now covers every fixture against the same side, so
+ * "Result confirmed: 17 - 12" needs its date to mean anything. Read under RLS, like everything else here.
+ */
+async function loadMatchDays(supabase: SupabaseClient<Database>, rows: MessageRow[]): Promise<Map<string, string>> {
+  const ids = [...new Set(rows.filter((m) => m.kind === "system_event" && m.fixture_id).map((m) => m.fixture_id as string))]
+  const days = new Map<string, string>()
+  if (ids.length === 0) return days
+  const { data } = await supabase.from("fixtures").select("id, kickoff_date").in("id", ids)
+  for (const row of data ?? []) {
+    const label = matchDay(row.kickoff_date)
+    if (label) days.set(row.id, label)
+  }
+  return days
+}
+
+interface ParentRow {
+  id: string
+  body: string | null
+  sender_user_id: string
+  deleted_at: string | null
+  content_type: string
+}
+
+/**
+ * The messages being replied to, in one read.
+ *
+ * Most parents are already on the page, but a reply can answer something older than the page holds,
+ * so the parents are read by id -- under the reader's own RLS, which is the same visibility as the
+ * replies themselves. A parent the reader cannot see simply has no quote.
+ */
+async function loadReplyParents(supabase: SupabaseClient<Database>, rows: MessageRow[]): Promise<Map<string, ParentRow>> {
+  const ids = [...new Set(rows.map((m) => m.reply_to_message_id).filter((id): id is string => Boolean(id)))]
+  const parents = new Map<string, ParentRow>()
+  if (ids.length === 0) return parents
+  const { data } = await supabase.from("fixture_messages").select("id, body, sender_user_id, deleted_at, content_type").in("id", ids)
+  for (const row of data ?? []) parents.set(row.id, row)
+  return parents
+}
+
+const EXCERPT_LENGTH = 120
+
+function quoteFor(
+  parentId: string | null,
+  parents: Map<string, ParentRow>,
+  identities: Awaited<ReturnType<typeof resolveParticipantIdentities>>,
+  userId: string
+): ThreadReplyQuote | null {
+  if (!parentId) return null
+  const parent = parents.get(parentId)
+  if (!parent) return null
+  const isDeleted = Boolean(parent.deleted_at)
+  const text = (parent.body ?? "").replace(/\s+/g, " ").trim()
+  const excerpt = isDeleted
+    ? "Message has been deleted."
+    : text
+      ? text.length > EXCERPT_LENGTH
+        ? `${text.slice(0, EXCERPT_LENGTH - 1).trimEnd()}…`
+        : text
+      : parent.content_type === "image"
+        ? "Photo"
+        : "Attachment"
+  return {
+    id: parent.id,
+    senderName: identities.get(parent.sender_user_id)?.name ?? "Ovalball user",
+    isOwn: parent.sender_user_id === userId,
+    excerpt,
+    isDeleted,
+  }
 }

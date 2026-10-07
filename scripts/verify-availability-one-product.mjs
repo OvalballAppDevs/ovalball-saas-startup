@@ -100,6 +100,8 @@ for (const symbol of ["ATTENDANCE_STATE_WORDS", "ATTENDANCE_ANSWER_WORDS", "AVAI
 // explain at length why the drift happened -- and a guard that fired on its own
 // explanation would be switched off within a week.
 const DRIFTED_WORDS = [
+  "I'm Attending",
+  "I'm attending",
   "I'm available",
   "I'm Available",
   "Not available",
@@ -175,15 +177,16 @@ for (const f of walk(join(ROOT, "packages/contracts/src/availability"))) {
   ONE IMPLEMENTATION, however many addresses point at it.
 
   P3 separated the two: the Match Centre became a component in `src/fixtures/`, and
-  the route files are now thin -- one is a two-line re-export of the participant
-  address, and the canonical `/fixtures/<id>` chooses between the Match Centre and
-  the fixture console from the server's own per-fixture capability. So this counts
-  files that actually RENDER a Match Centre rather than files whose name says so; a
-  re-export is an address, and addresses are allowed to multiply as long as the
-  surface behind them does not.
+  the route files became thin. The consolidation (owner brief, 2026-10-03) took that
+  further: the Match Centre is now a folder of sections (`src/fixtures/match-centre/`)
+  whose `index.tsx` is the one screen, `/fixtures/<id>` renders it for everybody, and
+  every older address is a redirect. So this counts files that actually RENDER a Match
+  Centre screen -- a file named `match-centre.tsx`, or the folder's `index.tsx` -- rather
+  than files whose name says so; a re-export or a redirect is an address, and addresses
+  are allowed to multiply as long as the surface behind them does not.
 */
 const mobileMatchCentres = mobileFiles.filter(
-  (f) => /match-centre\.tsx$/.test(f) && /return\s*\(|<ScrollView|<Shell/.test(read(f))
+  (f) => (/match-centre\.tsx$/.test(f) || /match-centre[\\/]index\.tsx$/.test(f)) && /return\s*\(|<ScrollView|<Shell/.test(read(f))
 )
 check(
   mobileMatchCentres.length === 1,

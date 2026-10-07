@@ -49,9 +49,12 @@ test("Club Admin Home has no 'From Here' section and no mobile Fixture Control C
   const src = code("apps/mobile/src/club/home.tsx")
   assert.doesNotMatch(src, /From Here/, "the retired 'From Here' section is still present")
   assert.doesNotMatch(src, /Fixture Control Centre/, "the mobile Fixture Control Centre link-out is still present -- it stays desk-only, reached from the Admin Console")
-  for (const tile of ["Clubhouse", "Pitch Allocation", "Rugby Hub", "Admin Console"]) {
+  for (const tile of ["Clubhouse", "Arena", "Rugby Hub", "Admin Console"]) {
     assert.match(src, new RegExp(tile), `the ${tile} tile is missing from the four-tile grid`)
   }
+  // Pitch Allocation became functionality inside Arena: the tile is Arena and opens the Arena Hub.
+  assert.match(src, /label="Arena"[^\n]*router\.push\("\/admin\/arena"/, "the Arena tile opens the Arena Hub")
+  assert.doesNotMatch(src, /label="Pitch Allocation"/, "the old Pitch Allocation tile is still on Home")
 })
 
 /**
@@ -108,7 +111,7 @@ test("the team ellipsis menu is capability-gated, never a role check, and never 
 
 test("Edit Team Photo is the one canonical cover editor -- take/choose/library, real preview, refuses on its own account", () => {
   const src = code("apps/mobile/src/team/team-photo-screen.tsx")
-  assert.match(src, /demoTeamCoverAsset\(identity\)/, "the shown photo falls back to the same real/fallback resolution the Profile hero and Home card already use")
+  assert.match(src, /teamCoverSource\(identity\.cover, identity\)/, "the shown photo falls back to the same real/fallback resolution the Profile hero and Home card already use (the one Stock Media Library's team rule)")
   assert.match(src, /Take Photo/, "must offer Take Photo")
   assert.match(src, /Choose from Library/, "must offer Choose from Library")
   assert.match(src, /Use Ovalball Image Library/, "must offer the Ovalball Image Library, not a vendor-branded label")
@@ -299,15 +302,21 @@ test("Add Player and the row's detail destination are both gated on the viewer a
   assert.match(fn, /const openPlayer = inThisTeamContext \? /, "the row's own destination must use the identical team-context gate, not a separate or looser one")
 })
 
-test("Add Player offers only the two real mobile-reachable ways a squad grows today, each independently capability-gated", () => {
+// PEOPLE & INVITATIONS (2026-10-05): Squad's Add Players opens the ONE Add Players screen (src/people/add-players.tsx),
+// with this team chosen -- the same screen Home's Add to Club opens. It offers what the platform genuinely has for
+// players: a personal link for one player (the team's own joining kind, used once), the team's shared QR code, and
+// the requests already waiting. Both links are issue_invitation(TEAM_JOIN_CODE); a link opens a request, never a place.
+test("Add Players opens the one Add Players screen, with this team chosen, and invents no player-creation path", () => {
   const src = code("apps/mobile/src/team/profile-screen.tsx")
-  const sheetFn = src.slice(src.indexOf("function AddPlayerSheet"), src.length)
-  assert.match(sheetFn, /canManageCodes && \(/, "Join Codes must be its own independent gate")
-  assert.match(sheetFn, /canManageRequests && \(/, "Join Requests must be its own independent gate")
-  assert.doesNotMatch(sheetFn, /createPlayer|addPlayerDirect|insert_player|new_player_rpc/i, "no new player-creation mutation may be invented for this sheet")
   const squadFn = src.slice(src.indexOf("function SquadTab"), src.indexOf("function SquadRow("))
-  assert.match(squadFn, /router\.push\("\/team\/settings\/join-codes" as never\)/, "must route to the canonical Join Codes screen, never a new invitation mechanism")
-  assert.match(squadFn, /router\.push\("\/team\/settings\/requests" as never\)/, "must route to the canonical Join Requests screen, never a new membership mutation")
+  assert.match(squadFn, /pathname: "\/team\/add-players", params: \{ clubId: identity\.clubId, teamId: identity\.id, teamName: identity\.fullLabel \}/, "the team's own explicit ids, never the switched context")
+  assert.doesNotMatch(src, /function AddPlayerSheet/, "the old two-option sheet is gone, not left beside the new screen")
+  const screen = code("apps/mobile/src/people/add-players.tsx")
+  assert.match(screen, /issueTeamJoinCode\(supabase, teamId, personal \? \{ inviteeName: inviteeName\.trim\(\) \} : \{\}\)/, "a personal link and the team code are the same governed kind")
+  assert.match(screen, /router\.push\(requestsRoute as never\)/, "requests go to the canonical requests screen")
+  assert.doesNotMatch(screen, /createPlayer|addPlayerDirect|insert_player|new_player_rpc|\.from\(/i, "no new player-creation mutation and no direct table write")
+  const route = code("apps/mobile/app/(tabs)/team/add-players.tsx")
+  assert.match(route, /requestsRoute="\/team\/settings\/requests"/, "from a team, requests are the team's own")
 })
 
 test("the Squad heading count is the real rendered roster length, never the separately-computed aggregate", () => {
@@ -355,34 +364,38 @@ test("Safeguarding Officer is never presented as an ordinary team staff role", (
   assert.doesNotMatch(src, /SAFEGUARDING_OFFICER/, "Safeguarding Officer is club-scoped and SITE-assignable only (confirmed against the live role_definitions row) -- it has no place in this team-scoped picker")
 })
 
-test("Add Staff Member and role management both use this screen's own explicit clubId/teamId, never a switched active-context team", () => {
-  const src = code("apps/mobile/src/team/staff-tab.tsx")
-  assert.doesNotMatch(src, /useTeamAuthority|useAppContexts/, "Staff management must never depend on the viewer's switched active context (Section 26) -- every mutation carries its own explicit team id")
-  assert.match(src, /grantTeamStaffRole\(supabase, picked\.membershipId, roleKey, teamId,/, "granting a role must pass this screen's own explicit teamId")
-  assert.match(src, /grantTeamStaffRole\(supabase, member\.membershipId, key, teamId,/, "Manage Staff Member's own role toggle must also pass the explicit teamId")
+test("Add Staff Members and role management both use the team's own explicit clubId/teamId, never a switched active-context team", () => {
+  const tab = code("apps/mobile/src/team/staff-tab.tsx")
+  const add = code("apps/mobile/src/people/add-staff.tsx")
+  for (const src of [tab, add]) assert.doesNotMatch(src, /useTeamAuthority|useAppContexts/, "Staff management must never depend on the viewer's switched active context (Section 26)")
+  assert.match(tab, /pathname: "\/team\/add-staff", params: \{ clubId: identity\.clubId, teamId: identity\.id, teamName: identity\.teamName \}/, "Add Staff Members carries this team's own ids")
+  assert.match(add, /grantTeamStaffRole\(supabase, picked\.membershipId, roleKey, teamId,/, "granting a role must pass this screen's own explicit teamId")
+  assert.match(tab, /grantTeamStaffRole\(supabase, member\.membershipId, key, teamId,/, "Manage Staff Member's own role change must also pass the explicit teamId")
 })
 
-test("Add Staff searches existing club people first and never creates a new identity or a second membership model", () => {
-  const src = code("apps/mobile/src/team/staff-tab.tsx")
-  assert.match(src, /readClubPeople\(supabase, clubId, \{ search: query/, "must search the club's own existing people directory")
-  assert.doesNotMatch(src, /createPerson|createProfile|signUp|insert into public\.profiles/i, "no new identity may be created from this sheet -- only existing club people are selectable")
+test("Add Existing Person searches the club's own members and never creates a new identity or a second membership model", () => {
+  const src = code("apps/mobile/src/people/add-staff.tsx")
+  assert.match(src, /readTeamStaffCandidates\(supabase, teamId, query, 30\)/, "the club's active members, from the reader a Team Admin may also use")
+  assert.doesNotMatch(src, /createPerson|createProfile|signUp|insert into public\.profiles|\.from\(/i, "no new identity may be created -- only existing club members are selectable")
 })
 
 test("removing a staff role revokes exactly that one assignment, never the person's membership, player place or guardian link", () => {
-  const src = code("packages/contracts/src/team/staff.ts")
-  assert.match(src, /rpc\("transition_role_assignment", \{ p_assignment_id: assignmentId, p_to_state: "REVOKED"/, "must revoke by the specific assignment id, never a broader membership action")
-  assert.doesNotMatch(src, /delete_membership|remove_guardian|archive_player_team_membership|delete_player/i, "revoking a staff role must never reach for a membership/player/guardian deletion path")
+  const staff = code("packages/contracts/src/team/staff.ts")
+  assert.match(staff, /return endRoleAssignment\(supabase, assignmentId, reason\)/, "one implementation: the shared single-role end")
+  const people = code("packages/contracts/src/club/people.ts")
+  assert.match(people, /rpc\("transition_role_assignment", \{ p_assignment_id: assignmentId, p_to_state: "REVOKED"/, "must revoke by the specific assignment id, never a broader membership action")
+  assert.doesNotMatch(staff, /delete_membership|remove_guardian|archive_player_team_membership|delete_player/i, "revoking a staff role must never reach for a membership/player/guardian deletion path")
 })
 
 test("Add Staff honestly reports partial failure -- it never claims full success when only some of several roles were granted", () => {
-  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  const src = code("apps/mobile/src/people/add-staff.tsx")
   assert.match(src, /const succeeded: string\[\] = \[\]/, "results must be tracked per role")
   assert.match(src, /const failed: string\[\] = \[\]/, "failures must be tracked separately from successes")
   assert.match(src, /Added \$\{succeeded\.length\} of \$\{newRoles\.length\} roles\./, "a partial result must say exactly how many of how many succeeded, never a bare success message")
 })
 
-test("Add Staff Member never mutates straight from the role-selection screen -- a Confirm step sits between selecting roles and granting them", () => {
-  const src = code("apps/mobile/src/team/staff-tab.tsx")
+test("Add Existing Person never mutates straight from the role-selection screen -- a Confirm step sits between selecting roles and granting them", () => {
+  const src = code("apps/mobile/src/people/add-staff.tsx")
   const rolesStep = src.slice(src.indexOf('step === "roles" && picked'), src.indexOf('step === "confirm" && picked'))
   assert.match(rolesStep, /label="Continue" onPress=\{\(\) => setStep\("confirm"\)\}/, "the role-selection screen's own button must only advance to Confirm, never call submit directly")
   assert.doesNotMatch(rolesStep, /onPress=\{submit\}/, "submit must not be reachable from the role-selection screen")
@@ -390,30 +403,38 @@ test("Add Staff Member never mutates straight from the role-selection screen -- 
   assert.match(confirmStep, /label="Confirm and Add" onPress=\{submit\}/, "only the Confirm screen's own primary action may call submit")
 })
 
-test("Manage Staff Member stages role changes locally and applies them behind one Save Changes, never firing a mutation the instant a checkbox is tapped", () => {
+test("Manage Staff Member stages role changes locally and applies them behind one Save Changes, never firing a mutation the instant a role is chosen", () => {
   const src = code("apps/mobile/src/team/staff-tab.tsx")
-  const toggleFn = src.slice(src.indexOf("function toggle(key: string) {"), src.indexOf("async function save()"))
-  assert.doesNotMatch(toggleFn, /grantTeamStaffRole|revokeTeamStaffRole|setCoachTitle/, "toggling a role checkbox must only update local staged state, never call a mutation RPC directly")
-  assert.match(src, /label="Save Changes" onPress=\{save\} busy=\{busy\} disabled=\{!hasChanges\}/, "Save Changes must be the one action that applies the staged diff, and must be disabled when nothing changed")
+  assert.match(src, /<TeamRoleSelector assignable=\{assignable\} value=\{selected\} onChange=\{setSelected\}/, "choosing a role only updates local staged state")
+  assert.match(src, /label="Save Changes" onPress=\{save\} busy=\{busy\} disabled=\{!hasChanges/, "Save Changes is the one action that applies the staged diff, disabled when nothing changed")
 })
 
 test("Manage Staff Member's Save Changes only grants/revokes the roles that actually changed, leaving every unchanged role alone", () => {
-  const saveFn = code("apps/mobile/src/team/staff-tab.tsx")
-  assert.match(saveFn, /const toGrant = \[\.\.\.selected\]\.filter\(\(k\) => !currentKeys\.has\(k\)\)/, "only newly-selected roles may be granted")
-  assert.match(saveFn, /const toRevoke = member\.roles\.filter\(\(r\) => !selected\.has\(r\.roleKey\)\)/, "only deselected roles may be revoked -- every role still selected is left untouched")
+  const src = code("apps/mobile/src/team/staff-tab.tsx")
+  assert.match(src, /const toGrant = \[\.\.\.selected\.keys\(\)\]\.filter\(\(k\) => !currentKeys\.has\(k\)\)/, "only newly-selected roles may be granted")
+  assert.match(src, /const toRevoke = roles\.filter\(\(r\) => !selected\.has\(r\.roleKey\)\)/, "only deselected roles may be revoked -- every role still selected is left untouched")
+  assert.match(src, /const toRetitle = roles\.filter/, "a changed title is a title change on the same role, never a revoke and re-grant")
 })
 
-test("Add Staff Member and Manage Staff Member share the exact same role catalogue and selector component, never two role vocabularies", () => {
-  const src = code("apps/mobile/src/team/staff-tab.tsx")
-  const selectorDefinitions = [...src.matchAll(/function RoleSelector\(/g)]
-  assert.equal(selectorDefinitions.length, 1, "there must be exactly one RoleSelector component")
-  const selectorUses = [...src.matchAll(/<RoleSelector /g)]
-  assert.equal(selectorUses.length, 2, "both Add Staff Member and Manage Staff Member must render the same RoleSelector")
+test("every team-role choice uses the one selector and the one catalogue, never a local role vocabulary", () => {
+  const selector = code("apps/mobile/src/people/team-roles.tsx")
+  assert.equal([...selector.matchAll(/export function TeamRoleSelector\(/g)].length, 1, "exactly one TeamRoleSelector")
+  for (const f of ["apps/mobile/src/team/staff-tab.tsx", "apps/mobile/src/people/add-staff.tsx", "apps/mobile/src/people/invite-flow.tsx", "apps/mobile/src/people/member-details.tsx"]) {
+    const src = code(f)
+    assert.match(src, /<TeamRoleSelector /, `${f} must use the one selector`)
+    assert.doesNotMatch(src, /GRANTABLE_ROLES|ROLE_LABEL\b|function RoleSelector\(/, `${f} must not keep its own role list`)
+  }
+  assert.match(selector, /from "@ovalball\/contracts\/role-labels"/, "labels, descriptions and titles come from the one catalogue")
 })
 
-test("Team Safeguarding Lead is offered as a grantable team role, ordered after First Aider, and never inherits club Safeguarding Officer authority", () => {
-  const src = code("apps/mobile/src/team/staff-tab.tsx")
-  assert.match(src, /GRANTABLE_ROLES: \(typeof TEAM_STAFF_ROLE_KEYS\)\[number\]\[\] = \["TEAM_MANAGER", "COACH", "FIRST_AIDER", "TEAM_SAFEGUARDING_LEAD"\]/, "Team Safeguarding Lead must be offered, in the owner's own suggested order")
+test("Team Safeguarding Lead is offered as a team role, after First Aider, and never inherits club Safeguarding Officer authority", () => {
+  // The selector no longer keeps its own copy of the order (People & Invitations, 2026-10-05): it takes the one
+  // team-role list in the catalogue and leaves out Team Admin, so the order is asserted where it lives, and the
+  // selector is held to deriving from it rather than restating it.
+  const selector = code("apps/mobile/src/people/team-roles.tsx")
+  const catalogue = code("packages/contracts/src/role-labels.ts")
+  assert.match(catalogue, /\["COACH", "TEAM_MANAGER", "FIRST_AIDER", "TEAM_SAFEGUARDING_LEAD", "VOLUNTEER", "TEAM_ADMINISTRATION"\] as CanonicalRoleKey\[\]/, "Team Safeguarding Lead follows First Aider in the one team-role list; which of them a caller may give is the server's answer")
+  assert.match(selector, /const ORDER: string\[\] = TEAM_ROLE_OPTIONS\.map\(\(o\) => o\.value\)\.filter\(\(k\) => k !== "TEAM_ADMINISTRATION"\)/, "the selector's order is the catalogue's, never a second list")
   const migration = code("supabase/migrations/20270571000000_a_team_names_its_own_safeguarding_contact.sql")
   assert.match(migration, /'TEAM_SAFEGUARDING_LEAD', 'TEAM', 'Team Safeguarding Lead', 'VO'/, "Team Safeguarding Lead must reuse the same view-only VO bundle First Aider already reuses, never the club officer's SO bundle")
   assert.doesNotMatch(migration, /'SO'/, "this role must never reference the club Safeguarding Officer's own bundle")
@@ -425,11 +446,17 @@ test("the Confirm screen never duplicates BottomSheet's own built-in Cancel butt
   assert.doesNotMatch(confirmStep, /label="Cancel"/, "BottomSheet already renders its own Cancel button after children -- a second one here would show two Cancel buttons stacked on the Confirm screen (found live, by physical review)")
 })
 
-test("Add Staff Member's Invite a New Staff Member path is honest about the missing invitation architecture, never a decorative QR code", () => {
-  const src = code("apps/mobile/src/team/staff-tab.tsx")
-  assert.match(src, /Select from Club People/, "the existing-person path must be offered")
-  assert.match(src, /Invite a New Staff Member/, "the invite path must be offered as an option, per the approved mockup")
-  assert.doesNotMatch(src, /QrCode|Share QR Code|Share Invite Code/, "no QR code or invite code UI may be built until a real TEAM_STAFF invitation kind exists server-side -- this pass reports the gap rather than faking it")
+// The gap this test used to pin is closed: a staff invitation for a team is the one CLUB_STAFF invitation, with the
+// team chosen (People & Invitations). Who may send one is the server's answer (people.invitation.create), and a
+// person who may not is told why rather than shown a door that fails.
+test("Invite a New Staff Member opens the one staff invitation with this team chosen, for people who may invite", () => {
+  const add = code("apps/mobile/src/people/add-staff.tsx")
+  assert.match(add, /Invite a New Staff Member/)
+  assert.match(add, /Only a Club Admin can invite someone new to the club\./, "a Team Admin is told why, not shown a failing door")
+  assert.match(add, /router\.push\(inviteRoute\(teamId, teamName\) as never\)/)
+  const route = code("apps/mobile/app/(tabs)/team/invite.tsx")
+  assert.match(route, /<InviteFlow clubId=\{clubId\} preset="staff" teamId=\{teamId\}/, "the same flow People and Home use")
+  assert.doesNotMatch(code("apps/mobile/src/team/staff-tab.tsx"), /not available from the app yet|does not exist in the platform today/, "the gap message is gone")
 })
 
 test("Staff carries no contact action at all -- no messaging route and no phone number, honouring the existing 'no messaging route from a team entity' lock (team_operations_ca7.test.mts) over Section 29's own request", () => {
@@ -449,9 +476,9 @@ test("Staff's restricted state is worded distinctly from empty, and loading neve
   const src = code("apps/mobile/src/team/staff-tab.tsx")
   const restrictedIndex = src.indexOf("!rosterVisible || refused")
   const loadingIndex = src.indexOf("staff === null")
-  const emptyIndex = src.indexOf('title="No staff added yet"')
+  const emptyIndex = src.indexOf('title="No staff yet"')
   assert.ok(restrictedIndex >= 0 && restrictedIndex < loadingIndex && loadingIndex < emptyIndex, "restricted must be decided before loading, and loading before the empty state can ever render")
-  assert.match(src, /NotForYou title="Staff isn&apos;t part of your view"/, "a denied staff roster must say so honestly, never 'No staff added yet'")
+  assert.match(src, /NotForYou title="Staff isn&apos;t part of your view"/, "a denied staff roster must say so honestly, never 'No staff yet'")
 })
 
 test("the open Manage Staff Member sheet re-syncs to the freshly reloaded roster after every change, never keeps showing a stale role snapshot", () => {
@@ -526,21 +553,25 @@ test("Edit Team Photo and Media's own Edit Cover Photo button converge on the ex
   assert.match(menuSrc, /onTeamPhoto=\{\(\) => \{ setMenuOpen\(false\); router\.push\(\{ pathname: "\/teams\/\[teamId\]\/photo"/, "the ellipsis menu's Team Photo action must route to the exact same destination")
 })
 
-test("the Ovalball Image Library's stock catalogue uses stable canonical keys, never array position, and the server allow-list matches it key for key", () => {
-  const lib = code("apps/mobile/src/team/cover-library.ts")
-  const keys = [...lib.matchAll(/key: "([a-z0-9-]+)"/g)].map((m) => m[1])
-  assert.ok(keys.length >= 8, "the catalogue should carry a genuine library, not a token entry")
-  assert.equal(new Set(keys).size, keys.length, "every catalogue key must be unique")
-  const migration = code("supabase/migrations/20270572000000_a_team_keeps_its_own_photographs.sql")
+test("the Ovalball Image Library's team pictures use stable canonical keys, never array position, and the server's list matches them key for key", () => {
+  // One Stock Media Library (integration audit): the team pictures are the library's TEAM domain, and the server's
+  // one list (internal.stock_media, 20270732) is what set_team_cover now checks.
+  const lib = code("packages/contracts/src/media/stock-library.ts")
+  const keys = [...lib.matchAll(/\{ key: "([a-z0-9-]+)"[^}]*domains: \[[^\]]*"TEAM"[^\]]*\], pickable: true/g)].map((m) => m[1])
+  assert.ok(keys.length >= 8, "the library should carry a genuine set of team pictures, not a token entry")
+  assert.equal(new Set(keys).size, keys.length, "every library key must be unique")
+  const migration = code("supabase/migrations/20270732000000_one_stock_media_library.sql")
   for (const key of keys) {
-    assert.match(migration, new RegExp(`'${key}'`), `server allow-list must include catalogue key ${key}`)
+    assert.match(migration, new RegExp(`\\('${key}', array\\[[^\\]]*'TEAM'`), `the server's list must allow ${key} for a team`)
   }
+  assert.match(migration, /set_team_cover[\s\S]*internal\.stock_media_allowed\(p_stock_key, 'TEAM'\)/, "set_team_cover checks the one list")
 })
 
 test("stock cover imagery is built only from existing bundled assets -- no new image generation call in this pass", () => {
-  const lib = code("apps/mobile/src/team/cover-library.ts")
-  assert.doesNotMatch(lib, /generate_image|higgsfield|Higgsfield/i, "no image-generation call may appear in the stock catalogue module -- every asset must already be bundled")
-  assert.match(lib, /require\("\.\.\/\.\.\/assets\//, "every catalogue entry must resolve to an already-bundled local asset")
+  for (const file of ["packages/contracts/src/media/stock-library.ts", "apps/mobile/src/media/stock-assets.ts"]) {
+    assert.doesNotMatch(code(file), /generate_image|higgsfield/i, `no image-generation call may appear in ${file} -- every asset must already be bundled`)
+  }
+  assert.match(code("apps/mobile/src/media/stock-assets.ts"), /require\("\.\.\/\.\.\/assets\//, "every library entry must resolve to an already-bundled local asset")
 })
 
 test("a read-only Media viewer sees the cover and gallery but never Edit Cover Photo, Add Photos or any management control", () => {

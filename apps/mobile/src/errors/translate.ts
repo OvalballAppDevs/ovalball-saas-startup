@@ -58,6 +58,47 @@ export function friendly(error: unknown, subject = "that"): FriendlyError {
   return { message: `Couldn't load ${subject}. Try again.`, detail, retryable: true }
 }
 
+/**
+ * A PLANNING REFUSAL IS A SENTENCE WRITTEN FOR THE ORGANISER, not a diagnostic.
+ *
+ * Tournament planning refuses with SQLSTATE 22023 and a sentence that says what is wrong and what to do
+ * ("1 new team is not in the draw yet. Update the draw to include exactly the teams in this
+ * competition."). Hiding it behind "Couldn't load this plan. Try again." left organisers with a dead end
+ * that retrying could never fix. Only that shape passes through: a 22023 whose text reads as a sentence
+ * and names no identifier. Anything else still gets the generic line.
+ */
+export function friendlyRefusal(error: unknown, subject = "that"): FriendlyError {
+  const sentence = refusalSentence(error)
+  if (sentence) return { message: sentence, detail: sentence, retryable: false }
+  return friendly(error, subject)
+}
+
+/**
+ * A FAILED ACTION, SAID AS ONE.
+ *
+ * `friendly` speaks for a READ, so it says "Couldn't load". Said about something a person was SENDING or
+ * SAVING it describes a failure that never happened -- "Couldn't load the message" after Send. And a
+ * write is where the server most often refuses on purpose, with a sentence written for the person: the
+ * event is full, a reminder went out an hour ago, more meals than people. That sentence passes through
+ * exactly as `friendlyRefusal` lets it; anything unrecognised says what was being done, in its own verb.
+ */
+export function friendlyAction(error: unknown, verb: string, subject: string): FriendlyError {
+  const sentence = refusalSentence(error)
+  if (sentence) return { message: sentence, detail: sentence, retryable: false }
+  const read = friendly(error, subject)
+  return read.message === `Couldn't load ${subject}. Try again.` ? { ...read, message: `Couldn't ${verb} ${subject}. Try again.` } : read
+}
+
+/** A 22023 whose text reads as a sentence and names no identifier -- the only server text a person sees. */
+function refusalSentence(error: unknown): string | null {
+  const code = typeof error === "object" && error && "code" in error ? String((error as { code: unknown }).code) : null
+  const text = messageOf(error)
+  if (code === "22023" && text && /^[A-Z0-9]/.test(text) && /[.!?]$/.test(text.trim()) && !/\b[a-z]+_[a-z_]+\b/.test(text)) {
+    return text.trim()
+  }
+  return null
+}
+
 function messageOf(error: unknown): string | null {
   if (!error) return null
   if (typeof error === "string") return error

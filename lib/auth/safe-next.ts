@@ -109,3 +109,12 @@ export function mfaChallengePath(next: string | null | undefined): string {
   }
   return `${MFA_CHALLENGE_PATH}?next=${encodeURIComponent(destination)}`
 }
+
+/**
+ * /welcome, carrying a destination the person was on their way to before they had an account (an invitation) -- the
+ * same guard decides it, and the default destination is not carried (M11).
+ */
+export function welcomeWithNext(next: string | null | undefined): string {
+  const safe = next ? safeNextPath(next) : null
+  return safe && safe !== DEFAULT_NEXT_PATH && !safe.startsWith("/welcome") ? `/welcome?next=${encodeURIComponent(safe)}` : "/welcome"
+}

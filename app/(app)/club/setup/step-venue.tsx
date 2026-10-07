@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-import { lookupVenueAddress } from "../actions"
+import { lookupVenueAddress, resolveVenueAddress } from "../actions"
 import { createVenueWithPitches } from "./actions"
 
 export interface ExistingVenue {
@@ -56,6 +56,11 @@ export function StepVenue({
   const [town, setTown] = useState("")
   const [county, setCounty] = useState("")
   const [postcode, setPostcode] = useState("")
+  // Set only when the address just came from picking an AddressLookupField suggestion -- a
+  // manually-typed address is still resolved later by the async postcode geocoder.
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
+  const [providerRef, setProviderRef] = useState<string | null>(null)
   // Two empty rows to start with, because "a ground has more than one
   // pitch" is the common case and an empty list reads as optional.
   const [pitches, setPitches] = useState<string[]>(["Main Pitch", ""])
@@ -83,9 +88,9 @@ export function StepVenue({
         county,
         postcode,
         country: "United Kingdom",
-        latitude: null,
-        longitude: null,
-        providerRef: null,
+        latitude,
+        longitude,
+        providerRef,
         pitchNames: pitches,
         makeDefault: true,
       })
@@ -181,12 +186,19 @@ export function StepVenue({
               reads as "no such address". */}
           <AddressLookupField
             search={lookupVenueAddress}
-            onSelect={(picked) => {
-              setLine1(picked.line1)
-              setLine2(picked.line2)
-              setTown(picked.town)
-              setCounty(picked.county)
-              setPostcode(picked.postcode)
+            resolve={resolveVenueAddress}
+            onResolve={(a) => {
+              // A selected property fills the whole address: Google supplies the building, the street,
+              // a real postal_town and the property's own coordinate. A field it did not return keeps
+              // whatever the venue already had rather than being blanked.
+              if (a.line1) setLine1(a.line1)
+              setLine2(a.line2 ?? "")
+              if (a.town) setTown(a.town)
+              if (a.county) setCounty(a.county)
+              if (a.postcode) setPostcode(a.postcode)
+              setLatitude(a.latitude)
+              setLongitude(a.longitude)
+              setProviderRef(a.providerRef)
             }}
           />
 

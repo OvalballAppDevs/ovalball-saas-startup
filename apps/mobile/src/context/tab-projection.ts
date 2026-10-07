@@ -46,6 +46,17 @@ export type TabKey =
   | "security"
   | "news"
   | "announcements"
+  /**
+   * The canonical participant Tournament Centre, reached from the Calendar, a shared link or a
+   * notification. A route group, never a cell: a tournament is something you open, not a place in the
+   * bar, and an undeclared group is auto-registered by the router with a stray "missing icon" cell.
+   */
+  | "tournaments"
+  /**
+   * One age-grade dispensation (20270742000000), opened from its notification, a Needs Attention row or a
+   * register. A route group, never a cell.
+   */
+  | "dispensations"
 
 export interface TabSpec {
   key: TabKey

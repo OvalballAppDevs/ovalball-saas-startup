@@ -38,6 +38,13 @@ export interface ParticipantsView extends ConversationParticipants {
   canManage: boolean
   /** Present only where the platform models an explicit participant list, which a club thread does not. */
   canAdd: boolean
+  /**
+   * Who this viewer may take out of the conversation: people on their OWN club's side, as
+   * `remove_fixture_conversation_participant` allows ("You can only manage participants from your own
+   * club's side of this fixture"). Mirrored so the other club's people are not offered a Remove that is
+   * always refused.
+   */
+  removableIds: string[]
 }
 
 export async function loadParticipants(
@@ -64,7 +71,17 @@ export async function loadParticipants(
   if (!parties) return null
   const loaded = await loadConversationParticipants(supabase, kind, id, parties, viewerId)
   const canManage = canManageConversationParticipants(ctx, parties)
-  return { ...loaded, canManage, canAdd: canManage && kind !== "club" }
+  // MY SIDE: a party club I belong to, or the club of a party team I hold a role on -- the server's own test.
+  const partyClubs = new Set(parties.clubIds)
+  const mySide = new Set<string>([
+    ...ctx.clubMemberships.filter((m) => partyClubs.has(m.clubId)).map((m) => m.clubId),
+    ...ctx.teamPermissions.flatMap((tp) => parties.teams.filter((t) => t.id === tp.teamId).map((t) => t.clubId)),
+  ])
+  const removableIds =
+    canManage && kind !== "club"
+      ? loaded.participants.filter((p) => !p.isMe && (ctx.manageFixtureSupport || mySide.has(p.clubId))).map((p) => p.userId)
+      : []
+  return { ...loaded, canManage, canAdd: canManage && kind !== "club", removableIds }
 }
 
 async function loadDirectParticipants(supabase: Client, id: string, viewerId: string): Promise<ParticipantsView | null> {
@@ -103,6 +120,7 @@ async function loadDirectParticipants(supabase: Client, id: string, viewerId: st
     left: false,
     canManage: false,
     canAdd: false,
+    removableIds: [],
   }
 }
 

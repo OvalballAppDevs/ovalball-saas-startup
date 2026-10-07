@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Pressable, Text, View } from "react-native"
 import { useFocusEffect, useRouter } from "expo-router"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { readClubhouseMarkers, respondToPartnership, revokePartnership, type ClubMapMarker } from "@ovalball/contracts/clubhouse"
 import { readClubTeamSummaries, type ClubTeamSummary } from "@ovalball/contracts/club/teams"
@@ -11,7 +10,8 @@ import { useAppContexts } from "../../../src/context/contexts"
 import { ClubCrest, ClubhouseEmptyState } from "../../../src/clubhouse/components"
 import { Button, CardSkeleton, ErrorState, StatusPill } from "../../../src/components/ui"
 import { ChevronRight, HeartHandshake } from "../../../src/components/icons"
-import { colour, radius, space, type, TOUCH_TARGET } from "../../../src/design/tokens"
+import { colour, radius, space, type } from "../../../src/design/tokens"
+import { OvalballDetailHeader } from "../../../src/components/app-header"
 
 /**
  * PARTNERSHIPS (Section 12 of the visual blueprint): the dedicated screen Clubhouse Home's own
@@ -22,7 +22,6 @@ import { colour, radius, space, type, TOUCH_TARGET } from "../../../src/design/t
  * tabs here rather than a second partnership query.
  */
 export default function Partnerships() {
-  const insets = useSafeAreaInsets()
   const router = useRouter()
   const { active } = useAppContexts()
   const viewerClubId = active?.clubId ?? (active?.kind === "club" ? active.id : null)
@@ -88,7 +87,7 @@ export default function Partnerships() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colour.chalk }}>
-      <PartnershipsHeader onBack={() => router.back()} insets={insets} />
+      <OvalballDetailHeader title="Partnerships" onBack={() => router.back()} />
 
       <View style={{ padding: space.lg, gap: space.lg, flex: 1 }}>
         <View style={{ flexDirection: "row", gap: space.sm }}>
@@ -232,23 +231,3 @@ function PartnerRow({
   )
 }
 
-function PartnershipsHeader({ onBack, insets }: { onBack: () => void; insets: { top: number } }) {
-  return (
-    <View style={{ paddingTop: insets.top + space.sm, paddingBottom: space.sm, paddingHorizontal: space.md, borderBottomWidth: 1, borderBottomColor: colour.line, flexDirection: "row", alignItems: "center", gap: space.xs }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Back to Clubhouse"
-        onPress={onBack}
-        hitSlop={8}
-        style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
-      >
-        <View style={{ transform: [{ rotate: "180deg" }] }}>
-          <ChevronRight size={22} color={colour.ink} />
-        </View>
-      </Pressable>
-      <Text accessibilityRole="header" style={[type.title, { color: colour.ink }]}>
-        Partnerships
-      </Text>
-    </View>
-  )
-}

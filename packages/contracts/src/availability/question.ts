@@ -21,11 +21,19 @@
  * normalised server-side -- never re-formatted here.
  */
 
-export type AvailabilityEventKind = "fixture" | "training"
+/**
+ * A TOURNAMENT IS ITS OWN KIND OF ASKING.
+ *
+ * It is not a match -- it has no opposition and runs for a day or a weekend
+ * rather than an afternoon -- so "Can Harry make it?" is vaguer than it needs to
+ * be when a club is deciding whether it can field a squad on Saturday. Naming
+ * the tournament is what makes the question answerable.
+ */
+export type AvailabilityEventKind = "fixture" | "training" | "tournament"
 
 /** The question a person is actually being asked. */
 export function availabilityQuestion(kind: AvailabilityEventKind, isSelf: boolean, firstName: string): string {
-  const verb = kind === "training" ? "make training" : "make it"
+  const verb = kind === "training" ? "make training" : kind === "tournament" ? "make the tournament" : "make it"
   if (isSelf) return `Can you ${verb}?`
   const name = firstName.trim()
   return name.length > 0 ? `Can ${name} ${verb}?` : `Can they ${verb}?`
@@ -48,7 +56,9 @@ export function availabilitySubject(isSelf: boolean, firstName: string): string 
  * or session this is.
  */
 export function availabilityEventLabel(kind: AvailabilityEventKind, dateLabel: string): string {
-  return kind === "training" ? `training on ${dateLabel}` : `the match on ${dateLabel}`
+  if (kind === "training") return `training on ${dateLabel}`
+  if (kind === "tournament") return `the tournament on ${dateLabel}`
+  return `the match on ${dateLabel}`
 }
 
 /**
@@ -98,7 +108,7 @@ export function attendanceConfirmation(input: {
   venueName?: string | null
 }): string {
   const subject = input.subjectFirstName?.trim() || "You"
-  const event = input.kind === "training" ? "training" : "the match"
+  const event = input.kind === "training" ? "training" : input.kind === "tournament" ? "the tournament" : "the match"
   // "Might attend" for Unsure, because UNSURE IS A RECORDED ANSWER rather than a
   // failure to give one, and the sentence has to read like one.
   const verb = { ATTENDING: "can attend", CANNOT_ATTEND: "cannot attend", UNSURE: "might attend" }[input.status]

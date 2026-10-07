@@ -10,6 +10,8 @@ import { createClient } from "@/lib/supabase/server"
 import { APP_BUILD_SHA } from "@/lib/version"
 import { BetaBadge } from "@/components/platform/beta-badge"
 
+import { GoCardlessInboxCard } from "./gocardless-inbox-card"
+
 export const metadata = { title: "System Health" }
 
 /**
@@ -36,10 +38,12 @@ export default async function SystemHealthPage() {
   // product uses. This card answers "what is the system doing" without
   // duplicating Release Management: there is no mutation here, only the
   // answer and a way through to the one page that owns the action.
-  const [platformMode, badgeState, emailHealthRes] = await Promise.all([
+  const [platformMode, badgeState, emailHealthRes, gocardlessHealthRes] = await Promise.all([
     getPlatformMode(supabase),
     getBetaBadgeState(supabase),
     supabase.rpc("email_delivery_health"),
+    // Counts only, and Full Site Admin only at the database too (20270749000000).
+    supabase.rpc("gocardless_inbox_health"),
   ])
   const emailConfig = describeEmailConfiguration()
   const emailHealth = emailHealthRes.data?.[0] ?? null
@@ -209,6 +213,9 @@ export default async function SystemHealthPage() {
           )}
         </dl>
       </section>
+
+      {/* ---------- GoCardless webhooks ---------- */}
+      <GoCardlessInboxCard health={gocardlessHealthRes.data?.[0] ?? null} readError={gocardlessHealthRes.error?.message ?? null} />
     </div>
   )
 }

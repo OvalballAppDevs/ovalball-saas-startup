@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import type { Database } from "../database"
+import { readDispensationRegister, type DispensationRecord } from "../team/dispensation"
 import { loadStaffPlayers, staffPlayerAgeState, type StaffPlayer } from "../team/players"
 import { readClubTeams, type ClubTeam } from "./teams"
 
@@ -498,27 +499,18 @@ export async function movePlayerTeamPlace(supabase: Client, membershipId: string
 // ---------------------------------------------------------------------------------------------------
 
 export type CallUpStatus = "awaiting_eligibility" | "requested" | "approved" | "rejected" | "revoked"
-export type DispensationStatus = "requested" | "source_team_approved" | "club_approved" | "approved" | "rejected" | "expired" | "revoked"
-export type DispensationStage = "source_team" | "club" | "governing_body"
 export type CallUpAction = "approve" | "reject" | "revoke"
 
 export const CALL_UP_STATUS_LABEL: Record<CallUpStatus, string> = {
-  awaiting_eligibility: "Waiting on age-grade approval",
+  awaiting_eligibility: "Waiting for a dispensation",
   requested: "Awaiting source-team decision",
   approved: "Approved",
   rejected: "Rejected",
   revoked: "Revoked",
 }
 
-export const DISPENSATION_STATUS_LABEL: Record<DispensationStatus, string> = {
-  requested: "Awaiting source-team approval",
-  source_team_approved: "Awaiting club approval",
-  club_approved: "Awaiting governing-body approval",
-  approved: "Approved",
-  rejected: "Rejected",
-  expired: "Expired",
-  revoked: "Revoked",
-}
+// DISPENSATIONS are one workflow now (20270742000000): `../team/dispensation` reads, words and decides them for
+// both apps. Player Moves shows the club's register from there; nothing here describes a dispensation itself.
 
 export interface MoveTeamOption {
   id: string
@@ -559,19 +551,6 @@ export interface ClubCallUp {
   canDecide: boolean
 }
 
-export interface ClubDispensation {
-  id: string
-  playerName: string
-  sourceTeamId: string
-  sourceTeamName: string
-  targetTeamName: string
-  seasonName: string
-  eligibilityRuleReference: string
-  governingBodyReference: string | null
-  status: DispensationStatus
-  canDecideSourceTeam: boolean
-}
-
 export interface ClubPlayerMoves {
   teams: MoveTeamOption[]
   fixtures: MoveFixtureOption[]
@@ -579,7 +558,8 @@ export interface ClubPlayerMoves {
   /** The canonical season covering today for the club's code, from the Seasons register; null when none is recorded. */
   season: { id: string; name: string } | null
   callUps: ClubCallUp[]
-  dispensations: ClubDispensation[]
+  /** The club's register (`dispensation_register`): pending first. Empty for anybody it is not for. */
+  dispensations: DispensationRecord[]
 }
 
 /** Same age grade means the player is ordinarily eligible; anything else previews the computed requirement. */
@@ -596,7 +576,7 @@ export async function readClubPlayerMoves(supabase: Client, clubId: string, caps
   if (teamIds.length === 0) return none
   const idList = teamIds.join(",")
 
-  const [{ data: memberships }, { data: fixtureRows }, { data: season }, { data: callUpRows }, { data: dispensationRows }] = await Promise.all([
+  const [{ data: memberships }, { data: fixtureRows }, { data: season }, { data: callUpRows }, dispensations] = await Promise.all([
     supabase.from("player_team_memberships").select("player_id, team_id").eq("status", "active").is("ended_at", null).in("team_id", teamIds),
     supabase.from("fixtures").select("id, owning_team_id, kickoff_date, raw_opposition_text").in("owning_team_id", teamIds).gte("kickoff_date", todayIso).neq("status", "Cancelled").order("kickoff_date"),
     // The one season register: the season whose canonical dates cover today, never a computed cutoff.
@@ -609,14 +589,11 @@ export async function readClubPlayerMoves(supabase: Client, clubId: string, caps
           .order("created_at", { ascending: false })
           .limit(100)
       : Promise.resolve({ data: null }),
+    // The register, which the server gives the club's Safeguarding Officer, its Club Admins and club-level
+    // requesters -- and anybody else nothing (a refusal reads as an empty register, never an error screen).
     caps.dispensationRequest || caps.dispensationApproveClub
-      ? supabase
-          .from("player_team_dispensation")
-          .select("id, status, eligibility_rule_reference, governing_body_reference, source_team_id, target_team_id, player_id, created_at, source_team:source_team_id(display_name), target_team:target_team_id(display_name), seasons(name)")
-          .or(`source_team_id.in.(${idList}),target_team_id.in.(${idList})`)
-          .order("created_at", { ascending: false })
-          .limit(100)
-      : Promise.resolve({ data: null }),
+      ? readDispensationRegister(supabase as unknown as Parameters<typeof readDispensationRegister>[0], clubId).catch(() => [] as DispensationRecord[])
+      : Promise.resolve([] as DispensationRecord[]),
   ])
 
   const byTeam = new Map(teams.map((t) => [t.id, t]))
@@ -632,19 +609,7 @@ export async function readClubPlayerMoves(supabase: Client, clubId: string, caps
     target_team: { display_name: string | null } | null
     fixtures: { kickoff_date: string | null; raw_opposition_text: string | null } | null
   }[]
-  const dispensations = (dispensationRows ?? []) as unknown as {
-    id: string
-    status: string
-    eligibility_rule_reference: string
-    governing_body_reference: string | null
-    source_team_id: string
-    target_team_id: string
-    player_id: string
-    source_team: { display_name: string | null } | null
-    target_team: { display_name: string | null } | null
-    seasons: { name: string | null } | null
-  }[]
-  const staff = await loadStaffPlayers(supabase, [...memberRows.map((m) => m.player_id), ...callUps.map((r) => r.player_id), ...dispensations.map((r) => r.player_id)])
+  const staff = await loadStaffPlayers(supabase, [...memberRows.map((m) => m.player_id), ...callUps.map((r) => r.player_id)])
   const clubTeamIds = new Set(teamIds)
 
   return {
@@ -670,18 +635,7 @@ export async function readClubPlayerMoves(supabase: Client, clubId: string, caps
       status: r.status as CallUpStatus,
       canDecide: clubTeamIds.has(r.source_team_id),
     })),
-    dispensations: dispensations.map((r) => ({
-      id: r.id,
-      playerName: staff.get(r.player_id)?.displayName || "A player",
-      sourceTeamId: r.source_team_id,
-      sourceTeamName: r.source_team?.display_name ?? "Another team",
-      targetTeamName: r.target_team?.display_name ?? "Another team",
-      seasonName: r.seasons?.name ?? "Unknown season",
-      eligibilityRuleReference: r.eligibility_rule_reference,
-      governingBodyReference: r.governing_body_reference ?? null,
-      status: r.status as DispensationStatus,
-      canDecideSourceTeam: clubTeamIds.has(r.source_team_id),
-    })),
+    dispensations,
   }
 }
 
@@ -716,34 +670,7 @@ export async function decideClubCallUp(supabase: Client, callUpId: string, actio
   if (error) throw error
 }
 
-export async function requestDispensation(supabase: Client, input: { playerId: string; sourceTeamId: string; targetTeamId: string; seasonId: string; eligibilityRuleReference: string }): Promise<string> {
-  const { data, error } = await supabase.rpc("request_player_dispensation", {
-    p_player_id: input.playerId,
-    p_source_team_id: input.sourceTeamId,
-    p_target_team_id: input.targetTeamId,
-    p_season_id: input.seasonId,
-    p_eligibility_rule_reference: input.eligibilityRuleReference.trim(),
-  })
-  if (error) throw error
-  return data as string
-}
-
-/** Each stage in turn; approving the final stage only RECORDS a governing-body reference the club holds. */
-export async function decideDispensation(supabase: Client, dispensationId: string, stage: DispensationStage, approve: boolean, governingBodyReference: string | null, reason: string | null): Promise<void> {
-  const { error } = await supabase.rpc("decide_player_dispensation", {
-    p_id: dispensationId,
-    p_stage: stage,
-    p_approve: approve,
-    p_governing_body_reference: governingBodyReference?.trim() || undefined,
-    p_reason: reason?.trim() || undefined,
-  })
-  if (error) throw error
-}
-
-export async function revokeDispensation(supabase: Client, dispensationId: string, reason: string): Promise<void> {
-  const { error } = await supabase.rpc("revoke_player_dispensation", { p_id: dispensationId, p_reason: reason.trim() })
-  if (error) throw error
-}
+// Asking for, deciding, withdrawing and revoking a dispensation: `../team/dispensation`, the one implementation.
 
 // ---------------------------------------------------------------------------------------------------
 // Errors -- the server's own sentence for the outcomes it writes, one rule for both clients

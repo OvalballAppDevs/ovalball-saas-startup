@@ -23,7 +23,10 @@ test("a signed-out session lands on Welcome, and a signed-in one is never shown 
   const gate = code("apps/mobile/app/_layout.tsx")
   // CA-M11: Get Started and the invitation screen joined the entrance group; the rule is unchanged.
   assert.match(gate, /const onEntrance = group === "welcome" \|\| group === "get-started" \|\| group === "sign-in" \|\| group === "forgot-password" \|\| onJoin/)
-  assert.match(gate, /status === "signed-out" && !onEntrance\) router\.replace\("\/welcome"\)/)
+  // A signed-out session lands on Welcome -- and with nothing of the last person behind it: the whole
+  // navigation tree is reset to Welcome (integration audit D57), or, before navigation is ready, Welcome
+  // replaces the route.
+  assert.match(gate, /status === "signed-out" && !onEntrance\) \{\s*if \(navigation\.isReady\(\)\) navigation\.reset\(\{ index: 0, routes: \[\{ name: "welcome" \}\] \}\)\s*else router\.replace\("\/welcome"\)/)
   // The signed-in branch comes FIRST and sends anyone not in the app into it -- including
   // somebody sitting on /welcome. Recovery still outranks it.
   const order = [gate.indexOf('status === "recovering"'), gate.indexOf('status === "signed-in" && !inApp'), gate.indexOf('status === "signed-out"')]

@@ -31,6 +31,8 @@ import { ScheduleTrainingDialog, type PitchOption, type TrainingTargetOption } f
 import { SeasonPhaseHeader } from "./season-phase-header"
 import { TeamFilterBar } from "./team-filter-bar"
 import { formatEventDateRange } from "@/lib/app-context/event-centre-data"
+import { fixtureHasResult } from "@ovalball/contracts/agenda/fixture-status"
+import { loadScheduleGrounds } from "@ovalball/contracts/agenda/grounds"
 import { qs } from "@/lib/calendar/query-string"
 import { WeekBoard, type TournamentParticipantView, type WeekEntry } from "./week-board"
 
@@ -309,8 +311,9 @@ export default async function CalendarPage({
     .order("kickoff_date", { ascending: true })
   if (isParentPlayerView) fixturesQuery = fixturesQuery.neq("status", "Cancelled")
   if (statusFilters.length > 0) fixturesQuery = fixturesQuery.in("status", statusFilters)
-  if (ha === "home") fixturesQuery = fixturesQuery.eq("home_away", "Home")
-  if (ha === "away") fixturesQuery = fixturesQuery.eq("home_away", "Away")
+  // HOME / AWAY IS THE VIEWER'S SIDE, so it is applied below, once each row is read from the side that is mine.
+  // Filtering the query on `home_away` -- the OWNING side's orientation -- returned the wrong set for every
+  // fixture this club responded to rather than created.
   const { data: fixtures } = kind === "training" ? { data: [] } : await fixturesQuery
 
   // Section D/O: Message Club eligibility -- opponent_team_id resolved
@@ -334,18 +337,10 @@ export default async function CalendarPage({
     cancelledByIds.length > 0 ? await supabase.from("profiles").select("id, first_name, surname").in("id", cancelledByIds) : { data: [] }
   const cancelledByNameById = new Map((cancelledByProfiles ?? []).map((p) => [p.id, [p.first_name, p.surname].filter(Boolean).join(" ") || "Unknown"]))
 
-  const fixturePitchIds = Array.from(new Set((fixtures ?? []).map((f) => f.pitch_id).filter((id): id is string => Boolean(id))))
-  const { data: fixturePitches } =
-    fixturePitchIds.length > 0 ? await supabase.from("club_pitches").select("id, display_name").in("id", fixturePitchIds) : { data: [] }
-  const fixturePitchNameById = new Map((fixturePitches ?? []).map((p) => [p.id, p.display_name]))
-
-  // A fixture's structured venue_id (the same venues table Training's own
-  // canonical card resolves) is a more useful "Venue" than free-text
-  // venue_address when the latter is blank -- prefer the real name over
-  // showing nothing.
-  const fixtureVenueIds = Array.from(new Set((fixtures ?? []).map((f) => f.venue_id).filter((id): id is string => Boolean(id))))
-  const { data: fixtureVenues } = fixtureVenueIds.length > 0 ? await supabase.from("venues").select("id, name").in("id", fixtureVenueIds) : { data: [] }
-  const fixtureVenueNameById = new Map((fixtureVenues ?? []).map((v) => [v.id, v.name]))
+  // WHERE EACH MATCH IS, FROM THE ONE GROUND RULE (`schedule_grounds`, the same answer Match Centre and the
+  // app's agenda give). A visiting family cannot read the host club's venue or pitch rows, so reading them
+  // here said "to be confirmed" about a ground Match Centre names.
+  const fixtureGrounds = await loadScheduleGrounds(supabase, { fixtureIds: (fixtures ?? []).map((f) => f.id) })
 
   // FUTURE-SEASON FIXTURE OWNERSHIP: resolve each fixture's team labels
   // for THAT FIXTURE'S OWN season_id, never the team's current mutable
@@ -395,9 +390,12 @@ export default async function CalendarPage({
       : await supabase
           .from("club_events")
           .select(
-            "id, club_id, name, starts_on, start_time, ends_on, end_time, is_club_wide, status, cancelled_at, venue_id, external_location_name, venues(name), club_event_teams(team_id), club_event_pitches(pitch_id)"
+            "id, club_id, name, starts_on, start_time, ends_on, end_time, is_club_wide, status, cancelled_at, venue_id, external_location_name, external_town, location_kind, venues(name), club_event_teams(team_id), club_event_pitches(pitch_id)"
           )
           .eq("club_id", activeClubIdForEvents)
+          // A draft is its organisers' alone and is on nobody's calendar yet -- the organiser's included, as in
+          // the app (`loadClubEvents`).
+          .neq("status", "DRAFT")
           .lte("starts_on", endIso)
           .gte("ends_on", startIso)
 
@@ -443,9 +441,8 @@ export default async function CalendarPage({
   // + address for whichever venues are actually referenced, reusing
   // WeekEntry.venueAddress (the same field an ordinary fixture's Google
   // Maps "Directions" link already reads) rather than a second field.
-  const tournamentVenueIds = Array.from(new Set((tournamentRows ?? []).map((t) => t.venue_id).filter((id): id is string => Boolean(id))))
-  const { data: tournamentVenueRows } = tournamentVenueIds.length > 0 ? await supabase.from("venues").select("id, name, address").in("id", tournamentVenueIds) : { data: [] }
-  const tournamentVenueById = new Map((tournamentVenueRows ?? []).map((v) => [v.id, v]))
+  // The festival's ground, from the same one rule -- a visiting club cannot read the host's venue rows.
+  const tournamentGrounds = await loadScheduleGrounds(supabase, { tournamentIds: (tournamentRows ?? []).map((t) => t.id).filter((id): id is string => Boolean(id)) })
   const { data: tournamentParticipantRows } =
     tournamentIds.length > 0
       ? await supabase
@@ -514,6 +511,8 @@ export default async function CalendarPage({
     if (!laneId) continue
     if (teamFilter && laneId !== teamFilter) continue
     const homeAway = f.home_team_id === myTeamId ? "Home" : f.away_team_id === myTeamId ? "Away" : f.home_away
+    if (ha === "home" && homeAway !== "Home") continue
+    if (ha === "away" && homeAway !== "Away") continue
     // Display identity (Section 11): the ACTUAL participant, never
     // flattened by the active filter -- a group fixture always shows its
     // group's label (alias-aware), regardless of which single component
@@ -549,12 +548,12 @@ export default async function CalendarPage({
       teamDisplayName: myLabel,
       opposition,
       homeAway,
-      venueAddress: f.venue_address || (f.venue_id ? (fixtureVenueNameById.get(f.venue_id) ?? null) : null),
-      pitchName: f.pitch_id ? (fixturePitchNameById.get(f.pitch_id) ?? null) : null,
+      venueAddress: fixtureGrounds.get(f.id)?.name ?? f.venue_address ?? null,
+      pitchName: fixtureGrounds.get(f.id)?.pitchName ?? null,
       status: f.status,
       statusClass: STATUS_STYLES[f.status] ?? "bg-ink/5 text-ink/60 border-ink/15",
       needsAction: ACTIONABLE_STATUSES.has(f.status),
-      resultLabel: f.result_status === "confirmed" && f.home_score !== null && f.away_score !== null ? `${f.home_score}-${f.away_score}` : null,
+      resultLabel: fixtureHasResult(f) ? `${f.home_score}-${f.away_score}` : null,
       canEdit,
       canDelete,
       canMessageClub,
@@ -663,7 +662,11 @@ export default async function CalendarPage({
 
     const spanStart = ev.starts_on > startIso ? ev.starts_on : startIso
     const spanEnd = ev.ends_on < endIso ? ev.ends_on : endIso
-    const locationLabel = ev.venues?.name ?? ev.external_location_name ?? null
+    // The same place line the app's event card draws (`loadClubEvents`): Online, else the club's ground, else the
+    // external place and town.
+    const locationLabel =
+      ev.location_kind === "ONLINE" ? "Online" : (ev.venues?.name ?? ([ev.external_location_name, ev.external_town].filter(Boolean).join(", ") || null))
+    const eventCancelled = ev.status === "CANCELLED" || !!ev.cancelled_at
 
     for (let d = spanStart; d <= spanEnd; d = toIso(addDays(new Date(`${d}T00:00:00`), 1))) {
       const position: "starts" | "continues" | "ends" =
@@ -688,11 +691,11 @@ export default async function CalendarPage({
           homeAway: "",
           venueAddress: locationLabel,
           pitchName: null,
-          status: ev.status === "CANCELLED" ? "Cancelled" : "Event",
+          status: eventCancelled ? "Cancelled" : ev.status === "POSTPONED" ? "Postponed" : "Event",
           // The one cancelled treatment Ovalball already reserves, not an
           // Event-only cancellation language.
           statusClass:
-            ev.status === "CANCELLED"
+            eventCancelled
               ? "bg-destructive/10 text-destructive-text border-destructive/20"
               : "bg-[#6d3b5d]/10 text-[#6d3b5d] border-[#6d3b5d]/20",
           canEdit: false,
@@ -733,7 +736,13 @@ export default async function CalendarPage({
     // tournament id, so opening either one lands on the same Tournament
     // Centre with that team already selected. There is never a second
     // tournament record, and never a second name to keep in step.
-    const myEntries = (tournamentEntryRows ?? []).filter((e) => e.tournament_id === t.id && teamIds.includes(e.team_id))
+    // The entries view is a projection of tournament_participants, whose team_id
+    // is nullable -- a side can be a club recorded by name with no Ovalball team
+    // behind it. The view's own WHERE excludes those, but the generated type
+    // cannot know that, and guarding is cheaper than asserting it away.
+    const myEntries = (tournamentEntryRows ?? []).filter(
+      (e) => e.tournament_id === t.id && e.team_id !== null && teamIds.includes(e.team_id)
+    )
     const myParticipant = (tournamentParticipantRows ?? []).find(
       (p) => p.tournament_id === t.id && p.team_id !== null && teamIds.includes(p.team_id)
     )
@@ -756,7 +765,7 @@ export default async function CalendarPage({
     if (teamFilter && laneId !== teamFilter) continue
     const participants = participantsByTournamentId.get(t.id) ?? []
     const hostName = hostDirectoryNameById.get(t.host_directory_id ?? "") ?? "Host"
-    const tournamentVenue = t.venue_id ? tournamentVenueById.get(t.venue_id) : null
+    const tournamentGround = tournamentGrounds.get(t.id) ?? null
     // A multi-day festival is ONE tournament rendered across the days it runs
     // -- the same span treatment a multi-day club event already gets, and the
     // same tournamentId on every cell.
@@ -778,8 +787,8 @@ export default async function CalendarPage({
       teamDisplayName: "",
       opposition: "",
       homeAway: "",
-      venueAddress: tournamentVenue ? (tournamentVenue.address ?? tournamentVenue.name) : null,
-      pitchName: t.pitch_id ? (fixturePitchNameById.get(t.pitch_id) ?? null) : null,
+      venueAddress: tournamentGround?.name ?? null,
+      pitchName: tournamentGround?.pitchName ?? null,
       status: t.status ?? "confirmed",
       statusClass: "bg-amber-500/10 text-amber-900 border-amber-500/30",
       needsAction: false,

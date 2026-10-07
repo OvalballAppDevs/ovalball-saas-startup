@@ -4,7 +4,8 @@ import { useFocusEffect } from "expo-router"
 import { issueTeamJoinCode, readTeamJoinCodes, revokeTeamJoinCode, type TeamJoinCode } from "@ovalball/contracts/team/requests"
 import { teamPeopleErrorMessage } from "@ovalball/contracts/team/people"
 import { invitationExpiryLabel, invitationJoinUrl, type InvitationShareData } from "@ovalball/contracts/invitations"
-import { InvitationSharePanel } from "../../../../src/invitations/share-panel"
+import { ShareView } from "../../../../src/sharing/share-view"
+import { useAppContexts } from "../../../../src/context/contexts"
 import { webUrl } from "../../../../src/config/environment"
 
 import { supabase } from "../../../../src/auth/supabase"
@@ -26,6 +27,9 @@ import { colour, radius, space, type } from "../../../../src/design/tokens"
  */
 export default function TeamJoinCodes() {
   const { authority, loading: authorityLoading, teamId } = useTeamAuthority()
+  // The poster names the side the code is for and its club, from the same context the header shows.
+  const { club, active } = useAppContexts()
+  const teamName = active?.kind === "team" ? active.label : null
   const [codes, setCodes] = useState<TeamJoinCode[] | null>(null)
   const [fresh, setFresh] = useState<InvitationShareData | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
@@ -76,8 +80,14 @@ export default function TeamJoinCodes() {
           <Text style={[type.small, { color: colour.inkMuted }]}>Give a code to a family who want to join this side. Using it asks to join; the club decides.</Text>
           {fresh && (
             <Card style={{ backgroundColor: colour.successSurface, borderColor: colour.pitch600 }}>
-              <Text style={[type.caption, { color: colour.forest800, marginBottom: space.sm }]}>NEW CODE — shown once</Text>
-              <InvitationSharePanel share={fresh} onDone={() => setFresh(null)} />
+              <Text style={[type.smallMedium, { color: colour.forest800, marginBottom: space.sm }]}>New code, shown once</Text>
+              <ShareView
+                share={fresh}
+                subject={{ kind: "TEAM_JOIN", clubName: club.name ?? "Our club", teamName: teamName ?? "the team" }}
+                poster={club.name && teamName ? { identity: { clubName: club.name, crestUrl: club.crestUrl }, subject: { variant: "TEAM_JOIN", teamName } } : undefined}
+                explainer="Using it asks to join. The club approves each request before anyone is added to the squad."
+                onDone={() => setFresh(null)}
+              />
             </Card>
           )}
           <Button label="Issue a New Code" onPress={() => void issue()} busy={busy} />

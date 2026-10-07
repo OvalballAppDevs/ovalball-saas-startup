@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useFocusEffect } from "expo-router"
 import { readAdminCentreAccess, type AdminCentreSection } from "@ovalball/contracts/club/admin-centre"
 
@@ -28,24 +28,29 @@ export interface AdminCentreState {
 export function useAdminCentreAccess(): AdminCentreState {
   const { active } = useAppContexts()
   const clubId = active?.kind === "club" ? (active.clubId ?? active.id) : null
-  const [sections, setSections] = useState<AdminCentreSection[] | null>(null)
+  // EVERY ANSWER CARRIES THE CLUB IT WAS ASKED FOR, and is only ever shown while that is still the selected club: a
+  // slow read started under Club A that lands after a switch to Club B is discarded, never shown as B's rows (M8).
+  const [answer, setAnswer] = useState<{ clubId: string | null; sections: AdminCentreSection[] } | null>(null)
+  const current = useRef(clubId)
+  current.current = clubId
 
   const refresh = useCallback(async () => {
-    if (!clubId) {
-      setSections([])
+    const asked = clubId
+    if (!asked) {
+      setAnswer({ clubId: null, sections: [] })
       return
     }
+    let sections: AdminCentreSection[] = []
     try {
-      const access = await readAdminCentreAccess(supabase, clubId)
-      setSections(access.sections)
+      sections = (await readAdminCentreAccess(supabase, asked)).sections
     } catch {
-      setSections([])
+      sections = []
     }
+    if (current.current !== asked) return
+    setAnswer({ clubId: asked, sections })
   }, [clubId])
 
   useEffect(() => {
-    // Cleared FIRST: the previous context's answer must never decide this context's rows.
-    setSections(null)
     void refresh()
   }, [refresh])
 
@@ -55,5 +60,6 @@ export function useAdminCentreAccess(): AdminCentreState {
     }, [refresh])
   )
 
-  return { loading: sections === null, clubId, sections: sections ?? [], refresh }
+  const mine = answer && answer.clubId === clubId ? answer.sections : null
+  return { loading: mine === null, clubId, sections: mine ?? [], refresh }
 }

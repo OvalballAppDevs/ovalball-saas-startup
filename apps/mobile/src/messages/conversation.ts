@@ -3,6 +3,7 @@ import {
   getDirectThread,
   loadThreadMessages,
   resolveConversationParties,
+  sendConversationMessage,
   THREAD_PAGE_SIZE,
   type ConversationParties,
   type Database,
@@ -24,8 +25,8 @@ import {
  * Every read below goes through RLS or an RPC that scopes itself to the caller, so an id for a
  * conversation this person is not in simply returns nothing -- the app never decides.
  *
- * SENDING IS THE SAME INSERT THE WEBSITE MAKES. `fixture_messages` with exactly one container column
- * set; RLS decides whether it is allowed. There is no mobile send path and no service role.
+ * SENDING IS THE PLATFORM'S OWN SEND. `send_conversation_message` writes `fixture_messages` with exactly
+ * one container column set under the caller's RLS; there is no mobile send path and no service role.
  */
 
 export type ConversationKind = "direct" | "fixture" | "request" | "club"
@@ -93,7 +94,9 @@ export async function loadConversation(
   viewerId: string
 ): Promise<Conversation | null> {
   if (kind === "direct") {
-    const thread = await getDirectThread(supabase, id, viewerId)
+    // THE NEWEST PAGE, like every other kind: a long private conversation is still paged rather than
+    // pulled onto the phone whole.
+    const thread = await getDirectThread(supabase, id, viewerId, { limit: THREAD_PAGE_SIZE })
     if (!thread) return null
     return {
       title: thread.otherName,
@@ -105,9 +108,7 @@ export async function loadConversation(
       unavailableReason: thread.unavailableReason,
       // A direct thread has two people and its realtime topic is keyed by the conversation itself.
       conversationId: id,
-      // The canonical direct reader returns the whole thread, so there is nothing older to fetch.
-      // Saying so is better than offering a button that would find nothing.
-      hasMore: false,
+      hasMore: thread.messages.length >= THREAD_PAGE_SIZE,
       clubConversationStatus: null,
       clubRequestSide: null,
       clubOtherClubName: null,
@@ -172,7 +173,12 @@ export async function loadOlderMessages(
   viewerId: string,
   oldest: ThreadMessage
 ): Promise<{ messages: ThreadMessage[]; hasMore: boolean }> {
-  if (kind === "direct") return { messages: [], hasMore: false }
+  if (kind === "direct") {
+    // The same reader, the next page back -- so names and quotes resolve exactly as on the first page.
+    const thread = await getDirectThread(supabase, id, viewerId, { limit: THREAD_PAGE_SIZE, before: oldest.createdAt })
+    const messages = thread?.messages ?? []
+    return { messages, hasMore: messages.length >= THREAD_PAGE_SIZE }
+  }
   const header = await conversationHeader(supabase, kind, id, viewerId)
   if (!header) return { messages: [], hasMore: false }
   const parties = await resolveConversationParties(supabase, kind as GroupConversationKind, id)
@@ -333,45 +339,27 @@ async function conversationHeader(
   }
 }
 
-/** The website's own insert: one container column, RLS decides. Never a service role. */
+/**
+ * ONE MESSAGE, ONCE -- through `send_conversation_message`, the platform's idempotent send.
+ *
+ * It is SECURITY INVOKER, so the insert still passes exactly the RLS policy a direct insert passed and
+ * no new authority exists. What it adds is the client's own reference: the caller chooses
+ * `clientMessageId` before the first attempt and reuses it for every retry, so a dropped connection,
+ * a double tap or a quick reply from a notification that fires twice is still one message.
+ */
 export async function sendMessage(
   supabase: Client,
   kind: ConversationKind,
   id: string,
-  senderUserId: string,
-  body: string
-): Promise<{ ok: true } | { ok: false; message: string }> {
-  const trimmed = body.trim()
-  if (!trimmed) return { ok: false, message: "Write a message first." }
-
-  const { error } = await supabase.from("fixture_messages").insert({
-    direct_conversation_id: kind === "direct" ? id : null,
-    fixture_id: kind === "fixture" ? id : null,
-    fixture_request_id: kind === "request" ? id : null,
-    club_conversation_id: kind === "club" ? id : null,
-    sender_user_id: senderUserId,
-    body: trimmed,
-    kind: "message",
-    content_type: "text",
-  })
-
-  if (error) {
-    // A FAILED SEND MUST BE DIAGNOSABLE ON A DEVICE. A send that failed on a phone previously produced
-    // one sentence and no log at all, which left nothing to investigate -- the one situation where a
-    // developer most needs detail is the one where the screen must not show any. The code, the
-    // PostgREST hint and the conversation's shape go to the development console; none of it reaches a
-    // person, and no token, body or identifier beyond the conversation's own id is recorded.
-    logSendFailure(kind, id, error)
-    // "Couldn't be sent" is a different fact from "this conversation isn't available", and conflating
-    // them tells somebody their conversation has gone when their network hiccuped. RLS refusals keep
-    // the undifferentiated wording, because THOSE reasons must not be distinguishable.
-    const refused = error.code === "42501" || /row-level security|permission denied/i.test(error.message ?? "")
-    return {
-      ok: false,
-      message: refused ? "This conversation isn't available." : "Message couldn't be sent. Try again.",
-    }
-  }
-  return { ok: true }
+  body: string,
+  clientMessageId: string,
+  replyToMessageId: string | null = null
+): Promise<{ ok: true; messageId: string } | { ok: false; message: string; retryable: boolean }> {
+  const result = await sendConversationMessage(supabase, { kind, targetId: id, body, clientMessageId, replyToMessageId })
+  // A FAILED SEND MUST BE DIAGNOSABLE ON A DEVICE: the conversation's shape goes to the development
+  // console, and nothing that identifies a person or repeats the message does.
+  if (!result.ok) logSendFailure(kind, id, { message: result.message, code: result.retryable ? "retryable" : "refused" })
+  return result
 }
 
 /** Development only, and deliberately narrow: enough to find the cause, nothing that identifies a person. */
@@ -397,6 +385,13 @@ export async function markRead(supabase: Client, kind: ConversationKind, id: str
     return
   }
 
+  // A FIXTURE THREAD IS EVERY MATCH AGAINST THAT SIDE (20270757), so reading it clears the notifications of all of
+  // them -- one server operation, scoped to the reader and refused for a conversation they cannot read.
+  if (kind === "fixture") {
+    await supabase.rpc("mark_fixture_conversation_read", { p_fixture_id: id })
+    return
+  }
+
   // EVERY OTHER KIND IS READ THE WAY THE WEBSITE READS IT. This used to return early for anything that
   // was not a direct conversation, which meant opening a fixture thread on a phone, reading it and
   // going back left the badge saying four unread messages over a conversation that had just been read.
@@ -418,6 +413,6 @@ export async function markRead(supabase: Client, kind: ConversationKind, id: str
     .is("read_at", null)
     .contains(
       "data",
-      kind === "request" ? { fixture_request_id: id } : kind === "fixture" ? { fixture_id: id } : { club_conversation_id: id }
+      kind === "request" ? { fixture_request_id: id } : { club_conversation_id: id }
     )
 }

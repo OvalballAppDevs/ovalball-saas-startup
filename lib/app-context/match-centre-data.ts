@@ -9,6 +9,7 @@ import { loadStaffPlayers } from "@/lib/players/staff-players"
 import type { Database } from "@/types/database.types"
 
 import { matchCentreStatus } from "@ovalball/contracts/agenda/fixture-status"
+import { loadScheduleGrounds } from "@ovalball/contracts/agenda/grounds"
 
 import { resolveClubLogoUrl } from "./club-logo"
 import { resolvePersonalAvatarUrls } from "./personal-avatar"
@@ -228,7 +229,7 @@ export async function getMatchCentreContext(
   const { data: f } = await supabase
     .from("fixtures")
     .select(
-      "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, cancellation_reason, kickoff_amendment_proposed_at, venue_id, pitch_id, owning_scheduling_group_id, opponent_scheduling_group_id, competition_edition_id, home_score, away_score, result_status"
+      "id, owning_team_id, opponent_team_id, opponent_directory_id, home_away, status, kickoff_date, kickoff_time, meet_time, cancelled_at, cancellation_reason, kickoff_amendment_proposed_at, venue_id, venue_address, pitch_id, owning_scheduling_group_id, opponent_scheduling_group_id, competition_edition_id, home_score, away_score, result_status"
     )
     .eq("id", fixtureId)
     .maybeSingle()
@@ -273,7 +274,7 @@ export async function getMatchCentreContext(
     awayTeamId ? resolveSide(supabase, awayTeamId, awayGroupId, awayEffective, season?.id ?? null) : resolveUnclaimedSide(supabase, f.opponent_directory_id),
   ])
 
-  const [{ data: venue }, { data: pitch }, { data: competition }] = await Promise.all([
+  const [{ data: venue }, { data: pitch }, { data: competition }, { data: viewer }, grounds] = await Promise.all([
     f.venue_id
       ? supabase
           .from("venues")
@@ -285,7 +286,22 @@ export async function getMatchCentreContext(
     f.competition_edition_id
       ? supabase.from("competition_editions").select("competitions(name)").eq("id", f.competition_edition_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    // WHERE IT IS, FOR BOTH SIDES -- the server's own answer (`get_match_centre_viewer.ground`, the one ground
+    // rule). A visiting family cannot read the host club's venue or pitch rows, so the direct reads above come
+    // back empty for them and the page said "Venue to be confirmed" about a ground the app names.
+    supabase.rpc("get_match_centre_viewer", { p_fixture_id: f.id }),
+    loadScheduleGrounds(supabase, { fixtureIds: [f.id] }),
   ])
+  const serverGround = ((viewer as { ground?: Record<string, unknown> | null } | null)?.ground ?? null) as {
+    id: string | null
+    name: string | null
+    address: string | null
+    postcode: string | null
+    latitude: number | null
+    longitude: number | null
+    geocodeStatus?: string | null
+  } | null
+  const listedGround = grounds.get(f.id) ?? null
 
   const allTeamIds = Array.from(new Set([...homeEffective, ...awayEffective]))
   // STAFF-LEVEL only (site admin or team.attendance.view) -- deliberately
@@ -453,8 +469,25 @@ export async function getMatchCentreContext(
             longitude: venue.longitude != null ? Number(venue.longitude) : null,
             geocodeStatus: venue.geocode_status,
           }
-        : { venueId: null, name: null, address: null, addressLines: [], postcode: null, latitude: null, longitude: null, geocodeStatus: null },
-      pitch: pitch ? { pitchId: pitch.id, label: pitch.display_name } : { pitchId: null, label: null },
+        : serverGround?.name
+          ? {
+              venueId: serverGround.id,
+              name: serverGround.name,
+              address: serverGround.address,
+              addressLines: (serverGround.address ?? "").split(",").map((l) => l.trim()).filter(Boolean),
+              postcode: serverGround.postcode,
+              latitude: serverGround.latitude != null ? Number(serverGround.latitude) : null,
+              longitude: serverGround.longitude != null ? Number(serverGround.longitude) : null,
+              geocodeStatus: serverGround.geocodeStatus ?? null,
+            }
+          : f.venue_address
+            ? { venueId: null, name: f.venue_address.split(",")[0]?.trim() || f.venue_address, address: f.venue_address, addressLines: [f.venue_address], postcode: null, latitude: null, longitude: null, geocodeStatus: null }
+            : { venueId: null, name: null, address: null, addressLines: [], postcode: null, latitude: null, longitude: null, geocodeStatus: null },
+      pitch: pitch
+        ? { pitchId: pitch.id, label: pitch.display_name }
+        : listedGround?.pitchName
+          ? { pitchId: f.pitch_id ?? null, label: listedGround.pitchName }
+          : { pitchId: null, label: null },
       attendance: { counts, mine },
       participants,
       messaging: {

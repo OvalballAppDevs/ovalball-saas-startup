@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache"
 import { cookies } from "next/headers"
 
+import { requestPartnership as requestPartnershipFor } from "@ovalball/contracts/clubhouse/actions"
+
 import { ACTIVE_CONTEXT_COOKIE, activeManageableClubId, resolveActiveContext } from "@/lib/app-context/active-context"
 import { getSessionContext } from "@/lib/app-context/session-context"
 import { sendEmailEvent } from "@/lib/email/send"
@@ -12,12 +14,11 @@ import { getSiteUrl } from "@/lib/site-url"
 export type PartnershipActionResult = { ok: true } | { ok: false; error: string }
 
 /**
- * club_partnerships_insert_scoped (can_manage_club_fixtures) is the real
- * authorization boundary -- this only resolves the caller's own club id and
- * forwards the insert. The unique partial index
- * (club_partnerships_unique_active_pair_idx) is what actually prevents a
- * duplicate pending/active relationship with the same club; its violation
- * is turned into a plain-language error rather than a raw constraint name.
+ * request_club_partnership (20270743000000) is the real authorization
+ * boundary, reached through the SAME shared contract the app uses -- this only
+ * resolves the club the caller is acting as. The server always writes a
+ * pending request from the person asking; only the other club can make it
+ * active.
  */
 export async function requestPartnership(partnerClubId: string): Promise<PartnershipActionResult> {
   const supabase = await createClient()
@@ -36,18 +37,8 @@ export async function requestPartnership(partnerClubId: string): Promise<Partner
   const clubId = activeManageableClubId(ctx, activeContext)
   if (!clubId) return { ok: false, error: "You don't have fixture authority at a club." }
 
-  const { error } = await supabase.from("club_partnerships").insert({
-    requesting_club_id: clubId,
-    partner_club_id: partnerClubId,
-    requested_by: user.id,
-  })
-
-  if (error) {
-    if (error.code === "23505") {
-      return { ok: false, error: "You already have a pending or active relationship with this club." }
-    }
-    return { ok: false, error: error.message }
-  }
+  const result = await requestPartnershipFor(supabase, clubId, partnerClubId)
+  if (!result.ok) return result
   revalidatePath("/clubhouse")
   return { ok: true }
 }

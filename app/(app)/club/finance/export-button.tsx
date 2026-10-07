@@ -33,11 +33,13 @@ export function ExportButton({ clubId, billingPeriod }: { clubId: string; billin
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <Button type="button" variant="outline" className="h-9" disabled={status === "loading"} onClick={handleClick}>
+    <div className="flex flex-wrap items-center gap-2">
+      <Button type="button" variant="outline" className="h-11 sm:h-9" disabled={status === "loading"} aria-busy={status === "loading"} onClick={handleClick}>
         {status === "loading" ? "Exporting…" : "Export CSV"}
       </Button>
-      {error && <span className="text-xs text-destructive-text">{error}</span>}
+      <span role="alert" className="text-xs text-destructive-text">
+        {error ?? ""}
+      </span>
     </div>
   )
 }

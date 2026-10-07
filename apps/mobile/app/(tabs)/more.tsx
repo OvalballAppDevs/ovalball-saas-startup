@@ -1,4 +1,7 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { readClubAuthority } from "@ovalball/contracts/club/overview"
+import { readTournamentCapabilities } from "@ovalball/contracts/club/tournaments"
+import { supabase } from "../../src/auth/supabase"
 import { Pressable, ScrollView, Text, View } from "react-native"
 import { useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -12,7 +15,7 @@ import { isSecure, sessionStorageDescription } from "../../src/auth/session-stor
 import { AppHeader } from "../../src/components/app-header"
 import { ContextSheet } from "../../src/components/context-sheet"
 import { PersonAvatar } from "../../src/components/identity"
-import { ArrowRightLeft, BookOpen, CalendarDays, ChevronRight, ClipboardList, ExternalLink, KeyRound, Landmark, Lock, Shield, Receipt, Settings2, Users, Megaphone, UserRound, HeartHandshake, IdCard, MapPin, Newspaper } from "../../src/components/icons"
+import { ArrowRightLeft, BookOpen, CalendarDays, ChevronRight, ClipboardList, ExternalLink, KeyRound, Landmark, Lock, Shield, Receipt, Settings2, Users, Megaphone, UserRound, HeartHandshake, IdCard, MapPin, Newspaper , Trophy } from "../../src/components/icons"
 import { isFamilyFacingContext } from "@ovalball/contracts"
 import { useAdminCentreAccess } from "../../src/admin/access"
 import { useVenueAllocationAccess } from "../../src/pitch-allocation/access"
@@ -54,6 +57,23 @@ export default function More() {
   // here -- those belong to the team and club contexts.
   const inFamily = active !== null && isFamilyFacingContext(active.kind)
   const inClub = active?.kind === "club"
+  // FIXTURE JOBS AT THE CLUB are the server's answer too: requests need request authority, the Season Planner the
+  // club-scope planner capability, Tournaments the tournament capability (it was wrongly behind Venues).
+  const clubIdForCaps = inClub ? (active?.clubId ?? active?.id ?? null) : null
+  const [clubFixtureCaps, setClubFixtureCaps] = useState({ requests: false, planner: false, tournaments: false })
+  useEffect(() => {
+    if (!clubIdForCaps) {
+      setClubFixtureCaps({ requests: false, planner: false, tournaments: false })
+      return
+    }
+    let live = true
+    void Promise.all([readClubAuthority(supabase, clubIdForCaps), readTournamentCapabilities(supabase, clubIdForCaps)])
+      .then(([a, t]) => live && setClubFixtureCaps({ requests: a.requestCreate || a.requestRespond, planner: a.plannerUse, tournaments: t.view || t.manage }))
+      .catch(() => live && setClubFixtureCaps({ requests: false, planner: false, tournaments: false }))
+    return () => {
+      live = false
+    }
+  }, [clubIdForCaps])
   const isGuardian = active?.kind === "parent" || active?.kind === "family"
 
   async function leave() {
@@ -112,7 +132,7 @@ export default function More() {
             <Row icon={<ClipboardList size={19} color={colour.forest800} strokeWidth={1.9} />} label="Availability" caption="Who has answered, who has not" onPress={() => router.push("/team/availability" as never)} />
             <Row icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />} label="People" caption="Players, parents and the staff who run the side" onPress={() => router.push("/team/people" as never)} />
             {(team.authority.requestRespond || team.authority.requestCreate) && (
-              <Row icon={<Megaphone size={19} color={colour.forest800} strokeWidth={1.9} />} label="Fixture Requests" caption="Other clubs asking, and what you have asked" onPress={() => router.push("/team/requests" as never)} />
+              <Row icon={<Megaphone size={19} color={colour.forest800} strokeWidth={1.9} />} label="Fixture Requests" caption="Other clubs asking, and what you have asked" onPress={() => router.push({ pathname: "/team/requests" as never, params: { returnTo: "/more" } })} />
             )}
             {canSeeTeamSubscriptions && <Row icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />} label="Subscriptions" caption="Who in your squad is set up to pay" onPress={() => router.push("/subscriptions")} />}
             {anyTeamAdministration(team.authority) && (
@@ -150,21 +170,23 @@ export default function More() {
         {inClub && (
           <Group title={active?.label ?? "Your Club"}>
             <Row icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />} label="Teams" caption="Every side, what it has next and who is in it" onPress={() => router.push("/club/teams" as never)} />
-            {admin.sections.some((s) => s.key === "people") && <Row icon={<IdCard size={19} color={colour.forest800} strokeWidth={1.9} />} label="People" caption="Members, staff, and who is waiting to join" onPress={() => router.push("/admin/people")} />}
-            <Row icon={<Megaphone size={19} color={colour.forest800} strokeWidth={1.9} />} label="Fixture Requests" caption="What other clubs have asked, and what we have asked" onPress={() => router.push("/club/requests" as never)} />
-            {admin.sections.some((s) => s.key === "venues") && <Row icon={<MapPin size={19} color={colour.forest800} strokeWidth={1.9} />} label="Grounds & Pitches" caption="Where the club plays" onPress={() => router.push("/admin/venues" as never)} />}
+            {admin.sections.some((s) => s.key === "people") && <Row icon={<IdCard size={19} color={colour.forest800} strokeWidth={1.9} />} label="People" caption="Members, staff, and who is waiting to join" onPress={() => router.push({ pathname: "/admin/people" as never, params: { returnTo: "/more" } })} />}
+            {clubFixtureCaps.requests && <Row icon={<Megaphone size={19} color={colour.forest800} strokeWidth={1.9} />} label="Fixture Requests" caption="What other clubs have asked, and what we have asked" onPress={() => router.push({ pathname: "/club/requests" as never, params: { returnTo: "/more" } })} />}
+            {clubFixtureCaps.planner && <Row icon={<CalendarDays size={19} color={colour.forest800} strokeWidth={1.9} />} label="Season Planner" caption="Arrange club days with other clubs" onPress={() => router.push({ pathname: "/fixtures/planner" as never, params: { returnTo: "/more" } })} />}
+            {admin.sections.some((s) => s.key === "venues") && <Row icon={<MapPin size={19} color={colour.forest800} strokeWidth={1.9} />} label="Venues & Pitches" caption="Where the club plays" onPress={() => router.push({ pathname: "/admin/venues" as never, params: { returnTo: "/more" } })} />}
+            {clubFixtureCaps.tournaments && <Row icon={<Trophy size={19} color={colour.forest800} strokeWidth={1.9} />} label="Tournaments" caption="Festivals and cup days the club runs or attends" onPress={() => router.push({ pathname: "/admin/tournaments" as never, params: { returnTo: "/more" } })} />}
             <Row icon={<Newspaper size={19} color={colour.forest800} strokeWidth={1.9} />} label="News & Announcements" caption="What the club has published" onPress={() => router.push("/news")} />
-            {admin.sections.some((s) => s.key === "news") && <Row icon={<ClipboardList size={19} color={colour.forest800} strokeWidth={1.9} />} label="Publish" caption="Write and manage news and announcements" onPress={() => router.push("/admin/news" as never)} />}
+            {admin.sections.some((s) => s.key === "news") && <Row icon={<ClipboardList size={19} color={colour.forest800} strokeWidth={1.9} />} label="Publish" caption="Write and manage news and announcements" onPress={() => router.push({ pathname: "/admin/news" as never, params: { returnTo: "/more" } })} />}
             {/* THE CLUB'S JOBS THAT WERE MISSING FROM THE PHONE (CA-M11.1). Each row is the server's to
                 give: the Admin Centre's own capability probe decides Guardians & Players, Subscriptions &
                 Payments, Season Handover, Roles & Permissions and the safeguarding nomination; the
-                board's own two keys decide Pitch Allocation. Nothing here is inferred from a role. */}
-            {admin.sections.some((s) => s.key === "guardians") && <Row icon={<HeartHandshake size={19} color={colour.forest800} strokeWidth={1.9} />} label="Guardians & Players" caption="Players, who looks after them, and who is asking to join" onPress={() => router.push("/admin/guardians" as never)} />}
-            {admin.sections.some((s) => s.key === "subscriptions") && <Row icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />} label="Subscriptions & Payments" caption="What members pay, and where every payment stands" onPress={() => router.push("/admin/subscriptions" as never)} />}
-            {admin.sections.some((s) => s.key === "rollover") && <Row icon={<ArrowRightLeft size={19} color={colour.forest800} strokeWidth={1.9} />} label="Season Handover" caption="Moving every side and player up at the end of the season" onPress={() => router.push("/admin/rollover" as never)} />}
-            {(venueCaps.allocate || venueCaps.viewAllocation) && <Row icon={<CalendarDays size={19} color={colour.forest800} strokeWidth={1.9} />} label="Pitch Allocation" caption="Which side is on which pitch, day by day" onPress={() => router.push("/admin/pitch-allocation" as never)} />}
-            {admin.sections.some((s) => s.key === "permissions") && <Row icon={<KeyRound size={19} color={colour.forest800} strokeWidth={1.9} />} label="Roles & Permissions" caption="Who may do what, and where" onPress={() => router.push("/admin/permissions" as never)} />}
-            {(admin.sections.some((s) => s.key === "safeguarding") || officer) && <Row icon={<Shield size={19} color={colour.forest800} strokeWidth={1.9} />} label="Safeguarding" caption={officer ? "Your safeguarding work at this club" : "The club's safeguarding contact"} onPress={() => router.push("/admin/safeguarding" as never)} />}
+                board's own two keys decide Arena (its Pitch Allocation board within). Nothing here is inferred from a role. */}
+            {admin.sections.some((s) => s.key === "guardians") && <Row icon={<HeartHandshake size={19} color={colour.forest800} strokeWidth={1.9} />} label="Guardians & Players" caption="Players, who looks after them, and who is asking to join" onPress={() => router.push({ pathname: "/admin/guardians" as never, params: { returnTo: "/more" } })} />}
+            {admin.sections.some((s) => s.key === "subscriptions") && <Row icon={<Receipt size={19} color={colour.forest800} strokeWidth={1.9} />} label="Subscriptions & Payments" caption="What members pay, and where every payment stands" onPress={() => router.push({ pathname: "/admin/subscriptions" as never, params: { returnTo: "/more" } })} />}
+            {admin.sections.some((s) => s.key === "rollover") && <Row icon={<ArrowRightLeft size={19} color={colour.forest800} strokeWidth={1.9} />} label="Season Handover" caption="Moving every side and player up at the end of the season" onPress={() => router.push({ pathname: "/admin/rollover" as never, params: { returnTo: "/more" } })} />}
+            {(venueCaps.allocate || venueCaps.viewAllocation) && <Row icon={<CalendarDays size={19} color={colour.forest800} strokeWidth={1.9} />} label="Arena" caption="Venues, pitches, changing rooms and what is on them" onPress={() => router.push({ pathname: "/admin/arena" as never, params: { returnTo: "/more" } })} />}
+            {admin.sections.some((s) => s.key === "permissions") && <Row icon={<KeyRound size={19} color={colour.forest800} strokeWidth={1.9} />} label="Roles & Permissions" caption="Who may do what, and where" onPress={() => router.push({ pathname: "/admin/permissions" as never, params: { returnTo: "/more" } })} />}
+            {(admin.sections.some((s) => s.key === "safeguarding") || officer) && <Row icon={<Shield size={19} color={colour.forest800} strokeWidth={1.9} />} label="Safeguarding" caption={officer ? "Your safeguarding work at this club" : "The club's safeguarding contact"} onPress={() => router.push({ pathname: "/admin/safeguarding" as never, params: { returnTo: "/more" } })} />}
           </Group>
         )}
         {!inFamily && !inClub && (
@@ -188,7 +210,7 @@ export default function More() {
                 icon={<Users size={19} color={colour.forest800} strokeWidth={1.9} />}
                 label="People"
                 caption="Players, parents and the staff who run the side — on the web for now"
-                onPress={() => (admin.sections.some((s) => s.key === "people") ? router.push("/admin/people") : void Linking.openURL(`${webUrl}/people`))}
+                onPress={() => (admin.sections.some((s) => s.key === "people") ? router.push({ pathname: "/admin/people" as never, params: { returnTo: "/more" } }) : void Linking.openURL(`${webUrl}/people`))}
                 external
               />
             )}
@@ -201,7 +223,7 @@ export default function More() {
               icon={<Landmark size={20} color={colour.forest800} strokeWidth={1.9} />}
               label="Admin Centre"
               caption="Running the club: profile, contacts and more"
-              onPress={() => router.push("/admin")}
+              onPress={() => router.push({ pathname: "/admin", params: { returnTo: "/more" } })}
             />
           </Group>
         )}

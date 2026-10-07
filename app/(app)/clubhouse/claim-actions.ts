@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 
 import { type ClaimableRole } from "@ovalball/contracts/clubhouse"
+import { referralSlugFrom } from "@ovalball/contracts/clubhouse/referral-link"
 
 export type SubmitClubClaimResult = { ok: true; claimId: string } | { ok: false; error: string }
 
@@ -19,13 +20,19 @@ export type SubmitClubClaimResult = { ok: true; claimId: string } | { ok: false;
  * allow-list and authorityDeclaration is a real, non-trivial written statement -- both required before
  * this is ever called, per the standing "do not make claiming a casual one-tap action" instruction.
  * A claimed role grants nothing by itself; it is only ever a suggestion to whoever reviews the claim.
+ *
+ * A CLAIM MADE THROUGH ANOTHER CLUB'S REFERRAL LINK names that club's public slug. It grants nothing: the
+ * server records the referring club only if it may (an active club, not this one, this one not yet on
+ * Ovalball) and credits it, if ever, when the club pays.
  */
-export async function submitClubClaim(directoryId: string, claimedRole: ClaimableRole, authorityDeclaration: string): Promise<SubmitClubClaimResult> {
+export async function submitClubClaim(directoryId: string, claimedRole: ClaimableRole, authorityDeclaration: string, referralSlug: string | null = null): Promise<SubmitClubClaimResult> {
   const supabase = await createClient()
+  const slug = referralSlugFrom(referralSlug)
   const { data, error } = await supabase.rpc("submit_club_claim", {
     p_directory_id: directoryId,
     p_claimed_role: claimedRole,
     p_authority_declaration: authorityDeclaration.trim(),
+    ...(slug ? { p_referral_slug: slug } : {}),
   })
   if (error || !data) {
     if (error?.code === "23505") {

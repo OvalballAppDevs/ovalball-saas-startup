@@ -1,6 +1,5 @@
 import type { TeamAttentionItem } from "../team/attention"
 import type { TeamOverview } from "../team/overview"
-import { destinationForHref, type Destination } from "../navigation/destinations"
 import { attentionItem, type AttentionItem, type AttentionSourceType } from "./model"
 
 /**
@@ -20,23 +19,14 @@ const SOURCE: Record<TeamAttentionItem["kind"], AttentionSourceType> = {
   call_up: "call_up",
   subscription: "team_subscription",
   age_grade: "age_grade",
+  tournament_result: "tournament_result",
 }
 
-const ONE_RECORD = /^\/(?:fixtures|messages\/request)\/([0-9a-f-]{36})$/i
+const ONE_RECORD = /^\/(?:fixtures|messages\/request|tournaments\/result)\/([0-9a-f-]{36})(?:\/result)?$/i
 
 function sourceIdFor(item: TeamAttentionItem, teamId: string): string {
   // A row about one record carries that record's id in its canonical href; a count row is the team's.
   return item.href.match(ONE_RECORD)?.[1] ?? teamId
-}
-
-function destinationFor(item: TeamAttentionItem, teamId: string): Destination {
-  const parsed = destinationForHref(item.href)
-  if (parsed.kind !== "web") return parsed
-  // The team's own sections are reached as the team destination, so the app opens them natively.
-  if (item.kind === "join_request" || item.kind === "age_grade") return { kind: "team", teamId, section: "people" }
-  if (item.kind === "call_up") return { kind: "team", teamId, section: "player-requests" }
-  if (item.kind === "subscription") return { kind: "team", teamId, section: "subscriptions" }
-  return parsed
 }
 
 export function teamAttentionItems(overview: Pick<TeamOverview, "teamId" | "attention" | "upcoming">, clubId: string | null): AttentionItem[] {
@@ -50,7 +40,12 @@ export function teamAttentionItems(overview: Pick<TeamOverview, "teamId" | "atte
       priority: item.urgent ? "urgent" : "needs_action",
       title: item.label,
       summary: item.detail,
-      destination: destinationFor(item, overview.teamId),
+      // `item.href` is used as-is: it already addresses /teams/<id>/people, /player-requests,
+      // /subscriptions directly for join_request/call_up/subscription (team/attention.ts), and a
+      // prior Destination-typed round-trip here never actually rewrote any of them -- every one of
+      // these shapes was already recognised as native, so the "override" it appeared to apply was
+      // unreachable. Kept as the plain href that was genuinely driving navigation.
+      href: item.href,
       createdAt: null,
       dueAt: dueByFixture.get(sourceId) ?? null,
       count: item.count,

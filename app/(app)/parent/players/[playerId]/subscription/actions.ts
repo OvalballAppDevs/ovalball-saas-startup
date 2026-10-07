@@ -21,12 +21,25 @@ export type CancelOwnMembershipResult = { ok: true } | { ok: false; error: strin
  * to; GoCardless's own hosted flow collects the actual bank details and
  * mandate authorization, never this app.
  */
-export async function startSubscriptionEnrolment(playerId: string, programmeId: string, clubId: string): Promise<StartEnrolmentResult> {
+export async function startSubscriptionEnrolment(playerId: string, programmeId: string, _clientClubId: string): Promise<StartEnrolmentResult> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: "You must be signed in." }
+
+  // The club comes from the programme, never from the browser (record_billing_request re-checks it too).
+  const { data: programmeRow } = await supabase.from("club_subscription_programmes").select("club_id").eq("id", programmeId).maybeSingle()
+  if (!programmeRow) return { ok: false, error: "This club's membership is not available." }
+  const clubId = programmeRow.club_id
+
+  // AN UNVERIFIED CLUB CANNOT COLLECT, and GoCardless says to check before allowing payment features
+  // (https://docs.gocardless.com/docs/partner-integrations/getting-your-users-verified). The page checked when it
+  // rendered; this checks again at the moment a Direct Debit would start.
+  const { data: eligibility } = await supabase.rpc("get_enrolment_eligibility", { p_player_id: playerId, p_club_id: clubId }).maybeSingle()
+  if (!eligibility?.merchant_verified) {
+    return { ok: false, error: "The club's GoCardless account is still being verified, so a Direct Debit can't be set up yet. Please try again soon." }
+  }
 
   const { data: existing } = await supabase.from("player_subscription_payers").select("id").eq("player_id", playerId).eq("programme_id", programmeId).eq("status", "active").maybeSingle()
 

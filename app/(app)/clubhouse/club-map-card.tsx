@@ -13,6 +13,7 @@ import { ClubStatusPill } from "./club-status-pill"
 import { InviteClubDialog } from "./invite-club-dialog"
 import { MessageClubDialog } from "./message-club-dialog"
 import type { MapClub } from "./map-data"
+import { useReferralSlug } from "./use-referral-slug"
 
 const RUGBY_CODE_LABEL: Record<string, string> = { union: "Union", league: "League" }
 
@@ -65,6 +66,10 @@ export function ClubMapCard({
   const [inviteOpen, setInviteOpen] = useState(false)
   const [messageOpen, setMessageOpen] = useState(false)
   const [claimOpen, setClaimOpen] = useState(false)
+  // A club not yet on Ovalball can be claimed from its profile too, and that claim must still say which
+  // club's referral link brought this person here (/r/<slug> -> /clubhouse?ref=<slug>).
+  const referralSlug = useReferralSlug()
+  const profileQuery = referralSlug ? `?ref=${encodeURIComponent(referralSlug)}` : ""
 
   async function handleRequest() {
     if (!club.clubId) return
@@ -167,7 +172,7 @@ export function ClubMapCard({
 
       {!club.isOwnClub && !club.clubId && (
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" className="h-9" nativeButton={false} render={<Link href={`/clubhouse/club/${club.directoryId}`} />}>
+          <Button size="sm" variant="outline" className="h-9" nativeButton={false} render={<Link href={`/clubhouse/club/${club.directoryId}${profileQuery}`} />}>
             View Profile
           </Button>
           {canManagePartnerships && (

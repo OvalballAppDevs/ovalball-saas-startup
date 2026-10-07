@@ -69,3 +69,21 @@ export function routeForRow(row: MessengerRow): { pathname: string; params: Reco
       return null
   }
 }
+
+/**
+ * Which of my group conversations I have muted -- my own subscription rows, read under RLS. Keyed the way the
+ * inbox keys its rows, so a row can show the quiet bell without asking anything else.
+ */
+export async function loadMutedKeys(supabase: SupabaseClient<Database>, userId: string): Promise<Set<string>> {
+  const { data } = await supabase
+    .from("fixture_conversation_subscriptions")
+    .select("fixture_id, fixture_request_id")
+    .eq("user_id", userId)
+    .eq("muted", true)
+  const keys = new Set<string>()
+  for (const row of data ?? []) {
+    if (row.fixture_id) keys.add(`fixture:${row.fixture_id}`)
+    if (row.fixture_request_id) keys.add(`request:${row.fixture_request_id}`)
+  }
+  return keys
+}

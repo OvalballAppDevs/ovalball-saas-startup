@@ -127,28 +127,23 @@ export function pitchConfigurationSummary(pitch: Pick<PitchOption, "physicalSize
 }
 
 /**
- * A match's own required footprint, derived from the SAME canonical `fixture_scheduling_rules` row
- * that already resolves its required pitch SIZE CATEGORY (`AllocationFixture.requiredPitchSize`) --
- * never a second, independent source of truth for the same fact.
+ * A match's own required footprint, in quarter-pitch terms, from the size word the board carries
+ * (`AllocationFixture.requiredPitchSize`).
  *
- * CONFIDENCE IS NOT UNIFORM, AND IS CARRIED THROUGH RATHER THAN FLATTENED.
- *   full -> full footprint: CONFIRMED. `min_pitch_size_category='full'` rows are sourced directly
- *     from RFU Regulation 15 Appendices 7-9 / World Rugby Law 1 (90x60m and up).
- *   reduced -> half footprint: CONFIRMED. The foundation migration's own seed comment describes the
- *     U12 reduced pitch (RFU Appendix 6, 60x43m) as "half a full-size pitch" in so many words -- this
- *     is not this pass's own inference, it is what the migration that introduced the category already
- *     recorded as the reasoning.
- *   mini -> quarter footprint: UNRESOLVED. No governing-body source says "a quarter" outright. It is
- *     this pass's own reasoned inference from the RFU appendices' own stated maximum dimensions (U7
- *     20x12m, U8 45x22m against reduced's 60x43m and full's ~100x70m -- meaningfully smaller than a
- *     half in both directions). Treated as real for board presentation and for Auto Allocate's
- *     unit-budget arithmetic, but never presented as equally certain as the other two -- see
- *     `footprintConfidence` callers, which must surface "unresolved" distinctly (Section 43's own
- *     instruction: useful reasons, not a flattened certainty).
- *   null (League, or any age_group with no seeded rule) -> null footprint, null confidence. Ovalball
- *     has NO seeded League age-grade pitch-size data (audited: zero `rugby_code='league'` rows exist
- *     in `fixture_scheduling_rules`, and no League source material exists in
- *     docs/rugby-hub/sources/) -- this is not a gap this pass invents an answer for.
+ * THE SIZE IS DECIDED ON THE SERVER, ONCE. `getPitchAllocationBoard` reads it from the one pitch-fit
+ * resolver (`internal.age_grade_pitch_fit`, through `age_grade_pitch_fits`): Ovalball's verified RFU
+ * Regulation 15 register first -- U7 20m x 12m and U8 45m x 22m (a quarter of a 100m x 70m pitch), U9
+ * 60m x 30m, U10 60m x 35m, U11 and U12 60m x 43m (a half), U13 90m x 60m and U14 100m x 70m (the
+ * whole pitch) -- and a grade's scheduling category only where the register holds no size (U6, the
+ * colts and senior bands), which the resolver reports as a stand-in. This function only translates
+ * that answer into units; it never decides a grade's size, so there is no second "half pitch" rule
+ * here to drift from the server's.
+ *
+ *   full -> the whole pitch; reduced -> a half; mini -> a quarter. "mini" keeps its "unresolved"
+ *   confidence because the size word alone cannot say whether the grade's size is the register's
+ *   (U7, U8) or a category stand-in (U6).
+ *   null (League, or a grade with no rule) -> no footprint: capacity counts it as a whole pitch and
+ *   suitability does not block on it. Ovalball invents no size for it.
  */
 export function matchFootprintFor(requiredPitchSize: AllocationFixture["requiredPitchSize"]): { footprint: PitchFootprint | null; confidence: "confirmed" | "unresolved" | null } {
   if (requiredPitchSize === "full") return { footprint: "full", confidence: "confirmed" }

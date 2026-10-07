@@ -65,3 +65,24 @@ export function groupFamilyEventsByDay(events: FamilyEvent[]): { date: string; e
   }
   return days
 }
+
+/**
+ * ONE CHILD CHOSEN NARROWS THE CLUB'S EVENTS TOO -- the same subtraction `narrowToChild` makes of the
+ * matches and sessions. A guardian who chose Ben was still shown Ava's U12 Charity Run, "Ava Awaiting",
+ * and Ava's answer on every event the two share: the child filter reached the rugby and stopped at the
+ * events. An event stays when the chosen child has an answer in it (they are invited), and only that
+ * child's answer stays beside it. `null` is every child, and changes nothing.
+ *
+ * Generic over the two shapes so the contracts' own event types need not be imported here: anything with
+ * an `eventId`, and answers that name the event and the child.
+ */
+export function narrowEventsToChild<E extends { eventId: string }, A extends { eventId: string; playerId: string | null }>(
+  events: E[],
+  answers: A[],
+  playerId: string | null
+): { events: E[]; answers: A[] } {
+  if (!playerId) return { events, answers }
+  const kept = answers.filter((a) => a.playerId === playerId)
+  const invited = new Set(kept.map((a) => a.eventId))
+  return { events: events.filter((e) => invited.has(e.eventId)), answers: kept }
+}

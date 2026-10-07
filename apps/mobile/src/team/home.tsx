@@ -267,10 +267,11 @@ function countFor(a: { attending: number; unavailable: number; unsure: number; a
   return key === "ATTENDING" ? a.attending : key === "UNSURE" ? a.unsure : key === "CANNOT_ATTEND" ? a.unavailable : a.awaiting
 }
 
+/** The squad's memberships in the Memberships tab's own words: the same "need action" count it opens on. */
 function subscriptionSentence(s: { attentionCount: number; programmeExists: boolean }): string {
-  if (!s.programmeExists) return "The club does not collect subscriptions through Ovalball."
-  if (s.attentionCount === 0) return "Everyone in the squad is set up."
-  return s.attentionCount === 1 ? "1 player needs following up." : `${s.attentionCount} players need following up.`
+  if (!s.programmeExists) return "The club doesn't collect memberships through Ovalball."
+  if (s.attentionCount === 0) return "Nobody in the squad needs action this month."
+  return s.attentionCount === 1 ? "1 player needs action." : `${s.attentionCount} players need action.`
 }
 
 function SectionRow({ title, actionLabel, onAction }: { title: string; actionLabel?: string; onAction?: () => void }) {
