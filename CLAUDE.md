@@ -2,6 +2,9 @@
 
 Read this before writing user-facing copy or touching a person's name.
 
+How installed skills, plugins, MCP servers and the Obsidian vault are used on Ovalball
+work: @.claude/toolchain.md
+
 ## Content and presentation standard
 
 Five rules. They apply to all current and future Ovalball work.
