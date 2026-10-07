@@ -49,16 +49,22 @@ values (v_club,'union','youth','U12','boys','Under 12 Boys','tcm-u12-'||v_slug,f
 -- The coach: a club member with a team_permissions row, which is what makes
 -- them staff. No club role beyond BASIC_USER.
 insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_coach, 'BASIC_USER', 'active');
-insert into public.team_permissions (membership_id, team_id, permission)
-select id, v_team, 'team_admin' from public.club_memberships where user_id = v_coach and club_id = v_club;
+insert into testing.team_roles (membership_id, team_id, role_key)
+select id, v_team, 'TEAM_ADMINISTRATION' from public.club_memberships where user_id = v_coach and club_id = v_club;
 
 -- Three players covering the three safeguarding bands.
 insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-values ('Tcm','Child', (current_date - interval '11 years')::date, 'MALE') returning id into v_kid;
+values ('Tcm','Child', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_kid;
 insert into public.players (first_name, surname, date_of_birth, playing_pathway)
 values ('Tcm','Teen', (current_date - interval '17 years')::date, 'MALE') returning id into v_teen;
 insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
 values ('Tcm','Adult', (current_date - interval '25 years')::date, 'MALE', v_stranger) returning id into v_adult;
+
+-- The 17-year-old and the adult are outside U12 on purpose (the three bands share one squad), so their
+-- places stand on approved dispensation fixtures.
+insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+values (v_teen, v_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE'),
+       (v_adult, v_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
 
 insert into public.player_team_memberships (player_id, team_id, status)
 values (v_kid, v_team, 'active'), (v_teen, v_team, 'active'), (v_adult, v_team, 'active');

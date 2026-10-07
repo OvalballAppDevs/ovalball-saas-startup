@@ -152,7 +152,7 @@ begin
   v_ca2 := pg_temp.person('SecondAdmin'); v_ms_ca2 := pg_temp.member(v_club, v_ca2, 'CLUB_ADMIN');
   v_vol := pg_temp.person('Volunteer'); v_ms_vol := pg_temp.member(v_club, v_vol);
   v_tm := pg_temp.person('TeamManager'); v_ms_tm := pg_temp.member(v_club, v_tm);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_tm, v_t12, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_tm, v_t12, 'TEAM_MANAGER');
   v_cab := pg_temp.person('OtherClubAdmin'); perform pg_temp.member(v_club_b, v_cab, 'CLUB_ADMIN');
 
   select id into v_season from public.seasons where rugby_code = 'union' and not is_regression_fixture
@@ -241,9 +241,20 @@ begin
   v_state := pg_temp.try(format('select public.update_fixture_kickoff(%L, %L, ''12:00'')', v_fixture, current_date + 5));
   perform pg_temp.check(v_state = '42501' and (select kickoff_time from public.fixtures where id = v_fixture) = '11:00', format('ER-4 with edit withheld, the kick-off cannot move (%s)', v_state));
   v_state := pg_temp.try(format('select public.update_fixture_pitch(%L, %L)', v_fixture, v_pitch));
-  perform pg_temp.check(v_state = '42501', format('ER-5 nor the pitch through the fixture edit path (%s)', v_state));
+  -- Placing a fixture on a pitch is pitch allocation, not fixture editing (20270762000000, H5): with edit
+  -- withheld but venue.pitch_allocation.manage still held, the pitch moves -- and nothing else does.
+  perform pg_temp.check(v_state = 'OK' and (select pitch_id from public.fixtures where id = v_fixture) = v_pitch and (select kickoff_time from public.fixtures where id = v_fixture) = '11:00',
+    format('ER-5 the pitch still moves on pitch-allocation authority, and only the pitch (%s)', v_state));
+  perform pg_temp.act_postgres(); update auth.sessions set user_id = v_ca where id = v_sess;
+  perform pg_temp.act('authenticated', v_ca, v_sess);
+  v_state := pg_temp.try(format('select public.set_capability_override(%L, ''venue.pitch_allocation.manage'', ''club'', %L, null, ''deny'', ''CA-M10 proof'')', v_ca2, v_club));
+  perform pg_temp.act_postgres(); update auth.sessions set user_id = v_ca2 where id = v_sess;
+  perform pg_temp.act('authenticated', v_ca2, v_sess);
+  v_state := pg_temp.try(format('select public.update_fixture_pitch(%L, null)', v_fixture));
+  perform pg_temp.check(v_state = '42501' and (select pitch_id from public.fixtures where id = v_fixture) = v_pitch,
+    format('ER-5b with edit AND pitch allocation withheld, the pitch cannot move (%s)', v_state));
   perform pg_temp.act_postgres();
-  update public.capability_overrides set status = 'revoked', revoked_at = now() where user_id = v_ca2 and capability_key = 'fixture.fixture.edit' and status = 'active';
+  update public.capability_overrides set status = 'revoked', revoked_at = now() where user_id = v_ca2 and capability_key in ('fixture.fixture.edit', 'venue.pitch_allocation.manage') and status = 'active';
 
   -- =====================================================================================
   -- CN. Cancel is not delete
@@ -280,8 +291,13 @@ begin
   perform pg_temp.check(v_state = '42501', format('RQ-3 nor a Volunteer at the asked club (%s)', v_state));
   perform pg_temp.act_postgres(); update auth.sessions set user_id = v_ca where id = v_sess;
   perform pg_temp.act('authenticated', v_ca, v_sess);
-  update public.fixture_requests set status = 'declined', decided_by = v_ca, decided_at = now() where id = v_request and status = 'sent';
-  perform pg_temp.check((select status from public.fixture_requests where id = v_request) = 'declined', 'RQ-4 the club that was asked declines it through the policy-covered update');
+  -- A client no longer writes a request's state through the table (20270762000000, H1): the answer is the
+  -- guarded RPC, which records who decided.
+  v_state := pg_temp.try(format('update public.fixture_requests set status = ''declined'' where id = %L', v_request));
+  perform pg_temp.check(v_state = '42501' and (select status from public.fixture_requests where id = v_request) = 'sent', format('RQ-4a a direct table update is refused (%s)', v_state));
+  v_state := pg_temp.try(format('select public.decline_fixture_request(%L)', v_request));
+  perform pg_temp.check(v_state = 'OK' and (select status from public.fixture_requests where id = v_request) = 'declined' and (select decided_by from public.fixture_requests where id = v_request) = v_ca,
+    format('RQ-4 the club that was asked declines it through the guarded answer (%s)', v_state));
 
   -- =====================================================================================
   -- EV. Club events
@@ -306,7 +322,13 @@ begin
   v_state := pg_temp.try(format('select public.cancel_club_event(%L, ''Hall unavailable'')', v_event));
   perform pg_temp.act_postgres();
   perform pg_temp.check(v_state = 'OK' and (select status from public.club_events where id = v_event) = 'CANCELLED', format('EV-6 the club cancels it with a reason, and the record stays (%s)', v_state));
-  perform pg_temp.check(not exists (select 1 from public.notifications where data ? 'event_id' or data ? 'club_event_id'), 'EV-7 nothing is emitted for an event: H29 untouched');
+  -- SCOPED TO THIS SUITE'S OWN EVENT. Unscoped, this asked whether ANY event notification exists anywhere in the
+  -- database -- true on any database where the Event Centre (20270729) has ever been used -- so the suite failed
+  -- on a local stack that had simply been exercised, and passed only on an empty one. The claim is unchanged:
+  -- creating and cancelling an event nobody was invited to tells nobody anything.
+  perform pg_temp.check(not exists (select 1 from public.notifications
+                                     where data ->> 'event_id' = v_event::text or data ->> 'club_event_id' = v_event::text),
+    'EV-7 nothing is emitted for an event: H29 untouched');
 
   -- =====================================================================================
   -- VP. Pitch allocation is its own authority

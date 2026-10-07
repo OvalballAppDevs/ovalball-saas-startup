@@ -131,10 +131,10 @@ begin
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_a, v_a_basic, 'BASIC_USER', 'active') returning id into v_mem_a_basic;
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_c, v_c_coach, 'BASIC_USER', 'active') returning id into v_mem_c_coach;
 
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_mem_a_full, v_team_a_u12, 'coach');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_mem_a_full, v_team_a_u16, 'coach');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_mem_a_u12, v_team_a_u12, 'coach');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_mem_c_coach, v_team_c_u12, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_mem_a_full, v_team_a_u12, 'COACH');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_mem_a_full, v_team_a_u16, 'COACH');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_mem_a_u12, v_team_a_u12, 'COACH');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_mem_c_coach, v_team_c_u12, 'COACH');
 
   -- Club A <-> Club B: ACTIVE partnership (governs availability, never compatibility).
   insert into public.club_partnerships (requesting_club_id, partner_club_id, status, requested_by)

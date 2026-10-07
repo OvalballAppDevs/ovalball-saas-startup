@@ -121,12 +121,12 @@ begin
   v_tb := pg_temp.team(v_club_b, 'u12', 'U12', 'Under 12 Boys');
   v_ca := pg_temp.person('ClubAdmin'); perform pg_temp.member(v_club, v_ca, 'CLUB_ADMIN');
   v_tm := pg_temp.person('TeamManager'); v_ms_tm := pg_temp.member(v_club, v_tm);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_tm, v_t12, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_tm, v_t12, 'TEAM_MANAGER');
   -- Two people with NO team role: each gets exactly one of the two keys by an explicit decision.
   v_edit_only := pg_temp.person('EditOnly'); v_ms_edit := pg_temp.member(v_club, v_edit_only);
   v_result_only := pg_temp.person('ResultOnly'); v_ms_result := pg_temp.member(v_club, v_result_only);
   v_tmb := pg_temp.person('OtherManager'); v_ms_tmb := pg_temp.member(v_club_b, v_tmb);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_tmb, v_tb, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_tmb, v_tb, 'TEAM_MANAGER');
 
   select id into v_season from public.seasons where rugby_code = 'union' and not is_regression_fixture
     and current_date between coalesce(pre_season_starts_on, starts_on) and ends_on limit 1;

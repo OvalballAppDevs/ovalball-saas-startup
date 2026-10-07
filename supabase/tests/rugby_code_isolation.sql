@@ -129,7 +129,7 @@ begin
   end if;
 
   insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
-  values ('Iso','Player', date '2014-01-15', true, 'MALE') returning id into v_player;
+  values ('Iso','Player', internal.date_of_birth_in_age_grade('union', 'U12'), true, 'MALE') returning id into v_player;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_uteam,'active');
 
   v_roll := public.generate_rollover_proposal(v_uclub,'union',v_season_u);

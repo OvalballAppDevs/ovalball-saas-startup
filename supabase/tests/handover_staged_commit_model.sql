@@ -69,16 +69,16 @@ insert into public.teams (club_id, rugby_code, category, age_group, gender, squa
 values (v_club,'union','youth','U15','boys','B','U15 B','sa-15b-'||gen_random_uuid()) returning id into v_u15b;
 
 insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
-values ('Norm','Kid', date '2013-01-15','MALE',true) returning id into v_kid;
+values ('Norm','Kid', internal.date_of_birth_in_age_grade('union', 'U13'),'MALE',true) returning id into v_kid;
 insert into public.player_team_memberships (player_id, team_id, status) values (v_kid, v_u13,'active');
 
 -- Past U18 in Union: the youth pathway ends and he goes to Club Holding.
 insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
-values ('End','Ofpathway',(current_date - interval '18 years 3 months')::date,'MALE',true) returning id into v_leaver;
+values ('End','Ofpathway',internal.date_of_birth_in_age_grade('union', 'U18'),'MALE',true) returning id into v_leaver;
 insert into public.player_team_memberships (player_id, team_id, status) values (v_leaver, v_u18,'active');
 
 insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
-values ('Bee','Squadder', date '2011-01-15','MALE',true) returning id into v_bee;
+values ('Bee','Squadder', internal.date_of_birth_in_age_grade('union', 'U15'),'MALE',true) returning id into v_bee;
 insert into public.player_team_memberships (player_id, team_id, status) values (v_bee, v_u15b,'active');
 
 v_roll := public.generate_rollover_proposal(v_club,'union',v_to);

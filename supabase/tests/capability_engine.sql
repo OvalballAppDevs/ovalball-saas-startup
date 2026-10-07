@@ -67,8 +67,8 @@ begin
     ('99e00000-0000-0000-0000-000000600004', '99e00000-0000-0000-0000-0000000c0001', '99e00000-0000-0000-0000-000000200003', 'BASIC_USER', 'active')
   on conflict (id) do nothing;
 
-  insert into public.team_permissions (id, membership_id, team_id, permission) values
-    ('99e00000-0000-0000-0000-000000700001', '99e00000-0000-0000-0000-000000600004', '99e00000-0000-0000-0000-000000100001', 'coach')
+  insert into testing.team_roles (id, membership_id, team_id, role_key) values
+    ('99e00000-0000-0000-0000-000000700001', '99e00000-0000-0000-0000-000000600004', '99e00000-0000-0000-0000-000000100001', 'COACH')
   on conflict (id) do nothing;
 
   insert into public.players (id, first_name, surname, date_of_birth, playing_pathway) values

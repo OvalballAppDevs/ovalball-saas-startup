@@ -41,6 +41,7 @@ declare
   v_dir_b uuid; v_club_b uuid; v_team_b uuid;
   v_dir_c uuid; v_club_c uuid;
   v_ca_a uuid; v_ca_b uuid; v_ca_c uuid; v_stranger uuid;
+  v_coach_a uuid; v_ms uuid;   -- A's U12 coach: the person a counter from B is announced to
   v_group uuid; v_req uuid;
   v_result text;
   v_status text; v_cdate date; v_ctime time; v_last_proposer uuid; v_updated_at timestamptz;
@@ -75,6 +76,10 @@ begin
   insert into public.club_memberships (club_id,user_id,role,status) values (v_club_a,v_ca_a,'CLUB_ADMIN','active');
   insert into public.club_memberships (club_id,user_id,role,status) values (v_club_b,v_ca_b,'CLUB_ADMIN','active');
   insert into public.club_memberships (club_id,user_id,role,status) values (v_club_c,v_ca_c,'CLUB_ADMIN','active');
+  v_coach_a := pg_temp.person('CoachA');
+  insert into public.club_memberships (club_id,user_id,role,status) values (v_club_a,v_coach_a,'BASIC_USER','active') returning id into v_ms;
+  insert into public.role_assignments (user_id, membership_id, club_id, team_id, role_key, state, source)
+  values (v_coach_a, v_ms, v_club_a, v_team_a, 'COACH', 'ACTIVE', 'CLUB_ADMIN_ASSIGNMENT');
 
   -- ---------------------------------------------------------------------------------------------
   -- A. Real request: A -> B, Saturday, 10:00.
@@ -112,6 +117,13 @@ begin
   -- Original proposal untouched (Section 20: never destroyed).
   perform pg_temp.check((select preferred_kickoff_time from public.fixture_requests where id = v_req) = time '10:00', 'C5: the ORIGINAL preferred_kickoff_time is untouched by the counter');
   perform pg_temp.check((select proposed_date from public.fixture_request_groups where id = v_group) = date '2027-03-06', 'C6: the original proposed_date on the group is untouched');
+  -- 20270733 (integration audit): the counter is announced ONCE -- by the table's trigger -- and says what was suggested.
+  perform pg_temp.check(exists (select 1 from public.notifications where type = 'fixture_request_countered' and data ->> 'fixture_request_id' = v_req::text and body like '%06 Mar 2027 at 11:00%'),
+    'C7: the side whose turn it is is told what was suggested');
+  perform pg_temp.check(not exists (select 1 from public.notifications where type = 'fixture_request_countered' and data ->> 'fixture_request_id' = v_req::text group by user_id having count(*) > 1),
+    'C8: and each person is told once, never twice for one suggestion');
+  perform pg_temp.check((select count(*) from public.notifications where type = 'fixture_request_countered' and data ->> 'fixture_request_id' = v_req::text and user_id = v_coach_a) = 1,
+    'C9: A''s coach -- on the canonical role list and, through its compatibility view, the legacy one -- gets exactly one');
 
   -- ---------------------------------------------------------------------------------------------
   -- D. NOW B cannot accept/counter their own standing counter -- it is A's turn.

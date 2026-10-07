@@ -91,7 +91,7 @@ do $$
 declare
   v_programme_id uuid;
 begin
-  v_programme_id := public.configure_subscription_programme((select v::uuid from t_sib_state where k = 'club_a'), true, 1, 'NONE', 'PRORATE_CURRENT_MONTH');
+  v_programme_id := public.configure_subscription_programme((select v::uuid from t_sib_state where k = 'club_a'), false, 1, 'GOCARDLESS_APP_FEE', 'PRORATE_CURRENT_MONTH');
   perform public.set_subscription_price(v_programme_id, 2000, current_date);
   perform public.configure_sibling_discount_rule(v_programme_id, 2, 'PERCENTAGE', 10);
   perform public.configure_sibling_discount_rule(v_programme_id, 3, 'FIXED', 500);
@@ -104,10 +104,17 @@ do $$
 declare
   v_programme_id uuid;
 begin
-  v_programme_id := public.configure_subscription_programme((select v::uuid from t_sib_state where k = 'club_b'), true, 1, 'NONE', 'PRORATE_CURRENT_MONTH');
+  v_programme_id := public.configure_subscription_programme((select v::uuid from t_sib_state where k = 'club_b'), false, 1, 'GOCARDLESS_APP_FEE', 'PRORATE_CURRENT_MONTH');
   perform public.set_subscription_price(v_programme_id, 2000, current_date);
   insert into t_sib_state values ('programme_b', v_programme_id::text);
 end $$;
+
+-- FIXTURE STEP, as postgres: switch both programmes on directly. configure cannot switch memberships on -- only
+-- Activate can, after checking terms, GoCardless verification and a priced membership -- and none of that is
+-- what this suite tests.
+reset role;
+update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now())
+ where id in ((select v::uuid from t_sib_state where k = 'programme_a'), (select v::uuid from t_sib_state where k = 'programme_b'));
 
 \echo '--- 1/2/3: 1st/2nd/3rd child pricing, enrolled in real order ---'
 set local role authenticated;
@@ -199,12 +206,17 @@ do $$
 declare
   v_programme_id uuid;
 begin
-  v_programme_id := public.configure_subscription_programme((select v::uuid from t_floor_state where k = 'club_id'), true, 1, 'NONE', 'PRORATE_CURRENT_MONTH');
+  v_programme_id := public.configure_subscription_programme((select v::uuid from t_floor_state where k = 'club_id'), false, 1, 'GOCARDLESS_APP_FEE', 'PRORATE_CURRENT_MONTH');
   perform public.set_subscription_price(v_programme_id, 300, current_date);
   perform public.configure_sibling_discount_rule(v_programme_id, 2, 'FIXED', 500);
   perform public.configure_sibling_discount_rule(v_programme_id, 3, 'PERCENTAGE', 33);
   insert into t_floor_state values ('programme_id', v_programme_id::text);
 end $$;
+
+-- FIXTURE STEP, as postgres: switch the programme on directly (only Activate can, after checks this suite is not about).
+reset role;
+update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now())
+ where id = (select v::uuid from t_floor_state where k = 'programme_id');
 
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', v, 'role', 'authenticated')::text, true) from t_floor_state where k = 'guardian';
@@ -278,11 +290,16 @@ do $$
 declare
   v_programme_id uuid;
 begin
-  v_programme_id := public.configure_subscription_programme((select v::uuid from t_first_pay_state where k = 'club_id'), true, 1, 'NONE', 'PRORATE_CURRENT_MONTH');
+  v_programme_id := public.configure_subscription_programme((select v::uuid from t_first_pay_state where k = 'club_id'), false, 1, 'GOCARDLESS_APP_FEE', 'PRORATE_CURRENT_MONTH');
   perform public.set_subscription_price(v_programme_id, 1500, current_date);
   perform public.configure_sibling_discount_rule(v_programme_id, 2, 'PERCENTAGE', 10);
   insert into t_first_pay_state values ('programme_id', v_programme_id::text);
 end $$;
+
+-- FIXTURE STEP, as postgres: switch the programme on directly (only Activate can, after checks this suite is not about).
+reset role;
+update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now())
+ where id = (select v::uuid from t_first_pay_state where k = 'programme_id');
 
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', v, 'role', 'authenticated')::text, true) from t_first_pay_state where k = 'guardian';
@@ -349,11 +366,16 @@ do $$
 declare
   v_programme_id uuid;
 begin
-  v_programme_id := public.configure_subscription_programme((select v::uuid from t_first_pay_state where k = 'ncd_club_id'), true, 1, 'NONE', 'NEXT_COLLECTION_DAY');
+  v_programme_id := public.configure_subscription_programme((select v::uuid from t_first_pay_state where k = 'ncd_club_id'), false, 1, 'GOCARDLESS_APP_FEE', 'NEXT_COLLECTION_DAY');
   perform public.set_subscription_price(v_programme_id, 1500, current_date);
   perform public.configure_sibling_discount_rule(v_programme_id, 2, 'PERCENTAGE', 10);
   insert into t_first_pay_state values ('ncd_programme_id', v_programme_id::text);
 end $$;
+
+-- FIXTURE STEP, as postgres: switch the programme on directly (only Activate can, after checks this suite is not about).
+reset role;
+update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now())
+ where id = (select v::uuid from t_first_pay_state where k = 'ncd_programme_id');
 
 set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', v, 'role', 'authenticated')::text, true) from t_first_pay_state where k = 'guardian';

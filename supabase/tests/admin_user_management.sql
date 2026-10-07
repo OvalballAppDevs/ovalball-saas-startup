@@ -155,9 +155,9 @@ begin
 
   update public.club_memberships set role = 'BASIC_USER' where id = '20000000-0000-0000-0000-000000000015';
 
-  insert into public.team_permissions (membership_id, team_id, permission)
-  values ('20000000-0000-0000-0000-000000000015', '30000000-0000-0000-0000-000000000001', 'team_admin')
-  on conflict (membership_id, team_id) do update set permission = 'team_admin';
+  insert into testing.team_roles (membership_id, team_id, role_key)
+  values ('20000000-0000-0000-0000-000000000015', '30000000-0000-0000-0000-000000000001', 'TEAM_ADMINISTRATION')
+  on conflict (membership_id, team_id) do update set role_key = 'TEAM_ADMINISTRATION';
   raise notice 'PASS 8: Site Admin can grant Team Admin for a selected team (U12 A)';
 end $$;
 rollback;
@@ -172,9 +172,9 @@ rollback;
 begin;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000014","role":"authenticated"}';
-insert into public.team_permissions (membership_id, team_id, permission)
-values ('20000000-0000-0000-0000-000000000015', '30000000-0000-0000-0000-000000000001', 'team_admin')
-on conflict (membership_id, team_id) do update set permission = 'team_admin';
+insert into testing.team_roles (membership_id, team_id, role_key)
+values ('20000000-0000-0000-0000-000000000015', '30000000-0000-0000-0000-000000000001', 'TEAM_ADMINISTRATION')
+on conflict (membership_id, team_id) do update set role_key = 'TEAM_ADMINISTRATION';
 commit;
 
 -- ------------------------------------------------------------
@@ -271,7 +271,7 @@ rollback;
 begin;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000014","role":"authenticated"}';
-delete from public.team_permissions where membership_id = '20000000-0000-0000-0000-000000000015';
+delete from testing.team_roles where membership_id = '20000000-0000-0000-0000-000000000015';
 commit;
 
 begin;
@@ -342,7 +342,7 @@ begin;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000014","role":"authenticated"}';
 update public.club_memberships set role = 'BASIC_USER' where id = '20000000-0000-0000-0000-000000000015';
-delete from public.team_permissions where membership_id = '20000000-0000-0000-0000-000000000015';
+delete from testing.team_roles where membership_id = '20000000-0000-0000-0000-000000000015';
 commit;
 
 -- ------------------------------------------------------------
@@ -472,7 +472,7 @@ rollback;
 begin;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000014","role":"authenticated"}';
-delete from public.team_permissions where membership_id = '20000000-0000-0000-0000-000000000015';
+delete from testing.team_roles where membership_id = '20000000-0000-0000-0000-000000000015';
 commit;
 
 \echo '=== Done. Review PASS/FAIL/SKIP lines above; every non-SKIP assertion should read PASS. ==='

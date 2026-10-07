@@ -61,12 +61,15 @@ insert into public.teams (club_id, rugby_code, category, age_group, gender, squa
 values (v_club,'union','youth','U15','boys','B','x','st15b') returning id into v_u15b;
 
 -- A coach attached to the U15 side.
-insert into public.team_permissions (membership_id, team_id, permission) values (v_coach_ms, v_u15, 'coach');
+insert into testing.team_roles (membership_id, team_id, role_key) values (v_coach_ms, v_u15, 'COACH');
 
 -- An over-age player in U15: next season his age grade is U17, and this club
 -- runs no U17 at all.
 insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
 values ('Over','Age', date '2011-01-15', 'MALE', true) returning id into v_old_player;
+-- Being over-age in U15 is the scenario under test, so the placement carries an approved dispensation.
+insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+values (v_old_player, v_u15, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
 insert into public.player_team_memberships (player_id, team_id, status) values (v_old_player, v_u15,'active');
 
 -- An ordinary player in the B squad.
@@ -259,13 +262,13 @@ else
   raise notice 'FAIL 15: the planned team was not created properly';
 end if;
 
-if exists (select 1 from public.team_permissions where team_id = v_new and membership_id = v_coach_ms and permission = 'coach') then
+if exists (select 1 from testing.team_roles where team_id = v_new and membership_id = v_coach_ms and role_key = 'COACH') then
   raise notice 'PASS 16: the source squad''s coach came across to the new team -- staff travel with the cohort';
 else
   raise notice 'FAIL 16: the new team was created with no staff';
 end if;
 
-if exists (select 1 from public.team_permissions where team_id = v_u15 and membership_id = v_coach_ms) then
+if exists (select 1 from testing.team_roles where team_id = v_u15 and membership_id = v_coach_ms) then
   raise notice 'PASS 17: the coach is still attached to the original side too -- carrying staff over copies, it does not strip';
 else
   raise notice 'FAIL 17: the coach was removed from the original team';

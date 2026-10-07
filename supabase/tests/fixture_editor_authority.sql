@@ -84,8 +84,8 @@ begin
     (v_club_b, v_coach_b, 'BASIC_USER', 'active'),
     (v_club_b, v_secretary_b, 'FIXTURE_SECRETARY', 'active'),
     (v_club_x, v_outsider, 'CLUB_ADMIN', 'active');
-  insert into public.team_permissions (membership_id, team_id, permission)
-  select cm.id, x.team_id, 'coach' from (values (v_coach_a, v_team_a, v_club_a), (v_coach_b, v_team_b, v_club_b)) x(user_id, team_id, club_id)
+  insert into testing.team_roles (membership_id, team_id, role_key)
+  select cm.id, x.team_id, 'COACH' from (values (v_coach_a, v_team_a, v_club_a), (v_coach_b, v_team_b, v_club_b)) x(user_id, team_id, club_id)
   join public.club_memberships cm on cm.user_id = x.user_id and cm.club_id = x.club_id;
 
   insert into public.fixtures (owning_team_id, home_away, opponent_team_id, raw_opposition_text, kickoff_date, kickoff_time, status, source, home_score, away_score)

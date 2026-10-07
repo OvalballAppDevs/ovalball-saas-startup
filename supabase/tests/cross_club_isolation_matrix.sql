@@ -60,9 +60,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_effect text, p_level text,
@@ -206,6 +206,9 @@ insert into isolation_domain values
   -- 4b teams and roster
   ('teams', '4b'), ('team_aliases', '4b'), ('team_contacts', '4b'), ('team_season_identity', '4b'), ('team_permissions_legacy', '4b'),
   ('player_team_memberships', '4b'), ('player_club_join_requests', '4b'),
+  -- Squad numbers and positions (20270728) hang off a player's place in one team, and are isolated with
+  -- that roster: the team's roster managers write them, and the public page projects them only where shared.
+  ('team_squad_details', '4b'),
   -- 4c fixtures, requests, results, Planner, Import
   ('fixtures', '4c'), ('fixture_import_batches', '4c'), ('player_fixture_attendance', '4c'), ('fixture_player_call_up', '4c'),
   ('club_opponent_notes', '4c'),
@@ -214,13 +217,28 @@ insert into isolation_domain values
   -- settings hang off the team instead, and are classified with the teams they belong to.
   ('match_awards', '4c'), ('match_award_votes', '4c'), ('match_kudos', '4c'),
   ('team_award_category_settings', '4b'),
+  -- The Match Centre consolidation (20270727): a CLUB's default awards, inherited by each team unless it
+  -- overrides them. Isolated with the club administration it is part of: one club's choice of awards is
+  -- that club's alone and decides nothing for a neighbour.
+  ('club_award_category_settings', '4h'),
+  -- Public sharing choices (20270727): whether a club, and each team, shows its squad and photographs on
+  -- the public team page. Club-level with the club's administration, team-level with the team it is
+  -- about -- the same split as the award settings above.
+  ('club_public_sharing', '4h'), ('team_public_sharing', '4b'),
   -- 4d competitions and tournaments
   ('competition_edition_teams', '4d'), ('competition_participants', '4d'), ('competition_match_verifications', '4d'),
   ('tournaments', '4d'), ('tournament_participants', '4d'), ('tournament_team_entries', '4d'),
+  -- A club ASKING to come to a public tournament, and the teams it named. Classified to the tournament
+  -- domain because that is what they are isolated by: an application belongs to one tournament, and who
+  -- applied is the hosting organiser's business rather than the applying club's neighbours'.
+  ('tournament_applications', '4d'), ('tournament_application_teams', '4d'),
   -- 4e calendar, venues, pitches, training
   ('venues', '4e'), ('club_pitches', '4e'), ('pitch_allocation_proposals', '4e'), ('scheduling_groups', '4e'),
   ('scheduling_group_members', '4e'), ('club_scheduling_policy', '4e'), ('training_plans', '4e'), ('training_sessions', '4e'),
   ('club_events', '4e'), ('club_event_teams', '4e'),
+  -- Events (20270729): answers, named invitees, external guests and the delivery ledger, isolated with
+  -- the event they belong to.
+  ('club_event_responses', '4e'), ('club_event_invitees', '4e'), ('club_event_guests', '4e'), ('club_event_deliveries', '4e'),
   -- 4f messaging and notifications
   ('club_announcements', '4f'), ('club_message_blocks', '4f'), ('message_policies', '4f'), ('team_conversations', '4f'),
   ('message_reports', '4f'),
@@ -232,14 +250,30 @@ insert into isolation_domain values
   -- 4h club administration and finance
   ('club_setup_state', '4h'), ('club_kits', '4h'), ('club_contacts', '4h'), ('club_articles', '4h'),
   ('club_subscription_programmes', '4h'), ('membership_obligations', '4h'), ('player_subscription_payers', '4h'),
+  -- Club Memberships (20270748000000): a club's memberships, the teams each covers, a player's chosen membership
+  -- and the club's agreement to Ovalball's terms -- isolated with the club's finance, read only by its finance holders.
+  ('membership_products', '4h'), ('membership_product_teams', '4h'), ('membership_player_products', '4h'),
+  ('club_membership_terms_acceptances', '4h'),
   ('finance_audit_log', '4h'), ('gocardless_billing_requests', '4h'), ('gocardless_customers', '4h'), ('gocardless_events', '4h'),
   ('gocardless_mandates', '4h'), ('gocardless_merchant_connections', '4h'), ('gocardless_payments', '4h'),
   ('gocardless_payouts', '4h'), ('gocardless_subscriptions', '4h'), ('platform_club_subscriptions', '4h'),
+  -- A payout's items (20270754000000): GoCardless's own lines, kept with the club's payout and read only by its finance
+  -- viewers (club_payouts; the table's own policy goes through the payout).
+  ('gocardless_reconciliation_entries', '4h'),
   ('platform_credits', '4h'), ('platform_payments', '4h'), ('platform_subscription_events', '4h'), ('platform_trials', '4h'),
   -- 4i documents, partners, referrals, handover
   ('club_documents', '4i'), ('document_folders', '4i'), ('age_grade_rollovers', '4i'), ('age_grade_rollover_team_proposals', '4i'),
   ('age_grade_rollover_player_proposals', '4i'), ('player_graduation_queue', '4i'), ('season_transitions', '4i'),
   -- people, roles and capabilities (isolated by Slices 2-3; People & Access is Slice 8)
+  -- The canonical Team GALLERY (20270572). Isolated with the TEAMS it belongs to: a photograph hangs
+  -- off one team, is reached only by that team's roster, and never crosses to a neighbouring club.
+  ('team_media', '4b'),
+  -- A ground's changing rooms (20270591). Isolated with the venues and pitches they are part of.
+  ('venue_changing_rooms', '4e'),
+  -- Arena (20270738): a club's ranked venue, pitch and changing-room preferences, club-wide and per team.
+  -- Isolated with the venues, pitches and rooms they rank -- read and written only by that club's planners
+  -- (arena_planning Z1, Z8).
+  ('facility_preferences', '4e'),
   ('club_memberships', 'people'), ('role_assignments', 'people'), ('capability_overrides', 'people'),
   -- Slice 5: the canonical invitation replacing the six legacy tables above it. Classified to the
   -- same 'people' domain as the legacy invitations it supersedes, so the isolation sweep covers it.
@@ -276,12 +310,12 @@ begin
   v_admin_a := pg_temp.xput('adminA', pg_temp.person('Admin A')); perform pg_temp.member(v_a, v_admin_a, 'CLUB_ADMIN');
 
   v := pg_temp.xput('adminB', pg_temp.person('Admin B')); perform pg_temp.member(v_b, v, 'CLUB_ADMIN');
-  v := pg_temp.xput('coachB', pg_temp.person('Coach B')); perform pg_temp.team_role(pg_temp.member(v_b, v, 'BASIC_USER'), v_tb, 'coach');
-  v := pg_temp.xput('managerB', pg_temp.person('Manager B')); perform pg_temp.team_role(pg_temp.member(v_b, v, 'BASIC_USER'), v_tb, 'team_admin');
+  v := pg_temp.xput('coachB', pg_temp.person('Coach B')); perform pg_temp.team_role(pg_temp.member(v_b, v, 'BASIC_USER'), v_tb, 'COACH');
+  v := pg_temp.xput('managerB', pg_temp.person('Manager B')); perform pg_temp.team_role(pg_temp.member(v_b, v, 'BASIC_USER'), v_tb, 'TEAM_ADMINISTRATION');
   v := pg_temp.xput('memberB', pg_temp.person('Member B')); perform pg_temp.member(v_b, v, 'BASIC_USER');
 
   v_parent := pg_temp.xput('parentA', pg_temp.person('Parent A'));
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Cross', 'Child', (current_date - interval '11 years')::date, 'MALE') returning id into v_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Cross', 'Child', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child;
   perform pg_temp.xput('childA', v_child);
   insert into public.player_team_memberships (player_id, team_id, status) values (v_child, v_ta, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_parent, v_child, 'parent', 'active') returning id into v_g;
@@ -292,7 +326,7 @@ begin
     values ('FIRST_CHILD', 'PENDING', v, v, v_a, v_ta, 'union', 'New', 'Child', (current_date - interval '9 years')::date) returning id into v_req;
   perform pg_temp.xput('reqA', v_req);
   insert into public.player_duplicate_reviews (team_id, submitted_first_name, submitted_surname, submitted_date_of_birth, submitted_playing_pathway, matched_player_id, submitted_by, requesting_guardian_user_id)
-    values (v_ta, 'Cross', 'Child', (current_date - interval '11 years')::date, 'MALE', v_child, v, v) returning id into v_rev;
+    values (v_ta, 'Cross', 'Child', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE', v_child, v, v) returning id into v_rev;
   perform pg_temp.xput('revA', v_rev);
   insert into public.guardian_invitations (club_id, team_id, invited_email, invited_by_user_id) values (v_a, v_ta, 'crossinvite@ovalball.test', v_admin_a);
 end $$;

@@ -91,4 +91,27 @@ select pg_temp.try(format(
 )) as de7 \gset
 select pg_temp.check(:'de7' != 'OK', 'DE7 a second pending proposal for the same (directory_id, field) is refused (' || :'de7' || ')');
 
+-- =========================================================================
+-- DE8: accepting a bio/colour proposal actually writes club_directory (20270576000000 fix) --
+-- reproduces the exact gap found before running acceptance on the real research batch: the field
+-- allowlist accepted these values long before accept_directory_research_proposal's CASE did.
+-- =========================================================================
+select set_config('request.jwt.claims', json_build_object('sub', :'researcher_id', 'role', 'authenticated')::text, false) as de8_jwt \gset
+
+select id as de8_bio_proposal_id from public.club_directory_research_proposals
+where directory_id = :'directory_id' and field = 'bio' and status = 'pending' \gset
+
+select pg_temp.try(format('select public.accept_directory_research_proposal(%L)', :'de8_bio_proposal_id')) as de8_accept \gset
+select pg_temp.check(:'de8_accept' = 'OK', 'DE8a accepting a bio proposal succeeds (' || :'de8_accept' || ')');
+
+select pg_temp.check(
+  (select bio = 'A test biography.' from public.club_directory where id = :'directory_id'::uuid),
+  'DE8b accepted bio proposal actually wrote club_directory.bio'
+);
+
+select pg_temp.check(
+  (select status from public.club_directory_research_proposals where id = :'de8_bio_proposal_id'::uuid) = 'accepted',
+  'DE8c the proposal itself is marked accepted'
+);
+
 rollback;

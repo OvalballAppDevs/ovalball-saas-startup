@@ -130,7 +130,7 @@ select pg_temp.person('Volunteer-Only', '1975-06-01') as volunteer_id \gset
 select pg_temp.member(:'club_id', :'volunteer_id') as volunteer_membership \gset
 select internal.grant_role(:'volunteer_membership'::uuid, 'VOLUNTEER'::text, :'team_id'::uuid, 'CLUB_ADMIN_ASSIGNMENT'::text, 'TSR3'::text, '{}'::jsonb);
 select pg_temp.check(
-  not exists (select 1 from public.team_permissions where membership_id = :'volunteer_membership'),
+  not exists (select 1 from testing.team_roles where membership_id = :'volunteer_membership'),
   'TSR3 setup: the legacy team_permissions view genuinely still excludes a Volunteer (proves the bug this fix closes)'
 );
 
@@ -146,6 +146,9 @@ select pg_temp.check(staff = 3, format('TSR2/TSR3 team_people_counts.staff count
 select pg_temp.person('Adult Player Coach', '2000-01-01') as adult_player_person_id \gset
 select pg_temp.player('2000-01-01') as adult_player_id \gset
 update public.players set user_id = :'adult_player_person_id'::uuid, playing_pathway = 'MALE' where id = :'adult_player_id'::uuid;
+-- The suite's one team is an Under 12 side, so an adult's place on it needs an approved dispensation.
+insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+  values (:'adult_player_id', :'team_id', internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
 insert into public.player_team_memberships (player_id, team_id, status, state) values (:'adult_player_id', :'team_id', 'active', 'ACTIVE');
 select pg_temp.member(:'club_id', :'adult_player_person_id') as adult_player_membership \gset
 select pg_temp.try_grant(:'adult_player_membership'::uuid, 'COACH', :'team_id'::uuid, 'CLUB_ADMIN_ASSIGNMENT', 'TSR4') as tsr4_grant_result \gset

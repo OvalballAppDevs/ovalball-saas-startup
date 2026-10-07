@@ -89,11 +89,11 @@ begin
     ('30000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002', 'union', 'youth', 'U12', 'U12 A', 'u12-a')
   on conflict (id) do nothing;
 
-  insert into public.team_permissions (membership_id, team_id, permission)
+  insert into testing.team_roles (membership_id, team_id, role_key)
   values
-    ('20000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000001', 'team_admin'),
+    ('20000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000001', 'TEAM_ADMINISTRATION'),
     ('20000000-0000-0000-0000-000000000006', '30000000-0000-0000-0000-000000000001', 'view_only'),
-    ('20000000-0000-0000-0000-000000000010', '30000000-0000-0000-0000-000000000002', 'team_admin')
+    ('20000000-0000-0000-0000-000000000010', '30000000-0000-0000-0000-000000000002', 'TEAM_ADMINISTRATION')
   on conflict do nothing;
 
   insert into public.club_claims (id, directory_id, claimant_user_id, claimed_role, authority_declaration, status)

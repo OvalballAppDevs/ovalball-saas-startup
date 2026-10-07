@@ -127,15 +127,15 @@ begin
   -- THE PEOPLE. One child of 11, one teenager of 16 with their own login, one adult player, and one
   -- child belonging to a DIFFERENT family, so a reader that leaked across families would be caught.
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Harry', 'Availability', (current_date - interval '11 years')::date, 'MALE') returning id into v_child;
+  values ('Harry', 'Availability', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
   values ('Theo', 'Availability', (current_date - interval '16 years')::date, 'MALE', v_teen) returning id into v_teen_player;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
   values ('Owen', 'Availability', (current_date - interval '17 years')::date, 'MALE', v_consented) returning id into v_consented_player;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Nate', 'Elsewhere', (current_date - interval '11 years')::date, 'MALE') returning id into v_other_child;
+  values ('Nate', 'Elsewhere', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_other_child;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Group', 'Member', (current_date - interval '13 years')::date, 'MALE') returning id into v_group_child;
+  values ('Group', 'Member', internal.date_of_birth_in_age_grade('union', 'U14'), 'MALE') returning id into v_group_child;
 
   insert into public.guardians (player_id, guardian_user_id, status, relationship_type) values
     (v_child, v_guardian, 'active', 'parent'),
@@ -148,6 +148,12 @@ begin
   -- guardian_player_permissions decision, never as a role or a flag on the player.
   insert into public.guardian_player_permissions (player_id, guardian_user_id, permission_key, granted, actor)
   values (v_consented_player, v_guardian, 'approve_own_attendance', true, v_guardian);
+
+  -- Theo stays exactly 16 and Owen exactly 17, the ages E2-E4 and D5 are about. Born N years ago today is
+  -- U(N) in season and U(N+1) in pre-season, so each place is covered by an approved dispensation year-round.
+  insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+  values (v_teen_player, v_team_b, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE'),
+         (v_consented_player, v_team_d, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
 
   insert into public.player_team_memberships (player_id, team_id, status, state, source, joined_at) values
     (v_child, v_team, 'active', 'ACTIVE', 'CLUB_CREATED', now()),
@@ -170,6 +176,12 @@ begin
   values (v_team, current_date + 9, 'Not Applicable', 'Festival', 'AOP Festival', v_season, v_admin) returning id into v_fx_na;
   insert into public.fixtures (owning_team_id, kickoff_date, home_away, status, raw_opposition_text, season_id, created_by)
   values (v_team, current_date + 10, 'Home', 'Booked', 'AOP Doomed', v_season, v_admin) returning id into v_fx_cancelled;
+  -- ATTENDANCE OPENS SIX DAYS OUT (Match Centre consolidation, 20270727) unless the team opens it
+  -- earlier. These fixtures sit 7-11 days away so they stay clear of the other suites' dates, and this
+  -- suite is about WHO may answer and on WHAT fixture -- not when -- so the team has opened it early,
+  -- exactly as staff may. The window itself is proved in match_centre_consolidation.sql.
+  update public.fixtures set attendance_opened_at = now()
+   where id in (v_fx_home, v_fx_tbd, v_fx_na, v_fx_cancelled);
 
   -- =====================================================================
   -- A. A CANCELLED FIXTURE REFUSES AN ANSWER
@@ -237,6 +249,7 @@ begin
 
   insert into public.fixtures (owning_team_id, owning_scheduling_group_id, kickoff_date, home_away, status, raw_opposition_text, season_id, created_by)
   values (v_team_c, v_group, current_date + 11, 'Home', 'Booked', 'AOP Group', v_season, v_admin) returning id into v_fx_group;
+  update public.fixtures set attendance_opened_at = now() where id = v_fx_group;  -- opened early, as above
 
   perform pg_temp.check((select count(*) from internal.fixture_participant_team_ids(v_fx_group)) >= 1,
     'C1 the canonical participant resolver answers for a group fixture');
@@ -271,6 +284,7 @@ begin
   perform pg_temp.act_postgres();
   insert into public.fixtures (owning_team_id, kickoff_date, home_away, status, raw_opposition_text, season_id, created_by)
   values (v_team_d, current_date + 13, 'Home', 'Booked', 'AOP Self', v_season, v_admin) returning id into v_fx_self;
+  update public.fixtures set attendance_opened_at = now() where id = v_fx_self;  -- opened early, as above
 
   perform pg_temp.act('authenticated', v_consented);
   select count(*) into v_n from public.get_my_players_for_fixture(v_fx_self)

@@ -79,7 +79,7 @@ insert into public.club_memberships (club_id, user_id, role, status) values (v_c
 -- The cast. Every one has a login, which is exactly the point: a login is not
 -- a licence to be contacted directly.
 insert into public.players (first_name, surname, active, playing_pathway, date_of_birth, user_id)
-values ('Under','Twelve', true, 'MALE', current_date - interval '12 years', v_u12_account) returning id into v_u12;
+values ('Under','Twelve', true, 'MALE', internal.date_of_birth_in_age_grade('union', 'U12'), v_u12_account) returning id into v_u12;
 insert into public.players (first_name, surname, active, playing_pathway, date_of_birth)
 values ('Under','TwelveAlone', true, 'MALE', current_date - interval '12 years') returning id into v_u12_no_guardian;
 insert into public.players (first_name, surname, active, playing_pathway, date_of_birth, user_id)
@@ -91,7 +91,7 @@ values ('Sixteen','Consented', true, 'MALE', current_date - interval '16 years' 
 insert into public.players (first_name, surname, active, playing_pathway, date_of_birth, user_id)
 values ('Adult','Player', true, 'MALE', current_date - interval '25 years', v_adult_acct) returning id into v_adult;
 insert into public.players (first_name, surname, active, playing_pathway, date_of_birth)
-values ('Sibling','Ofu12', true, 'MALE', current_date - interval '11 years') returning id into v_sibling;
+values ('Sibling','Ofu12', true, 'MALE', internal.date_of_birth_in_age_grade('union', 'U12')) returning id into v_sibling;
 
 -- Relationships. Guardian A represents the U12 AND their sibling -- the
 -- deduplication case. Guardian B is a second guardian of the U12.
@@ -243,6 +243,11 @@ perform set_config('role','postgres',true);
 -- ============ F. THE REAL NOTIFICATION PATHS ============
 --
 -- Not the predicate in isolation: the paths that used to bypass it.
+
+-- The 16-year-old and the adult share the U12 squad on purpose (one squad, three of guardian A's players).
+insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+values (v_sixteen_no_consent, v_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE'),
+       (v_adult, v_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
 
 insert into public.player_team_memberships (player_id, team_id, status) values
   (v_u12, v_team, 'active'),

@@ -28,7 +28,7 @@ begin
          (v_other_admin, 'ppc-other@ovalball-test.invalid',    '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated'),
          (v_outsider,    'ppc-outsider@ovalball-test.invalid', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated');
 
-  insert into public.site_admins (user_id, admin_role, status) values (v_owner, 'full', 'active');
+  insert into public.site_admins (user_id, profile_key, status) values (v_owner, 'SITE_FULL', 'active');
 
   insert into public.club_directory (name, rugby_code, country, nation, source, verification_status, normalized_key)
   values ('Price Preview Club', 'union', 'England', 'England', 'manual', 'verified', 'price-preview-club') returning id into v_dir;
@@ -45,14 +45,18 @@ begin
   values (v_club, 'union', 'Under 12 Boys', 'u12-price-preview', 'youth', 'U12', 'boys', true)
   returning id into v_team;
   insert into public.players (first_name, surname, date_of_birth, created_by, playing_pathway)
-  values ('Price', 'Child', current_date - interval '11 years', v_club_admin, 'MALE') returning id into v_player;
+  values ('Price', 'Child', internal.date_of_birth_in_age_grade('union', 'U12'), v_club_admin, 'MALE') returning id into v_player;
   insert into public.guardians (guardian_user_id, player_id, status) values (v_guardian, v_player, 'active');
   insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team, 'active');
 
   -- the programme, configured by the club through its own domain operation
   perform set_config('request.jwt.claims', json_build_object('sub', v_club_admin, 'role', 'authenticated')::text, true);
-  perform public.configure_subscription_programme(v_club, true, 1, 'NONE', 'NEXT_COLLECTION_DAY');
+  perform public.configure_subscription_programme(v_club, false, 1, 'GOCARDLESS_APP_FEE', 'NEXT_COLLECTION_DAY');
   select id into v_programme from public.club_subscription_programmes where club_id = v_club;
+  -- FIXTURE STEP, as postgres (this block's own role; only the claims change): switch the programme on directly.
+  -- configure cannot switch memberships on -- only Activate can, after checking terms, GoCardless verification
+  -- and a priced membership -- and none of that is what this suite is about.
+  update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now()) where id = v_programme;
   perform public.set_subscription_price(v_programme, 2500, current_date);
 
   -- 1. the club's own finance holder still gets the answer

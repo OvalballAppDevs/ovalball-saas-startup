@@ -135,7 +135,7 @@ begin
   returning id into v_team;
 
   insert into public.players (first_name, surname, date_of_birth, user_id, active, playing_pathway)
-  values ('Seven', 'Eplayer', (current_date - interval '11 years')::date, v_subject, true, 'MALE')
+  values ('Seven', 'Eplayer', internal.date_of_birth_in_age_grade('union', 'U12'), v_subject, true, 'MALE')
   returning id into v_player;
   insert into public.player_team_memberships (player_id, team_id, status)
   values (v_player, v_team, 'active');

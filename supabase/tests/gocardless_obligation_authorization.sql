@@ -50,9 +50,15 @@ declare
   v_club_a uuid := (select v::uuid from t_oa_state where k = 'club_a');
   v_programme_id uuid;
 begin
-  v_programme_id := public.configure_subscription_programme(v_club_a, true, 1, 'NONE', 'PRORATE_CURRENT_MONTH');
+  v_programme_id := public.configure_subscription_programme(v_club_a, false, 1, 'GOCARDLESS_APP_FEE', 'PRORATE_CURRENT_MONTH');
   perform public.set_subscription_price(v_programme_id, 1500, current_date);
 end $$;
+-- FIXTURE STEP, as postgres: switch the programme on directly. configure cannot switch memberships on -- only
+-- Activate can, after checking terms, GoCardless verification and a priced membership -- and none of that is
+-- what this suite tests.
+reset role;
+update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now())
+ where club_id = (select v::uuid from t_oa_state where k = 'club_a');
 set local role anon;
 do $$
 begin
@@ -127,7 +133,7 @@ begin
   insert into public.club_memberships (id, club_id, user_id, role, status) values (gen_random_uuid(), v_club_a, v_coach_a, 'BASIC_USER', 'active') returning id into v_membership_coach_a;
   insert into public.teams (id, club_id, rugby_code, display_name, slug, category, age_group, gender, active, canonical_team_type_id)
   values (v_team_a, v_club_a, 'union', 'U12', 'u12-oa3-regression', 'youth', 'U12', 'boys', true, internal.resolve_canonical_team_type('youth', 'U12', 'boys', null));
-  insert into public.team_permissions (id, membership_id, team_id, permission) values (gen_random_uuid(), v_membership_coach_a, v_team_a, 'coach');
+  insert into testing.team_roles (id, membership_id, team_id, role_key) values (gen_random_uuid(), v_membership_coach_a, v_team_a, 'COACH');
   insert into t_oa_state values ('club_a', v_club_a::text), ('coach_a', v_coach_a::text);
 end $$;
 set local role authenticated;
@@ -207,15 +213,22 @@ declare
   v_club_a uuid := (select v::uuid from t_oa_state where k = 'club_a');
   v_programme_id uuid;
 begin
-  v_programme_id := public.configure_subscription_programme(v_club_a, true, 1, 'NONE', 'PRORATE_CURRENT_MONTH');
+  v_programme_id := public.configure_subscription_programme(v_club_a, false, 1, 'GOCARDLESS_APP_FEE', 'PRORATE_CURRENT_MONTH');
   perform public.set_subscription_price(v_programme_id, 1500, current_date);
 end $$;
+-- FIXTURE STEP, as postgres: switch the programme on directly. configure cannot switch memberships on -- only
+-- Activate can, after checking terms, GoCardless verification and a priced membership -- and none of that is
+-- what this suite tests. Then back to the Club Admin's session (its claims are unchanged) for the call under test.
+reset role;
+update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now())
+ where club_id = (select v::uuid from t_oa_state where k = 'club_a');
+set local role authenticated;
 do $$
 declare
   v_count integer;
 begin
   v_count := public.create_membership_obligations_for_period((select v::uuid from t_oa_state where k = 'club_a'), date_trunc('month', current_date)::date);
-  raise notice 'PASS 5: authorized Club Admin generated % obligation row(s) for their own club as expected', v_count;
+  raise notice 'PASS 5:authorized Club Admin generated % obligation row(s) for their own club as expected', v_count;
 exception when others then
   raise notice 'FAIL 5: the legitimate Club Admin operation was unexpectedly rejected -- %', sqlerrm;
 end $$;
@@ -251,9 +264,15 @@ declare
   v_club_a uuid := (select v::uuid from t_oa_state where k = 'club_a');
   v_programme_id uuid;
 begin
-  v_programme_id := public.configure_subscription_programme(v_club_a, true, 1, 'NONE', 'PRORATE_CURRENT_MONTH');
+  v_programme_id := public.configure_subscription_programme(v_club_a, false, 1, 'GOCARDLESS_APP_FEE', 'PRORATE_CURRENT_MONTH');
   perform public.set_subscription_price(v_programme_id, 1500, current_date);
 end $$;
+-- FIXTURE STEP, as postgres: switch the programme on directly. configure cannot switch memberships on -- only
+-- Activate can, after checking terms, GoCardless verification and a priced membership -- and none of that is
+-- what this suite tests.
+reset role;
+update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now())
+ where club_id = (select v::uuid from t_oa_state where k = 'club_a');
 set local role service_role;
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 do $$
@@ -297,9 +316,15 @@ declare
   v_club_a uuid := (select v::uuid from t_oa_state where k = 'club_a');
   v_programme_id uuid;
 begin
-  v_programme_id := public.configure_subscription_programme(v_club_a, true, 1, 'NONE', 'PRORATE_CURRENT_MONTH');
+  v_programme_id := public.configure_subscription_programme(v_club_a, false, 1, 'GOCARDLESS_APP_FEE', 'PRORATE_CURRENT_MONTH');
   perform public.set_subscription_price(v_programme_id, 1500, current_date);
 end $$;
+-- FIXTURE STEP, as postgres: switch the programme on directly. configure cannot switch memberships on -- only
+-- Activate can, after checking terms, GoCardless verification and a priced membership -- and none of that is
+-- what this suite tests.
+reset role;
+update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now())
+ where club_id = (select v::uuid from t_oa_state where k = 'club_a');
 set local role authenticated;
 select set_config('request.jwt.claims', '{"role":"authenticated"}', true);
 do $$

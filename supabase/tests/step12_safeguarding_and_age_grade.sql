@@ -181,18 +181,31 @@ begin
   values ('Ana', 'Right ' || v_tag, v_dob, 'MALE') returning id into v_child;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
   values ('Ben', 'Older ' || v_tag, (v_dob - interval '1 year')::date, 'MALE') returning id into v_older;
+  -- Caz is born in the grade so the place below can be made (a place is refused without a date of birth,
+  -- 20270742000000); the date is removed straight after -- the only way a place with no date of birth on
+  -- record can arise now, and the state this suite reports on.
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Caz', 'NoDob ' || v_tag, null, 'MALE') returning id into v_no_dob;
+  values ('Caz', 'NoDob ' || v_tag, v_dob, 'MALE') returning id into v_no_dob;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
   values ('Dai', 'Far ' || v_tag, v_dob, 'MALE') returning id into v_far_child;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Eve', 'Eighteen ' || v_tag, (v_cutoff - interval '17 years')::date, 'MALE') returning id into v_u18_player;
+  values ('Eve', 'Eighteen ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U18'), 'MALE') returning id into v_u18_player;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
   values ('Fox', 'Adult ' || v_tag, (current_date - interval '27 years')::date, 'MALE', v_adult_player) returning id into v_adult_p;
 
+  -- Ben is a year older than the grade. Since the one dispensation workflow (20270742000000) a place
+  -- outside the grade is only ever made under an approved dispensation for that team and season, so he is
+  -- placed under one that is then revoked -- the real way a player comes to be ON a team, outside its
+  -- grade, with nothing approved: by design a revocation ends no place, it only stops the next one.
+  insert into public.player_team_dispensation (player_id, target_team_id, season_id, status, governing_body_reference, eligibility_rule_reference)
+  values (v_older, v_u12, internal.resolve_season_for_date('union', current_date), 'approved', 'S12-SUITE',
+          'S12 suite: placed under an approval that is later revoked');
   insert into public.player_team_memberships (player_id, team_id, state) values
     (v_child, v_u12, 'ACTIVE'), (v_older, v_u12, 'ACTIVE'), (v_no_dob, v_u12, 'ACTIVE'),
     (v_far_child, v_far_team, 'ACTIVE'), (v_u18_player, v_u18, 'ACTIVE'), (v_adult_p, v_adult_team, 'ACTIVE');
+  update public.player_team_dispensation set status = 'revoked', revoked_by = v_coach, revoked_at = now()
+   where player_id = v_older and target_team_id = v_u12 and status = 'approved';
+  update public.players set date_of_birth = null where id = v_no_dob;
 
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state, source, created_by) values
     (v_parent, v_child, 'parent', 'active', 'ACTIVE', 'SELF_ADDED_CHILD', v_parent),
@@ -221,8 +234,10 @@ begin
   select s.status into v_status from internal.team_age_grade_status(v_u12, v_older, v_ref) s;
   perform pg_temp.check(v_status = 'DISPENSATION_PENDING', format('B6 a requested dispensation is reported as pending (%s)', v_status));
 
-  update public.player_team_dispensation set status = 'approved'
-   where player_id = v_older and target_team_id = v_u12;
+  -- Approved the way any record written straight into the table is (marked LEGACY): who may decide one,
+  -- and how, is the one dispensation workflow's own suite. This one asks only what the team is told.
+  update public.player_team_dispensation set status = 'approved', decided_as = 'LEGACY', decided_at = now()
+   where player_id = v_older and target_team_id = v_u12 and status = 'requested';
   select s.status into v_status from internal.team_age_grade_status(v_u12, v_older, v_ref) s;
   perform pg_temp.check(v_status = 'DISPENSATION_APPROVED', format('B7 and an approved one stops the team being told again (%s)', v_status));
 

@@ -53,9 +53,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership,p_team,p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership,p_team,p_role_key);
 end $$;
 
 -- A Safeguarding Officer using the role Slice 2 ALREADY models. This creates no 4G machinery: no
@@ -204,7 +204,7 @@ do $$
 declare
   v_ca uuid; v_fs uuid; v_tm uuid; v_tm2 uuid; v_co uuid; v_mb uuid; v_so uuid; v_sa uuid; v_far uuid; v_str uuid;
   v_club uuid; v_far_club uuid; v_team uuid; v_team2 uuid; v_m uuid; v_season uuid;
-  v_fixture uuid; v_conv uuid; v_msg uuid; v_tmsg uuid; v_report uuid; v_report2 uuid;
+  v_fixture uuid; v_conv uuid; v_msg uuid; v_tmsg uuid; v_report uuid; v_report2 uuid; v_gone uuid; v_state text;
   v_smod uuid; v_ann uuid; v_dc uuid; v_dmsg uuid; v_ok boolean; v_ok2 boolean;
   v_tag text := substr(gen_random_uuid()::text,1,8); n int;
 begin
@@ -213,9 +213,9 @@ begin
   v_ca := pg_temp.person('CA'); perform pg_temp.member(v_club,v_ca,'CLUB_ADMIN');
   v_fs := pg_temp.person('FS'); perform pg_temp.member(v_club,v_fs,'FIXTURE_SECRETARY');
   v_mb := pg_temp.person('MB'); perform pg_temp.member(v_club,v_mb,'BASIC_USER');
-  v_tm := pg_temp.person('TM'); v_m := pg_temp.member(v_club,v_tm,'BASIC_USER'); perform pg_temp.team_role(v_m,v_team,'manager');
-  v_tm2:= pg_temp.person('TM2');v_m := pg_temp.member(v_club,v_tm2,'BASIC_USER');perform pg_temp.team_role(v_m,v_team2,'manager');
-  v_co := pg_temp.person('CO'); v_m := pg_temp.member(v_club,v_co,'BASIC_USER'); perform pg_temp.team_role(v_m,v_team,'coach');
+  v_tm := pg_temp.person('TM'); v_m := pg_temp.member(v_club,v_tm,'BASIC_USER'); perform pg_temp.team_role(v_m,v_team,'TEAM_MANAGER');
+  v_tm2:= pg_temp.person('TM2');v_m := pg_temp.member(v_club,v_tm2,'BASIC_USER');perform pg_temp.team_role(v_m,v_team2,'TEAM_MANAGER');
+  v_co := pg_temp.person('CO'); v_m := pg_temp.member(v_club,v_co,'BASIC_USER'); perform pg_temp.team_role(v_m,v_team,'COACH');
   v_far := pg_temp.person('FARCA'); perform pg_temp.member(v_far_club,v_far,'CLUB_ADMIN');
   v_str := pg_temp.person('STR');
   v_so := pg_temp.person('SO'); perform pg_temp.safeguarding_officer(v_club, v_so, v_ca);
@@ -342,6 +342,31 @@ begin
   perform pg_temp.check(pg_temp.try_as(v_tm, format('select public.report_message(%L,''same person again'')',v_msg)) = 'OK'
                         and (select count(*) from public.message_reports where message_id = v_msg) = 2,
     'MA-F9 one person reporting twice updates their own row rather than inflating the queue');
+  -- 20270759000000: the message row is readable by everybody in the conversation, the reported sender included,
+  -- so it carries only the flag. Who reported and why live in message_reports alone.
+  perform pg_temp.check(
+    pg_temp.count_as(v_co, format('select count(*) from public.fixture_messages where id = %L and reported_at is not null and reported_by is null and report_reason is null', v_msg)) = 1,
+    'MA-F10 the sender sees that the message was reported, never by whom or why');
+  perform pg_temp.check(pg_temp.count_as(v_co, format('select count(*) from public.message_reports where message_id = %L', v_msg)) = 0,
+    'MA-F11 nor any report row about their own message');
+  perform pg_temp.check(
+    pg_temp.count_as(v_sa, format('select count(*) from public.admin_get_message_thread_content(%L, null) where id = %L and report_reason is not null', v_fixture, v_msg)) = 1,
+    'MA-F12 Ovalball moderation still reads the reason -- from the report itself');
+  -- Deleting is the sender's alone, and deleting a reported message never deletes the report.
+  insert into public.fixture_messages (fixture_id, conversation_id, sender_user_id, body, kind)
+  values (v_fixture, v_conv, v_co, 'MAM to be deleted '||v_tag, 'message') returning id into v_gone;
+  perform pg_temp.check(pg_temp.try_as(v_tm, format('select public.report_message(%L,''reported then deleted'')', v_gone)) = 'OK',
+    'MA-F13 the Team Manager reports a message');
+  perform pg_temp.check(pg_temp.try_as(v_tm, format('select public.soft_delete_own_message(%L)', v_gone)) = '42501'
+                        and (select deleted_at from public.fixture_messages where id = v_gone) is null,
+    'MA-F14 nobody but the sender can delete it -- not even the person who reported it');
+  v_state := pg_temp.try_as(v_co, format('select public.soft_delete_own_message(%L)', v_gone));
+  perform pg_temp.check(v_state = 'OK' and (select deleted_at from public.fixture_messages where id = v_gone) is not null,
+    format('MA-F15 the sender deletes their own message (a tombstone: the row stays) (%s)', v_state));
+  perform pg_temp.check((select count(*) from public.message_reports where message_id = v_gone) = 1,
+    'MA-F16 and the report about it survives the deletion intact');
+  -- Out of the way again, so the queue counts below are about the reports section MA-F set up.
+  delete from public.message_reports where message_id = v_gone;
 
   -- MA-G  the club queue (J.10 520) is the Safeguarding Officer's
   perform pg_temp.check(pg_temp.try_as(v_so, format('select * from public.club_message_reports(%L)',v_club)) = 'OK',

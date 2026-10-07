@@ -109,8 +109,8 @@ begin
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_parent, 'BASIC_USER', 'active');
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_player, 'BASIC_USER', 'active');
 
-  insert into public.team_permissions (team_id, membership_id, permission) values (v_team_a, v_membership_a, 'coach');
-  insert into public.team_permissions (team_id, membership_id, permission) values (v_team_b, v_membership_b, 'coach');
+  insert into testing.team_roles (team_id, membership_id, role_key) values (v_team_a, v_membership_a, 'COACH');
+  insert into testing.team_roles (team_id, membership_id, role_key) values (v_team_b, v_membership_b, 'COACH');
 
   -- The season whose window CONTAINS the fixture's date, from the register -- not merely the latest
   -- one, which files a September fixture under next season.

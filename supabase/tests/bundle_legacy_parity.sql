@@ -5,8 +5,8 @@
 -- out below, row by row, so an accidental loss cannot hide among them.
 --
 --   BP1  the archive of the old defaults is intact (139 rows)
---   BP2  every archived default is in the bundle projection, or is one of the 49 intended removals
---   BP3  the intended removals are exactly those 49
+--   BP2  every archived default is in the bundle projection, or is one of the 50 intended removals
+--   BP3  the intended removals are exactly those 50
 --   BP4  behaviour: a real person holding each legacy role passes has_capability for every retained default
 --   BP5  behaviour: and fails for each intended removal
 --   BP6  the retained additions beyond the J bundles (legacy authority kept) are exactly the three recorded
@@ -63,9 +63,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_effect text, p_level text,
@@ -211,7 +211,12 @@ insert into intended_removals values
   ('team', 'CLUB_ADMIN', 'club.team_lifecycle.manage', 'AA.3 4i: RENAME to team.lifecycle.manage'),
   ('club', 'CLUB_ADMIN', 'club.season_rollover.manage', 'AA.3 4i: SPLIT into team.handover.prepare and team.handover.apply (U)'),
   ('club', 'CLUB_ADMIN', 'partner.manage', 'AA.3 4i: RENAME to club.partners.manage'),
-  ('club', 'FIXTURE_SECRETARY', 'partner.manage', 'AA.3 4i: RENAME to club.partners.manage');
+  ('club', 'FIXTURE_SECRETARY', 'partner.manage', 'AA.3 4i: RENAME to club.partners.manage'),
+  -- The one dispensation workflow (20270742000000) retires the team stage. The owner's rule: team staff
+  -- request a dispensation and never decide one; the club's Safeguarding Officer and Club Admin decide. So
+  -- the Team Manager loses team-stage approval outright -- not renamed, not moved to another team key --
+  -- and keeps fixture.dispensation.request, which is how a Team Manager asks.
+  ('team', 'TEAM_MANAGER', 'approve_player_dispensations', 'Age dispensation workflow: team staff request, never decide');
 
 do $body$
 declare
@@ -230,19 +235,19 @@ begin
   select count(*) into v_n from (
     select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
     except select scope_type, role_key, capability_key from public.role_capability_defaults) x;
-  perform pg_temp.check(v_n = 49 and not exists (
+  perform pg_temp.check(v_n = 50 and not exists (
       select scope_type, role_key, capability_key from intended_removals
       except (select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
               except select scope_type, role_key, capability_key from public.role_capability_defaults)),
-    'BP3: the intended removals are exactly the 49 listed (' || v_n || ')');
+    'BP3: the intended removals are exactly the 50 listed (' || v_n || ')');
 
   -- Behaviour, through the enforcement entry point, for a real holder of each legacy role.
   v_club := pg_temp.club('Parity'); v_team := pg_temp.team(v_club);
   v_ca := pg_temp.person('CA'); perform pg_temp.member(v_club, v_ca, 'CLUB_ADMIN');
   v_fs := pg_temp.person('FS'); perform pg_temp.member(v_club, v_fs, 'FIXTURE_SECRETARY');
   v_mb := pg_temp.person('MB'); perform pg_temp.member(v_club, v_mb);
-  v_tm := pg_temp.person('TM'); v_ms := pg_temp.member(v_club, v_tm); perform pg_temp.team_role(v_ms, v_team, 'manager');
-  v_co := pg_temp.person('CO'); v_ms := pg_temp.member(v_club, v_co); perform pg_temp.team_role(v_ms, v_team, 'coach');
+  v_tm := pg_temp.person('TM'); v_ms := pg_temp.member(v_club, v_tm); perform pg_temp.team_role(v_ms, v_team, 'TEAM_MANAGER');
+  v_co := pg_temp.person('CO'); v_ms := pg_temp.member(v_club, v_co); perform pg_temp.team_role(v_ms, v_team, 'COACH');
 
   for r in
     select l.*, case l.role_key when 'CLUB_ADMIN' then v_ca when 'FIXTURE_SECRETARY' then v_fs when 'CLUB_MEMBER' then v_mb

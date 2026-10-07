@@ -100,11 +100,18 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.player(p_label text, p_years int, p_team uuid, p_user uuid default null, p_state text default 'ACTIVE') returns uuid language plpgsql as $$
+create or replace function pg_temp.player(p_label text, p_dob date, p_team uuid, p_user uuid default null, p_state text default 'ACTIVE',
+                                           p_dispensation boolean default false) returns uuid language plpgsql as $$
 declare v uuid;
 begin
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
-  values ('P', p_label, (current_date - (p_years || ' years')::interval)::date, 'MALE', p_user) returning id into v;
+  values ('P', p_label, p_dob, 'MALE', p_user) returning id into v;
+  -- A placement a test makes outside the team's age grade on purpose carries an approved dispensation,
+  -- as the age-grade guard requires.
+  if p_dispensation then
+    insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+    values (v, p_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
+  end if;
   insert into public.player_team_memberships (player_id, team_id, state) values (v, p_team, p_state);
   return v;
 end $$;
@@ -152,23 +159,24 @@ begin
 
   v_ca := pg_temp.person('ClubAdmin'); v_ms_ca := pg_temp.member(v_club, v_ca, 'CLUB_ADMIN');
   v_tm := pg_temp.person('TeamManager'); v_ms_tm := pg_temp.member(v_club, v_tm);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_tm, v_t12, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_tm, v_t12, 'TEAM_MANAGER');
   v_coach := pg_temp.person('Coach'); v_ms_coach := pg_temp.member(v_club, v_coach);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_coach, v_t12, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_coach, v_t12, 'COACH');
   v_tm14 := pg_temp.person('OtherSideManager'); v_ms_tm14 := pg_temp.member(v_club, v_tm14);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_tm14, v_t14, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_tm14, v_t14, 'TEAM_MANAGER');
   v_member := pg_temp.person('Member'); v_ms_member := pg_temp.member(v_club, v_member);
   v_cab := pg_temp.person('OtherClubAdmin'); perform pg_temp.member(v_club_b, v_cab, 'CLUB_ADMIN');
   v_tmb := pg_temp.person('OtherTeamManager'); v_ms_tmb := pg_temp.member(v_club_b, v_tmb);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_tmb, v_tb, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_tmb, v_tb, 'TEAM_MANAGER');
 
   v_parent := pg_temp.person('Parent');
   v_grown := pg_temp.person('Grown', (current_date - interval '30 years')::date);
-  v_child := pg_temp.player('Child ' || v_tag, 11, v_t12);
+  v_child := pg_temp.player('Child ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), v_t12);
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state, source, created_by)
   values (v_parent, v_child, 'parent', 'active', 'ACTIVE', 'SELF_ADDED_CHILD', v_parent);
-  v_grown_player := pg_temp.player('Grown ' || v_tag, 30, v_t14, v_grown);
-  v_b_player := pg_temp.player('Bee ' || v_tag, 11, v_tb);
+  -- CI-1 depends on an ADULT player answering on the U14 side, so this placement is outside the grade on purpose.
+  v_grown_player := pg_temp.player('Grown ' || v_tag, (current_date - interval '30 years')::date, v_t14, v_grown, p_dispensation => true);
+  v_b_player := pg_temp.player('Bee ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), v_tb);
 
   select id into v_season from public.seasons where rugby_code = 'union' and not is_regression_fixture
     and current_date between coalesce(pre_season_starts_on, starts_on) and ends_on limit 1;
@@ -179,6 +187,10 @@ begin
   values (v_t12, v_tb, 'Home', 'TO Away RUFC', current_date + 10, '10:30', 'Booked', 'club_created', v_season) returning id into v_fixture;
   insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, status, source, season_id)
   values (v_t14, 'Home', 'TO External RFC', current_date + 12, '10:30', 'Booked', 'club_created', v_season) returning id into v_fixture_b;
+  -- ATTENDANCE OPENS SIX DAYS OUT (Match Centre consolidation, 20270727) unless the team opens it
+  -- earlier. This suite is about who answers and who is told, not when, so the team has opened these
+  -- fixtures early, exactly as staff may. The window itself is proved in match_centre_consolidation.sql.
+  update public.fixtures set attendance_opened_at = now() where id in (v_fixture, v_fixture_b);
 
   insert into public.training_sessions (club_id, team_id, session_date, start_time, status, created_by)
   values (v_club, v_t12, current_date + 3, '18:00', 'PLANNED', v_ca) returning id into v_session;
@@ -239,11 +251,11 @@ begin
   perform pg_temp.act_postgres();
   perform pg_temp.check(v_state = '42501' and (select safeguarding_sensitive from public.capabilities where key = 'team.attendance.view'),
     format('AC-10 a Club Admin cannot withhold team.attendance.view -- it is safeguarding-sensitive and Site Admin''s to decide (%s)', v_state));
-  delete from public.team_permissions where membership_id = v_ms_coach and team_id = v_t12;
+  delete from testing.team_roles where membership_id = v_ms_coach and team_id = v_t12;
   perform pg_temp.check(not exists (select 1 from internal.availability_notification_recipients(v_t12) where user_id = v_coach)
                         and (select allowed from internal.capability_decision(v_coach, 'team.attendance.view', 'team', null, v_t12, null, false, false)) = false,
     'AC-11 the Coach''s team standing ends and the Coach drops out of the recipients -- the decision, asked fresh, not a remembered list');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_coach, v_t12, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_coach, v_t12, 'COACH');
   perform pg_temp.check(exists (select 1 from internal.availability_notification_recipients(v_t12) where user_id = v_coach), 'AC-11b and restoring it restores them');
 
   -- The responder is never told about their own answer, even when they also run the side.
@@ -304,8 +316,11 @@ begin
   perform pg_temp.check((select read_at from public.notifications where id = v_id) = v_read
                         and exists (select 1 from public.notifications where user_id = v_ca and type = 'fixture_availability_responded' and read_at is null and data->>'status' = 'ATTENDING' and data->>'fixture_id' = v_fixture::text),
     'RR-3 a new answer leaves the row already read exactly as read; the new row is the unread one');
-  perform pg_temp.check(not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'notifications' and column_name in ('resolved', 'resolved_at', 'dismissed_at', 'archived_at', 'completed_at')),
-    'RR-4 a notification has no resolved, dismissed or archived column: whether the job is done is the domain''s to say');
+  -- The owner has since decided a person may DISMISS (delete) a notification from their inbox
+  -- (20270715000000). What still must never exist is a notion of the notification RESOLVING its job:
+  -- dismissed is not resolved, and whether the job is done stays the domain's to say.
+  perform pg_temp.check(not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'notifications' and column_name in ('resolved', 'resolved_at', 'archived_at', 'completed_at')),
+    'RR-4 a notification has no resolved, archived or completed column: whether the job is done is the domain''s to say');
 
   -- =====================================================================================
   -- RM. The read mutation: self-only, read_at only, no delete

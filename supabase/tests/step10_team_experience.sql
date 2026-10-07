@@ -108,9 +108,9 @@ begin
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_b, v_stranger, 'CLUB_ADMIN', 'active');
 
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Cass', 'Ten ' || v_tag, (current_date - interval '11 years')::date, 'MALE') returning id into v_child;
+  values ('Cass', 'Ten ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Otto', 'Other ' || v_tag, (current_date - interval '11 years')::date, 'MALE') returning id into v_other_child;
+  values ('Otto', 'Other ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_other_child;
   insert into public.player_team_memberships (player_id, team_id, state) values (v_child, v_team, 'ACTIVE'), (v_other_child, v_team, 'ACTIVE');
 
   -- The coach is ALSO this child's parent: the most ordinary shape in grassroots rugby.
@@ -298,8 +298,24 @@ begin
              where table_schema = 'public' and table_name = 'teams' and column_name = 'cover_image_path'),
     'F1: a team can carry its own cover photo');
   perform pg_temp.check(
-    (select count(*) from information_schema.tables where table_schema = 'public' and table_name like '%team_media%') = 0,
-    'F2: and it needed no second media architecture to do it');
+    -- THE COVER IS A COLUMN ON THE TEAM, and that is what this guards.
+    --
+    -- It used to assert that NO table named like %team_media% exists. That expectation became false,
+    -- deliberately: 20270572 added the canonical Team GALLERY (`team_media`) -- a private bucket,
+    -- signed URLs, EXIF stripped, roster visibility to view and team/club management to upload, with
+    -- its own safeguarding reasoning written into the migration. A gallery is not a cover.
+    --
+    -- The hazard the original wording was reaching for is still real and is now asserted directly: the
+    -- team's cover must remain its own two columns, mutually exclusive, written through the governed
+    -- `set_team_cover` -- never re-homed into a media row where a second architecture would decide what
+    -- a team looks like. That is strictly more than a name check could tell us.
+    (select count(*) from information_schema.columns
+      where table_schema = 'public' and table_name = 'teams' and column_name = 'cover_stock_key') = 1
+    and exists (select 1 from pg_constraint where conname = 'teams_cover_exclusive')
+    and to_regprocedure('public.set_team_cover(uuid, text, text)') is not null
+    and (select count(*) from information_schema.columns
+          where table_schema = 'public' and table_name = 'team_media' and column_name like 'cover%') = 0,
+    'F2: and its cover is its own governed columns, not a second media architecture');
 end $$;
 
 rollback;

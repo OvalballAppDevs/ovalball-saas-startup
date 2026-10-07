@@ -57,10 +57,17 @@ declare
   v_club_id uuid := (select v::uuid from t_t7_state where k = 'club_id');
   v_programme_id uuid;
 begin
-  v_programme_id := public.configure_subscription_programme(v_club_id, true, 1, 'NONE', 'PRORATE_CURRENT_MONTH');
+  v_programme_id := public.configure_subscription_programme(v_club_id, false, 1, 'GOCARDLESS_APP_FEE', 'PRORATE_CURRENT_MONTH');
   perform public.set_subscription_price(v_programme_id, 1500, current_date);
   insert into t_t7_state values ('programme_id', v_programme_id::text);
 end $$;
+
+-- FIXTURE STEP, as postgres: switch the programme on directly. configure cannot switch memberships on -- only
+-- Activate can, after checking terms, GoCardless verification and a priced membership -- and none of that is
+-- what this suite tests.
+reset role;
+update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now())
+ where id = (select v::uuid from t_t7_state where k = 'programme_id');
 
 set local role service_role;
 do $$

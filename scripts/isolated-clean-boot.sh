@@ -73,6 +73,17 @@ cp -R "$REPO/supabase/migrations" "$WORKDIR/supabase/migrations"
 [ -f "$REPO/supabase/seed.sql" ] && cp "$REPO/supabase/seed.sql" "$WORKDIR/supabase/seed.sql"
 [ -d "$REPO/supabase/seeds" ] && cp -R "$REPO/supabase/seeds" "$WORKDIR/supabase/seeds"
 
+# The config interpolates `env(...)` in a dozen places -- auth's external_url and site_url, the Expo
+# redirect allow-list, the social-provider secrets -- and the CLI resolves those from a `.env` in the
+# directory it is invoked from. The canonical stack is started from the repository root, where that
+# file lives; the disposable one is started from $WORKDIR, where it did not. So `external_url` reached
+# GoTrue as the literal string "env(SUPABASE_AUTH_EXTERNAL_URL)", GoTrue refused to parse it as a URI,
+# and the whole boot died at "Initialising schema..." with nothing but `error running container: exit 1`
+# -- a harness failure that looked exactly like a broken migration chain. Copying the same file the
+# canonical stack reads is what makes this a replica rather than a differently-configured project; it
+# is deliberately NOT a stub or a placeholder value, which would prove the harness instead of Ovalball.
+[ -f "$REPO/.env" ] && cp "$REPO/.env" "$WORKDIR/.env"
+
 echo "-- starting a second Supabase stack (this takes a couple of minutes)"
 if ! (cd "$WORKDIR" && npx supabase start >/tmp/ovalball-clean-boot-start.log 2>&1); then
   echo "FAILED to start the disposable stack. Last lines:" >&2
@@ -439,9 +450,29 @@ begin
                   where table_schema = 'public' and table_name = 'teams' and column_name = 'cover_image_path') then
     raise exception 'CLEAN BOOT: the team cover column does not exist';
   end if;
-  if exists (select 1 from information_schema.tables
-              where table_schema = 'public' and table_name like '%team_media%') then
-    raise exception 'CLEAN BOOT: a second media architecture appeared for team covers';
+  -- THE COVER IS THE TEAM'S OWN GOVERNED COLUMNS, which is what Step 10 was protecting.
+  --
+  -- This used to refuse any table named like %team_media%. That became false deliberately: 20270572
+  -- added the canonical Team GALLERY -- private bucket, signed URLs, EXIF stripped, roster visibility
+  -- to view, team/club management to upload -- with its safeguarding reasoning written into the
+  -- migration. A gallery is not a cover, and a clean boot refusing one was asserting about a name
+  -- rather than about an architecture.
+  --
+  -- What is asserted instead is the thing that would actually be wrong: the cover re-homed out of
+  -- `teams` into a media row, or its exclusivity constraint or its governed writer disappearing.
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'teams' and column_name = 'cover_stock_key') then
+    raise exception 'CLEAN BOOT: the team cover stock key does not exist';
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'teams_cover_exclusive') then
+    raise exception 'CLEAN BOOT: a team may hold an uploaded cover and a stock key at once';
+  end if;
+  if to_regprocedure('public.set_team_cover(uuid, text, text)') is null then
+    raise exception 'CLEAN BOOT: the governed team cover write does not exist';
+  end if;
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'team_media' and column_name like 'cover%') then
+    raise exception 'CLEAN BOOT: a second media architecture decides the team cover';
   end if;
 
   raise notice 'PASS clean boot: Step 10''s team reader is correct from empty, and no badge outlives its relationship';
@@ -453,24 +484,34 @@ begin
   if to_regprocedure('public.get_match_community(uuid)') is null then
     raise exception 'CLEAN BOOT: the match community reader does not exist';
   end if;
-  if has_function_privilege('anon', 'public.cast_match_award_vote(uuid, uuid)', 'EXECUTE') then
+  -- The vote takes the child it is cast for since the Match Centre consolidation (20270727); the old
+  -- two-argument form is gone rather than left beside it, and anon may call neither.
+  if to_regprocedure('public.cast_match_award_vote(uuid, uuid, uuid)') is null then
+    raise exception 'CLEAN BOOT: the per-child vote does not exist';
+  end if;
+  if to_regprocedure('public.cast_match_award_vote(uuid, uuid)') is not null then
+    raise exception 'CLEAN BOOT: the old one-vote-per-person signature survived beside the per-child vote';
+  end if;
+  if has_function_privilege('anon', 'public.cast_match_award_vote(uuid, uuid, uuid)', 'EXECUTE') then
     raise exception 'CLEAN BOOT: anon can vote';
   end if;
   -- The canonical catalogue must arrive seeded, with the age-dependent category intact.
   if not exists (select 1 from public.match_award_categories
                   where category_key = 'FAMILY_OR_SELF_PLAYER'
                     and electorate = 'FAMILY_OR_SELF'
-                    and name_youth = 'Parents'' Player' and name_adult = 'Players'' Player') then
+                    and name_youth = 'Parents'' Player of the Match' and name_adult = 'Players'' Player of the Match') then
     raise exception 'CLEAN BOOT: the age-dependent award category is missing or has lost its two names';
   end if;
   if (select count(*) from public.match_kudos_kinds where active) < 3 then
     raise exception 'CLEAN BOOT: the kudos vocabulary did not arrive';
   end if;
-  -- One vote per person is a constraint from the first migration onward, not something added later.
-  if not exists (select 1 from pg_constraint c
-                  where c.conrelid = 'public.match_award_votes'::regclass and c.contype = 'u'
-                    and pg_get_constraintdef(c.oid) ~ 'voter_user_id') then
-    raise exception 'CLEAN BOOT: nothing stops one person voting twice';
+  -- ONE VOTE PER CHILD (20270727), and one per person for a vote cast without one: both are unique
+  -- indexes the database enforces, not something a client is trusted to respect.
+  if not exists (select 1 from pg_indexes where schemaname = 'public' and tablename = 'match_award_votes'
+                    and indexname = 'match_award_votes_one_per_child' and indexdef ~ 'UNIQUE' and indexdef ~ 'voter_player_id')
+     or not exists (select 1 from pg_indexes where schemaname = 'public' and tablename = 'match_award_votes'
+                    and indexname = 'match_award_votes_one_per_user' and indexdef ~ 'UNIQUE' and indexdef ~ 'voter_user_id') then
+    raise exception 'CLEAN BOOT: nothing stops one child, or one person, being voted for twice';
   end if;
   -- No free text about children, and no currency.
   if exists (select 1 from information_schema.columns
@@ -487,7 +528,7 @@ begin
                   where table_schema = 'public' and table_name = 'club_articles' and column_name = 'fixture_id') then
     raise exception 'CLEAN BOOT: the match report has no match to belong to';
   end if;
-  raise notice 'PASS clean boot: Step 11''s recognition arrives seeded, positive, one-vote-per-person and without a currency';
+  raise notice 'PASS clean boot: Step 11''s recognition arrives seeded, positive, one vote per child and without a currency';
 end $$;
 
 -- CONVERGENCE STEP 12 -- age grade, from empty.
@@ -545,7 +586,12 @@ begin
   for v_name in select unnest(array['compatible_opponent_teams', 'compatible_opponent_identities']) loop
     if (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
          where n.nspname = 'public' and p.proname = v_name) !~ 'identities_can_play_fixture' then
-      raise exception 'CLEAN BOOT: %% does not use the canonical compatibility rule', v_name;
+      -- ONE `%`, not two. `%%` is a LITERAL percent sign in PL/pgSQL, so this format string had no
+      -- placeholder while still being handed an argument -- which fails at COMPILE time with "too many
+      -- parameters specified for RAISE". The whole block therefore never ran, so this guard had been
+      -- proving nothing on every clean boot since it was written. Found by reading a clean boot that
+      -- reported an error with no failing assertion above it.
+      raise exception 'CLEAN BOOT: % does not use the canonical compatibility rule', v_name;
     end if;
   end loop;
 
@@ -584,12 +630,37 @@ SQL
 STATUS=$?
 
 echo "-- running the estate's own assertions against the fresh database"
-for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority step8_operational_access step9_family_and_availability step10_team_experience step11_match_community step12_safeguarding_and_age_grade team_fixture_authority fixture_management_authority age_eligibility_matrix; do
+# THE TOURNAMENT SUITES RUN HERE TOO. A permanent suite that is only ever run against the developed
+# database proves the objects EXIST, not that the chain builds them: the unified side model, the
+# security_invoker compatibility view, the participant read and its privacy reduction, the attendance
+# column and its grants, and every function signature and EXECUTE grant a drop-and-recreate could
+# silently lose are exactly the things a clean boot is for. The People & Invitations suites run for the
+# same reason: 20270739 drops and recreates club_people and preview_invitation, and replaces
+# issue_invitation and redeem_invitation, so their grants and shapes are proved from empty here. The referral
+# suites run because 20270740 redefines decide_club_claim, reconciliation and the reward's qualification.
+# The dispensation suites run because 20270742 rebuilds the dispensation record (new columns, constraints,
+# triggers, a column-level read grant and a redaction rule), adds an age-grade guard on every team place,
+# retires a capability key and its adapter, and drops and replaces the decision RPCs -- every one of which a
+# chain could build wrongly and a developed database would never show.
+# Club Memberships Part 1 adds three: 20270748 drops and recreates record_gocardless_payment/subscription and
+# redefines the generator, the standing and the legacy configure door; 20270749 replaces the webhook claim, the
+# status CHECKs and the reconcile signatures; 20270750 drops and recreates the connect claim and attach -- grants and
+# shapes a developed database would never show broken.
+for suite in auth_flow_state_authority definer_rpc_session_contract security_perimeter_guard site_admin_users_access_closure authority_helper_retirement club_venue_pitch_integrity club_directory_privacy fixture_availability_summary fixture_search_and_venue_authority step8_operational_access step9_family_and_availability step10_team_experience step11_match_community step12_safeguarding_and_age_grade team_fixture_authority fixture_management_authority age_eligibility_matrix tournament_centre tournament_management tournament_atomic_creation tournament_participant_sides tournament_directory_sides tournament_cover tournament_participant_visibility tournament_attendance tournament_participant_centre tournament_estate_regression tournament_planning tournament_plan_membership_and_readiness tournament_plan_editing arena_planning api_safeupdate_contract tournament_tri_fixture tournament_hybrid tournament_swiss tournament_format_invariants match_centre_consolidation match_centre_facilities club_event_centre integration_connections stock_media_library conversation_people fixture_attendance_invitations tournament_results tournament_external_results tournament_standings tournament_knockout tournament_knockout_parity result_kickoff_gate push_notifications notification_dismissal notification_fixture_lifecycle notification_tournament_result_lifecycle notification_one_per_person tournament_notification_topic_and_events gocardless_payment_failed_notification_pairing gocardless_member_payment_integrity admission_journeys membership_standing tournament_publication_and_lifecycle_notifications tournament_knockout_progression_notifications notification_catalogue notification_mandatory_and_preferences recipient_audience_engine audience_resolution canonical_recipient_safeguarding unread_truth email_delivery_foundation email_delivery_policy email_delivery_result_authority people_one_way_in invitation_authority_matrix invitation_joining_closure invitation_team_list club_people_memberships club_operations_ca10 identity_onboarding_ca11 platform_referrals referral_attribution_integrity referral_reward_semantics referral_link_attribution one_door_for_claims_and_referrals club_claim_authority_matrix club_misc_authority_matrix team_code_requests family_isolation_matrix age_dispensation_workflow guardians_players_ca11_1 safeguarding_authority_matrix safeguarding_officer_dispensation_notifications safeguarding_officer_security pathway_allocation_safety capability_catalogue_integrity bundle_legacy_parity backfill_verification security_events_no_secrets audit_immutability step15_governing_product step16_governing_closure graduation_placement_safety rollover_player_placement union_u18_free_agent membership_setup membership_fee_lifecycle gocardless_events_never_strand gocardless_app_connect_intents family_membership_charge gocardless_verified_notice running_club_memberships membership_lifecycle_journeys messenger_conversation_features messenger_receipts_and_voice messenger_one_conversation_per_opponent messenger_contact_avatars messaging_authority_matrix season_planner_club_day season_planner_club_day_groups club_admin_audit_remediation; do
   out=$(boot_psql -q -f - < "$REPO/supabase/tests/$suite.sql" 2>&1)
-  fails=$(printf '%s' "$out" | grep -c "FAIL" || true)
-  passes=$(printf '%s' "$out" | grep -c "PASS" || true)
-  echo "   $suite: $passes passed, $fails failed"
+  # Counted as the platform gate counts them: an assertion's own NOTICE line. A bare "FAIL" anywhere also
+  # matched a PASS line whose message quotes a reason code (PAYMENT_FAILED) and failed a clean boot that had
+  # none (6 October 2026).
+  fails=$(printf '%s' "$out" | grep -cE "(NOTICE|WARNING|INFO):  FAIL" || true)
+  passes=$(printf '%s' "$out" | grep -cE "(NOTICE|WARNING|INFO):  PASS" || true)
+  # A statement that ERRORs aborts the rest of a suite's transaction, so the assertions after it never run
+  # and never print FAIL. Counting FAIL alone would read a half-run suite as a pass.
+  errors=$(printf '%s' "$out" | grep -c "ERROR:" || true)
+  echo "   $suite: $passes passed, $fails failed, $errors errors"
+  # Name what failed, so a red boot can be read rather than re-run blind.
+  if [ "$fails" != "0" ] || [ "$errors" != "0" ]; then printf '%s\n' "$out" | grep -E "(NOTICE|WARNING|INFO):  FAIL|ERROR:" | head -5 | sed 's/^/      /'; fi
   [ "$fails" != "0" ] && STATUS=1
+  [ "$errors" != "0" ] && STATUS=1
 done
 
 if [ "$STATUS" = "0" ]; then

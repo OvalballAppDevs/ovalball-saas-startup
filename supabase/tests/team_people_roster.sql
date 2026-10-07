@@ -44,17 +44,20 @@ values (v_club,'union','youth','U13','boys', v_admin) returning id into v_team;
 insert into public.teams (club_id, rugby_code, category, age_group, gender, created_by)
 values (v_club,'union','youth','U14','boys', v_admin) returning id into v_other_team;
 
-insert into public.team_permissions (membership_id, team_id, permission, created_by)
-values (v_coach_m, v_team, 'coach', v_admin);
+insert into testing.team_roles (membership_id, team_id, role_key, created_by)
+values (v_coach_m, v_team, 'COACH', v_admin);
 
 -- ---- Players, one active and one waiting ----
 insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
-values ('Tom','Thompson', current_date - interval '13 years', true, 'MALE') returning id into v_player;
+values ('Tom','Thompson', internal.date_of_birth_in_age_grade('union', 'U13'), true, 'MALE') returning id into v_player;
 insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
 values ('Wes','Waiting', current_date - interval '13 years', true, 'MALE') returning id into v_player2;
 
 insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team,'active') returning id into v_ptm;
 insert into public.player_team_memberships (player_id, team_id, status) values (v_player2, v_team,'pending') returning id into v_pending;
+-- Tom is a U13 playing up in the U14 side as well: that place needs an approved dispensation.
+insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+values (v_player, v_other_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
 insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_other_team,'active') returning id into v_ptm2;
 
 insert into public.guardians (guardian_user_id, player_id, relationship_type, status)

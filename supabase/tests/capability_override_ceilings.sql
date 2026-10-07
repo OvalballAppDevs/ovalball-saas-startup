@@ -69,9 +69,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_effect text, p_level text,
@@ -151,12 +151,12 @@ begin
   v_club := pg_temp.club('Ceil'); v_club_b := pg_temp.club('Ceil B');
   v_team := pg_temp.team(v_club); v_team2 := pg_temp.team(v_club, 'U14'); v_team_b := pg_temp.team(v_club_b);
   v_ca := pg_temp.person('CA'); perform pg_temp.member(v_club, v_ca, 'CLUB_ADMIN');
-  v_full := pg_temp.person('Full'); insert into public.site_admins (user_id, status, admin_role) values (v_full, 'active', 'full');
-  v_data := pg_temp.person('Data'); insert into public.site_admins (user_id, status, admin_role) values (v_data, 'active', 'club_data');
+  v_full := pg_temp.person('Full'); insert into public.site_admins (user_id, status, profile_key) values (v_full, 'active', 'SITE_FULL');
+  v_data := pg_temp.person('Data'); insert into public.site_admins (user_id, status, profile_key) values (v_data, 'active', 'SITE_DATA');
   v_member := pg_temp.person('Member'); v_member_ms := pg_temp.member(v_club, v_member);
-  v_coach := pg_temp.person('Coach'); v_coach_ms := pg_temp.member(v_club, v_coach); perform pg_temp.team_role(v_coach_ms, v_team, 'coach');
+  v_coach := pg_temp.person('Coach'); v_coach_ms := pg_temp.member(v_club, v_coach); perform pg_temp.team_role(v_coach_ms, v_team, 'COACH');
   -- Team Administration resting on Coach (not Team Manager), so its ceiling is the Coach bundle
-  v_ta := pg_temp.person('Coach TA'); v_ta_ms := pg_temp.member(v_club, v_ta); perform pg_temp.team_role(v_ta_ms, v_team, 'coach');
+  v_ta := pg_temp.person('Coach TA'); v_ta_ms := pg_temp.member(v_club, v_ta); perform pg_temp.team_role(v_ta_ms, v_team, 'COACH');
   perform pg_temp.try_as(v_ca, format('select public.assign_role(%L, ''TEAM_ADMINISTRATION'', %L, null)', v_ta_ms, v_team));
   v_vol := pg_temp.person('Volunteer'); perform pg_temp.member(v_club, v_vol);
   perform pg_temp.try_as(v_ca, format('select public.assign_role((select id from public.club_memberships where user_id = %L and club_id = %L), ''VOLUNTEER'', null, null)', v_vol, v_club));
@@ -272,7 +272,7 @@ begin
   v_state := pg_temp.try_as(v_ca, format('select public.set_capability_override(%L, ''club.logo.manage'', ''club'', %L, null, ''grant'', null)', v_member, v_club));
   perform pg_temp.check(v_state = '42501', 'OC18c: and the club cannot overturn it (' || v_state || ')');
   v_sa_ca := pg_temp.person('Site Admin and Club Admin');
-  insert into public.site_admins (user_id, status, admin_role) values (v_sa_ca, 'active', 'full');
+  insert into public.site_admins (user_id, status, profile_key) values (v_sa_ca, 'active', 'SITE_FULL');
   perform pg_temp.member(v_club, v_sa_ca, 'CLUB_ADMIN');
   v_state := pg_temp.try_as(v_sa_ca, format('select public.set_capability_override(%L, ''club.referrals.view'', ''club'', %L, null, ''grant'', null)', v_coach, v_club));
   perform pg_temp.check(v_state = 'OK' and (select granted_level from public.capability_overrides where user_id = v_coach and capability_key = 'club.referrals.view' and status = 'active') = 'CLUB',

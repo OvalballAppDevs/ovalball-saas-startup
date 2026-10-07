@@ -99,10 +99,12 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.child(p_first text, p_years int, p_team uuid) returns uuid language plpgsql as $$
+create or replace function pg_temp.child(p_first text, p_age text, p_team uuid) returns uuid language plpgsql as $$
 declare v uuid; v_m uuid;
 begin
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values (p_first, 'Gpchild', (current_date - (p_years || ' years')::interval)::date, 'MALE') returning id into v;
+  -- A date of birth squarely inside the side's age grade this season (the canonical resolver's), not a
+  -- rough "N years ago" that is only right for part of the year.
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values (p_first, 'Gpchild', internal.date_of_birth_in_age_grade('union', p_age), 'MALE') returning id into v;
   insert into public.player_team_memberships (player_id, team_id, status, state, source) values (v, p_team, 'active', 'ACTIVE', 'CLUB_CREATED') returning id into v_m;
   return v;
 end $$;
@@ -120,7 +122,7 @@ where internal.resolve_season_for_date('union', current_date) is null
 
 do $$
 declare
-  v_club uuid; v_club_b uuid; v_t1 uuid; v_t2 uuid; v_tb uuid;
+  v_club uuid; v_club_b uuid; v_t1 uuid; v_t2 uuid; v_tb uuid; v_ta uuid;
   v_ca uuid; v_ca2 uuid; v_ca_b uuid; v_tm uuid; v_parent uuid; v_parent2 uuid; v_req1 uuid; v_req2 uuid; v_req3 uuid; v_adult uuid; v_adult2 uuid;
   v_ca_s1 uuid; v_ca_s2 uuid; v_ca2_s uuid; v_ca_b_s uuid; v_tm_s uuid; v_parent_s uuid;
   v_c1 uuid; v_c2 uuid; v_ap1 uuid; v_ap2 uuid;
@@ -139,6 +141,13 @@ begin
   v_t1 := pg_temp.team(v_club, 'u12', 'U12', 'Under 12 Boys');
   v_t2 := pg_temp.team(v_club, 'u13', 'U13', 'Under 13 Boys');
   v_tb := pg_temp.team(v_club_b, 'u12', 'U12', 'Under 12 Boys');
+  -- The adult side the two adult players ask to join. Approving an adult onto Under 12 Boys used to be
+  -- accepted; since 20270742000000 an adult can only be placed on a youth side under a dispensation, so the
+  -- join is decided onto the side an adult actually plays for.
+  insert into public.teams (club_id, display_name, category, age_group, gender, rugby_code, canonical_team_type_id, active)
+  values (v_club, 'Men''s 1st', 'senior', null, 'mens', 'union',
+          (select id from public.canonical_team_types_by_code where rugby_code = 'union' and key = 'mens_1st' and is_offered limit 1), true)
+  returning id into v_ta;
 
   v_ca := pg_temp.person('Admin');
   v_ca2 := pg_temp.person('Withheld');
@@ -156,7 +165,7 @@ begin
   perform pg_temp.member(v_club, v_ca2, 'CLUB_ADMIN');
   perform pg_temp.member(v_club_b, v_ca_b, 'CLUB_ADMIN');
   v_tm_membership := pg_temp.member(v_club, v_tm, 'BASIC_USER');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_tm_membership, v_t1, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_tm_membership, v_t1, 'TEAM_MANAGER');
   perform pg_temp.member(v_club, v_parent, 'BASIC_USER');
   perform pg_temp.member(v_club, v_parent2, 'BASIC_USER');
 
@@ -172,8 +181,8 @@ begin
   v_tm_s := pg_temp.session(v_tm, 'aal2', true);
   v_parent_s := pg_temp.session(v_parent, 'aal2', true);
 
-  v_c1 := pg_temp.child('Childone', 11, v_t1);
-  v_c2 := pg_temp.child('Childtwo', 11, v_t1);
+  v_c1 := pg_temp.child('Childone', 'U12', v_t1);
+  v_c2 := pg_temp.child('Childtwo', 'U12', v_t1);
   select id into v_c2_place from public.player_team_memberships where player_id = v_c2 and team_id = v_t1;
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state, source) values (v_parent, v_c1, 'parent', 'active', 'ACTIVE', 'CLUB_CREATED') returning id into v_g_parent_c1;
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state, source) values (v_parent2, v_c1, 'parent', 'active', 'ACTIVE', 'CLUB_CREATED') returning id into v_g_parent2_c1;
@@ -318,19 +327,27 @@ begin
   select status into v_text from public.fixture_player_call_up where id = v_callup;
   perform pg_temp.check(v_state = 'OK' and v_text = 'rejected', format('GP-I3 the source side''s club decides it (%s -> %s)', v_state, v_text));
 
+  -- The one dispensation workflow (20270742000000) replaced the staged chain (source team, club, governing
+  -- body) with ONE decision by the club's Safeguarding Officer or a Club Admin; team staff ask and never
+  -- decide. What this section proved of the chain it proves of the decision: the requester never decides
+  -- their own, another Club Admin decides it once and only once, a team-scoped holder decides nothing, an
+  -- empty governing-body reference is refused and a real one is recorded, and the club may revoke.
   perform pg_temp.act('authenticated', v_ca, v_ca_s2);
-  select public.request_player_dispensation(v_c1, v_t1, v_t2, v_season, 'GOVERNING-BODY CONFIRMATION REQUIRED') into v_disp;
-  v_state := pg_temp.try(format('select public.decide_player_dispensation(%L, %L, %L)', v_disp, 'source_team', true));
+  select public.request_dispensation(v_c1, v_t2, 'CA-M11.1 suite: a year young for Under 13', v_t1, v_season) into v_disp;
+  v_state := pg_temp.try(format('select public.decide_dispensation(%L, %L)', v_disp, true));
   perform pg_temp.act_postgres();
   perform pg_temp.check(v_disp is not null and v_state = '42501', format('GP-I4 the requester of a dispensation cannot approve their own (%s)', v_state));
+  perform pg_temp.act('authenticated', v_tm, v_tm_s);
+  v_text := pg_temp.try(format('select public.decide_dispensation(%L, %L)', v_disp, true));
   perform pg_temp.act('authenticated', v_ca2, v_ca2_s);
-  v_state := pg_temp.try(format('select public.decide_player_dispensation(%L, %L, %L)', v_disp, 'source_team', true));
-  v_state2 := pg_temp.try(format('select public.decide_player_dispensation(%L, %L, %L)', v_disp, 'club', true));
-  v_text := pg_temp.try(format('select public.decide_player_dispensation(%L, %L, %L, %L)', v_disp, 'governing_body', true, ''));
+  v_state := pg_temp.try(format('select public.decide_dispensation(%L, %L, %L)', v_disp, true, 'CA-M11.1 suite: approved'));
+  v_state2 := pg_temp.try(format('select public.decide_dispensation(%L, %L, %L)', v_disp, false, 'a second answer'));
   perform pg_temp.act_postgres();
-  perform pg_temp.check(v_state = 'OK' and v_state2 = 'OK' and v_text <> 'OK', format('GP-I5 another Club Admin walks the stages in order: source team (%s), club (%s); the governing-body stage refuses an empty reference (%s)', v_state, v_state2, v_text));
+  perform pg_temp.check(v_text = '42501' and v_state = 'OK' and v_state2 <> 'OK',
+    format('GP-I5 a Team Manager cannot decide it (%s); another Club Admin decides it (%s), once -- a second decision is refused (%s)', v_text, v_state, v_state2));
   perform pg_temp.act('authenticated', v_ca2, v_ca2_s);
-  v_state := pg_temp.try(format('select public.decide_player_dispensation(%L, %L, %L, %L)', v_disp, 'governing_body', true, 'RFU/GP/001'));
+  v_text := pg_temp.try(format('select public.record_dispensation_reference(%L, %L)', v_disp, ''));
+  v_state := pg_temp.try(format('select public.record_dispensation_reference(%L, %L)', v_disp, 'RFU/GP/001'));
   perform pg_temp.act_postgres();
   perform pg_temp.act('authenticated', v_ca, v_ca_s2);
   v_state2 := pg_temp.try(format('select public.revoke_player_dispensation(%L, %L)', v_disp, 'CA-M11.1 suite: revoked'));
@@ -341,6 +358,10 @@ begin
   -- =====================================================================================
   -- GP-D. A move needs authority over BOTH sides.
   -- =====================================================================================
+  -- Childtwo is a year young for Under 13, so since 20270742000000 the move is only possible under an approved
+  -- dispensation for that side and season. Recorded directly: this section is about who may move a place.
+  insert into public.player_team_dispensation (player_id, source_team_id, target_team_id, season_id, status, governing_body_reference, eligibility_rule_reference)
+  values (v_c2, v_t1, v_t2, v_season, 'approved', 'SUITE-FIXTURE', 'CA-M11.1 suite fixture');
   perform pg_temp.act('authenticated', v_tm, v_tm_s);
   select bool_or(c.allowed) into v_bool from public.my_capabilities('team', v_club, v_t1) c where c.capability_key = 'team.roster.manage';
   v_state := pg_temp.try(format('select public.move_player_team_membership(%L, %L, %L)', v_c2_place, v_t2, 'team manager move'));
@@ -378,10 +399,10 @@ begin
   -- =====================================================================================
   perform pg_temp.act('authenticated', v_ca, v_ca_s2);
   v_state := pg_temp.try(format('select public.approve_player_club_join_request(%L, %L)', v_jr1, v_tb));
-  v_state2 := pg_temp.try(format('select public.approve_player_club_join_request(%L, %L)', v_jr1, v_t1));
-  v_text := pg_temp.try(format('select public.approve_player_club_join_request(%L, %L)', v_jr1, v_t1));
+  v_state2 := pg_temp.try(format('select public.approve_player_club_join_request(%L, %L)', v_jr1, v_ta));
+  v_text := pg_temp.try(format('select public.approve_player_club_join_request(%L, %L)', v_jr1, v_ta));
   perform pg_temp.act_postgres();
-  select count(*) into v_n from public.player_team_memberships where player_id = v_ap1 and team_id = v_t1 and state = 'ACTIVE' and source = 'PLAYER_JOIN_REQUEST';
+  select count(*) into v_n from public.player_team_memberships where player_id = v_ap1 and team_id = v_ta and state = 'ACTIVE' and source = 'PLAYER_JOIN_REQUEST';
   perform pg_temp.check(v_state = '23514' and v_state2 = 'OK' and v_n = 1 and v_text = 'P0001',
     format('GP-G1 another club''s side is refused (%s); one of this club''s sides places the player (%s, %s place); a second decision finds it already resolved (%s)', v_state, v_state2, v_n, v_text));
   perform pg_temp.act('authenticated', v_ca, v_ca_s2);

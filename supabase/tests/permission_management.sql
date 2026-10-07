@@ -131,9 +131,9 @@ declare
   v_team_admin_group uuid;
 begin
   select id into v_team_admin_group from public.permission_groups where name = 'Team Admin' and is_system;
-  insert into public.team_permissions (membership_id, team_id, permission, assigned_group_id)
-  values ('20000000-0000-0000-0000-000000000015', '30000000-0000-0000-0000-000000000001', 'team_admin', v_team_admin_group)
-  on conflict (membership_id, team_id) do update set permission = 'team_admin', assigned_group_id = v_team_admin_group;
+  insert into testing.team_roles (membership_id, team_id, role_key, assigned_group_id)
+  values ('20000000-0000-0000-0000-000000000015', '30000000-0000-0000-0000-000000000001', 'TEAM_ADMINISTRATION', v_team_admin_group)
+  on conflict (membership_id, team_id) do update set role_key = 'TEAM_ADMINISTRATION', assigned_group_id = v_team_admin_group;
 end $$;
 commit;
 
@@ -153,7 +153,7 @@ rollback;
 begin;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000014","role":"authenticated"}';
-delete from public.team_permissions where membership_id = '20000000-0000-0000-0000-000000000015';
+delete from testing.team_roles where membership_id = '20000000-0000-0000-0000-000000000015';
 commit;
 
 -- ------------------------------------------------------------

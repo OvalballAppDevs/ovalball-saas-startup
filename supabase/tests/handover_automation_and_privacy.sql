@@ -43,6 +43,24 @@ else
   update public.seasons set pre_season_starts_on = current_date - 1 where id = v_to;
 end if;
 
+-- NOTHING ELSE MAY BE THE NEXT SEASON WHILE THIS RUNS.
+--
+-- `internal.process_due_season_transitions` takes the EARLIEST union season starting after the club's
+-- anchor. Two leftover `[TEST]` regression seasons committed into this database by the SPECIAL_PURPOSE
+-- scripts `tournaments.sql` and `competition_management.sql` start at `current_date + 200` and `+ 500`,
+-- which falls between the anchor and the real 27/28 season -- so the automatic handover targeted a test
+-- row with no pre-season date, found itself not due, and did nothing. The suite then reported that the
+-- handover was broken when what was broken was the database it was reading.
+--
+-- Regression fixtures are pushed out of the way for the duration of this transaction, which is rolled
+-- back. Only rows explicitly marked `is_regression_fixture` are touched, and never the one this suite
+-- is about.
+update public.seasons
+set starts_on = (select starts_on from public.seasons where id = v_to) + interval '10 years',
+    ends_on = (select ends_on from public.seasons where id = v_to) + interval '10 years'
+where rugby_code = 'union' and is_regression_fixture and id <> v_to
+  and starts_on > current_date and starts_on < (select starts_on from public.seasons where id = v_to);
+
 insert into public.teams (club_id, rugby_code, category, age_group, gender, display_name, slug)
 values (v_club,'union','youth','U16','boys','x','auto1') returning id into v_team;
 -- A team with no automatic successor, so the run ends in needs_attention --

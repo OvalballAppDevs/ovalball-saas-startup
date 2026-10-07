@@ -357,3 +357,35 @@ begin
     raise notice 'FAIL 15: expected at least 3 own test competitions, found %', v_own_prefix_count;
   end if;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- CLEAN UP THE SEASON THIS SCRIPT INVENTED.
+--
+-- A regression script must not permanently mutate the review world. This one commits deliberately --
+-- it chains after `permission_matrix.sql` and later scripts read what it leaves -- but the SEASON is
+-- different: it is a `[TEST]` row in the canonical Seasons register that a Site Admin can see, and
+-- `internal.process_due_season_transitions` picks the EARLIEST season starting after a club's anchor,
+-- so a test season dated between today and the real next season silently became every club's handover
+-- target. Two of these were found sitting in the local database doing exactly that.
+--
+-- Removed by id, and only when nothing references it -- if a later script has built real work on top,
+-- the row stays and the delete is a no-op rather than a cascade.
+-- ---------------------------------------------------------------------------
+do $$
+declare v_season uuid := '95100000-0000-0000-0000-00000000ff01'; r record; v_n int; v_refs int := 0;
+begin
+  for r in
+    select c.conrelid::regclass::text as tbl, a.attname as col
+    from pg_constraint c join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+    where c.confrelid = 'public.seasons'::regclass and c.contype = 'f'
+  loop
+    execute format('select count(*) from %s where %I = %L::uuid', r.tbl, r.col, v_season) into v_n;
+    v_refs := v_refs + v_n;
+  end loop;
+  if v_refs = 0 then
+    delete from public.seasons where id = v_season and is_regression_fixture;
+    raise notice 'cleanup: removed this script''s regression season';
+  else
+    raise notice 'cleanup: the regression season is referenced by % row(s) and was left in place', v_refs;
+  end if;
+end $$;

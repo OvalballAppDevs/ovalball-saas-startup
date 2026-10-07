@@ -269,7 +269,11 @@ begin
   from information_schema.tables
   where table_schema = 'public' and table_name ilike '%notification%'
     and table_type = 'BASE TABLE'
-    and table_name not in ('notifications','notification_preferences','notification_topics','notification_types');
+    -- notification_events is the catalogue of event families inside a topic and
+    -- notification_event_preferences a person's per-event switches (20270711000000):
+    -- reference data and preferences, not a second store of notifications.
+    and table_name not in ('notifications','notification_preferences','notification_topics','notification_types',
+                           'notification_events','notification_event_preferences');
   if v_count = 0 then
     raise notice 'PASS 18 (J): notifications live in the canonical tables only -- no second store';
   else

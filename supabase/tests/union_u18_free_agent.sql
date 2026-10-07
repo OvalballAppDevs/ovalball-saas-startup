@@ -56,9 +56,9 @@ insert into public.teams (club_id, rugby_code, category, gender, team_number, di
 values (v_club,'union','senior','mens',1,'x','fa3') returning id into v_snr;
 
 insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
-values ('Leaver','Boy',(current_date - interval '18 years 3 months')::date,'MALE',true) returning id into v_boy;
+values ('Leaver','Boy',internal.date_of_birth_in_age_grade('union', 'U18'),'MALE',true) returning id into v_boy;
 insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
-values ('Leaver','Girl',(current_date - interval '18 years 3 months')::date,'FEMALE',true) returning id into v_girl;
+values ('Leaver','Girl',internal.date_of_birth_in_age_grade('union', 'U18'),'FEMALE',true) returning id into v_girl;
 insert into public.player_team_memberships (player_id, team_id, status) values (v_boy, v_u18b,'active');
 insert into public.player_team_memberships (player_id, team_id, status) values (v_girl, v_u18g,'active');
 
@@ -214,6 +214,11 @@ else
 end if;
 
 -- ============ 7. Assignment stays an authorised act ============
+
+-- The leaver is U18 this season and so may still be 17: their place on the senior side stands on an
+-- approved dispensation fixture carrying a governing-body reference for that team and season.
+insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+values (v_boy, v_snr, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
 
 declare v_q uuid;
 begin

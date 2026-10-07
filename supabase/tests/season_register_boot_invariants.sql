@@ -152,8 +152,9 @@ begin
   order by starts_on desc limit 1;
 
   if v_season is null then
+    -- Same reason as below: a leftover regression fixture must not decide which year is free.
     select coalesce(max(season_year_start), extract(year from current_date)::int) + 1
-      into v_year from public.seasons where rugby_code = 'union';
+      into v_year from public.seasons where rugby_code = 'union' and not is_regression_fixture;
     insert into public.seasons
       (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref,
        is_regression_fixture, pre_season_starts_on)
@@ -234,8 +235,15 @@ begin
   --
   -- Done on this test's OWN fixture rows -- a canonical season is never
   -- edited, even inside a transaction that will roll back.
+  -- A FREE YEAR ABOVE THE REAL REGISTER, not above whatever a regression fixture left behind.
+  --
+  -- `max(season_year_start) + 1` over EVERY union season reached 2201 once two leftover regression
+  -- rows at 2199 and 2200 had been committed into the local database by other suites, and
+  -- `seasons_season_year_start_check` caps the column at 2200 -- so this suite stopped running at all,
+  -- for a reason that had nothing to do with the season register it tests. Regression fixtures are
+  -- excluded because they are not part of the register this is reasoning about.
   select coalesce(max(season_year_start), extract(year from current_date)::int) + 1
-    into v_year from public.seasons where rugby_code = 'union';
+    into v_year from public.seasons where rugby_code = 'union' and not is_regression_fixture;
 
   insert into public.seasons
     (name, starts_on, ends_on, active, rugby_code, season_year_start, season_ref,

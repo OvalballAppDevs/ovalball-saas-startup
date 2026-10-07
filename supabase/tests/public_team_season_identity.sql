@@ -223,7 +223,13 @@ begin
             and (has_table_privilege('anon', c.oid, 'TRUNCATE') or has_table_privilege('authenticated', c.oid, 'TRUNCATE'))) = 0
      and (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
           where n.nspname in ('public','internal') and has_function_privilege('anon', p.oid, 'EXECUTE')
-            and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')) = 19 then
+            and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')) = 20 then
+    -- 19 became 20 with the Match Centre consolidation (20270727): public.get_public_team_profile is
+    -- anon-executable by design, because a public team page is readable signed out (owner brief,
+    -- 2026-10-03: overview, cover and staff public by default). It is one reviewed projection of the
+    -- canonical team; the squad and photographs come back only where the club or team chose to share
+    -- them. security_perimeter_guard P1 names it in the reviewed inventory with the same reasoning.
+    --
     -- 20 became 19 in Identity/Auth Slice 7e: internal.is_site_admin was DROPPED. It had been
     -- anon-executable since Slice 1 because policies a signed-out visitor reaches evaluate it
     -- transitively; with 0 policies, 0 functions and 0 views left referencing it, the helper went
@@ -251,7 +257,7 @@ begin
     -- TRANSITIVELY -- club_articles_public_read joins to clubs, which evaluates clubs_select. Both
     -- resolve through the canonical decision and answer no without a session, so anon can call them
     -- and learns nothing; club_admin_authority_matrix CH-P4 and CH-P4b assert that emptiness.
-    raise notice 'PASS T2: admin_club_overview, competition and club directory private columns stay closed, no browser TRUNCATE, 19 anon functions';
+    raise notice 'PASS T2: admin_club_overview, competition and club directory private columns stay closed, no browser TRUNCATE, 20 anon functions';
   else
     raise notice 'FAIL T2: a Slice 1 closure regressed';
   end if;

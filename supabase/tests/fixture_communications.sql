@@ -97,16 +97,22 @@ begin
   returning id into v_team;
 
   -- Players. DOBs chosen so the age bands are unambiguous.
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Alpha','Fcfam','2014-01-01', 'MALE') returning id into pA;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Bravo','Fcfam','2014-02-02', 'MALE') returning id into pB;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Charlie','Fcfam','2014-03-03', 'MALE') returning id into pC;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Delta','Fcfam','2014-04-04', 'MALE') returning id into pD;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Echo','Fcfam','2014-05-05', 'MALE') returning id into pE;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Foxtrot','Fcfam','2014-06-06', 'MALE') returning id into pF;
-  insert into public.players (first_name, surname, date_of_birth, user_id, playing_pathway) values ('Minor','Fcfam', (current_date - interval '12 years')::date, v_uMinor, 'MALE') returning id into pMinor;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Alpha','Fcfam',internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into pA;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Bravo','Fcfam',internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into pB;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Charlie','Fcfam',internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into pC;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Delta','Fcfam',internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into pD;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Echo','Fcfam',internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into pE;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Foxtrot','Fcfam',internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into pF;
+  insert into public.players (first_name, surname, date_of_birth, user_id, playing_pathway) values ('Minor','Fcfam', internal.date_of_birth_in_age_grade('union', 'U12'), v_uMinor, 'MALE') returning id into pMinor;
   insert into public.players (first_name, surname, date_of_birth, user_id, playing_pathway) values ('Teen','Fcfam', (current_date - interval '16 years' - interval '2 months')::date, v_uTeen, 'MALE') returning id into pTeen;
   insert into public.players (first_name, surname, date_of_birth, user_id, playing_pathway) values ('Adult','Fcfam', (current_date - interval '19 years')::date, v_uAdult, 'MALE') returning id into pAdult;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Unrelated','Fcfam','2014-07-07', 'MALE') returning id into pUnrelated;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Unrelated','Fcfam',internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into pUnrelated;
+
+  -- The 16-year-old and the adult are on this U12 side on purpose (the safeguarding line is drawn by age),
+  -- so each place carries an approved dispensation, as the age-grade guard requires.
+  insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference) values
+    (pTeen, v_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE'),
+    (pAdult, v_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
 
   for v_r in select unnest(array[pA,pB,pC,pD,pE,pMinor,pTeen,pAdult]) as id loop
     insert into public.player_team_memberships (player_id, team_id, status) values (v_r.id, v_team, 'active');
@@ -479,7 +485,10 @@ begin
   values (v_club, 'Minis', v_season, v_coach) returning id into v_group;
   insert into public.scheduling_group_members (group_id, team_id) values (v_group, v_mini_a), (v_group, v_mini_b);
 
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Overlap','Fcfam','2019-01-01', 'MALE') returning id into pMiniOverlap;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Overlap','Fcfam',internal.date_of_birth_in_age_grade('union', 'U7'), 'MALE') returning id into pMiniOverlap;
+  -- A U7 child's place in the U6 component is outside their age grade on purpose: it carries an approved dispensation.
+  insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+  values (pMiniOverlap, v_mini_b, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
   -- The SAME child, active in BOTH components.
   insert into public.player_team_memberships (player_id, team_id, status) values (pMiniOverlap, v_mini_a, 'active');
   insert into public.player_team_memberships (player_id, team_id, status) values (pMiniOverlap, v_mini_b, 'active');

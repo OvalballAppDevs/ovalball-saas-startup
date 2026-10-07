@@ -44,9 +44,9 @@ begin
   values (v_club, 'union', 'Under 12 Boys', 'u12-rop', 'youth', 'U12', 'boys', true) returning id into v_team_u12;
 
   insert into public.players (first_name, surname, date_of_birth, created_by)
-  values ('Rop', 'Younger', current_date - interval '7 years', v_admin) returning id into v_player_u8;
+  values ('Rop', 'Younger', internal.date_of_birth_in_age_grade('union', 'U8'), v_admin) returning id into v_player_u8;
   insert into public.players (first_name, surname, date_of_birth, created_by, playing_pathway)
-  values ('Rop', 'Older', current_date - interval '11 years', v_admin, 'MALE') returning id into v_player_u12;
+  values ('Rop', 'Older', internal.date_of_birth_in_age_grade('union', 'U12'), v_admin, 'MALE') returning id into v_player_u12;
   insert into public.guardians (guardian_user_id, player_id, status) values (v_guardian, v_player_u8, 'active'), (v_guardian, v_player_u12, 'active');
   insert into public.player_team_memberships (player_id, team_id, status) values (v_player_u8, v_team_u8, 'active'), (v_player_u12, v_team_u12, 'active');
 

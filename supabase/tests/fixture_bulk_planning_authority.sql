@@ -120,15 +120,18 @@ begin
     (v_club, v_guardian, 'BASIC_USER', 'active'),
     (v_other_club, v_outsider, 'CLUB_ADMIN', 'active');
 
-  insert into public.team_permissions (membership_id, team_id, permission)
-  select cm.id, x.team_id, x.permission
+  insert into testing.team_roles (membership_id, team_id, role_key)
+  select cm.id, x.team_id, x.role_key
   from (values
-    (v_coach, v_u12, 'coach'),
-    (v_manager, v_u7, 'manager'), (v_manager, v_u8, 'manager'), (v_manager, v_u12, 'manager'),
-    (v_team_admin, v_u7, 'team_admin'), (v_team_admin, v_u8, 'team_admin'), (v_team_admin, v_u12, 'team_admin'), (v_team_admin, v_u13, 'team_admin'),
-    (v_team_admin_secretary, v_u12, 'team_admin'),
-    (v_guardian, v_u12, 'view_only')
-  ) as x(user_id, team_id, permission)
+    (v_coach, v_u12, 'COACH'),
+    (v_manager, v_u7, 'TEAM_MANAGER'), (v_manager, v_u8, 'TEAM_MANAGER'), (v_manager, v_u12, 'TEAM_MANAGER'),
+    (v_team_admin, v_u7, 'TEAM_ADMINISTRATION'), (v_team_admin, v_u8, 'TEAM_ADMINISTRATION'), (v_team_admin, v_u12, 'TEAM_ADMINISTRATION'), (v_team_admin, v_u13, 'TEAM_ADMINISTRATION'),
+    (v_team_admin_secretary, v_u12, 'TEAM_ADMINISTRATION')
+    -- THE GUARDIAN HOLDS NO TEAM ROLE, which is the canonical statement of what the legacy
+    -- 'view_only' value meant: the compatibility trigger created no role assignment for it at all,
+    -- only an access-review item. Their membership above is the whole of their club standing, and
+    -- that is exactly what the assertions below are about.
+  ) as x(user_id, team_id, role_key)
   join public.club_memberships cm on cm.user_id = x.user_id and cm.club_id = v_club;
 
   -- =================================================================

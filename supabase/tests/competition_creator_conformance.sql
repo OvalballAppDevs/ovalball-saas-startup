@@ -245,6 +245,10 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin_a::text, 'role', 'authenticated')::text, true);
   perform public.respond_competition_match(v_ver, 'confirmed');
   perform set_config('request.jwt.claims', json_build_object('sub', v_site::text, 'role', 'authenticated')::text, true);
+  -- A RESULT NEEDS A GAME THAT HAS KICKED OFF. v_m1 was drawn against the group stage's own future
+  -- date (v_day); moved into the past here so recording its result is legitimate, not a test that
+  -- happens to run before the kick-off it is itself asserting against.
+  perform public.update_competition_match(v_m1, jsonb_build_object('match_date', current_date - 1, 'kickoff_time', '10:00'));
   perform public.record_competition_match_result(v_m1, 24, 12);
   reset role;
   select fixture_id into v_fixture from public.competition_match_fixtures where match_id = v_m1;

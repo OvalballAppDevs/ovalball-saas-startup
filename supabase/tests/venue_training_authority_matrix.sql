@@ -54,9 +54,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership,p_team,p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership,p_team,p_role_key);
 end $$;
 
 create or replace function pg_temp.bool_as(p_subject uuid, p_expr text) returns boolean language plpgsql as $$
@@ -158,9 +158,9 @@ begin
   v_ca := pg_temp.person('CA'); perform pg_temp.member(v_club,v_ca,'CLUB_ADMIN');
   v_fs := pg_temp.person('FS'); perform pg_temp.member(v_club,v_fs,'FIXTURE_SECRETARY');
   v_mb := pg_temp.person('MB'); perform pg_temp.member(v_club,v_mb,'BASIC_USER');
-  v_tm := pg_temp.person('TM'); v_m := pg_temp.member(v_club,v_tm,'BASIC_USER'); perform pg_temp.team_role(v_m,v_team,'manager');
-  v_tm2:= pg_temp.person('TM2');v_m := pg_temp.member(v_club,v_tm2,'BASIC_USER');perform pg_temp.team_role(v_m,v_team2,'manager');
-  v_co := pg_temp.person('CO'); v_m := pg_temp.member(v_club,v_co,'BASIC_USER'); perform pg_temp.team_role(v_m,v_team,'coach');
+  v_tm := pg_temp.person('TM'); v_m := pg_temp.member(v_club,v_tm,'BASIC_USER'); perform pg_temp.team_role(v_m,v_team,'TEAM_MANAGER');
+  v_tm2:= pg_temp.person('TM2');v_m := pg_temp.member(v_club,v_tm2,'BASIC_USER');perform pg_temp.team_role(v_m,v_team2,'TEAM_MANAGER');
+  v_co := pg_temp.person('CO'); v_m := pg_temp.member(v_club,v_co,'BASIC_USER'); perform pg_temp.team_role(v_m,v_team,'COACH');
   v_far := pg_temp.person('FARCA'); perform pg_temp.member(v_far_club,v_far,'CLUB_ADMIN');
   v_str := pg_temp.person('STR');
   v_sa := pg_temp.person('SA'); insert into public.site_admins (user_id,status,admin_role) values (v_sa,'active','full');
@@ -178,8 +178,9 @@ begin
   insert into public.venues (club_id, name, slug, active) values (v_club,'VTM Park '||v_tag,'vtm-park-'||v_tag,true) returning id into v_venue;
   insert into public.venues (club_id, name, slug, active) values (v_far_club,'VTM Far Park '||v_tag,'vtm-far-'||v_tag,true) returning id into v_far_venue;
   insert into public.club_pitches (club_id, venue_id, display_name, active) values (v_club,v_venue,'Pitch 1',true) returning id into v_pitch;
-  insert into public.club_events (club_id, name, starts_on, ends_on, venue_id, is_club_wide, created_by)
-  values (v_club,'VTM Club Wide '||v_tag,current_date+20,current_date+20,v_venue,true,v_ca) returning id into v_evt_club;
+  -- 20270729: a club event is seen by the people it is for; one SHOWN TO THE CLUB is seen by every member.
+  insert into public.club_events (club_id, name, starts_on, ends_on, venue_id, is_club_wide, created_by, visibility)
+  values (v_club,'VTM Club Wide '||v_tag,current_date+20,current_date+20,v_venue,true,v_ca,'CLUB') returning id into v_evt_club;
   insert into public.club_events (club_id, name, starts_on, ends_on, venue_id, is_club_wide, created_by)
   values (v_club,'VTM Team Only '||v_tag,current_date+21,current_date+21,v_venue,false,v_ca) returning id into v_evt_team;
   insert into public.club_event_teams (event_id, team_id) values (v_evt_team, v_team);
@@ -224,7 +225,7 @@ begin
 
   -- VT-C  viewing a club event (J.9 line 496) -- a club Member IS included here
   perform pg_temp.check(pg_temp.bool_as(v_mb, format('internal.club_event_visible_row(%L,%L,true)',v_evt_club,v_club)),
-    'VT-C1 an ordinary club Member sees a club event');
+    'VT-C1 an ordinary club Member sees a club event shown to the whole club');
   perform pg_temp.check(pg_temp.bool_as(v_co, format('internal.club_event_visible_row(%L,%L,true)',v_evt_club,v_club)),
     'VT-C2 so does a Coach');
   perform pg_temp.check(not pg_temp.bool_as(v_far, format('internal.club_event_visible_row(%L,%L,true)',v_evt_club,v_club)),

@@ -44,12 +44,22 @@ insert into public.players (first_name, surname, date_of_birth, active, playing_
 values ('Adult','Grad', (current_date - interval '18 years 2 months')::date, true, 'MALE') returning id into v_adult;
 insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
 values ('Young','Grad', (current_date - interval '15 years 1 month')::date, true, 'MALE') returning id into v_young;
-insert into public.players (first_name, surname, active, playing_pathway)
-values ('NoDob','Grad', true, 'MALE') returning id into v_nodob;
+-- Born inside Under 18 so the place below can be made at all (a place is refused without a date of birth,
+-- 20270742000000); the date is removed straight after, which is the only way the state this suite is about
+-- -- an existing place whose date of birth was never recorded -- can arise now.
+insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
+values ('NoDob','Grad', internal.date_of_birth_in_age_grade('union', 'U18'), true, 'MALE') returning id into v_nodob;
+
+-- The graduating U18 cohort deliberately holds an adult and a younger player outside its age grade this
+-- season (the assertions depend on both ages), so these setup placements carry an approved dispensation.
+insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+values (v_adult, v_u18, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE'),
+       (v_young, v_u18, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
 
 insert into public.player_team_memberships (player_id, team_id, status) values (v_adult, v_u18,'active');
 insert into public.player_team_memberships (player_id, team_id, status) values (v_young, v_u18,'active');
 insert into public.player_team_memberships (player_id, team_id, status) values (v_nodob, v_u18,'active');
+update public.players set date_of_birth = null where id = v_nodob;
 
 perform public.graduate_team(v_u18);
 

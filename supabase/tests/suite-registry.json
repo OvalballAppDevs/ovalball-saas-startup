@@ -597,7 +597,7 @@
     "fixture_attendance_invitations": {
       "disposition": "CANONICAL_GATE",
       "owner": "Fixture operations",
-      "reason": "Two weeks out, Ovalball asks who is coming."
+      "reason": "When attendance opens (six days out by default since 20270727, earlier when a side opens it), Ovalball asks who is coming: guardians for children, adults themselves, once, never for a cancelled match."
     },
     "fixture_availability_summary": {
       "disposition": "CANONICAL_GATE",
@@ -1880,6 +1880,316 @@
       "disposition": "CANONICAL_GATE",
       "owner": "Fixture operations",
       "reason": "===================================================================================================== VENUE AND TRAINING AUTHORITY MATRIX (Identity/Auth Slice 4E, Phase 2 AA.3 row"
+    },
+    "admission_journeys": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "People & Invitations programme",
+      "reason": "Admission journeys end to end (overnight programme, brief section 4), one club's life through the canonical doors as the people who use them: a claim made through another club's referral link is approved only by Ovalball, creates the club with its first authorised Club Admin and every team signup proposed by display name -- boys and mixed sides included (20270747000000) --, is attributed to the referrer, and the new club's first payment credits the referrer exactly once (JD1-JD5); the club's teams by canonical identity, its confirmed Safeguarding Officer and membership product, a team code, a year-young child refused at the door, asked for again with a dispensation that the team can neither skip nor decide, approved by the officer, then placed, with the membership requirement now visible and one child, one guardian link, one place (JA1-JA11); a parent offered a coaching role accepts with the same account into one membership and an effective role, and an existing member is found by the staff picker and given a role on their own row (JB1-JB5); a Team Manager places in-grade children but cannot place out of grade, decide a dispensation, write a place directly or grant anything, and a Team Admin gives Volunteer at their own team only; a minor cannot join as a club member on their own through any door and an old minor request cannot be approved (20270745000000) (JC0-JC8); a coach who is a guardian and the responsible payer is deactivated, reactivated and removed with access, roles and history behaving by rule and the money relationship untouched, an old invitation does not let them back, and a new one admits a new membership row without a second person, payer or enrolment (JE0-JE8). Self-contained and rolled back."
+    },
+    "age_dispensation_workflow": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Safeguarding -- age dispensation workflow",
+      "reason": "The one age dispensation workflow (20270742000000), test for test against the owner's brief of 2026-10-05: a child outside the age grade stays refused by every route -- direct database writes, every placing RPC, Site Admin master control -- unless the club's Safeguarding Officer or a Club Admin approved a dispensation for that player, team, club and season; Team Managers and Team Admins ask and never decide; the first valid decision wins and a second changes nothing; a decline says why; a Club Admin's decision reaches every officer and an officer's the Club Admins; declined, withdrawn and expired requests place nobody; an approval is never re-pointed at another team or season; the guardian prerequisite holds and the team neither sees nor acts on a request until everything it waits on is done; an under-18 onto an adult side is the officer's alone with the governing body's reference; the record's private facts reach only the family and the deciders; history is immutable and attributable. A new place without a date of birth is refused on age-grade and adult sides alike (DD1-DD3), while a place already held when the date goes missing stays and is reported as needing it (DD4). Union girls' dual bands come from the canonical allocation rule, so a U13 girl's own Girls U14 side needs no dispensation while the bands either side and a boy of her age still do (DG1-DG4). Deciding, revoking and recording the governing body's reference need a recent authenticator code, asked only of someone who may decide (DH1-DH4)."
+    },
+    "api_safeupdate_contract": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Arena consolidation pass -- API contract",
+      "reason": "The API's safeupdate contract: every request through PostgREST runs with safeupdate preloaded, which refuses an UPDATE or DELETE without a WHERE clause even inside a SECURITY DEFINER function or a trigger, while psql (where every other suite runs) does not load it -- so a bare `delete from pg_temp.x;` passed every suite and failed on every phone (Arena's Auto Allocate in live UAT; the tournament scheduler's working set had the same statement). The postgres role cannot LOAD the library, so the contract is checked where it is decided: no function in public or internal holds an UPDATE ... SET or DELETE FROM without WHERE (comments stripped; ON CONFLICT DO UPDATE and FOR UPDATE are not reported), and the scan is proved live by a probe function it must report. Read-only and rolled back."
+    },
+    "arena_planning": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Arena consolidation pass",
+      "reason": "One physical estate, one occupancy (20270737000000) and Arena planning it (20270738000000): every grade's pitch size comes from the verified Regulation 15 register (U9 60m x 30m, U11 60m x 43m) and only an unsized grade falls back to its category, saying so; automatic allocation proposes without writing, applies through the Match Centre's and the schedule's own writers in one transaction, and is deterministic; warm-up, clearing the pitch and a room's turnaround each make a clash in words; a pitch of two halves takes two matches and refuses a third; preferences are tried team before club and pitch before ground, with the reason a first choice was passed over; room pairs, locks and a person's allocation are kept, part by part; a stale plan is refused; a match moves between grounds in one step; training, a tournament's reservation and an event's explicit pitch hold a pitch and an event without one holds none; an away fixture uses none of the club's facilities; catering that cannot be counted is never zero and is the Match Centre's own count; two tournaments share a pitch only marked out one way and then count each other's games; the club's layout never changes; the what-if form agrees with the engine; a preview tells nobody and an applied plan tells each family once per fixture and never the person who applied it; another club's administrator, a member and a parent read and change nothing. Self-contained and rolled back."
+    },
+    "club_event_centre": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Calendar and events",
+      "reason": "The Event Centre (20270729000000): who may create an event for which sides and venues (club admin, a team manager for their own side only, nobody else; forged teams and venues refused); a draft is its organisers' alone, an invite-only event the invited's, another club and a signed-out visitor see nothing; invitations reach each person once however many ways in, a child only through their guardians, sending again only the new; a guardian answers for each child separately and an adult for themselves, guests and food never beyond the event's rule; catering derived from answers and split by who they are, dietary needs as organiser-only aggregates; capacity never exceeded, the waiting list promoted strictly in order and each promoted family told; announcements to answer-defined audiences with the reach shown and push optional, no reminder storms; one notice for one save, postponed keeps answers, cancelled tells everybody once, completed stays readable; external guests organiser-only and counted. Self-contained and rolled back."
+    },
+    "conversation_people": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Integration audit -- messaging",
+      "reason": "Who a conversation is between (20270735000000): conversation_people names the officials of both clubs and both teams of a fixture conversation, and both clubs' officials of a club conversation, by name, club and role, for a party on EITHER side -- the away coach is told the home club's Club Admin and coach, whose membership rows she cannot read (why the device listed only her and labelled every other-side message \"Member\" of \"Ovalball\"); somebody added by name appears as added and somebody who left is still named and marked; a guardian, an official of a club not in it, an unknown key and a signed-out caller get nothing. Self-contained and rolled back."
+    },
+    "family_membership_charge": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club finance and subscriptions",
+      "reason": "A family sees what the Direct Debit collects and who pays Ovalball's fee (20270751000000; owner-locked 6 Oct 2026: the parent's setup must say which): before set-up the membership, this payer's price (sibling pricing included), the fee bearer, the monthly amount collected (price, or price + 2.5% half up when members pay) and the first payment by the club's own example rules, on the club's own collection day; after set-up the payer reads their enrolment's snapshot and a non-paying guardian learns only that somebody else pays; another family, another club, the club's staff and the signed-out are refused. Self-contained, rolled back."
+    },
+    "gocardless_app_connect_intents": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Commercial platform",
+      "reason": "A club connects GoCardless from the app (20270750000000): terms first; start authority and app-only return addresses; begin token single use and three minutes (address recorded, never refused); code attached once with the state and a one-time return handoff kept as a hash; claim only by the starter holding the handoff, within five minutes -- no handoff waits unchanged, a wrong one or another person voids; the forwarded-link attack end to end; finish once; no API role touches the intents. Self-contained, rolled back, leftovers asserted."
+    },
+    "gocardless_events_never_strand": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club finance and subscriptions",
+      "reason": "GoCardless events never strand (20270749000000): back-off, dead-letter and claim exclusivity (NS1-NS10); deferral (ND1-ND7); poison statuses (NP1-NP8); observation order and final states (NO1-NO8); verification never downgraded (NV1-NV3); reconnect guard and same-token (NC1-NC8); late disconnect (NL1-NL3); counts-only Full-Site-Admin health (NH1-NH4); replay schedule inert without Vault, HTTPS only, answers kept as counts (NR1-NR7); grants (NG1); app fee (NF1); nothing left behind (NZ1). Rolled back; no GoCardless call or HTTP request."
+    },
+    "gocardless_member_payment_integrity": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club finance and subscriptions",
+      "reason": "Member payments settle truthfully (20270744000000), one test per defect the 5-6 October 2026 audit proved in the member -> club GoCardless path: a failed webhook event is claimed again by the next delivery while a processed or live-claimed one is not, and a replay finds what GoCardless stopped retrying (MP1-MP7); a stale observation never moves a payment or its month backwards, terminals stay shut, and a late failure, a retry and a reversed chargeback still land (MP8-MP15); disconnecting removes the usable token, queues it for revocation, audits it and writes it nowhere else, a reconnect revokes the token it replaces, and the merchant removing the app is honoured (MP16-MP21); a billing request's club is the enrolment's own (MP22-MP24); a 100% discount is an exempt month and one member's failure stops nobody else's month (MP25-MP29); a price is answered only to who may see it (MP30-MP31); a minor is never their own payer and the payer's guardianship is checked whoever asks (MP32-MP34). Self-contained, rolled back, no GoCardless call."
+    },
+    "gocardless_payment_failed_notification_pairing": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Notifications",
+      "reason": "Notifications platform programme, Phase E: gocardless_payment_failed could never be paired to the live attention projection -- its payload carried obligation_id, not the player_id the family money row is keyed by, so the notification could never be confirmed 'done' once a family actually fixed their payment. Proves apply_payment_status_transition (20270712000000) now carries player_id in the notification payload, and that the rest of its behaviour (the finance audit log write, the obligation status transition) is unchanged. Self-contained and rolled back."
+    },
+    "gocardless_verified_notice": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club finance and subscriptions",
+      "reason": "A club hears when GoCardless verifies its account (20270752000000): the moment a live connection becomes verified while memberships are not yet on, the club's finance.subscription.configure holders are told once through the one notification system; nobody else; a repeat, replay or re-check tells nobody again; 'unknown' never replaces a given status; a club already on is not told; a disconnected connection is untouched; only the server records a status. Self-contained, rolled back."
+    },
+    "integration_connections": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Integration audit",
+      "reason": "One connected system (20270730000000): a fixture's ground is decided once (internal.fixture_ground_id) and both Match Centre and every schedule list (schedule_grounds) ask it -- the chosen venue, else a canonical host's default ground, never overriding a typed place, none while home or away is undecided; a visiting family who cannot read the host's venue rows is told the same ground and pitch Match Centre names, and nobody is told about a fixture or event they cannot already see (unknown ids absent, a 1000-id ceiling, signed-out refused); a club event at its own ground references the same canonical venue as its home match; events invite their own club only; awards and event answers name people by canonical id, never a copied name. Self-contained and rolled back."
+    },
+    "match_centre_consolidation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Match Centre consolidation (owner brief 2026-10-03, 20270727000000): one Match Centre for every game and viewer. Proves attendance opens six days out by default, inside on the boundary day, a club's own number when it sets one, and earlier only when a side's staff open it -- telling the families once, never a child; the other side's staff read NUMBERS ONLY, in the projection and in the rows, a family reads its own side's numbers, an outsider nothing; the catering headcount is the players marked Attending on each Ovalball side and moves with the answers; reminders and announcements reach exactly their audience and each family sees only what was sent to them; a changed meet time tells the side's families; awards follow club default -> team override -> the match, nothing before kick-off, one vote per child, each award given only by the people the brief names, winners' families told, a badge current until the side's next match; the public team page shows staff by name and role and the squad (first name and initial) and photos only where shared; the viewer's side comes from canonical relationships. Self-contained and rolled back."
+    },
+    "match_centre_facilities": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixture operations",
+      "reason": "Match Centre arena, canonical facilities and the public team page (20270728000000). Proves the host is the HOME side: a club on Ovalball offers only its own grounds, pitches and rooms (CANONICAL), one that is not starts from its Club Directory ground with a written pitch and numbered rooms 1-20 or an explicit no-changing-rooms answer (PROVISIONAL), and an undecided fixture has no ground; another club's ground, a pitch at another ground or another club's room is refused through the RPC AND a direct table write; one write clears what no longer fits, says so, and tells the families once; the opposition picks from the host's catalogue but cannot change it; switching home and away re-resolves the ground on both rows of a legacy mirrored pair in every direction (claimed<->claimed, claimed->unclaimed, unclaimed->claimed); the public team page follows club default -> team override, offers Message Staff and Call to the opposition's staff only with the club's operational number (never a coach's own entry), sends no contact to parents, players, members, outsiders or visitors, shows squad numbers and positions in the team's rugby code by first name and initial, and publishes only the photos chosen for it. Self-contained and rolled back."
+    },
+    "membership_fee_lifecycle": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club finance and subscriptions",
+      "reason": "Ovalball's 2.5% through a payment's whole life, driven through the webhook's own status door (Club Memberships Part 1, 20270748000000): the club or its members bearing it; a pro-rata first month; an immediate failure; GoCardless retrying the same payment (one payment, one fee, earned once); duplicate and out-of-order webhooks; late failure, chargeback, a reversed chargeback, cancellation; a fully discounted month; and reconciliation across the club -- collect = price + members' fee, fee = 2.5% half up, gross - fee = the club before GoCardless, no fee earned before collection, no month with two payments. Proven to fail when the fee is counted before collection or a stale event is applied. Rolled back."
+    },
+    "membership_lifecycle_journeys": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club finance and subscriptions",
+      "reason": "Club Memberships Part 2, sections 33-35 proved against the canonical doors: leaving a team is not cancelling a membership (enrolment, Direct Debit and collection carry on, the club is told Action needed, and the generator still bills it -- today's rule for owner decision #1, shown not changed); deactivating an account deletes no history; cancelling one child's membership leaves the payer's other Direct Debits untouched and deletes nothing; a returning player is the same person (a new enrolment beside the ended one); moving team under the same membership changes nothing financial; re-mapping teams to memberships keeps the price a member joined on and the club cannot switch a live membership (owner decision #6); families: one payer and one GoCardless customer for two children, sibling discount at enrolment, a free month never stops a sibling's, the board's money reconciles child by child, and each child's enrolment has its own Direct Debit today (owner decision #17). Rolled back."
+    },
+    "membership_setup": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club finance and subscriptions",
+      "reason": "Club Memberships Part 1 (20270748000000): several memberships per club assigned by team, priced monthly and continuously; a player in differently-priced teams pays the higher price unless a Club Admin switches them (recorded); Ovalball's 2.5% computed once, half up, with each club choosing who pays it and every enrolment snapshotting its terms; the terms acceptance, the readiness every door re-derives, Activate as the only way on and Pause as the only way off (the legacy configure door can no longer flip either), the worked example from the generator's own rules, the charge plan, fee positions and the authority of every door. Self-contained, rolled back."
+    },
+    "membership_standing": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club finance and subscriptions",
+      "reason": "One membership standing (20270746000000), derived once from the canonical records for every case -- paid, with the bank, being retried, scheduled by a Direct Debit, due, overdue (never on the day a member joined), a failed payment, a failed Direct Debit, still enrolled after leaving every team, not set up for a child and for an adult player, exempt, refunded, free and ended -- with counts that are the rows and what needs action first (MS1-MS16); the month's money by the domain map's definitions: a scheduled or submitted collection is not collected, a mandate is not money, a refund stops counting, cancelled/exempt/waived/refunded months are not expected, a retried payment counts once, and a team filter applies the same definitions (MM1-MM9); the club board is the club's, a Team Manager reads only their own team's board with the same standing and no payer, mandate or money totals, a coach without the capability and a parent read neither, and the derivation itself is not callable (MA1-MA8); reminders go through the one notification system to the responsible payer or, with nothing set up, to the guardians the one contact rule allows -- never a child -- and to an adult player themselves, a team's staff remind only their own players and learn counts not identities, nothing is asked of anybody up to date or collecting, one reminder per player per 72 hours, the sender is recorded and shown, and the club can tell a team's staff how many need attention once a day (MR1-MR14); a family reads the same standing through family_membership_standing (20270747000000) -- the paying parent sees a failed payment as a failure, a second guardian sees the same standing and that somebody pays but never who, the linked player reads their own, and another family or the child's coach reads nothing (MF1-MF5). Self-contained and rolled back."
+    },
+    "messenger_conversation_features": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "Ovalball Messaging (20270755000000): reactions (one per person per message, fixed set, only where the person may post, invisible where the message is), one message per send (client reference, invoker send keeps every insert-policy refusal incl. minors), replies confined to their conversation, presence only for my own adult direct conversations and never across a block, request threads broadcast, pushes never carry message text, and a document shared in a direct message opens for its recipient and nobody else."
+    },
+    "messenger_receipts_and_voice": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "Messaging premium pass (20270756000000): read receipts written only by the reader through readable messages, idempotent, never forgeable, answered only to the sender, hidden across a block, counted (never named) in groups; voice notes under the attachment authority, the conversation's own folder, AAC <=2MB/<=120s, one per send reference, never into a minor's direct conversation; a deleted message's file becomes unreadable; push actions fit the conversation and carry no text."
+    },
+    "notification_dismissal": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Notifications",
+      "reason": "Owner product decision (notifications UX pass): a recipient may dismiss (delete) a notification from their own inbox, and undo it. Proves dismissal is the recipient's alone, hides the row from the read policy, the paged feed and the bell's count, leaves read_at untouched so a restore is exact, refuses another person's id and anon, leaves mark-all-read away from a dismissed row, and that what a notification says is still unchangeable. Dismissed is not resolved: the attention projection is untouched. Self-contained and rolled back."
+    },
+    "notification_fixture_lifecycle": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Notifications",
+      "reason": "Notification correctness pass: one domain event produces one notification (no system-note duplicate), fixture copy names the fixture and never prints a raw timestamp, changes against a club not on Ovalball still reach people, families hear of pitch/kick-off changes but never result business, the full result lifecycle (submitted, disputed, resubmitted, confirmed, organiser-resolved) notifies the right club at each step, every list is newest first regardless of read state, deleting a target tidies its notifications away, push is independent of in-app, and hidden rows never count as unread. Self-contained and rolled back."
+    },
+    "notification_one_per_person": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Notifications",
+      "reason": "Notification closure UAT: a person is told once per event however many roles they hold. Proves accepting a fixture request tells a person with two roles on the side once, applying to a tournament tells an organiser who is both Club Admin and Fixtures Secretary once, and a published schedule names its tournament and age group so two tournaments' notices are told apart. Self-contained and rolled back."
+    },
+    "notification_tournament_result_lifecycle": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Notifications",
+      "reason": "Notification correctness pass: Round Robin and Knockout tournament results share one lifecycle -- refused before kick-off, the other side asked to confirm exactly once, confirmation final and announced, a contest announced, the organiser's resolution final and announced -- with the same four notification types, each naming its game. Self-contained and rolled back."
+    },
+    "one_door_for_claims_and_referrals": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Commercial -- club claims, requests and referrals",
+      "reason": "One door for claims, requests and referrals (20270743000000), against the owner's brief of 2026-10-05: a person cannot write a claim, a join request or a partnership themselves; signup's claim goes through submit_club_claim and its three-a-day limit; a referral counts only if it came before the club asked -- a late invitation is closed with its reason and never registered, partnered or credited, and a link used after the approved claim introduces nobody; every club invitation carries its referral (the orphan shape is refused); CLUB_REFERRAL cannot be issued as a people invitation; a partnership request is always pending from the person asking and only the other club makes it active (the direct write made it ACTIVE); a join request is pending and opens the pending membership; a new-club request's review is the server's; and the club's legacy replacement-guardian link is used once, for what it was sent for -- a removed guardian cannot re-link with it, it never creates a new child, the club's trust ends with the relationship, and a sender's lost authority ends it. 32 assertions, begin/rollback."
+    },
+    "people_one_way_in": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "People & Invitations programme",
+      "reason": "One way to bring people in (20270739000000): a club title and a team title on any team role describe and never grant, and the name of a governed role, of administration or of safeguarding is refused as a title; a custom role (a team Volunteer called Strength & Conditioning Coach, a club Chair) carries no authority; a Team Admin may give Volunteer at their own team and nothing more -- not club-wide, not elsewhere, not to themselves, never Club Admin -- and a Team Manager, a Coach and another club's administrator give nothing; the staff invitation People, Home and Team Staff issue is one CLUB_STAFF kind carrying Member, First Aider, Team Safeguarding Lead and a team Volunteer with titles, one club-access seat, never Team Administration; accepting it admits through admit_club_member (source INVITATION, the invitation recorded), approves a waiting membership, refuses a deactivated one without spending the invitation, never lowers club access, applies titles and keeps a team Volunteer at the team; revoked and expired invitations fail; club_people is one register (players for roster readers only, one row for a player who is a member, every team role and title, deactivated a state not a category, invitations with their real offer), the access summary, the Team Admin's candidate search, the team role picker and the invitation preview answer only what each caller may know; deactivating keeps the account, history and paused roles, reactivating restores them, removing ends the relationship and a later invitation admits on a new membership; another club's administrator is refused everywhere. Self-contained and rolled back."
+    },
+    "push_notifications": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Notifications",
+      "reason": "Native push delivery (M7): device registration is never authorization, re-registering a token updates it in place rather than duplicating, a device re-registered by a different person transfers to them rather than being held by both, and the push channel obeys the same mandatory/preference rule the in-app channel already has rather than a parallel one. Also caught a live bug while first running this suite: migration 20270706000000 widened set_notification_preference from 3 to 4 parameters via create-or-replace, which left two overloads live rather than one (the same class of defect as the original stray save_tournament overload) and never granted EXECUTE on the new signature at all -- fixed by 20270708000000, which this suite depends on implicitly by calling the RPC with all four named arguments. Self-contained and rolled back."
+    },
+    "referral_link_attribution": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "People & Invitations programme",
+      "reason": "One referral link per club (20270740000000): a claim made through a club's link records that club only when it may (never an unknown slug, a suspended club, the club itself or a club already on Ovalball), and nobody can change it afterwards; approval turns the link into an ordinary introduction (an accepted invitation row naming nobody and holding no token, dated when they signed up) whose referral registers against the new club with attribution 'link', and sends the referring club's partnership request marked as coming from the link; between clubs the earliest introduction is first whichever way it was made, a club's own live referral by name stands instead of its link, a superseded claim's live link counts, a lapsed one leaves nothing pending, a rejected claim records nothing; credit passes on from a first referrer that cannot receive it to the next, and exactly one referral qualifies; a referral by name still needs its contact and inviter, a partnership request always says who or what asked, and referral data health stays HEALTHY. Self-contained and rolled back."
+    },
+    "result_kickoff_gate": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "Found during the Knockout recovery session: a result could be written for a game that had not kicked off, through any path that was not the original submission RPC. submit_fixture_result and submit_tournament_game_result were already gated by internal.fixture_result_eligible and internal.tournament_game_result_eligible; resolve_tournament_game_result (tournament host resolution), resolve_fixture_result_dispute (Site Admin dispute resolution) and record_competition_match_result (Competition Match, which had no kickoff check of any kind) were not -- an organiser or Site Admin could settle a result for a game scheduled in the future, and the two already-registered Competition Match test files were themselves calling record_competition_match_result against future or unscheduled matches, so the gap had been encoded as correct behaviour. This suite proves the three closed gaps directly: a tournament host cannot resolve a future game, a Site Admin cannot resolve a disputed fixture that has not kicked off, and a competition match refuses a result with no kickoff recorded, refuses one before a future kickoff, and accepts the same call once that kickoff has passed. Self-contained and rolled back."
+    },
+    "running_club_memberships": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Club finance and subscriptions",
+      "reason": "Club Memberships Part 2, running them (20270753000000): one standing knows whether collecting has started (a Direct Debit in place whose membership was never started is Due or Overdue, never Collecting, and the family sees it); the club's board names each player's membership, lists the club's memberships, and its money is the chain collected -> Ovalball's fee -> what reaches the club, honest about refunds (a refunded payment's fee is neither earned nor the club's) and about members paying the fee; a team's board carries no money and no payer; reminder history (the club sees who, when, by whom and how many were told; a team's staff their own team's players only, never who or how many); one member read for the club's finance viewers, contact details only with people.member.view_contact; changing who pays refused while a collection runs or a payment is on its way, otherwise ended, audited, the old payer told, history kept, and the old payer's month never the new payer's; a paused club still shows its members and takes no new ones; not signed in, another club's ids and grants refused. Proven to fail when each protection is removed (ten bite-proofs). Rolled back."
+    },
+    "stock_media_library": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Integration audit -- media",
+      "reason": "One Stock Media Library on the server (20270732000000): internal.stock_media holds every pickable library key with the kinds of object it may stand for (a picture listed once even when it serves two), the fallback-only tournament default is never accepted, no cover writer keeps an inline list any more and the list is not served by the API; domains are isolated (a pitch picture is never a changing room's, a ground never takes a changing room, an event key the library does not hold is refused instead of being stored and drawn as Christmas); a changing room's own photo can now be uploaded to its governed path by the club's ground managers and nobody else (it had no storage policy at all); an event's private cover is readable by people who can see the event and by nobody else. Self-contained and rolled back."
+    },
+    "team_code_requests": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "People & Invitations programme",
+      "reason": "Team codes place players (20270741000000): a team code or personal link asks for THAT team; fit is the canonical age grade and pathway; a parent may add a child (pending guardianship and place); a child who may already be at the club goes to duplicate review without the parent learning anything; a child's own login waits for a linked parent, and until then the team's staff cannot see who it is; one approval by the team's Team Admin or Team Manager or a Club Admin (never a coach, never for oneself or one's own child) confirms the guardianship, places the player and admits the parent and an adult player as Members; other team places are unchanged."
+    },
+    "tournament_atomic_creation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "Creating a tournament is ONE transaction or none of it. `create_tournament_with_teams` writes a tournament, its competitions, its own sides and its guest sides together; a payload that fails part-way must leave ZERO tournaments behind rather than a shell somebody has to find and delete. Also pins that a competition with no sides is refused before anything is written. Self-seeding and rolled back."
+    },
+    "tournament_attendance": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "A tournament is a COLUMN on the one attendance record, never an attendance model of its own. Pins that `player_fixture_attendance.tournament_id` exists, that the activity check allows exactly one kind of activity per row (so a response answers one thing and a row naming both a tournament and a fixture is refused by the database), and that one player's answer to a tournament is ONE row however many days or games it spans. The authority that decides who may answer is the shared one, so a tournament never widens it. Self-seeding and rolled back."
+    },
+    "tournament_cover": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "A tournament starts with NO photograph, and that is a real state rather than a gap. Pins the cover selection model -- an uploaded path or a stock key, never both -- the server-side stock allow-list, and that the list card, the Calendar row and the detail hero all resolve the same one selection through `resolveTournamentCover` rather than each choosing a picture. Self-seeding and rolled back."
+    },
+    "tournament_directory_sides": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "The canonical claim model for a side that is a Club Directory entry. CLAIMED means a `clubs` row exists for the directory row -- nothing else. It is never inferred from teams, a crest, an email or from appearing in search. Pins that a directory-only side is a full participant with a name, a crest and a place in the competition, while having nobody who can answer for it. Self-seeding and rolled back."
+    },
+    "tournament_estate_regression": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "The whole tournament estate driven as one real festival: multi-day, two competitions, private, with TWO sides from one club at one grade and a club Ovalball does not have recorded by name with an alias. Pins that one transaction creates it all, that both competitions exist, that a club may bring two sides to one competition without a second participant identity, and that the surfaces built on top keep agreeing with the record underneath. Self-seeding and rolled back."
+    },
+    "tournament_external_results": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "A result against a side that is not on Ovalball. Most clubs in a festival are CLUB DIRECTORY entries with no account, and a game against one cannot follow the ordinary lifecycle because confirmation needs somebody at the other end. Found by driving the real review festival: a side submitted 10-10 against a directory club and the game waited for ever on a club that has never heard of Ovalball. Kept SEPARATE from tournament_results on purpose, so a change to the ordinary lifecycle cannot quietly satisfy this one's assertions. Pins that a recorded result is never called confirmed and records nobody as having confirmed it; that it DOES count towards the table, because otherwise a Round Robin containing directory clubs could have no table at all; that who recorded it and when both survive; that the organiser may review and correct it, and that their correction IS a settlement because they ran the competition; that a game between two external sides can only be recorded by the organiser; and that the private side of the lifecycle still does not leak to a parent. Also pins the corrected `onOvalball` test -- a directory club entered the ordinary way carries status 'added' and is still not answerable, which is the defect the old `status <> 'external_recorded'` test produced. Self-seeding and rolled back."
+    },
+    "tournament_format_invariants": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "Tournament Planning parity programme, phases 9-10 (20270720-20270726): the membership-change matrix and the promises every format keeps, run once each for Round Robin, Tri-Fixture, Knockout, Hybrid and Swiss -- it generates with a server stage label on every game; no side is in two games at once; a draft is invisible to participants and absent from the Fixtures list; a team joining after generation is reported before publishing and Publish refuses; that team leaving restores a publishable plan; once published the participant reads its games and the Fixtures list carries one labelled row per game with no score until one counts; a result before kick-off is refused and after it accepted; and once there is a result the membership is frozen. Self-contained and rolled back."
+    },
+    "tournament_hybrid": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "Tournament Planning parity programme, phase 7 (20270724000000): a Hybrid is the round robin's group tables feeding the knockout's own bracket. Proves the qualifier count (1-4, every table bigger than it) is said by readiness before Generate and refused by it; generation makes the group games with the round robin engine and a crossed knockout (1st Table A v 2nd Table B, 1st Table B v 2nd Table A) scheduled after the last group game; a table fills its places only when every game in it is settled, from its own ordered standings; a correction rebuilds an unplayed knockout game and is refused (TOURNAMENT_BRACKET_DOWNSTREAM_ACTIVITY) once that game is played; the knockout's own progression carries the winners on; qualifiers are told once, with their opponent; and changing the qualifier count or the teams after generating is reported as FIXTURES_OUT_OF_DATE. Self-contained and rolled back."
+    },
+    "tournament_knockout": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "A knockout is the same tournament with a different consequence. A bracket is the first thing in Ovalball where the RESULT OF ONE GAME DECIDES WHO PLAYS THE NEXT, which makes a particular set of mistakes possible and every one of them puts a real club in the wrong place on a real Saturday: inventing a participant called 'Bye' or 'Winner QF1'; a bye becoming a 0-0 game so a side that played nobody carries a result; dropping a side when the field is not a power of two; advancing somebody from a score nobody agreed, or from a LEVEL score decided by row order; redrawing a competition that has already been played; and rewiring a semi-final two clubs have turned up for. The field is deliberately SIX -- a power of two would never exercise byes, and six is the shape a real junior festival most often has. Covers 20270650-20270665: the draw as rounds of SLOTS (progression is arithmetic, not a stored link), classic bracket order so byes separate rather than bunch, games created only once BOTH sides are real (tournament_games.side_a_id is NOT NULL and that constraint is right), the organiser-named seeded draw that never reads Round Robin standings, the third-place play-off built from the two semi-final losers, a level game having NO winner until somebody with the authority records one with a reason, and the two refusals that stop history being silently rewritten. Section F asserts no second game, participant or result model exists for knockout. Section L pins that the draw is read back in the terms it is written in -- seed order, not place order -- because a control that read places and wrote seeds re-permuted the whole bracket while appearing to swap two sides. Section M pins that a plan reads back the knockout settings it was given, because a Settings step that cannot read them overwrites them on the next Generate. Self-seeding and rolled back."
+    },
+    "tournament_knockout_parity": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "A knockout must be the same tournament PRODUCT, not merely a correct bracket. tournament_knockout proves the draw is right; this suite protects what is easier to lose -- that choosing Knockout as the competition format does not quietly hand a club a REDUCED tournament. The failure it guards against does not look like a bug: every screen works, and it is simply that the cup has no Agenda, or its attendance turns out to be per game, or its games never reach the surfaces a league's games reach, or a draft draw is visible to a parent because the Draw tab resolved visibility for itself instead of asking the server. Each of those is a separate product by accident. The rule asserted is that SHARED TOURNAMENT BEHAVIOUR STAYS SHARED -- one tournament identity, one participant identity, one attendance answer, one publication authority, one result lifecycle, one calendar projection -- while FORMAT-SPECIFIC BEHAVIOUR BRANCHES ONLY WHERE THE SPORT GENUINELY DIFFERS. The competition is deliberately awkward: three days in the tournament's envelope with the middle one skipped, because 'it works on a one-day festival' is where multi-day bugs hide. Pins: no participant and no directory club called Bye or Winner QF1; a draft draw invisible to a parent, to another participating club and to the Calendar, visible to the organiser and labelled a draft; publication through the same publication_state a round robin uses; the competition's own days rather than the tournament's envelope, with the skipped day carrying no game, no scheduled place and no Calendar row; ONE attendance answer per player per tournament, no per-game attendance model and no staff override; another club's unsure/cannot-attend/awaiting counts withheld while its own are kept; one canonical tournament_game read by the result detail, the Agenda and the Results list, and deliberately NOT duplicated into the club Fixtures list -- the same rule a round robin follows; later rounds scheduled as pairings with NO game manufactured to make the Agenda look complete; submitted and contested results advancing nobody while a host resolution does; the draw refusing to be redrawn once results exist and an upstream result refusing to be reversed once its winner has already played again; result visibility following the tournament's own authority rather than the draw's; a result notification carrying the GAME so a deep link lands on it rather than on a dashboard, and not reaching a parent; the third-place play-off fed by losing and feeding nothing; and a seven-side field whose bye takes no opponent, no game, no pitch, no kick-off slot and no result, while the side it belongs to is genuinely through to the Semi Final. Self-seeding and rolled back."
+    },
+    "tournament_knockout_progression_notifications": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Notifications",
+      "reason": "Notifications platform programme, Phase G: knockout progression notifications ('you're through', 'your opponent is known') -- confirmed entirely absent by audit and by direct inspection of internal.fill_bracket_slot/create_bracket_game/ensure_third_place_game. Proves the real path (resolve_tournament_game_result -> tournament_game_progression trigger -> internal.advance_tournament_bracket -> internal.fill_bracket_slot), not a direct internal call: the first winner is told it's through with no opponent yet, the second winner is told WITH the opponent's name inline, the first winner then gets a one-time follow-up once the pair completes, the opening draw itself notifies nobody, and nobody outside the two sides' own staff hears anything. Also caught and fixed a real defect while writing this suite: the first draft used tournament_side_summary's `label` field, which is the canonical, trigger-derived TEAM presentation (CLAUDE.md's Team Directory rule -- never free text) and reads identically ('Under 12 Boys') for every same-age-grade side regardless of club; every notification would have named the opponent uselessly. Fixed to use `clubName`, the field that actually distinguishes one side from another. Self-contained and rolled back."
+    },
+    "tournament_management": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "Covers migration 20270598. `tournament_participants.age_group` became NOT NULL in 20270597, which silently broke four pre-existing functions that insert without a grade -- including two the website's tournament centre calls. The grade is derived at the table by trigger rather than in six callers, and this suite proves that derivation plus the three behaviours the management screens depend on: accepting a public application enters the side once and preserves the application as accepted history, save_tournament edits the SAME tournament (including visibility, which it previously could not persist at all) rather than creating a second, and removing an age group reports its cost without destroying anything and then removes that grade's sides rather than orphaning them."
+    },
+    "tournament_notification_topic_and_events": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Notifications",
+      "reason": "Notifications platform programme, Phase C+D: tournaments get their own notification_topics row instead of hiding under fixture_requests/fixture_updates, and a new notification_event_preferences table gives a person control over one user-facing event family (e.g. 'Result disputes') inside a topic without touching the rest of it. Proves the three-tier should_deliver_notification evaluation order -- mandatory policy, then an event-level override, then the topic-level setting, then the true default -- and that a sibling event with no override of its own still falls through to the topic setting rather than inheriting the override. Self-contained and rolled back."
+    },
+    "tournament_participant_centre": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "The Tournament Centre as somebody GOING to the tournament reads it. One address, one record, several audiences: a coach of one side gets ONE competition context and is told plainly they do not manage it, so the client never sends them to the organiser's surface; a club with a U12 and a U16 side gets TWO contexts over ONE tournament record. Pins that competition contexts are a lens rather than a second tournament, and that nothing on the participant surface edits anything. Self-seeding and rolled back."
+    },
+    "tournament_participant_sides": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "A club's A and B sides at one grade share ONE canonical team type -- which is precisely why a type is not a team. Pins that two sides from one club at one competition are two participants with their own squad labels and one canonical identity behind them, so the Team Directory's structured identity is never bent to carry an operational arrangement. Self-seeding and rolled back."
+    },
+    "tournament_participant_visibility": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "Who can see a tournament at all. Two branches were corrected to read a wider source than host-only, and widening a source must not cost the host a single viewer -- so the host club's administrator and an ordinary member of the host club are asserted FIRST, before anything about participants. Pins the whole visible set against each role rather than against a screen. Self-seeding and rolled back."
+    },
+    "tournament_plan_editing": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournament planning correction pass",
+      "reason": "A tournament plan is edited, not rebuilt (20270736000000): eight teams on four pitches play four games at one kick-off; two games on one whole pitch, one team on two pitches, an unreserved pitch, a time outside the playing hours, a game longer than the grade allows, a kick-off inside the changeover, a pitch too small and a round before the round it follows are each refused in words and change nothing; a pitch of two halves takes two games and refuses a third, across age groups; the live Bolton Festival's 09:50 Pitch 2 to 10:15 Pitch 1 edit is refused alone and accepted saved with the 10:15 game moved on, persists to View Plan, the Fixtures projection and the participant centre, survives Schedule Games, and tells each moved team once and nobody else; publication waits for no clash and no kick-off without a pitch; a published plan's tables change only once the replacement of its games is confirmed; Delete Plan removes a draft or a published plan (teams told) and never a plan with a result; results are not moved, rescheduled, rewritten or deleted by the older writers and their reservation is not released; only the host's Club Admin and Fixtures Secretary read or change a plan. Self-contained and rolled back."
+    },
+    "tournament_plan_membership_and_readiness": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "Tournament Planning parity programme (20270720): a plan always knows who is playing and what it needs next. Proves a side added or removed before results reconciles into a table-based plan without a refresh and generation includes it (n(n-1)/2), an out-of-date draft is reported and refused at publish until regenerated, membership is frozen once results exist, pending and declined sides are not seated, an unchanged table arrangement keeps every game's table, readiness warns before Generate and blocks Publish with the same sentence, Complete Scheduling times games without re-pairing and never moves a played game, a knockout draw reports a joined side with one Update the Draw action that keeps every seed, the knockout scheduler keeps rounds sequential and inside the playing hours, a draft plan is invisible to participants over the API until published, and Swiss/Hybrid never silently generate a round robin. Self-contained and rolled back."
+    },
+    "tournament_planning": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "Planning is the organiser's, and a plan begins as a DRAFT. Pins that a participating club's coach cannot start planning somebody else's tournament; that starting a plan announces nothing; that every day the tournament runs is selected to begin with; that all of a competition's sides are placed including the clubs that are not on Ovalball; and the welfare rule on game duration that lives as a TRIGGER rather than in each caller. Self-seeding and rolled back."
+    },
+    "tournament_publication_and_lifecycle_notifications": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Notifications",
+      "reason": "Notifications platform programme, Phase F+G(partial): the governed publish_tournament_plan path (none existed before -- publication_state was only ever read, never written through an RPC) plus the application/decision/cancellation notification producers that did not exist at all. Proves publishing is host-only (a guest club's own CLUB_ADMIN is correctly denied -- can_manage_tournament's participating-club branch reads tournament_team_entries, which is itself filtered to the host club only), refuses an empty plan, is idempotent against a second publish with no duplicate notification round, and that every notification excludes the actor who caused it. Cancellation is mandatory and reaches a side even if they silenced the whole tournaments topic. Self-contained and rolled back."
+    },
+    "tournament_results": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "A tournament result, through its whole life. A game's score is the only thing in a festival that TWO CLUBS both have an opinion about and only one of them can be right, which makes a particular set of failures possible: one club quietly overwriting what the other said; a club 'confirming' its own score so one opinion becomes an agreement; an unsettled number counting towards a table or reaching somebody who should not see it; a disagreement that no longer holds both claims, so the organiser has nothing to settle it with; and an amendment to an agreed result silently replacing it. Every one is asserted against the PAYLOAD and the ROW rather than against a screen -- a client that declines to draw a field has still been sent it. The external-opponent path is deliberately NOT here; it has its own suite. Self-seeding and rolled back."
+    },
+    "tournament_standings": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "A tournament table is CALCULATED, never kept. Standings are the one thing in a festival that everybody reads and nobody writes: there is no standings row, and the table is resolved from the confirmed games every time it is asked for. That removes a class of failure and introduces another, which is what this suite is for: a side's membership coming from its RESULTS rather than from the published plan, so a club that has played nothing disappears instead of sitting on nought; one table's result moving another table; a competition that plays Friday and Sunday producing two tables instead of one; an ordering nobody configured, or one that shuffles between two readings of the same data; a scoring rule being applied that Ovalball has no data to apply; and a result reaching somebody the organiser kept it from. The arithmetic is asserted against REAL SCORES, worked out from the games the suite creates and the points system it sets. Self-seeding and rolled back."
+    },
+    "tournament_swiss": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "Tournament Planning parity programme, phase 8 (20270725000000): a Swiss is one table whose games are made a round at a time. Proves the round count is the organiser's (at most the field allows without a rematch, said by readiness and refused by Generate); Generate draws Round 1 at random and reserves every round's kick-off times in the knockout's place-to-be rows, a round never before the previous ends; the organiser may swap sides in the round about to start but never into a rematch, a second bye, or a started round; the next round is paired the moment the last is settled, top down from the table with no rematch, and each side is told once who it plays; a correction re-pairs an unplayed round and is refused (TOURNAMENT_SWISS_NEXT_ROUND_PLAYED) once it is being played; an odd field gives the lowest-ranked side without a bye a bye, at most once each, counted as a win with no points for or against; the competition completes after its last round; participants see the byes and the next round's reserved time. Self-contained and rolled back."
+    },
+    "tournament_tri_fixture": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Tournaments",
+      "reason": "Tournament Planning parity programme: a Tri-Fixture is exactly three sides (said by readiness before Generate and refused by it at two and four), generated by the round robin engine as 3 games with every pair once, named Tri-Fixture Game 1-3 by the shared stage label, scheduled without a side clash, keeps no table unless the organiser switches one on (tournament_keeps_standings, countsToTable), takes results through the canonical lifecycle once published, and builds real standings when the table is on. Self-contained and rolled back."
+    },
+    "messenger_one_conversation_per_opponent": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "One conversation per opposing team (20270757000000): fixtures between the same two sides share one conversation (mirror-safe, unordered team pair; directory and free-text opponents keyed by my team), a different opponent gets its own, a changed opponent leaves the shared conversation, access is not widened, mute/leave follow the conversation and are inherited by new fixtures, and reading clears every fixture's notifications only for the reader and only where they may read."
+    },
+    "club_admin_audit_remediation": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Security and authority",
+      "reason": "Codex Club Admin audit remediation (20270762000000), proved as the people concerned: an unaccepted safeguarding contact card cannot be edited from another club; direct messaging needs positive adult evidence (unknown age is never adult, DOB-less guardians and staff keep it); a guardian messages only their own children's teams' staff; fixture requests change state only through guarded decline/withdraw/accept/counter (no direct table writes, no forged creation); pitch placement is pitch-allocation authority independent of fixture edit; a Club Day's individual answers refresh its one summary; a club cannot answer its own proposal; the effective kick-off; a retried batch keeps its complete outcome."
+    },
+    "season_planner_club_day_groups": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixtures and scheduling",
+      "reason": "Club days answered as one (20270761000000): one grouped notice to club-scope schedulers and none per team, who may see a club day, per-fixture notes, decline one, a suggested date surviving Accept All, Accept All/Decline All through the canonical accept/decline with honest partial outcomes, retry/double-tap safety, one grouped notice back, the return club day link, club-day counts, canonical playing days (club, kind of team, team override) with their authority, ad-hoc weekdays, recipient fallback, the ordinary request path unchanged, and opponent-side clashes."
+    },
+    "season_planner_club_day": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Fixtures and scheduling",
+      "reason": "Season Planner club days (20270760000000): canonical matching, truthful no-match, same-day and same-week clashes from both sides of a fixture, per-team send outcomes re-checked at send time, deliberate acknowledgement, replay/duplicate safety, club-scope planner authority only (not team staff, not another club, not a member), and the request lifecycle reaching the board (accepted, declined, reverse leg)."
+    },
+    "messenger_contact_avatars": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Messaging and notifications",
+      "reason": "Messaging contact pictures (20270758000000): an avatar location only for the other adult in my direct conversation or somebody I may direct-message; never a stranger, never a minor (even where a conversation exists), never across a block either way, never my own, never signed out."
     }
   },
   "prerequisite_defect": {

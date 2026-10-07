@@ -122,9 +122,12 @@ end if;
 
 -- ============ 3. The recorded exception is the only way through ============
 
+-- The record is for the season the placement is made in: since the one dispensation workflow
+-- (20270742000000) an approval covers one player, one team and ONE season, and this child is also a year
+-- young for the U12 side, so the same record has to answer the season's age grade as well.
 insert into public.player_team_dispensation
   (player_id, source_team_id, target_team_id, season_id, status, governing_body_reference, eligibility_rule_reference, requested_by)
-values (v_girl, v_u11, v_boys12, v_to, 'approved', 'RFU-PATHWAY-REF-1', 'RFU Regulation 15', v_admin);
+values (v_girl, v_u11, v_boys12, internal.resolve_season_for_date('union', current_date), 'approved', 'RFU-PATHWAY-REF-1', 'RFU Regulation 15', v_admin);
 
 insert into public.player_team_memberships (player_id, team_id, status) values (v_girl, v_boys12, 'active');
 if exists (select 1 from public.player_team_memberships where player_id=v_girl and team_id=v_boys12 and status='active') then
@@ -133,7 +136,9 @@ else
   raise notice 'FAIL 7: an approved dispensation did not permit the placement';
 end if;
 delete from public.player_team_memberships where player_id=v_girl and team_id=v_boys12;
-delete from public.player_team_dispensation where player_id=v_girl and target_team_id=v_boys12;
+-- A dispensation is a permanent record and is never deleted; it is revoked, which is its own history.
+update public.player_team_dispensation set status = 'revoked', revoked_by = v_admin, revoked_at = now()
+ where player_id=v_girl and target_team_id=v_boys12;
 
 -- ============ 4. History is never re-judged ============
 

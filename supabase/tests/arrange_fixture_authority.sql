@@ -66,9 +66,9 @@ end $$;
 -- A team ROLE, not merely a membership: rule 5's override matching (internal.capability_decision)
 -- refuses a TEAM-scope grant to someone with no active role_assignments row for that team
 -- (TEAM_ROLE_LAPSED) -- team_permissions is the legacy write path that still syncs into it.
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text default 'coach') returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text default 'COACH') returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_by uuid) returns uuid language plpgsql as $$
@@ -123,7 +123,7 @@ begin
   -- internal.capability_decision's rule 5 ignores a team-scope grant to someone with no active
   -- role_assignments row for that team (TEAM_ROLE_LAPSED), found running this suite for the first time.
   v_co := pg_temp.person('CO', v_adult); v_mem_co := pg_temp.member(v_club_a, v_co, 'BASIC_USER');
-  perform pg_temp.team_role(v_mem_co, v_a_u12, 'coach');
+  perform pg_temp.team_role(v_mem_co, v_a_u12, 'COACH');
   perform pg_temp.override(v_co, 'fixture.request.create', 'team', v_club_a, v_a_u12, v_ca);
 
   -- CLUB scope deliberately, not team: a real 'coach' team_permissions role (needed to keep a

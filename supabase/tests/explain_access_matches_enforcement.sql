@@ -61,9 +61,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_effect text, p_level text,
@@ -167,7 +167,7 @@ begin
   perform pg_temp.override(v_s, k, 'club', v_club, null, 'grant', 'CLUB', v_ca);
   insert into scenarios values ('club-allow', v_s, k, 'club', v_club, null, null), ('club-allow-inherits', v_s, k, 'team', v_club, v_team, null);
 
-  v_s := pg_temp.person('E-team-role-at-club'); v_ms := pg_temp.member(v_club, v_s); perform pg_temp.team_role(v_ms, v_team, 'coach');
+  v_s := pg_temp.person('E-team-role-at-club'); v_ms := pg_temp.member(v_club, v_s); perform pg_temp.team_role(v_ms, v_team, 'COACH');
   insert into scenarios values ('team-role-at-club', v_s, k, 'club', v_club, null, null), ('team-role-at-team', v_s, k, 'team', v_club, v_team, null);
 
   insert into scenarios values ('site-admin-club-key', v_full, k, 'club', v_club, null, null),

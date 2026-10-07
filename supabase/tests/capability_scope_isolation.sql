@@ -67,9 +67,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_effect text, p_level text,
@@ -153,6 +153,9 @@ begin
   -- SI1: Club Admin at A, adult Player at B
   v_p := pg_temp.person('SI1'); perform pg_temp.member(v_club_a, v_p, 'CLUB_ADMIN');
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id) values ('Iso', 'Adult', (current_date - interval '30 years')::date, 'MALE', v_p) returning id into v_player;
+  -- Every side here is a youth side; the adult players this suite needs are placed on them by dispensation.
+  insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+  values (v_player, v_team_b, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
   insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team_b, 'active');
   perform pg_temp.check(pg_temp.can_as(v_p, 'finance.payment.act', 'club', v_club_a)
                         and pg_temp.can_as(v_p, 'fixture.fixture.edit', 'team', v_club_a, v_team_a)
@@ -168,8 +171,8 @@ begin
     'SI1b: their player authority works in their Club B player scope only');
 
   -- SI2: Coach of Team A, Parent of a child in Team C (another club)
-  v_p := pg_temp.person('SI2'); v_ms := pg_temp.member(v_club_a, v_p); perform pg_temp.team_role(v_ms, v_team_a, 'coach');
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Iso', 'Child C', (current_date - interval '9 years')::date, 'MALE') returning id into v_child;
+  v_p := pg_temp.person('SI2'); v_ms := pg_temp.member(v_club_a, v_p); perform pg_temp.team_role(v_ms, v_team_a, 'COACH');
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Iso', 'Child C', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_child, v_team_c, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_p, v_child, 'parent', 'active');
   perform pg_temp.check(pg_temp.can_as(v_p, 'fixture.fixture.create', 'team', v_club_a, v_team_a)
@@ -187,10 +190,12 @@ begin
   v_multi := pg_temp.person('SI3 Multi');
   insert into public.site_admins (user_id, status, admin_role) values (v_multi, 'active', 'club_data');
   perform pg_temp.member(v_club_a, v_multi, 'CLUB_ADMIN');
-  v_ms := pg_temp.member(v_club_b, v_multi); perform pg_temp.team_role(v_ms, v_team_b, 'coach');
+  v_ms := pg_temp.member(v_club_b, v_multi); perform pg_temp.team_role(v_ms, v_team_b, 'COACH');
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id) values ('Iso', 'Multi', (current_date - interval '28 years')::date, 'MALE', v_multi) returning id into v_player;
+  insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+  values (v_player, v_team_c, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
   insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team_c, 'active');
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Iso', 'Multi Child', (current_date - interval '8 years')::date, 'MALE') returning id into v_child2;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Iso', 'Multi Child', internal.date_of_birth_in_age_grade('union', 'U14'), 'MALE') returning id into v_child2;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_child2, v_team_a2, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_multi, v_child2, 'guardian', 'active');
   perform pg_temp.check(
@@ -240,7 +245,7 @@ begin
     'SI5e: re-admission creates new history: a Member again, not the old Fixtures Secretary (' || v_state || ')');
 
   -- SI6: role state, immediately
-  v_p := pg_temp.person('SI6'); v_ms := pg_temp.member(v_club_c, v_p); perform pg_temp.team_role(v_ms, v_team_c, 'manager');
+  v_p := pg_temp.person('SI6'); v_ms := pg_temp.member(v_club_c, v_p); perform pg_temp.team_role(v_ms, v_team_c, 'TEAM_MANAGER');
   select id into v_ra from public.role_assignments where membership_id = v_ms and role_key = 'TEAM_MANAGER' and state = 'ACTIVE';
   perform pg_temp.check(pg_temp.can_as(v_p, 'team.roster.manage', 'team', v_club_c, v_team_c), 'SI6a: active Team Manager manages the roster');
   v_state := pg_temp.try_as(v_ca_c, format('select public.transition_role_assignment(%L, ''SUSPENDED'', ''isolation suite'')', v_ra));
@@ -253,6 +258,9 @@ begin
   -- SI7: team place ended
   v_p := pg_temp.person('SI7');
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id) values ('Iso', 'Mover', (current_date - interval '24 years')::date, 'MALE', v_p) returning id into v_player;
+  insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+  values (v_player, v_team_a, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE'),
+         (v_player, v_team_a2, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
   insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team_a, 'active') returning id into v_ptm;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team_a2, 'active') returning id into v_ptm2;
   update public.player_team_memberships set state = 'ENDED', status = 'ended', ended_at = now() where id = v_ptm;
@@ -262,7 +270,7 @@ begin
 
   -- SI8: family states
   v_g := pg_temp.person('SI8 Guardian');
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway, created_by) values ('Iso', 'Family', (current_date - interval '7 years')::date, 'MALE', v_g) returning id into v_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway, created_by) values ('Iso', 'Family', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE', v_g) returning id into v_child;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_child, v_team_c, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_g, v_child, 'parent', 'pending') returning id into v_rel;
   perform pg_temp.check(not pg_temp.can_as(v_g, 'player.profile.edit', 'child', null, null, v_child)
@@ -278,7 +286,7 @@ begin
     'SI8d: REVOKED ends it everywhere');
   -- nothing inferred: same surname, same club membership, coaching the child's team
   v_p := pg_temp.person('Family');
-  v_ms := pg_temp.member(v_club_c, v_p); perform pg_temp.team_role(v_ms, v_team_c, 'coach');
+  v_ms := pg_temp.member(v_club_c, v_p); perform pg_temp.team_role(v_ms, v_team_c, 'COACH');
   perform pg_temp.check(not pg_temp.can_as(v_p, 'player.profile.edit', 'child', null, null, v_child)
                         and not pg_temp.can_as(v_p, 'matchcentre.attendance.respond', 'child', null, null, v_child)
                         and not pg_temp.can_as(v_ca_c, 'player.profile.edit', 'child', null, null, v_child),

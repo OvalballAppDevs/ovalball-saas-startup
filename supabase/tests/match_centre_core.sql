@@ -27,13 +27,34 @@ declare
   v_other_guardian uuid := gen_random_uuid();
   v_stranger uuid := gen_random_uuid();
   v_club uuid; v_team uuid; v_dir uuid; v_season uuid;
-  v_fixture uuid; v_child uuid; v_other_child uuid;
+  v_fixture uuid; v_child uuid; v_other_child uuid; v_own_dir uuid;
+  v_tag text := substr(gen_random_uuid()::text, 1, 8);
   v_r record; v_n int; v_msg text;
 begin
-  select c.id into v_club from public.clubs c
-  join public.club_directory d on d.id = c.directory_id where d.normalized_key = 'ovalball-uat-rufc';
-  if v_club is null then raise exception 'FAIL setup: local UAT club missing'; end if;
-  select id into v_team from public.teams where club_id = v_club and age_group = 'U12' and squad_designation is null limit 1;
+  -- ITS OWN CLUB AND ITS OWN TEAM, NOT THE REVIEW WORLD'S.
+  --
+  -- This borrowed the persistent UAT club's `Under 12 Boys` side and booked it a fixture five days
+  -- out. That side is the product owner's review data and carries real fixtures, so the
+  -- one-match-per-day rule refused the insert and the whole suite errored -- a collision with the
+  -- review world rather than anything about Match Centre. A second U12 boys side cannot be added to
+  -- that club either, because a canonical team identity is unique within a club, so the suite seeds
+  -- the whole thing: directory row, club, team.
+  insert into public.club_directory (name, town, county, rugby_code, country, nation, active,
+                                     verification_status, source, normalized_key)
+  values ('MCC Test RUFC ' || v_tag, 'T', 'T', 'union', 'United Kingdom', 'England', true,
+          'unverified', 'site_admin_manual', 'mcc-' || v_tag)
+  returning id into v_own_dir;
+  insert into public.clubs (directory_id, slug, status)
+  values (v_own_dir, 'mcc-' || v_tag, 'active') returning id into v_club;
+  -- ITS OWN TEAM, NOT THE REVIEW WORLD'S.
+  --
+  -- This borrowed the club's persistent `Under 12 Boys` side and booked it a fixture five days out.
+  -- That side is the product owner's review data and carries real fixtures, so the one-match-per-day
+  -- rule refused the insert and the whole suite errored -- a collision with the review world rather
+  -- than anything about Match Centre. A suite seeds what it needs.
+  insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
+  values (v_club, 'Under 12 Boys', 'mcc-u12-' || v_tag, 'youth', 'U12', 'boys', 'union', true)
+  returning id into v_team;
   select id into v_dir from public.club_directory where normalized_key <> 'ovalball-uat-rufc' limit 1;
   select id into v_season from public.seasons where starts_on <= current_date and ends_on >= current_date limit 1;
 
@@ -47,8 +68,8 @@ begin
   end loop;
   insert into public.club_memberships (user_id, club_id, role, status) values (v_staff, v_club, 'CLUB_ADMIN', 'active');
 
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Mccchild','Mccfamily','2014-03-03', 'MALE') returning id into v_child;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Mccother','Mccfamily','2014-04-04', 'MALE') returning id into v_other_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Mccchild','Mccfamily',internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Mccother','Mccfamily',internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_other_child;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_child, v_team, 'active');
   insert into public.player_team_memberships (player_id, team_id, status) values (v_other_child, v_team, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_guardian, v_child, 'guardian', 'active');

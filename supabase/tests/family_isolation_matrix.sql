@@ -61,9 +61,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_effect text, p_level text,
@@ -207,6 +207,9 @@ insert into isolation_domain values
   -- 4b teams and roster
   ('teams', '4b'), ('team_aliases', '4b'), ('team_contacts', '4b'), ('team_season_identity', '4b'), ('team_permissions_legacy', '4b'),
   ('player_team_memberships', '4b'), ('player_club_join_requests', '4b'),
+  -- Squad numbers and positions (20270728) hang off a player's place in one team, and are isolated with
+  -- that roster: the team's roster managers write them, and the public page projects them only where shared.
+  ('team_squad_details', '4b'),
   -- 4c fixtures, requests, results, Planner, Import
   ('fixtures', '4c'), ('fixture_import_batches', '4c'), ('player_fixture_attendance', '4c'), ('fixture_player_call_up', '4c'),
   ('club_opponent_notes', '4c'),
@@ -222,6 +225,9 @@ insert into isolation_domain values
   ('venues', '4e'), ('club_pitches', '4e'), ('pitch_allocation_proposals', '4e'), ('scheduling_groups', '4e'),
   ('scheduling_group_members', '4e'), ('club_scheduling_policy', '4e'), ('training_plans', '4e'), ('training_sessions', '4e'),
   ('club_events', '4e'), ('club_event_teams', '4e'),
+  -- Events (20270729): answers, named invitees, external guests and the delivery ledger, isolated with
+  -- the event they belong to.
+  ('club_event_responses', '4e'), ('club_event_invitees', '4e'), ('club_event_guests', '4e'), ('club_event_deliveries', '4e'),
   -- 4f messaging and notifications
   ('club_announcements', '4f'), ('club_message_blocks', '4f'), ('message_policies', '4f'), ('team_conversations', '4f'),
   ('messenger_announcement_deliveries', '4f'), ('email_deliveries', '4f'),
@@ -231,6 +237,10 @@ insert into isolation_domain values
   -- 4h club administration and finance
   ('club_setup_state', '4h'), ('club_kits', '4h'), ('club_contacts', '4h'), ('club_articles', '4h'),
   ('club_subscription_programmes', '4h'), ('membership_obligations', '4h'), ('player_subscription_payers', '4h'),
+  -- Club Memberships (20270748000000): a club's memberships, the teams each covers, a player's chosen membership
+  -- and the club's agreement to Ovalball's terms -- isolated with the club's finance, read only by its finance holders.
+  ('membership_products', '4h'), ('membership_product_teams', '4h'), ('membership_player_products', '4h'),
+  ('club_membership_terms_acceptances', '4h'),
   ('finance_audit_log', '4h'), ('gocardless_billing_requests', '4h'), ('gocardless_customers', '4h'), ('gocardless_events', '4h'),
   ('gocardless_mandates', '4h'), ('gocardless_merchant_connections', '4h'), ('gocardless_payments', '4h'),
   ('gocardless_payouts', '4h'), ('gocardless_subscriptions', '4h'), ('platform_club_subscriptions', '4h'),
@@ -243,6 +253,9 @@ insert into isolation_domain values
   -- Slice 5: the canonical invitation replacing the six legacy tables above it. Classified to the
   -- same 'people' domain as the legacy invitations it supersedes, so the isolation sweep covers it.
   ('access_invitations', 'people'),
+  -- Team codes place players (20270741): a redemption now names the player a team code was used for.
+  -- Definer-only, like the invitation it records; no browser role reads it.
+  ('invitation_redemptions', 'people'),
   ('access_review_items', 'people'), ('club_join_requests', 'people'), ('invitations', 'people'), ('invitation_teams', 'people'),
   -- platform, public and Ovalball support (Slice 7 / public read)
   ('security_events', 'platform'), ('site_admin_diagnostic_sessions', 'platform'), ('support_tickets', 'platform'),
@@ -276,9 +289,9 @@ begin
   v_admin := pg_temp.iput('adminA', pg_temp.person('Iso Admin')); perform pg_temp.member(v_a, v_admin, 'CLUB_ADMIN');
 
   v_pa := pg_temp.iput('PA', pg_temp.person('Parent A')); v_pb := pg_temp.iput('PB', pg_temp.person('Parent B')); v_pc := pg_temp.iput('PC', pg_temp.person('Parent C'));
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Child', 'A', (current_date - interval '11 years')::date, 'MALE') returning id into v_ca;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Child', 'B', (current_date - interval '13 years')::date, 'MALE') returning id into v_cb;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Child', 'C', (current_date - interval '11 years')::date, 'MALE') returning id into v_cc;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Child', 'A', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_ca;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Child', 'B', internal.date_of_birth_in_age_grade('union', 'U14'), 'MALE') returning id into v_cb;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Child', 'C', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_cc;
   perform pg_temp.iput('CA', v_ca); perform pg_temp.iput('CB', v_cb); perform pg_temp.iput('CC', v_cc);
   insert into public.player_team_memberships (player_id, team_id, status) values (v_ca, v_ta1, 'active'), (v_cb, v_ta2, 'active'), (v_cc, v_tb, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_pa, v_ca, 'parent', 'active'), (v_pb, v_cb, 'parent', 'active'), (v_pc, v_cc, 'parent', 'active');
@@ -289,7 +302,7 @@ begin
   insert into public.guardian_link_requests (kind, status, requested_by_user_id, subject_user_id, invited_email, club_id, target_player_id)
     values ('ADDITIONAL_GUARDIAN', 'PENDING', v_pa, null, 'second.parent@ovalball.test', v_a, v_ca);
   insert into public.player_duplicate_reviews (team_id, submitted_first_name, submitted_surname, submitted_date_of_birth, submitted_playing_pathway, matched_player_id, submitted_by, requesting_guardian_user_id)
-    values (v_ta1, 'Child', 'A', (current_date - interval '11 years')::date, 'MALE', v_ca, v_pa, v_pa);
+    values (v_ta1, 'Child', 'A', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE', v_ca, v_pa, v_pa);
   insert into public.guardian_invitations (club_id, team_id, invited_email, invited_by_user_id, replacement_for_player_id)
     values (v_a, v_ta1, 'replacement@ovalball.test', v_admin, v_ca);
 

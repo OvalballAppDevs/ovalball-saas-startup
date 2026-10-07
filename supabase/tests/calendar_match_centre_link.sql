@@ -61,7 +61,7 @@ begin
   insert into public.teams (club_id, rugby_code, category, age_group, gender, active) values (v_club,'union','youth','U12','boys',true) returning id into v_team;
   insert into public.teams (club_id, rugby_code, category, age_group, gender, squad_designation, active) values (v_club,'union','youth','U12','boys','B',true) returning id into v_team_b;
 
-  insert into public.players (first_name, surname, date_of_birth, active, playing_pathway) values ('CMC','Child','2014-05-01',true, 'MALE') returning id into v_player;
+  insert into public.players (first_name, surname, date_of_birth, active, playing_pathway) values ('CMC','Child',internal.date_of_birth_in_age_grade('union', 'U12'),true, 'MALE') returning id into v_player;
   insert into public.players (first_name, surname, date_of_birth, active, playing_pathway) values ('CMC','Unrelated','2014-05-01',true, 'MALE') returning id into v_other_player;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_guardian, v_player, 'parent', 'active');

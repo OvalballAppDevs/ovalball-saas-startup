@@ -15,7 +15,8 @@
 --         functions are service-role only, and the result shapes the phone consumes carry no secret
 --   CF-E  the functions the phone calls are the web's, by name and signature, executable by authenticated
 --   CF-F  the club administrator does the work: idempotent generation, a waive with its audit row, an export with
---         its audit row, an effective-dated price, a sibling rule, a first-payment preview, the connection status
+--         its audit row, an effective-dated price, a sibling rule, a first-payment preview, the connection status,
+--         and a settings save through configure -- which can no longer switch the programme off (or on)
 --   CF-G  H20 and H25 are untouched by this slice: finance.subscription.view is still {club,team}, not inherited
 --         to team, ceiling C; the TM bundle row is present; no other finance key has team scope
 --
@@ -106,11 +107,11 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.player(p_label text, p_years int, p_team uuid) returns uuid language plpgsql as $$
+create or replace function pg_temp.player(p_label text, p_age text, p_team uuid) returns uuid language plpgsql as $$
 declare v uuid;
 begin
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('P', p_label, (current_date - (p_years || ' years')::interval)::date, 'MALE') returning id into v;
+  values ('P', p_label, internal.date_of_birth_in_age_grade('union', p_age), 'MALE') returning id into v;
   insert into public.player_team_memberships (player_id, team_id, state) values (v, p_team, 'ACTIVE');
   return v;
 end $$;
@@ -149,24 +150,28 @@ begin
   perform pg_temp.member(v_club, v_admin, 'CLUB_ADMIN');
   perform pg_temp.member(v_club, v_viewer, 'BASIC_USER');
   v_ms_tm := pg_temp.member(v_club, v_tm, 'BASIC_USER');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_tm, v_t12, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_tm, v_t12, 'TEAM_MANAGER');
   perform pg_temp.member(v_club_b, v_admin_b, 'CLUB_ADMIN');
   v_admin_sess := pg_temp.session(v_admin, 'aal2', true);
   v_viewer_sess := pg_temp.session(v_viewer, 'aal1', false);
   v_tm_sess := pg_temp.session(v_tm, 'aal1', false);
   v_admin_b_sess := pg_temp.session(v_admin_b, 'aal2', true);
-  v_child12 := pg_temp.player('Child12', 11, v_t12);
-  v_child14 := pg_temp.player('Child14', 13, v_t14);
+  v_child12 := pg_temp.player('Child12', 'U12', v_t12);
+  v_child14 := pg_temp.player('Child14', 'U14', v_t14);
 
-  -- The programme and the price through the web's own operations, as the Club Admin.
+  -- The programme and the price through the web's own operations, as the Club Admin. configure sets a programme
+  -- up switched off: only Activate switches memberships on.
   perform pg_temp.act('authenticated', v_admin, v_admin_sess);
-  v_programme := public.configure_subscription_programme(v_club, true, 1, 'NONE', 'PRORATE_CURRENT_MONTH');
+  v_programme := public.configure_subscription_programme(v_club, false, 1, 'GOCARDLESS_APP_FEE', 'PRORATE_CURRENT_MONTH');
   perform public.set_subscription_price(v_programme, 1500, current_date);
   -- The view-only holder: the web's own override operation, at club scope, for the one key.
   perform public.set_capability_override(v_viewer, 'finance.subscription.view', 'club', v_club, null, 'grant', 'CA-M11.1 suite: a view-only finance holder', null);
   perform pg_temp.act('authenticated', v_admin_b, v_admin_b_sess);
-  v_programme_b := public.configure_subscription_programme(v_club_b, true, 1, 'NONE', 'NEXT_COLLECTION_DAY');
+  v_programme_b := public.configure_subscription_programme(v_club_b, false, 1, 'GOCARDLESS_APP_FEE', 'NEXT_COLLECTION_DAY');
   perform pg_temp.act_postgres();
+  -- FIXTURE STEP, as postgres: switch both programmes on directly. Activate would also need the clubs' terms, a
+  -- verified GoCardless account and a priced membership with a team, none of which this suite is about.
+  update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now()) where id in (v_programme, v_programme_b);
 
   select id into v_pricing from public.club_subscription_pricing where programme_id = v_programme order by effective_from desc limit 1;
   insert into public.player_subscription_payers (player_id, programme_id, payer_user_id, relationship, status, created_by)
@@ -195,9 +200,12 @@ begin
   v_k := pg_temp.rows_of(format('select 1 from public.get_membership_operational_detail(%L)', v_payer12));
   perform pg_temp.check(v_n = 2 and v_m >= 0 and v_k = 1, format('CF-A2 reads the ledger (%s rows), the review reasons (%s) and one membership''s detail (%s)', v_n, v_m, v_k));
 
-  v_state := pg_temp.try(format('select public.configure_subscription_programme(%L, true, 5, ''NONE'', ''NEXT_COLLECTION_DAY'')', v_club));
+  v_state := pg_temp.try(format('select public.configure_subscription_programme(%L, true, 5, ''GOCARDLESS_APP_FEE'', ''NEXT_COLLECTION_DAY'')', v_club));
   v_text := pg_temp.try(format('select public.set_subscription_price(%L, 1600, current_date)', v_programme));
   perform pg_temp.check(v_state = '42501' and v_text = '42501', format('CF-A3 refused the programme (%s) and the price (%s)', v_state, v_text));
+  -- Authority is asked before the switch: a call that would switch the programme off is refused on authority too.
+  v_state := pg_temp.try(format('select public.configure_subscription_programme(%L, false, 5, ''GOCARDLESS_APP_FEE'', ''NEXT_COLLECTION_DAY'')', v_club));
+  perform pg_temp.check(v_state = '42501', format('CF-A3b and refused on authority first when the call would switch the programme off (%s)', v_state));
   v_state := pg_temp.try(format('select public.set_obligation_exemption(%L, ''WAIVED'', ''suite'')', v_ob12));
   v_text := pg_temp.try(format('select public.create_membership_obligations_for_period(%L, %L)', v_club, v_this));
   perform pg_temp.check(v_state = '42501' and v_text = '42501', format('CF-A4 refused the waive (%s) and the generation (%s)', v_state, v_text));
@@ -212,9 +220,9 @@ begin
   perform pg_temp.check(v_n = 0 and v_m = 0, format('CF-A7 the connection status (%s rows) and the disconnect impact (%s rows) are empty without the GoCardless and configure keys -- no existence signal, which is why the phone asks the probe first and says "status not shown" rather than drawing "Disconnected"', v_n, v_m));
   perform pg_temp.act_postgres();
   select status into v_text from public.membership_obligations where id = v_ob12;
-  select collection_day into v_n from public.club_subscription_programmes where id = v_programme;
+  select collection_day, enabled into v_n, v_ok from public.club_subscription_programmes where id = v_programme;
   select count(*) into v_m from public.club_subscription_pricing where programme_id = v_programme;
-  perform pg_temp.check(v_text = 'FAILED' and v_n = 1 and v_m = 1, format('CF-A8 nothing changed: obligation %s, collection day %s, %s price row', v_text, v_n, v_m));
+  perform pg_temp.check(v_text = 'FAILED' and v_n = 1 and v_m = 1 and v_ok, format('CF-A8 nothing changed: obligation %s, collection day %s, %s price row, programme still on %s', v_text, v_n, v_m, v_ok));
 
   -- =====================================================================================
   -- CF-B. The Team Manager: their own squad only, through the operation; never the ledger.
@@ -247,8 +255,10 @@ begin
   v_k := pg_temp.rows_of(format('select 1 from public.player_subscription_payers where programme_id = %L', v_programme));
   perform pg_temp.check(v_n = 0 and v_m = 0 and v_k = 0, format('CF-C1 reads no obligation (%s), no programme (%s), no payer (%s) of the other club', v_n, v_m, v_k));
   v_state := pg_temp.try(format('select * from public.get_finance_action_required(%L)', v_club));
-  v_text := pg_temp.try(format('select public.configure_subscription_programme(%L, true, 5, ''NONE'', ''NEXT_COLLECTION_DAY'')', v_club));
+  v_text := pg_temp.try(format('select public.configure_subscription_programme(%L, true, 5, ''GOCARDLESS_APP_FEE'', ''NEXT_COLLECTION_DAY'')', v_club));
   perform pg_temp.check(v_state = '42501' and v_text = '42501', format('CF-C2 refused the review reasons (%s) and the configuration (%s)', v_state, v_text));
+  v_text := pg_temp.try(format('select public.configure_subscription_programme(%L, false, 5, ''GOCARDLESS_APP_FEE'', ''NEXT_COLLECTION_DAY'')', v_club));
+  perform pg_temp.check(v_text = '42501', format('CF-C2b and refused on authority first when the call would switch this club''s programme off (%s)', v_text));
   v_state := pg_temp.try(format('select public.create_membership_obligations_for_period(%L, %L)', v_club, v_this));
   v_m := pg_temp.rows_of(format('select 1 from public.get_gocardless_connection_status(%L)', v_club));
   v_n := pg_temp.rows_of(format('select 1 from public.club_platform_billing_state(%L)', v_club));
@@ -346,6 +356,17 @@ begin
   v_n := pg_temp.rows_of(format('select 1 from public.club_platform_billing_state(%L)', v_club));
   perform pg_temp.act_postgres();
   perform pg_temp.check(v_state = 'OK' and v_text = 'OK' and v_n <= 0, format('CF-F7 the Ovalball Plan answers the Club Admin (%s, %s) and not the view-only holder (%s rows)', v_state, v_text, v_n));
+  -- The Club Admin's own configure saves settings only: switching off is Pause's (with a reason), and a save that
+  -- leaves the programme on still works and is audited.
+  perform pg_temp.act('authenticated', v_admin, v_admin_sess);
+  v_state := pg_temp.try(format('select public.configure_subscription_programme(%L, false, 1, ''GOCARDLESS_APP_FEE'', ''PRORATE_CURRENT_MONTH'')', v_club));
+  v_text := pg_temp.try(format('select public.configure_subscription_programme(%L, true, 5, ''GOCARDLESS_APP_FEE'', ''PRORATE_CURRENT_MONTH'')', v_club));
+  perform pg_temp.act_postgres();
+  select enabled, collection_day into v_ok, v_m from public.club_subscription_programmes where id = v_programme;
+  select count(*) into v_n from public.finance_audit_log where club_id = v_club and action = 'programme_configured' and actor_user_id = v_admin and (new_value ->> 'collection_day')::int = 5;
+  select count(*) into v_k from public.finance_audit_log where club_id = v_club and action = 'programme_paused';
+  perform pg_temp.check(v_state = '22023' and v_text = 'OK' and v_ok and v_m = 5 and v_n = 1 and v_k = 0,
+    format('CF-F8 the Club Admin cannot switch the programme off through configure (%s), while a save that leaves it on works (%s): on %s, collection day %s, audited %s, paused %s', v_state, v_text, v_ok, v_m, v_n, v_k));
 
   -- =====================================================================================
   -- CF-G. H20 and H25 untouched by this slice.

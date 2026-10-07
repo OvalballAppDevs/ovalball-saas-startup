@@ -115,12 +115,13 @@ begin
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_b, v_b_admin, 'CLUB_ADMIN', 'active');
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_d, v_d_admin, 'CLUB_ADMIN', 'active');
 
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_mem_a_coach, v_team_a_u12, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_mem_a_coach, v_team_a_u12, 'COACH');
 
   -- A <-> B: active partnership. A <-> D: active partnership (but D's only team is incompatible).
   perform pg_temp.act('authenticated', v_a_admin);
-  insert into public.club_partnerships (requesting_club_id, partner_club_id, requested_by) values (v_club_a, v_club_b, v_a_admin) returning id into v_partnership_ab;
-  insert into public.club_partnerships (requesting_club_id, partner_club_id, requested_by) values (v_club_a, v_club_d, v_a_admin) returning id into v_partnership_ad;
+  -- Asked through the one door (20270743000000): the table takes no direct write.
+  v_partnership_ab := public.request_club_partnership(v_club_a, v_club_b);
+  v_partnership_ad := public.request_club_partnership(v_club_a, v_club_d);
   perform pg_temp.act('authenticated', v_b_admin);
   perform public.respond_to_club_partnership(v_partnership_ab, true);
   perform pg_temp.act('authenticated', v_d_admin);

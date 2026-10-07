@@ -91,7 +91,7 @@ begin
     values (v_person, 'Step', 'Sixteen', 's16-' || v_person::text || '@ovalball.test', (current_date - interval '44 years')::date)
     on conflict (id) do nothing;
   end loop;
-  insert into public.site_admins (user_id, status, admin_role, profile_key) values (v_site, 'active', 'full', 'SITE_FULL');
+  insert into public.site_admins (user_id, status, profile_key) values (v_site, 'active', 'SITE_FULL');
 
   insert into public.constituent_bodies (rugby_code, nation, canonical_name, short_name, body_type, active, source)
   values ('union', 'England', 'S16 County RFU ' || v_tag, 'S16 ' || v_tag, 'GEOGRAPHIC', true, 'local_test')
@@ -447,10 +447,16 @@ begin
       where n.nspname = 'internal' and p.proname = 'capability_decision') !~ 'p_organisation|p_body',
     'J2 and was not given an organisation parameter -- that is a whole-platform change, not a sprint one');
 
-  -- The dispensation chain is untouched for the third step running.
+  -- The dispensation chain is untouched for the third step running. The one dispensation workflow
+  -- (20270742000000) replaced decide_player_dispensation; the governing-body stage is still the club's
+  -- attestation -- the officer records a reference the club holds off-platform, through
+  -- decide_dispensation or record_dispensation_reference -- and neither asks a governing body anything.
   perform pg_temp.check(
-    (select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-      where n.nspname = 'public' and p.proname = 'decide_player_dispensation') !~ 'constituent_body|can_manage_body',
+    (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname in ('decide_dispensation', 'record_dispensation_reference')) = 2
+    and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname in ('decide_dispensation', 'record_dispensation_reference')
+        and pg_get_functiondef(p.oid) ~ 'constituent_body|can_manage_body'),
     'J3 the dispensation governing-body stage is still the club''s attestation');
   select count(*) into v_n from information_schema.columns
    where table_schema = 'public' and table_name = 'player_team_dispensation' and column_name ~ 'constituent_body';
@@ -469,9 +475,38 @@ begin
   select count(*) into v_n from information_schema.tables
    where table_schema = 'public' and table_name ~ 'governing.*invit|body.*invit';
   perform pg_temp.check(v_n = 0, 'J6 no second invitation table appeared');
-  select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname in ('public','internal') and p.prosrc ~* 'points_for|league_position|standings';
-  perform pg_temp.check(v_n = 0, 'J7 and standings are still computed in exactly one place, which is not SQL');
+  -- STANDINGS ARE COMPUTED IN EXACTLY ONE PLACE, and this is what that means now.
+  --
+  -- This assertion used to read "and that place is not SQL", and counted every function mentioning
+  -- points for, a league position or standings, expecting none. That was true of the estate it was
+  -- written against: nothing computed standings at all. It stopped being the right test when the
+  -- Tournament Results phase built a competition table -- deliberately in SQL, because the table is a
+  -- PROJECTION resolved at read time and its privacy boundary cannot be delegated to a client.
+  --
+  -- WHAT J7 WAS PROTECTING IS A SECOND COMPUTATION, and the comment above it says so. So it now names
+  -- the one authority and fails on anything else, which is strictly stronger than counting to zero:
+  -- the governing-body step still cannot grow its own standings, and neither can anybody else.
+  select string_agg(n.nspname || '.' || p.proname, ', ' order by p.proname) into v_txt
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname in ('public','internal')
+     -- The Tri-Fixture switch (20270666) RECORDS whether a competition keeps a table; it computes none.
+     -- Its identifiers are removed before the search so the guard still catches any real second
+     -- computation -- points_for, league_position, a standings query -- in those same bodies.
+     and regexp_replace(p.prosrc, 'standings_enabled|has_standings|hasStandings|keepsStandings|standingsEnabled|standingsChoice', '', 'gi')
+         ~* 'points_for|league_position|standings'
+     and p.proname not in ('tournament_table_standings', 'tournament_table_ordered',
+                           'tournament_head_to_head', 'tournament_result_counts',
+                           'get_tournament_tables', 'set_tournament_plan_settings');
+  perform pg_temp.check(v_txt is null,
+    format('J7 standings are computed in exactly one place -- the tournament table authority -- and nowhere else (%s)',
+           coalesce(v_txt, 'nowhere else')));
+
+  -- AND THAT ONE PLACE STILL EXISTS. An allowlist that outlives the thing it allows would pass by
+  -- describing an empty estate, which is how this assertion came to be wrong in the first place.
+  perform pg_temp.check(
+    (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'internal' and p.proname = 'tournament_table_standings') = 1,
+    'J7b and the authority it names is real -- an allowlist that outlives what it allows proves nothing');
   select string_agg(p.proname, ', ') into v_txt
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname in ('public','internal')

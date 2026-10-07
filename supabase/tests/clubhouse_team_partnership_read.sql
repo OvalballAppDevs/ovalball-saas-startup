@@ -98,15 +98,15 @@ begin
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_c, v_c_coach, 'BASIC_USER', 'active') returning id into v_mem_c_coach;
 
   -- Team-scoped Coach bundle, real fixture.request.create at TEAM scope, no club-level role.
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_mem_a_coach, v_team_a1, 'coach');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_mem_c_coach, v_team_c1, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_mem_a_coach, v_team_a1, 'COACH');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_mem_c_coach, v_team_c1, 'COACH');
 
   -- =====================================================================
   -- SETUP: Club A requests, Club B accepts -- an ordinary, real, ACTIVE partnership.
   -- =====================================================================
   perform pg_temp.act('authenticated', v_a_admin);
-  insert into public.club_partnerships (requesting_club_id, partner_club_id, requested_by)
-  values (v_club_a, v_club_b, v_a_admin) returning id into v_partnership;
+  -- Asked through the one door (20270743000000): the table takes no direct write.
+  v_partnership := public.request_club_partnership(v_club_a, v_club_b);
   perform pg_temp.check(v_partnership is not null, 'SETUP authorised Club A admin can request partnership with Club B');
 
   perform pg_temp.act('authenticated', v_b_admin);
@@ -150,8 +150,7 @@ begin
   perform pg_temp.check(pg_temp.try(format('select public.revoke_club_partnership(%L)', v_partnership)) = '42501',
     'M1 the Coach cannot revoke the partnership they can now truthfully see');
   perform pg_temp.act('authenticated', v_a_admin);
-  insert into public.club_partnerships (requesting_club_id, partner_club_id, requested_by)
-  values (v_club_a, v_club_c, v_a_admin) returning id into v_partnership;
+  v_partnership := public.request_club_partnership(v_club_a, v_club_c);
   perform pg_temp.act('authenticated', v_a_coach);
   perform pg_temp.check(pg_temp.try(format('select public.respond_to_club_partnership(%L, true)', v_partnership)) = '42501',
     'M2 the Coach cannot accept/respond to a pending request either (not the invited side, and no authority even if they were)');

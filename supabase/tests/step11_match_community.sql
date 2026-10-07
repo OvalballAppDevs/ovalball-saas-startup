@@ -137,15 +137,15 @@ begin
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_c, v_stranger, 'CLUB_ADMIN', 'active');
 
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Ada', 'One ' || v_tag, (current_date - interval '11 years')::date, 'MALE') returning id into v_child1;
+  values ('Ada', 'One ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child1;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Bo', 'Two ' || v_tag, (current_date - interval '11 years')::date, 'MALE') returning id into v_child2;
+  values ('Bo', 'Two ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child2;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Cy', 'Three ' || v_tag, (current_date - interval '11 years')::date, 'MALE') returning id into v_child3;
+  values ('Cy', 'Three ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child3;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
   values ('Dee', 'Adult ' || v_tag, (current_date - interval '26 years')::date, 'MALE', v_adult) returning id into v_adult_player;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Eli', 'Eighteen ' || v_tag, (current_date - interval '17 years')::date, 'MALE') returning id into v_u18_player;
+  values ('Eli', 'Eighteen ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U18'), 'MALE') returning id into v_u18_player;
 
   insert into public.player_team_memberships (player_id, team_id, state) values
     (v_child1, v_u12, 'ACTIVE'), (v_child2, v_u12, 'ACTIVE'),
@@ -193,18 +193,22 @@ begin
 
   -- =====================================================================
   -- A. THE ELECTORATE FOLLOWS THE SIDE'S AGE
+  --
+  -- The canonical names became "Parents' / Players' Player of the Match" with the Match Centre
+  -- consolidation (owner brief, 2026-10-03, 20270727). What A and H pin is unchanged: the same
+  -- category is named for its electorate, and a team's own name for it is presentation only.
   -- =====================================================================
   perform pg_temp.act_postgres();
   select internal.match_award_display_name('FAMILY_OR_SELF_PLAYER', v_u12) into v_text;
-  perform pg_temp.check(v_text = 'Parents'' Player', format('A1 a youth side calls it Parents'' Player (got %s)', v_text));
+  perform pg_temp.check(v_text = 'Parents'' Player of the Match', format('A1 a youth side calls it Parents'' Player of the Match (got %s)', v_text));
 
   select internal.match_award_display_name('FAMILY_OR_SELF_PLAYER', v_adult_team) into v_text;
-  perform pg_temp.check(v_text = 'Players'' Player', format('A2 an adult side calls the same category Players'' Player (got %s)', v_text));
+  perform pg_temp.check(v_text = 'Players'' Player of the Match', format('A2 an adult side calls the same category Players'' Player of the Match (got %s)', v_text));
 
   -- THE LOCKED DECISION. U18 is exactly where somebody would switch to player voting; the product
   -- decision was not to, so the top of the youth range keeps the parents' electorate.
   select internal.match_award_display_name('FAMILY_OR_SELF_PLAYER', v_u18) into v_text;
-  perform pg_temp.check(v_text = 'Parents'' Player', format('A3 U18 keeps Parents'' Player (got %s)', v_text));
+  perform pg_temp.check(v_text = 'Parents'' Player of the Match', format('A3 U18 keeps Parents'' Player of the Match (got %s)', v_text));
 
   perform pg_temp.act('authenticated', v_coach);
   select public.open_match_award(v_f_played, v_u12, 'FAMILY_OR_SELF_PLAYER') into v_award;
@@ -422,13 +426,13 @@ begin
   select internal.match_award_display_name('FAMILY_OR_SELF_PLAYER', v_u12) into v_text;
   perform pg_temp.check(v_text = 'Clubhouse Player', format('H1 a team may call the award what its club calls it (got %s)', v_text));
   select name_youth into v_text from public.match_award_categories where category_key = 'FAMILY_OR_SELF_PLAYER';
-  perform pg_temp.check(v_text = 'Parents'' Player', format('H2 and the canonical category is untouched by it (got %s)', v_text));
+  perform pg_temp.check(v_text = 'Parents'' Player of the Match', format('H2 and the canonical category is untouched by it (got %s)', v_text));
   perform pg_temp.check(internal.match_award_can_vote(v_award, v_parent2) = true
                         and internal.match_award_can_vote(v_award, v_stranger) = false
                         and internal.match_award_can_vote(v_award2, v_manager) = false,
     'H3 renaming an award moves nobody into or out of its electorate');
   select internal.match_award_display_name('FAMILY_OR_SELF_PLAYER', v_u18) into v_text;
-  perform pg_temp.check(v_text = 'Parents'' Player', format('H4 and one team''s name for it is not another team''s (got %s)', v_text));
+  perform pg_temp.check(v_text = 'Parents'' Player of the Match', format('H4 and one team''s name for it is not another team''s (got %s)', v_text));
 
   -- =====================================================================
   -- I. THE RUGBY IS UNTOUCHED

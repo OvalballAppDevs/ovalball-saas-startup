@@ -174,9 +174,14 @@ begin
   v_json := null;
   v_state := pg_temp.try(format('select * from public.update_fixture_schedule(%L, %L, ''10:30'', %L, %L, null, ''PITCH_ALLOCATION'')', v_fixture, current_date + 7, v_venue, v_pitch));
   perform pg_temp.act_postgres();
-  perform pg_temp.check(v_state = 'OK', format('PA-C1 RECORDED DIVERGENCE (H32): with venue.pitch_allocation.manage withheld, a fixture-edit holder''s placement is still accepted by update_fixture_schedule (%s) -- the RPC asks fixture edit, not the allocation key', v_state));
+  perform pg_temp.check(v_state = 'OK', format('PA-C1 the ordinary schedule writer (time and place together) is still fixture edit (%s)', v_state));
   -- undo that placement so the lifecycle checks below start clean
   update public.fixtures set pitch_id = null, pitch_allocation = null, kickoff_time = null, venue_id = null, status = 'Planned' where id = v_fixture;
+  -- H32 CLOSED (20270762000000): the board places through allocate_fixture_pitch, which asks the allocation key only.
+  perform pg_temp.act('authenticated', v_ca2, v_sess);
+  v_state := pg_temp.try(format('select public.allocate_fixture_pitch(%L, %L)', v_fixture, v_pitch));
+  perform pg_temp.act_postgres();
+  perform pg_temp.check(v_state = '42501', format('PA-C1b with venue.pitch_allocation.manage withheld, fixture edit alone does NOT allocate a pitch on the board (%s)', v_state));
   -- a person with manage but WITHOUT fixture edit: a Volunteer given the allocation preset
   declare v_vol uuid; v_ms_vol uuid;
   begin
@@ -193,7 +198,13 @@ begin
     v_state := pg_temp.try(format('select * from public.update_fixture_schedule(%L, %L, ''10:30'', %L, %L, null, ''PITCH_ALLOCATION'')', v_fixture, current_date + 7, v_venue, v_pitch));
     v_text := pg_temp.try(format('insert into public.pitch_allocation_proposals (club_id, proposal_date, created_by) values (%L, current_date, %L)', v_club, v_vol));
     perform pg_temp.act_postgres();
-    perform pg_temp.check(v_n = 1 and v_m = 0 and v_state = '42501' and v_text = 'OK', format('PA-C2 a manage holder without fixture edit may build a proposal (%s) but the placement write is refused (%s) -- the same on both clients', v_text, v_state));
+    perform pg_temp.check(v_n = 1 and v_m = 0 and v_state = '42501' and v_text = 'OK', format('PA-C2 a manage holder without fixture edit builds a proposal (%s); a kick-off move through the schedule writer stays fixture edit (%s)', v_text, v_state));
+    perform pg_temp.act('authenticated', v_vol, v_sess);
+    v_state := pg_temp.try(format('select public.allocate_fixture_pitch(%L, %L)', v_fixture, v_pitch));
+    perform pg_temp.act_postgres();
+    perform pg_temp.check(v_state = 'OK' and (select pitch_id from public.fixtures where id = v_fixture) = v_pitch,
+      format('PA-C2b H32 CLOSED: the same manage holder, with no fixture edit, allocates the pitch (%s)', v_state));
+    update public.fixtures set pitch_id = null, pitch_allocation = null where id = v_fixture;
   end;
 
   -- PA-D the placement lands the same row from any client

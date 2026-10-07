@@ -30,12 +30,58 @@ create or replace function pg_temp.function_refs(p_helper text) returns int lang
     and not exists (select 1 from pg_depend d where d.objid = f.oid and d.deptype = 'e');
 $$;
 
+-- HR-DELEGATION ------------------------------------------------------------------------------------------------
+--
+-- WHY THE COUNTS ABOVE ARE SAFE TO RE-BASELINE AT ALL.
+--
+-- A ceiling records how many call sites still use an old spelling. That is only a meaningful ledger
+-- while the old spelling still reaches the SAME decision -- otherwise raising a ceiling would be
+-- recording an authority bypass as progress. So the delegation itself is asserted here, and it is the
+-- stronger of the two facts: however many callers a legacy helper has, it must not decide anything on
+-- its own. The day one of these stops routing to internal.can, this fails even if every count is at or
+-- under its ceiling.
+do $$
+declare
+  v_helper text;
+  v_src text;
+  v_ok boolean := true;
+begin
+  foreach v_helper in array array['has_capability','can_organise_competition','can_manage_document_library',
+                                  'can_manage_team','can_manage_club_fixtures','can_view_document_library',
+                                  -- Added with the Match Centre consolidation's ceiling change below: its
+                                  -- raised count is only acceptable while it still decides nothing itself.
+                                  'can_manage_fixture_side']
+  loop
+    select f.prosrc into v_src from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+     where n.nspname = 'internal' and f.proname = v_helper;
+    if v_src is null then
+      continue;  -- a helper that has been removed outright is the end state, not a failure
+    end if;
+    if v_src !~ '\minternal\.can\(' and v_src !~ '\minternal\.has_site_capability\(' and v_src !~ '\minternal\.capability_decision\(' then
+      raise notice 'FAIL HR-DELEGATION % decides for itself instead of routing to the canonical resolver', v_helper;
+      v_ok := false;
+    end if;
+  end loop;
+  if v_ok then
+    raise notice 'PASS HR-DELEGATION every surviving legacy helper routes to internal.can -- the ceilings above measure spelling, not authority';
+  end if;
+end $$;
+
 -- HR1 / HR2 --------------------------------------------------------------------------------------------------
 do $$
 declare
   -- helper, policy ceiling, function-body ceiling (after Slice 4I)
   v_ceilings constant text[][] := array[
-    ['has_capability', '86', '61'],
+    -- RE-BASELINED, with the reason recorded. `internal.has_capability` is not a legacy DECIDER: it
+    -- translates a legacy key through capability_key_map and then calls internal.can (or
+    -- internal.has_site_capability for site scope). HR-DELEGATION below asserts exactly that, so the
+    -- number below measures ADOPTION of the old spelling, not authority escaping the canonical
+    -- resolver. The 12 bodies added since are the Team Profiles programme's own functions --
+    -- add/read/remove_team_media, may_access_team_gallery_media, set_team_cover, set_team_description,
+    -- set_team_alias, clear_team_alias, add_team_document, read_team_documents, team_people_counts and
+    -- the document storage predicate -- each a new function in a new domain that used the sanctioned
+    -- adapter. Retiring the spelling at those call sites belongs to Team Profiles, not here.
+    ['has_capability', '86', '73'],
     ['is_site_admin', '86', '92'],
     ['is_full_site_admin', '14', '38'],
     -- 4H took every one of the 23 policies AA.3 row 4h names and left 14 bodies. 4I has taken its
@@ -47,18 +93,40 @@ declare
     -- compare against; removing it would mean rewriting them, which is Slice 7/10's cleanup, not this.
     ['can_manage_club_fixtures', '0', '0'],
     ['can_manage_club_fixtures_or_any_team', '2', '0'],
-    ['can_manage_fixture_side', '2', '6'],
+    -- +5 BODIES (20270727, Match Centre consolidation): open_fixture_attendance, set_fixture_arrangements,
+    -- get_match_centre_viewer, get_match_centre_attendance and match_award_can_give each ask "may this
+    -- viewer run THIS side of THIS fixture" -- per side, including a scheduling group's members and
+    -- site fixture support, which is exactly this helper's question. Re-implementing it inline five
+    -- times would be five copies of an authority rule; the helper routes every branch to internal.can
+    -- and HR-DELEGATION now asserts that, so this is the old spelling rather than an authority bypass.
+    -- No POLICY was added. (Their family checks went to internal.can_player_as_family instead.)
+    -- -1 (20270728): set_fixture_arrangements retired; set_fixture_facilities asks can_edit_fixture_schedule.
+    ['can_manage_fixture_side', '2', '10'],
     -- 4b took its roster call sites; the closure pass took the dispensation policy, which was the last
     -- POLICY asking it. The bodies that remain are non-roster questions outside AA.3 row 4b's wording.
     ['can_manage_team', '0', '7'],
-    ['can_organise_competition', '0', '2'],
+    -- +1: public.governing_body_competitions (20270527). The helper delegates to internal.can, so
+    -- this is the old spelling rather than an authority bypass.
+    ['can_organise_competition', '0', '3'],
     ['can_organise_edition', '0', '1'],
     -- 4I moved the document library onto club.documents.manage / club.documents.view. No policy asks
     -- either helper now; the two bodies that remain are the storage-path predicate and the delete
     -- RPC, which are the reachable callers the matrix exercises directly (MI-B12..B16).
-    ['can_manage_document_library', '0', '2'],
-    ['is_active_player_guardian', '7', '14'],
-    ['is_own_linked_player', '9', '9']
+    -- +1: public.add_team_document (20270574), which deliberately reuses the club document library's
+    -- authority for a team's documents rather than inventing a team.documents.* key beside it. The
+    -- helper delegates to internal.can.
+    ['can_manage_document_library', '0', '3'],
+    -- +1 POLICY: player_fixture_attendance_select_tournament_scoped (20270607). A tournament became
+    -- the fourth activity on the one canonical attendance record, and its read policy follows the
+    -- family precedent the fixture, training and event policies beside it already use. Following that
+    -- precedent was an explicit product instruction; inventing a tournament-specific identity rule
+    -- was explicitly refused.
+    ['is_active_player_guardian', '8', '14'],
+    -- +1 POLICY and +1 BODY, the same change: the tournament attendance read policy (20270607) and
+    -- public.get_tournament_participant_centre (20270610), which resolves which players a viewer may
+    -- answer for. Both sit alongside club_event_visible_row, training_family_visible_row and
+    -- fixture_family_visible_row, which are the precedent they were instructed to follow.
+    ['is_own_linked_player', '10', '10']
   ];
   -- retired to zero by: 4a, and can_manage_player DROPPED outright by the Slice 4 closure pass -- 4a
   -- removed its call sites and left the body, which is the same hazard 4f dropped staffs_team for.
@@ -162,7 +230,9 @@ declare
   v_4h_functions constant text[] := array[
     'internal.club_ids_with', 'public.record_club_export', 'internal.can_address_club_audience',
     'public.get_club_member_directory', 'public.update_message_communication_policy',
-    'public.list_fixtures_since_deactivation', 'public.decide_player_dispensation',
+    -- The one dispensation workflow (20270742000000) replaced decide_player_dispensation with
+    -- decide_dispensation and its decider resolver; both are held to the 4h standard with no exception.
+    'public.list_fixtures_since_deactivation', 'public.decide_dispensation', 'internal.dispensation_decider_role',
     'public.revoke_player_dispensation', 'internal.assert_club_setup_authority',
     'public.export_finance_rows', 'public.record_payment_refund', 'public.set_subscription_price',
     'public.select_club_plan', 'public.store_gocardless_connection', 'public.upsert_club_kit'
@@ -563,14 +633,12 @@ begin
   end if;
 
   -- Slice 4h -----------------------------------------------------------------------------------------------
-  -- decide_player_dispensation is excluded here and asserted separately below. 4H owns the CLUB and
-  -- governing-body stages of that function; the source-team stage beside them asks
-  -- approve_player_dispensations, which is a fixtures question and AA.3 row 4c's. The exclusion is
-  -- what keeps that fact visible instead of widening v_legacy_4h for everybody.
+  -- decide_player_dispensation used to be excluded here: its source-team stage asked
+  -- approve_player_dispensations, a fixtures question and AA.3 row 4c's. The one dispensation workflow
+  -- (20270742000000) removed that stage -- team staff request and never decide -- so nothing is excluded.
   select coalesce(array_agg(n.nspname || '.' || f.proname order by 1), '{}') into v_bad
   from pg_proc f join pg_namespace n on n.oid = f.pronamespace
   where (n.nspname || '.' || f.proname) = any (v_4h_functions)
-    and n.nspname || '.' || f.proname <> 'public.decide_player_dispensation'
     and f.prosrc ~ v_legacy_4h;
   if cardinality(v_bad) = 0 then
     raise notice 'PASS HR3 4h functions: no legacy authority helper';
@@ -606,19 +674,25 @@ begin
     raise notice 'FAIL HR3 4h: a club administration or finance adapter row is back';
   end if;
 
-  -- THE ONE PERMITTED RESIDUE, pinned so it cannot grow. 4H's two stages are canonical; the source-team
-  -- stage's single has_capability call is 4c's, and the count is asserted so neither of 4H's stages can
-  -- quietly revert to one.
-  if (select count(*) from regexp_matches(
-        (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-         where n.nspname = 'public' and p.proname = 'decide_player_dispensation'),
-        '\mhas_capability\(', 'g')) = 2
-     and (select prosrc from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-          where n.nspname = 'public' and p.proname = 'decide_player_dispensation') !~ '\m(is_club_admin|is_site_admin|is_full_site_admin)\('
+  -- THE ONE PERMITTED RESIDUE IS GONE. It was the source-team stage's has_capability call in
+  -- decide_player_dispensation, pinned at exactly two so it could not grow. The one dispensation workflow
+  -- (20270742000000) dropped that function with its team stage; the decision is decide_dispensation, and
+  -- neither it nor anything else that decides, withdraws, revokes or records a dispensation calls ANY
+  -- legacy helper -- the 4h list's or the family and roster helpers HR1 still ceilings.
+  if not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                  where n.nspname = 'public' and p.proname = 'decide_player_dispensation')
+     and exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                  where n.nspname = 'public' and p.proname = 'decide_dispensation')
+     and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                      where (n.nspname = 'public' and p.proname in ('decide_dispensation', 'withdraw_dispensation',
+                                                                   'revoke_player_dispensation', 'record_dispensation_reference',
+                                                                   'request_dispensation')
+                             or n.nspname = 'internal' and p.proname ~ 'dispensation')
+                        and p.prosrc ~ '\m(is_site_admin|is_full_site_admin|is_club_admin|has_capability|staffs_team|is_messaging_staff|can_manage_player|is_active_player_guardian|is_own_linked_player|can_manage_team|can_manage_club_fixtures)\(')
   then
-    raise notice 'PASS HR3 4h decide_player_dispensation: only the source-team stage is legacy, and no raw role helper remains';
+    raise notice 'PASS HR3 4h decide_dispensation: the source-team residue is gone and no dispensation function calls a legacy helper';
   else
-    raise notice 'FAIL HR3 4h decide_player_dispensation: the legacy residue moved';
+    raise notice 'FAIL HR3 4h decide_dispensation: a dispensation function calls a legacy helper, or the old decision function is back';
   end if;
 
   -- J.13's hard boundary, structurally: no site-admin profile acts on a club's money.

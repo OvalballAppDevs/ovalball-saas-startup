@@ -87,8 +87,8 @@ begin
           internal.resolve_canonical_team_type('youth','U13','boys',null))
   returning id into v_team;
 
-  insert into public.team_permissions (membership_id, team_id, permission)
-  values (v_membership, v_team, 'team_admin');
+  insert into testing.team_roles (membership_id, team_id, role_key)
+  values (v_membership, v_team, 'TEAM_ADMINISTRATION');
 
   -- Three players, and two guardians. The parent count must be 2 (people),
   -- not 3 (relationship rows) -- v_parent guardians two of the children.

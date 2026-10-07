@@ -36,11 +36,11 @@ create or replace function pg_temp.legacy_team_role(p_team_id uuid, p_club_id uu
     when not internal.is_club_active(p_club_id) then false
     when exists (select 1 from public.club_memberships cm where cm.club_id = p_club_id and cm.user_id = auth.uid() and cm.status = 'active' and cm.authority_suspended = false and cm.role = 'CLUB_ADMIN')
       then exists (select 1 from public.role_capability_defaults_legacy d where d.scope_type = 'team' and d.role_key = 'CLUB_ADMIN' and d.capability_key = p_key)
-    when exists (select 1 from public.team_permissions tp join public.club_memberships cm on cm.id = tp.membership_id
-                 where tp.team_id = p_team_id and cm.user_id = auth.uid() and cm.status = 'active' and cm.authority_suspended = false and tp.permission in ('team_admin', 'manager'))
+    when exists (select 1 from testing.team_roles tp join public.club_memberships cm on cm.id = tp.membership_id
+                 where tp.team_id = p_team_id and cm.user_id = auth.uid() and cm.status = 'active' and cm.authority_suspended = false and tp.role_key in ('TEAM_ADMINISTRATION', 'TEAM_MANAGER'))
       then exists (select 1 from public.role_capability_defaults_legacy d where d.scope_type = 'team' and d.role_key = 'TEAM_MANAGER' and d.capability_key = p_key)
-    when exists (select 1 from public.team_permissions tp join public.club_memberships cm on cm.id = tp.membership_id
-                 where tp.team_id = p_team_id and cm.user_id = auth.uid() and cm.status = 'active' and cm.authority_suspended = false and tp.permission = 'coach')
+    when exists (select 1 from testing.team_roles tp join public.club_memberships cm on cm.id = tp.membership_id
+                 where tp.team_id = p_team_id and cm.user_id = auth.uid() and cm.status = 'active' and cm.authority_suspended = false and tp.role_key = 'COACH')
       then exists (select 1 from public.role_capability_defaults_legacy d where d.scope_type = 'team' and d.role_key = 'TEAM_STAFF' and d.capability_key = p_key)
     else false end;
 $$;
@@ -106,8 +106,8 @@ select c.club, p.id, case when p.n <= 50 then 'CLUB_ADMIN' when p.n <= 100 then 
 from bench_people p join bench_clubs c on c.n = ((p.n - 1) % 50) + 1;
 
 -- every 20th person coaches (or manages) a team at their club
-insert into public.team_permissions (membership_id, team_id, permission)
-select cm.id, t.id, case when p.n % 40 = 3 then 'manager' else 'coach' end
+insert into testing.team_roles (membership_id, team_id, role_key)
+select cm.id, t.id, case when p.n % 40 = 3 then 'TEAM_MANAGER' else 'COACH' end
 from bench_people p
 join bench_clubs c on c.n = ((p.n - 1) % 50) + 1
 join public.club_memberships cm on cm.user_id = p.id and cm.club_id = c.club
@@ -176,10 +176,10 @@ from (select avg(ms) m from bench_timings where impl = 'has_capability (Slice 3)
 -- ---------------------------------------------------------------------------------------------
 create temp table bench_page on commit drop as
 select b.club, t.id as team,
-  (select cm.user_id from public.team_permissions tp join public.club_memberships cm on cm.id = tp.membership_id where tp.team_id = t.id and tp.permission = 'coach' limit 1) as coach,
+  (select cm.user_id from testing.team_roles tp join public.club_memberships cm on cm.id = tp.membership_id where tp.team_id = t.id and tp.role_key = 'COACH' limit 1) as coach,
   (select cm.user_id from public.club_memberships cm where cm.club_id = b.club and cm.role = 'CLUB_ADMIN' limit 1) as admin
 from bench_clubs b join bench_teams t on t.club = b.club
-where exists (select 1 from public.team_permissions tp where tp.team_id = t.id and tp.permission = 'coach')
+where exists (select 1 from testing.team_roles tp where tp.team_id = t.id and tp.role_key = 'COACH')
   and exists (select 1 from public.club_memberships cm where cm.club_id = b.club and cm.role = 'CLUB_ADMIN')
 order by b.n
 limit 1;

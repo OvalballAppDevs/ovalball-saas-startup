@@ -74,8 +74,8 @@ begin
   insert into public.club_memberships (id, user_id, club_id, role, status) values
     ('99d00000-0000-0000-0000-000000600002', '99d00000-0000-0000-0000-000000200006', '99d00000-0000-0000-0000-0000000c0002', 'BASIC_USER', 'active')
   on conflict (id) do nothing;
-  insert into public.team_permissions (id, membership_id, team_id, permission) values
-    ('99d00000-0000-0000-0000-000000700001', '99d00000-0000-0000-0000-000000600002', '99d00000-0000-0000-0000-000000110001', 'coach')
+  insert into testing.team_roles (id, membership_id, team_id, role_key) values
+    ('99d00000-0000-0000-0000-000000700001', '99d00000-0000-0000-0000-000000600002', '99d00000-0000-0000-0000-000000110001', 'COACH')
   on conflict (id) do nothing;
   -- User G: a genuinely unrelated Away-club parent, no Home relationship
   -- of any kind -- the negative control for cross-club isolation.

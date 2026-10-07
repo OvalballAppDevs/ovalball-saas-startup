@@ -76,11 +76,11 @@ begin
     ('30000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002', 'union', 'youth', 'U12', 'U12 A', 'u12-a')
   on conflict (id) do nothing;
 
-  insert into public.team_permissions (membership_id, team_id, permission)
+  insert into testing.team_roles (membership_id, team_id, role_key)
   values
-    ('20000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000001', 'team_admin'),
+    ('20000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000001', 'TEAM_ADMINISTRATION'),
     ('20000000-0000-0000-0000-000000000006', '30000000-0000-0000-0000-000000000001', 'view_only'),
-    ('20000000-0000-0000-0000-000000000005', '30000000-0000-0000-0000-000000000001', 'coach')
+    ('20000000-0000-0000-0000-000000000005', '30000000-0000-0000-0000-000000000001', 'COACH')
   on conflict do nothing;
 
   -- Deliberately no club_claims row for the pending claimant (user 8) here
@@ -246,7 +246,7 @@ select case when role = 'BASIC_USER' then 'PASS 9a: team-only invite left the ac
 from public.club_memberships where club_id = '10000000-0000-0000-0000-000000000001' and user_id = '00000000-0000-0000-0000-000000000012';
 select case when count(*) = 1 then 'PASS 9b: acceptor got exactly the one encoded team_permissions row (coach, U12 A)'
   else 'FAIL 9b: expected 1 team_permissions row, found ' || count(*) end
-from public.team_permissions tp
+from testing.team_roles tp
 join public.club_memberships cm on cm.id = tp.membership_id
 where cm.user_id = '00000000-0000-0000-0000-000000000012' and cm.club_id = '10000000-0000-0000-0000-000000000001';
 commit;
@@ -306,10 +306,10 @@ begin;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated"}';
 do $$ begin
-  insert into public.team_permissions (membership_id, team_id, permission, created_by)
-    values ('20000000-0000-0000-0000-000000000006', '30000000-0000-0000-0000-000000000002', 'coach', '00000000-0000-0000-0000-000000000002')
-    on conflict (membership_id, team_id) do update set permission = excluded.permission;
-  if (select count(*) from public.team_permissions where membership_id = '20000000-0000-0000-0000-000000000006') >= 2 then
+  insert into testing.team_roles (membership_id, team_id, role_key, created_by)
+    values ('20000000-0000-0000-0000-000000000006', '30000000-0000-0000-0000-000000000002', 'COACH', '00000000-0000-0000-0000-000000000002')
+    on conflict (membership_id, team_id) do update set role_key = excluded.role_key;
+  if (select count(*) from testing.team_roles where membership_id = '20000000-0000-0000-0000-000000000006') >= 2 then
     raise notice 'PASS 12: Club Admin assigned one person to a second team (now on U12 A and U13 A)';
   else
     raise notice 'FAIL 12: expected the parent-turned-multi-team member to have 2+ team_permissions rows';

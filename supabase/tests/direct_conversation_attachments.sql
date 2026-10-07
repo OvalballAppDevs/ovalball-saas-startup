@@ -323,12 +323,11 @@ begin
   perform pg_temp.check(internal.may_direct_message(v_ann) = false,
     'F2 and a child may not direct-message an adult, in the other direction');
 
-  -- UNKNOWN AGE IS PERMITTED, which is the platform's deliberate answer -- disqualification needs a
-  -- date of birth that RESOLVES to a minor, not merely a missing one. Asserted so that a future change
-  -- to fail closed here is a decision somebody makes rather than a silent drift.
+  -- UNKNOWN AGE IS NEVER ADULT (owner-locked, 20270762000000): somebody whose age is not recorded and who has no
+  -- adult standing of their own is refused, exactly like a known minor.
   perform pg_temp.act('authenticated', v_ann);
-  perform pg_temp.check(internal.may_direct_message(v_unknown) = true,
-    'F3 somebody whose age is not recorded is permitted, and that is deliberate');
+  perform pg_temp.check(internal.may_direct_message(v_unknown) = false,
+    'F3 somebody whose age is not recorded is refused: unknown age is never adult');
 
   perform pg_temp.act_postgres();
   insert into public.direct_conversations (user_a, user_b, created_by)
@@ -337,7 +336,11 @@ begin
   v_txt := pg_temp.try(format(
     'select public.create_message_attachment(''direct'', %L, ''photo'', %L, ''x.jpg'', ''image/jpeg'', 1000)',
     v_unknown_conversation, 'd/' || v_unknown_conversation::text || '/x.jpg'));
-  perform pg_temp.check(v_txt = 'OK', format('F4 so an attachment to them is allowed, consistently with text (%s)', v_txt));
+  perform pg_temp.check(v_txt = '42501', format('F4 so an attachment to them is refused too, consistently with text (%s)', v_txt));
+
+  -- From here on the same person has a recorded adult date of birth, so F5 proves the membership rule, not age.
+  perform pg_temp.act_postgres();
+  update public.profiles set date_of_birth = (current_date - interval '35 years')::date where id = v_unknown;
 
   -- A REVOKED MEMBERSHIP ENDS IT. The relationship that made the pair legitimate was a shared club;
   -- when it goes, so does the ability to attach -- without anybody touching the conversation.

@@ -55,9 +55,9 @@ begin
     ('99c00000-0000-0000-0000-000000000203', '99c00000-0000-0000-0000-0000000c0002', 'union', 'youth', 'U12', 'boys', null, 'Ovie Security Test Away RUFC U12 Boys', 'ovie-sec-away-u12-boys')
   on conflict (id) do nothing;
 
-  insert into public.team_permissions (id, membership_id, team_id, permission) values
+  insert into testing.team_roles (id, membership_id, team_id, role_key) values
     ('99c00000-0000-0000-0000-000000000107', '99c00000-0000-0000-0000-000000000103', '99c00000-0000-0000-0000-000000000105', 'view_only'),
-    ('99c00000-0000-0000-0000-000000000108', '99c00000-0000-0000-0000-000000000104', '99c00000-0000-0000-0000-000000000105', 'coach')
+    ('99c00000-0000-0000-0000-000000000108', '99c00000-0000-0000-0000-000000000104', '99c00000-0000-0000-0000-000000000105', 'COACH')
   on conflict (id) do nothing;
 
   -- A private, sensitive fixture message on a real fixture between the two

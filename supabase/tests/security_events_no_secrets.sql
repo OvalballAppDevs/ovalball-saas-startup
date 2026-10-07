@@ -457,7 +457,41 @@ begin
                                              -- and starting additionally requires recent AAL2 and
                                              -- site.users.impersonate.
                                              'start_impersonation',
-                                             'end_impersonation'))
+                                             'end_impersonation',
+                                             -- Team places (20270348000000, 20270741000000): approving a
+                                             -- pending team place that also approves a guardian link, and
+                                             -- a guardian confirming a place staff or a team code asked
+                                             -- for. The caller supplies a membership id and controls
+                                             -- neither the event nor the actor: the types are the literals
+                                             -- 'guardian.link_approved' and 'player_team.guardian_confirmed',
+                                             -- and the actor comes from internal.actor().
+                                             'approve_pending_team_membership', 'confirm_team_place_request',
+                                             -- The one dispensation workflow (20270742000000): every
+                                             -- transition of a child's age-grade exception is attributable.
+                                             -- The caller supplies a record id, a yes or no, a note and a
+                                             -- governing-body reference, and controls neither the event nor
+                                             -- the actor: each type is a literal in the body -- deciding
+                                             -- picks 'dispensation.approved' or 'dispensation.declined'
+                                             -- from the yes or no it is recording -- the actor comes from
+                                             -- internal.actor(), and the subject is the record's own
+                                             -- requester, read from the row, never a parameter.
+                                             'decide_dispensation', 'withdraw_dispensation',
+                                             'revoke_player_dispensation', 'record_dispensation_reference',
+                                             -- Member payments settle truthfully (20270744000000): connecting
+                                             -- and disconnecting a club's GoCardless account is attributable.
+                                             -- The caller supplies a club, a reason (and, when connecting, the
+                                             -- OAuth result) and controls neither the event nor the actor: the
+                                             -- types are the literals 'payment_provider.connected' and
+                                             -- 'payment_provider.disconnected', the actor is auth.uid(), and the
+                                             -- metadata carries the environment and organisation id -- never the
+                                             -- access token, which is asserted by gocardless_member_payment_integrity.
+                                             'store_gocardless_connection', 'disconnect_gocardless',
+                                             -- ...and GoCardless's own "app disconnected" webhook event, recorded by
+                                             -- the webhook route alone: service_role only (no browser role may run
+                                             -- it). The caller supplies an organisation id and controls neither the
+                                             -- event ('payment_provider.revoked_by_merchant', a literal) nor an actor
+                                             -- (there is none: the merchant acted at GoCardless).
+                                             'record_gocardless_app_disconnected'))
      and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                      where n.nspname = 'public' and p.prosrc ~* 'emit_security_event'
                        and exists (select 1 from unnest(coalesce(p.proargnames, '{}'::text[])) a where a ~* '(event|actor)')) then

@@ -179,8 +179,8 @@ begin
   perform pg_temp.as_person(v_admin);
   v_tp := public.set_team_access(v_m_member, v_team, 'coach', 'Stepping up to help.');
   perform pg_temp.check(v_tp is not null, 'B1 a club admin can give an existing member a team role without re-inviting them');
-  perform pg_temp.check(exists (select 1 from public.team_permissions where id = v_tp and permission = 'coach' and team_id = v_team),
-                        'B2 and the role lands on that team, with that permission');
+  perform pg_temp.check(exists (select 1 from testing.team_roles where id = v_tp and role_key = 'COACH' and team_id = v_team),
+                        'B2 and the role lands on that team, with that role_key');
 
   -- SELF-ASSIGNMENT IS ALLOWED AT CLUB LEVEL, AND THAT IS THE RULE, NOT AN OVERSIGHT.
   -- set_team_access refuses it only from SITE and TEAM_ADMIN callers. A Club Admin already holds

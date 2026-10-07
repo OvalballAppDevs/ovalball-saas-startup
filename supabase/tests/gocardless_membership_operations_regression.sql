@@ -65,10 +65,18 @@ declare
   v_club_id uuid := (select v::uuid from t_ops_state where k = 'club_a');
   v_programme_id uuid;
 begin
-  v_programme_id := public.configure_subscription_programme(v_club_id, true, 1, 'NONE', 'PRORATE_CURRENT_MONTH');
+  v_programme_id := public.configure_subscription_programme(v_club_id, false, 1, 'GOCARDLESS_APP_FEE', 'PRORATE_CURRENT_MONTH');
   perform public.set_subscription_price(v_programme_id, 1500, current_date);
   insert into t_ops_state values ('programme_id', v_programme_id::text);
 end $$;
+
+-- FIXTURE STEP, as postgres: switch the programme on directly. configure cannot switch memberships on -- only
+-- Activate can, after checking terms, GoCardless verification and a priced membership -- and none of that is
+-- what this suite tests. Scenarios 8 and 9 below re-save the programme's settings through configure with it left
+-- on, which configure still allows.
+reset role;
+update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now())
+ where id = (select v::uuid from t_ops_state where k = 'programme_id');
 
 -- Guardian 1 is the FIRST to enrol -- becomes the payer.
 set local role authenticated;
@@ -233,7 +241,7 @@ begin
   set local role authenticated;
   perform set_config('request.jwt.claims', (select json_build_object('sub', v, 'role', 'authenticated')::text from t_ops_state where k = 'admin_a'), true);
   perform public.set_subscription_price(v_programme_id, 9999, current_date + 1);
-  perform public.configure_subscription_programme(v_club_id, true, 1, 'NONE', 'NEXT_COLLECTION_DAY');
+  perform public.configure_subscription_programme(v_club_id, true, 1, 'GOCARDLESS_APP_FEE', 'NEXT_COLLECTION_DAY');
 
   set local role service_role;
   select amount_due_minor, first_payment_policy_used into v_amount_after, v_policy_after
@@ -272,7 +280,7 @@ begin
   -- not currently implement (see final report Section K/M).
   set local role authenticated;
   perform set_config('request.jwt.claims', (select json_build_object('sub', v, 'role', 'authenticated')::text from t_ops_state where k = 'admin_a'), true);
-  perform public.configure_subscription_programme(v_club_id, true, 15, 'NONE', 'NEXT_COLLECTION_DAY');
+  perform public.configure_subscription_programme(v_club_id, true, 15, 'GOCARDLESS_APP_FEE', 'NEXT_COLLECTION_DAY');
   perform public.set_subscription_price(v_programme_id, 2500, current_date + 1);
 
   set local role service_role;

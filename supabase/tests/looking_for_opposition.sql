@@ -58,9 +58,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text default 'coach') returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text default 'COACH') returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.try_as(p_subject uuid, p_sql text) returns text language plpgsql as $$
@@ -136,19 +136,23 @@ begin
   -- always ignored, since they hold nothing to grant with). CLUB_ADMIN gets fixture.request.create/
   -- .respond via its own default role bundle, proven already in arrange_fixture_authority.sql's v_ca.
   v_coach_a := pg_temp.person('CoachA', v_adult); v_mem_coach_a := pg_temp.member(v_club_a, v_coach_a, 'CLUB_ADMIN');
-  perform pg_temp.team_role(v_mem_coach_a, v_a_u12, 'coach');
+  perform pg_temp.team_role(v_mem_coach_a, v_a_u12, 'COACH');
 
   v_member_a := pg_temp.person('MemberA', v_adult); v_mem_member_a := pg_temp.member(v_club_a, v_member_a, 'BASIC_USER');
 
-  -- SAFEGUARDING: a view_only (parent/player) team role at Club A's own team.
+  -- SAFEGUARDING: a parent/player at Club A with NO team staff role.
+  --
+  -- This seeded the legacy 'view_only' value, which the compatibility trigger turned into no role
+  -- assignment at all -- only an access-review item. So the canonical fixture is a club member with
+  -- no team role, which is what the assertions below actually test: somebody holding
+  -- fixture.request.create nowhere sees zero rows.
   v_viewonly_a := pg_temp.person('ViewOnlyA', v_adult); v_mem_viewonly_a := pg_temp.member(v_club_a, v_viewonly_a, 'BASIC_USER');
-  perform pg_temp.team_role(v_mem_viewonly_a, v_a_u12, 'view_only');
 
   v_coach_b := pg_temp.person('CoachB', v_adult); v_mem_coach_b := pg_temp.member(v_club_b, v_coach_b, 'CLUB_ADMIN');
-  perform pg_temp.team_role(v_mem_coach_b, v_b_u12, 'coach');
+  perform pg_temp.team_role(v_mem_coach_b, v_b_u12, 'COACH');
 
   v_coach_c := pg_temp.person('CoachC', v_adult); v_mem_coach_c := pg_temp.member(v_club_c, v_coach_c, 'CLUB_ADMIN');
-  perform pg_temp.team_role(v_mem_coach_c, v_c_u16, 'coach');
+  perform pg_temp.team_role(v_mem_coach_c, v_c_u16, 'COACH');
 
   -- =====================================================================================================
   -- AUTHORITY

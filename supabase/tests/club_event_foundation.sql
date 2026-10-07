@@ -12,12 +12,14 @@
 --     neither, and never another club's venue.
 --   * Teams and pitches are stable ids belonging to the owning club. A forged
 --     one is rejected on the server.
---   * Attendance extends the ONE canonical register: one player + one event =
---     one current response, using the same status vocabulary and the same
---     safeguarding resolver as fixtures and training.
---   * On a shared multi-team event, team-scoped staff see THEIR team's
---     register and no one else's. This is the leak the register function
---     exists to prevent.
+--   * An answer is one row per player per event, in the same status vocabulary
+--     and through the same safeguarding resolver as fixtures and training.
+--     20270729 gave event answers their own table (club_event_responses):
+--     an event also needs adults, guests, food and a waiting list, which the
+--     match register never will. The full event rules are club_event_centre.
+--   * A shared multi-team event's register is its ORGANISERS' (20270729):
+--     team-scoped staff who do not run the whole event see no other team's
+--     players -- now none at all, which still holds the leak this guarded.
 --
 -- Wrapped in begin/rollback: leaves the database exactly as it found it.
 
@@ -87,25 +89,25 @@ insert into public.club_memberships (club_id, user_id, role, status) values (v_c
   returning id into v_membership_a;
 
 insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-values ('Cef','ChildA',(current_date - interval '11 years')::date,'MALE') returning id into v_player_a;
+values ('Cef','ChildA',internal.date_of_birth_in_age_grade('union', 'U12'),'MALE') returning id into v_player_a;
 insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-values ('Cef','ChildB',(current_date - interval '13 years')::date,'MALE') returning id into v_player_b;
+values ('Cef','ChildB',internal.date_of_birth_in_age_grade('union', 'U14'),'MALE') returning id into v_player_b;
 
 insert into public.player_team_memberships (player_id, team_id, status) values (v_player_a, v_team_a, 'active');
 insert into public.player_team_memberships (player_id, team_id, status) values (v_player_b, v_team_b, 'active');
-insert into public.guardians (guardian_user_id, player_id, status) values (v_parent, v_player_a, 'active');
+insert into public.guardians (guardian_user_id, player_id, status, state, relationship_type, source, created_by) values (v_parent, v_player_a, 'active', 'ACTIVE', 'parent', 'SELF_ADDED_CHILD', v_parent);
 
--- TEAM ADMINISTRATION on TEAM A ONLY -- 'team_admin' maps to TEAM_MANAGER,
+-- TEAM ADMINISTRATION on TEAM A ONLY -- 'TEAM_ADMINISTRATION' maps to TEAM_MANAGER,
 -- which is the role profile that holds both team.attendance.view and
 -- calendar.manage at team scope. That single grant is what both the
 -- multi-team leak test and the partial-authority test turn on.
 --
--- Deliberately NOT 'coach': coach maps to TEAM_STAFF, which holds
+-- Deliberately NOT 'COACH': coach maps to TEAM_STAFF, which holds
 -- attendance-view but not calendar.manage. Running a team's training is not
 -- the same as administering the club's event programme, and that narrower
 -- line is the intended one.
-insert into public.team_permissions (membership_id, team_id, permission)
-values (v_membership_a, v_team_a, 'team_admin');
+insert into testing.team_roles (membership_id, team_id, role_key)
+values (v_membership_a, v_team_a, 'TEAM_ADMINISTRATION');
 
 insert into public.club_events (club_id, name, starts_on, ends_on, venue_id, created_by)
 values (v_club, 'CEF Awards Night', current_date + 10, current_date + 10, v_venue, v_clubadmin)
@@ -238,22 +240,24 @@ perform set_config('request.jwt.claims', json_build_object('sub', v_parent, 'rol
 
 perform public.respond_to_event_attendance(v_event, v_player_a, 'ATTENDING');
 perform public.respond_to_event_attendance(v_event, v_player_a, 'CANNOT_ATTEND');
-select count(*) into v_n from public.player_fixture_attendance where event_id = v_event and player_id = v_player_a;
-if v_n = 1 and (select status from public.player_fixture_attendance where event_id = v_event and player_id = v_player_a) = 'CANNOT_ATTEND' then
+perform set_config('role','postgres',true);
+select count(*) into v_n from public.club_event_responses where event_id = v_event and player_id = v_player_a;
+if v_n = 1 and (select status from public.club_event_responses where event_id = v_event and player_id = v_player_a) = 'CANNOT_ATTEND' then
   raise notice 'PASS 13 (D): one player plus one event is one current response, updated in place';
 else
   raise notice 'FAIL 13 (D): % attendance rows after two responses', v_n;
 end if;
 
--- The row is on the SAME register fixtures and training use, and the
--- activity check keeps it about exactly one activity.
+-- An answer is about ONE unit: a player or a person, never both.
 begin
-  insert into public.player_fixture_attendance (event_id, training_session_id, player_id, status, responded_by_user_id, response_source)
-  values (v_event, gen_random_uuid(), v_player_a, 'ATTENDING', v_parent, 'guardian');
-  raise notice 'FAIL 14 (D): one attendance row claimed two activities at once';
+  insert into public.club_event_responses (event_id, player_id, user_id, status, responded_by, response_source)
+  values (v_event, v_player_a, v_parent, 'ATTENDING', v_parent, 'guardian');
+  raise notice 'FAIL 14 (D): one answer claimed a player and a person at once';
 exception when others then
-  raise notice 'PASS 14 (D): an attendance row is about exactly one activity';
+  raise notice 'PASS 14 (D): an answer is about exactly one player or one person';
 end;
+perform set_config('role','authenticated',true);
+perform set_config('request.jwt.claims', json_build_object('sub', v_parent, 'role','authenticated')::text, true);
 
 -- Responding for a player who is not involved in the event.
 begin
@@ -284,11 +288,11 @@ else
   raise notice 'FAIL 16 (E): club admin saw % team(s) on a two-team event', v_n;
 end if;
 
--- Team-scoped authority sees ONLY its own team.
+-- Team-scoped staff who do not run the shared event see no other team's players.
 perform set_config('request.jwt.claims', json_build_object('sub', v_staff_a, 'role','authenticated')::text, true);
 select count(distinct team_id) into v_n from public.get_club_event_register(v_wide);
-if v_n = 1 and not exists (select 1 from public.get_club_event_register(v_wide) r where r.team_id = v_team_b) then
-  raise notice 'PASS 17 (E): team-scoped staff see their own team only -- the other team''s players never appear';
+if not exists (select 1 from public.get_club_event_register(v_wide) r where r.team_id = v_team_b) then
+  raise notice 'PASS 17 (E): team-scoped staff never see the other team''s players on a shared event';
 else
   raise notice 'FAIL 17 (E): team-scoped staff saw % team(s) on a shared event', v_n;
 end if;
@@ -338,7 +342,11 @@ else
   raise notice 'FAIL 19 (F): club-wide event materialised % team row(s)', v_n;
 end if;
 
--- A club-wide event still reaches the club's players.
+-- A club-wide event still reaches the club's players -- on the club's CURRENT sides (20270729), so the
+-- child's side is made active here; this file's other sides are deliberately inactive fixtures.
+perform set_config('role','postgres',true);
+update public.teams set active = true where id = v_team_a;
+perform set_config('role','authenticated',true);
 perform set_config('request.jwt.claims', json_build_object('sub', v_parent, 'role','authenticated')::text, true);
 select count(*) into v_n from public.club_events where name = 'CEF Open Day' and club_id = v_club;
 if v_n = 1 then

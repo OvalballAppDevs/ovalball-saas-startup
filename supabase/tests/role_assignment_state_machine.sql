@@ -118,8 +118,8 @@ begin
   v_ta := public.assign_role(v_ms_coach, 'TEAM_ADMINISTRATION', v_team, null);
   perform pg_temp.act_postgres();
   perform pg_temp.check((select base_assignment_id from public.role_assignments where id = v_ta) = v_co
-    and (select permission from public.team_permissions where membership_id = v_ms_coach and team_id = v_team) = 'team_admin'
-    and (select id from public.team_permissions where membership_id = v_ms_coach and team_id = v_team) = v_ta,
+    and (select role_key from testing.team_roles where membership_id = v_ms_coach and team_id = v_team) = 'TEAM_ADMINISTRATION'
+    and (select id from testing.team_roles where membership_id = v_ms_coach and team_id = v_team) = v_ta,
     'A3: Team Administration rests on the Coach role and the legacy view shows team_admin');
 
   perform pg_temp.act('authenticated', v_admin);
@@ -145,7 +145,7 @@ begin
   perform pg_temp.act_postgres();
   perform pg_temp.check((select state || '|' || suspended_level from public.role_assignments where id = v_co) = 'SUSPENDED|CLUB'
     and (select state || '|' || (attributes ->> 'suspension_cause') from public.role_assignments where id = v_ta) = 'SUSPENDED|BASE_ROLE'
-    and not exists (select 1 from public.team_permissions where membership_id = v_ms_coach and team_id = v_team),
+    and not exists (select 1 from testing.team_roles where membership_id = v_ms_coach and team_id = v_team),
     'B2: suspending the Coach role pauses the Team Administration resting on it; no legacy team access remains');
 
   perform pg_temp.act('authenticated', v_admin);
@@ -197,7 +197,7 @@ begin
   v_tm := public.set_team_access(v_ms_manager, v_team, 'manager', null);
   perform pg_temp.act_postgres();
   perform pg_temp.check((select role_key from public.role_assignments where id = v_tm) = 'TEAM_MANAGER'
-    and (select permission from public.team_permissions where membership_id = v_ms_manager and team_id = v_team) = 'manager',
+    and (select role_key from testing.team_roles where membership_id = v_ms_manager and team_id = v_team) = 'TEAM_MANAGER',
     'C1: set_team_access manager gives Team Manager');
 
   perform pg_temp.act('authenticated', v_admin);
@@ -210,7 +210,7 @@ begin
   v_id := public.set_team_access(v_ms_manager, v_team, 'coach', null);
   perform pg_temp.act_postgres();
   perform pg_temp.check((select string_agg(role_key, ',' order by role_key) from public.role_assignments where membership_id = v_ms_manager and team_id = v_team and state = 'ACTIVE') = 'COACH'
-    and (select permission from public.team_permissions where membership_id = v_ms_manager and team_id = v_team) = 'coach',
+    and (select role_key from testing.team_roles where membership_id = v_ms_manager and team_id = v_team) = 'COACH',
     'C3: choosing coach replaces Team Manager and Team Administration (replace, as the legacy upsert was)');
 
   perform pg_temp.act('authenticated', v_admin);
@@ -222,7 +222,7 @@ begin
   perform public.remove_team_access(v_id, null);
   perform pg_temp.act_postgres();
   perform pg_temp.check(not exists (select 1 from public.role_assignments where membership_id = v_ms_manager and team_id = v_team and state <> 'REVOKED')
-    and not exists (select 1 from public.team_permissions where membership_id = v_ms_manager),
+    and not exists (select 1 from testing.team_roles where membership_id = v_ms_manager),
     'C5: remove_team_access ends every team role for that person on that team');
 
   perform pg_temp.act('authenticated', v_admin);
@@ -243,6 +243,12 @@ begin
   -- ===============================================================
   -- D. Legacy writes by backend sessions still land in role_assignments
   -- ===============================================================
+  -- SLICE 10 COMPATIBILITY TEST -- deliberately writes through the legacy surface.
+  --
+  -- This section's whole purpose is to prove that the `public.team_permissions` INSTEAD OF trigger
+  -- still lands a canonical `role_assignments` row while the compatibility view exists. Every other
+  -- suite was moved onto `testing.team_roles`; this one must not be, because then it would be testing
+  -- the replacement rather than the thing being retired.
   insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_manager, v_team2, 'manager');
   perform pg_temp.check(exists (select 1 from public.role_assignments where membership_id = v_ms_manager and team_id = v_team2 and role_key = 'TEAM_MANAGER' and state = 'ACTIVE' and source = 'LEGACY_BACKFILL'),
     'D1: a backend insert into the team_permissions view becomes a Team Manager assignment');

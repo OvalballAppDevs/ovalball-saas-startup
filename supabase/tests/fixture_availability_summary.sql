@@ -67,9 +67,13 @@ begin
   -- Four players on our side, two on theirs.
   -- playing_pathway is recorded up front: a team may never assume it, so a
   -- player with none recorded cannot be added to an age-grade side at all.
-  insert into public.players (id, first_name, surname, active, playing_pathway) values
-    (p1,'Ada','One',true,'MALE'),(p2,'Ben','Two',true,'MALE'),(p3,'Cal','Three',true,'MALE'),(p4,'Dee','Four',true,'MALE'),
-    (o1,'Opp','One',true,'MALE'),(o2,'Opp','Two',true,'MALE'),(p5,'Eve','Five',true,'MALE');
+  -- And a date of birth inside Under 12 for the same reason: a place on an age-grade side is refused
+  -- without one (20270742000000), so every child here is born in the band the canonical helper names.
+  insert into public.players (id, first_name, surname, active, playing_pathway, date_of_birth)
+  select v.id, v.first_name, v.surname, true, 'MALE', internal.date_of_birth_in_age_grade('union', 'U12')
+  from (values
+    (p1,'Ada','One'),(p2,'Ben','Two'),(p3,'Cal','Three'),(p4,'Dee','Four'),
+    (o1,'Opp','One'),(o2,'Opp','Two'),(p5,'Eve','Five')) as v(id, first_name, surname);
   insert into public.player_team_memberships (player_id, team_id, status) values
     (p1,v_team_a,'active'),(p2,v_team_a,'active'),(p3,v_team_a,'active'),(p4,v_team_a,'active'),
     (o1,v_team_b,'active'),(o2,v_team_b,'active'),(p5,v_team_a2,'active');

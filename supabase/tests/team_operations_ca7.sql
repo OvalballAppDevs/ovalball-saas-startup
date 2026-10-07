@@ -100,11 +100,16 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.player(p_label text, p_years int, p_team uuid, p_user uuid default null, p_state text default 'ACTIVE') returns uuid language plpgsql as $$
+create or replace function pg_temp.player(p_label text, p_dob date, p_team uuid, p_user uuid default null, p_state text default 'ACTIVE', p_dispensation boolean default false) returns uuid language plpgsql as $$
 declare v uuid;
 begin
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
-  values ('P', p_label, (current_date - (p_years || ' years')::interval)::date, 'MALE', p_user) returning id into v;
+  values ('P', p_label, p_dob, 'MALE', p_user) returning id into v;
+  -- A deliberate placement outside the player's age grade carries an approved dispensation fixture.
+  if p_dispensation then
+    insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+    values (v, p_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
+  end if;
   insert into public.player_team_memberships (player_id, team_id, state) values (v, p_team, p_state);
   return v;
 end $$;
@@ -135,27 +140,29 @@ begin
 
   v_ca := pg_temp.person('ClubAdmin'); v_ms_ca := pg_temp.member(v_club, v_ca, 'CLUB_ADMIN');
   v_tm := pg_temp.person('TeamManager'); v_ms_tm := pg_temp.member(v_club, v_tm);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_tm, v_t12, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_tm, v_t12, 'TEAM_MANAGER');
   v_coach := pg_temp.person('Coach'); v_ms_coach := pg_temp.member(v_club, v_coach);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_coach, v_t12, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_coach, v_t12, 'COACH');
   v_member := pg_temp.person('Member'); v_ms_member := pg_temp.member(v_club, v_member);
   v_cab := pg_temp.person('OtherClubAdmin'); perform pg_temp.member(v_club_b, v_cab, 'CLUB_ADMIN');
   v_tmb := pg_temp.person('OtherTeamManager'); v_ms_tmb := pg_temp.member(v_club_b, v_tmb);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_tmb, v_tb, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_tmb, v_tb, 'TEAM_MANAGER');
 
   -- A parent, a 16-year-old with an account, an adult player with an account -- all on club A's U12/U14.
   v_parent := pg_temp.person('Parent');
   v_teen := pg_temp.person('Teen', (current_date - interval '16 years')::date);
   v_grown := pg_temp.person('Grown', (current_date - interval '30 years')::date);
-  v_child := pg_temp.player('Child ' || v_tag, 11, v_t12);
+  v_child := pg_temp.player('Child ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), v_t12);
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state, source, created_by)
   values (v_parent, v_child, 'parent', 'active', 'ACTIVE', 'SELF_ADDED_CHILD', v_parent);
-  v_teen_player := pg_temp.player('Teen ' || v_tag, 16, v_t12, v_teen);
-  v_grown_player := pg_temp.player('Grown ' || v_tag, 30, v_t14, v_grown);
-  v_other_player := pg_temp.player('Other ' || v_tag, 11, v_t14);
-  v_pending := pg_temp.player('Pending ' || v_tag, 11, v_t12, null, 'PENDING');
+  -- The 16-year-old on U12 and the adult on U14 are deliberate: the scenario needs a minor and an adult
+  -- with their own accounts on these teams, so each place carries an approved dispensation fixture.
+  v_teen_player := pg_temp.player('Teen ' || v_tag, (current_date - interval '16 years')::date, v_t12, v_teen, 'ACTIVE', true);
+  v_grown_player := pg_temp.player('Grown ' || v_tag, (current_date - interval '30 years')::date, v_t14, v_grown, 'ACTIVE', true);
+  v_other_player := pg_temp.player('Other ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U14'), v_t14);
+  v_pending := pg_temp.player('Pending ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), v_t12, null, 'PENDING');
   select id into v_pending_ms from public.player_team_memberships where player_id = v_pending and team_id = v_t12;
-  v_b_player := pg_temp.player('Bee ' || v_tag, 11, v_tb);
+  v_b_player := pg_temp.player('Bee ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), v_tb);
 
   select id into v_season from public.seasons where rugby_code = 'union' and not is_regression_fixture
     and current_date between coalesce(pre_season_starts_on, starts_on) and ends_on limit 1;
@@ -165,6 +172,11 @@ begin
   values (v_t14, 'Home', 'TO External RFC', current_date + 20, '10:30', 'Booked', 'club_created', v_season) returning id into v_fixture14;
   insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, status, source, season_id)
   values (v_tb, 'Home', 'TO External RFC', current_date + 21, '10:30', 'Booked', 'club_created', v_season) returning id into v_fixture_b;
+  -- ATTENDANCE OPENS SIX DAYS OUT (Match Centre consolidation, 20270727) unless the team opens it
+  -- earlier. The refusals below must be the AUTHORITY rule speaking, and a closed window also answers
+  -- 42501, so the team has opened these early, as staff may -- otherwise they would pass for the wrong
+  -- reason. The window itself is proved in match_centre_consolidation.sql.
+  update public.fixtures set attendance_opened_at = now() where id in (v_fixture14, v_fixture_b);
 
   -- A subscription programme at club A, with an obligation for the U12 child and the U14 adult.
   insert into public.club_subscription_programmes (club_id, enabled, currency, created_by) values (v_club, true, 'GBP', v_ca) returning id into v_programme;

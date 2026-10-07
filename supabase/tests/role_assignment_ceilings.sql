@@ -103,7 +103,7 @@ begin
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_admin, 'CLUB_ADMIN', 'active') returning id into v_ms_admin;
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_fs, 'FIXTURE_SECRETARY', 'active') returning id into v_ms_fs;
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_ta, 'BASIC_USER', 'active') returning id into v_ms_ta;
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_ta, v_team, 'team_admin');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_ta, v_team, 'TEAM_ADMINISTRATION');
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_member, 'BASIC_USER', 'active') returning id into v_ms_member;
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_full, 'BASIC_USER', 'active') returning id into v_ms_full;
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_b, v_other_admin, 'CLUB_ADMIN', 'active');
@@ -253,7 +253,7 @@ begin
   perform pg_temp.check(v_text = '42501', 'D1: no browser insert into role_assignments (' || v_text || ')');
 
   perform pg_temp.act('authenticated', v_admin);
-  v_text := pg_temp.try(format('insert into public.team_permissions (membership_id, team_id, permission) values (%L, %L, ''coach'')', v_ms_member, v_team));
+  v_text := pg_temp.try(format('insert into testing.team_roles (membership_id, team_id, role_key) values (%L, %L, ''COACH'')', v_ms_member, v_team));
   perform pg_temp.act_postgres();
   perform pg_temp.check(v_text = '42501', 'D2: no browser write through the team_permissions view (' || v_text || ')');
 

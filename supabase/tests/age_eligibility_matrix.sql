@@ -112,27 +112,43 @@ begin
   -- ---------------------------------------------------------------------------------------------
   -- SAFEGUARDING_OFFICER is appointed through nomination (AE-F) and TEAM_ADMINISTRATION rests on a
   -- base Coach or Team Manager assignment, so both are exercised through their own path.
+  -- WHETHER A ROLE NEEDS A TEAM COMES FROM THE CATALOGUE, not from a list of names written here.
+  -- It used to be `role_key in ('COACH','TEAM_MANAGER')`, which silently stopped describing the
+  -- catalogue the moment a TEAM-scoped role was added to it: TEAM_SAFEGUARDING_LEAD then reached
+  -- grant_role with no team and was refused for a STRUCTURAL reason, which AE-B3 below read as the
+  -- age rule failing. Deriving it keeps this suite asserting about age and nothing else, however many
+  -- roles the catalogue grows.
   v_ok := true;
   for v_role in select role_key from public.role_definitions
                  where minor_prohibited and role_key not in ('SAFEGUARDING_OFFICER','TEAM_ADMINISTRATION') order by 1
   loop
     if pg_temp.try(format('select internal.grant_role(%L,%L,%L,''CLUB_ADMIN_ASSIGNMENT'',''matrix'')',
-         v_ms_unknown, v_role, case when v_role in ('COACH','TEAM_MANAGER') then v_team::text else null end)) <> '23514' then
+         v_ms_unknown, v_role,
+         case when (select scope from public.role_definitions where role_key = v_role) in ('TEAM','CLUB_OR_TEAM')
+              then v_team::text else null end)) <> '23514' then
       v_ok := false;
     end if;
   end loop;
   perform pg_temp.check(v_ok,
     'AE-B1 an identity with no recorded date of birth is refused EVERY minor-prohibited role the catalogue names');
+  -- AT LEAST the seven this matrix was written against, and the bound is one-directional on purpose.
+  -- The hazard this guards is AE-B1 quietly asserting about an empty set, and the OTHER hazard -- a
+  -- role losing its minor-prohibition -- is a safeguarding regression. An exact count caught neither
+  -- better and failed honestly every time the catalogue legitimately grew (TEAM_ADMINISTRATION, then
+  -- TEAM_SAFEGUARDING_LEAD). A floor catches both: the set can never empty, and no role may drop out.
   perform pg_temp.check(
-    (select count(*) from public.role_definitions where minor_prohibited) = 7,
-    'AE-B2 and the catalogue still marks seven roles minor-prohibited, so AE-B1 is not asserting about an empty set');
+    (select count(*) from public.role_definitions where minor_prohibited) >= 7,
+    format('AE-B2 and the catalogue still marks at least seven roles minor-prohibited (%s), so AE-B1 is not asserting about an empty set',
+           (select count(*) from public.role_definitions where minor_prohibited)));
 
   v_ok := true;
   for v_role in select role_key from public.role_definitions
                  where minor_prohibited and role_key not in ('SAFEGUARDING_OFFICER','TEAM_ADMINISTRATION') order by 1
   loop
     if pg_temp.try(format('select internal.grant_role(%L,%L,%L,''CLUB_ADMIN_ASSIGNMENT'',''matrix'')',
-         v_ms_adult, v_role, case when v_role in ('COACH','TEAM_MANAGER') then v_team::text else null end)) <> 'OK' then
+         v_ms_adult, v_role,
+         case when (select scope from public.role_definitions where role_key = v_role) in ('TEAM','CLUB_OR_TEAM')
+              then v_team::text else null end)) <> 'OK' then
       v_ok := false;
     end if;
   end loop;

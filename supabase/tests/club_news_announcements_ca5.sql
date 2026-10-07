@@ -123,16 +123,16 @@ begin
   v_tb := pg_temp.team(v_club_b, 'u12', 'U12', 'Under 12 Boys');
   v_ca := pg_temp.person('ClubAdmin'); perform pg_temp.member(v_club, v_ca, 'CLUB_ADMIN');
   v_coach := pg_temp.person('Coach'); v_ms_coach := pg_temp.member(v_club, v_coach);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_coach, v_t12, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_coach, v_t12, 'COACH');
   v_member := pg_temp.person('Member'); perform pg_temp.member(v_club, v_member);
   v_guardian := pg_temp.person('Guardian');
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Na', 'Child', (current_date - interval '11 years')::date, 'MALE') returning id into v_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Na', 'Child', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_child, v_t12, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_guardian, v_child, 'parent', 'active');
   v_unrelated := pg_temp.person('Unrelated');
   v_cab := pg_temp.person('OtherClubAdmin'); perform pg_temp.member(v_club_b, v_cab, 'CLUB_ADMIN');
-  v_bcoach := pg_temp.person('OtherClubCoach'); insert into public.team_permissions (membership_id, team_id, permission) values (pg_temp.member(v_club_b, v_bcoach), v_tb, 'coach');
-  v_full := pg_temp.person('SiteFull'); insert into public.site_admins (user_id, status, admin_role) values (v_full, 'active', 'full');
+  v_bcoach := pg_temp.person('OtherClubCoach'); insert into testing.team_roles (membership_id, team_id, role_key) values (pg_temp.member(v_club_b, v_bcoach), v_tb, 'COACH');
+  v_full := pg_temp.person('SiteFull'); insert into public.site_admins (user_id, status, profile_key) values (v_full, 'active', 'SITE_FULL');
   -- an opposition relationship: club B's Under 12 plays club A's Under 12
   insert into public.fixtures (owning_team_id, opponent_team_id, home_away, kickoff_date, status, raw_opposition_text)
   values (v_t12, v_tb, 'Home', current_date + 21, 'Planned', 'NA Away RUFC') returning id into v_fixture;
@@ -247,7 +247,7 @@ begin
   -- public news, and nothing members-only that neither child's team is in -- the relationship names the
   -- clubs to ask; the row policies decide every row.
   perform pg_temp.act_postgres();
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Na', 'SecondChild', (current_date - interval '11 years')::date, 'MALE') returning id into v_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Na', 'SecondChild', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_child, v_tb, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_guardian, v_child, 'parent', 'active');
   perform pg_temp.act('authenticated', v_cab);
@@ -259,7 +259,7 @@ begin
   -- Two children on the SAME team: the row is one row -- there is nothing to duplicate server-side, and the
   -- client joins by publication id (news_reading_scope.test.mts).
   perform pg_temp.act_postgres();
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Na', 'ThirdChild', (current_date - interval '11 years')::date, 'MALE') returning id into v_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Na', 'ThirdChild', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_child, v_t12, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_guardian, v_child, 'parent', 'active');
   perform pg_temp.act('authenticated', v_guardian);

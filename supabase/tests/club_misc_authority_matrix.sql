@@ -157,9 +157,9 @@ begin
   v_vo  := pg_temp.person('VO');  insert into public.club_memberships (club_id,user_id,role,status) values (v_club,v_vo,'BASIC_USER','active') returning id into v_ms;
   insert into public.role_assignments (club_id,user_id,membership_id,role_key,state,source,granted_by) values (v_club,v_vo,v_ms,'VOLUNTEER','ACTIVE','CLUB_ADMIN_ASSIGNMENT',v_ca);
   v_co  := pg_temp.person('CO');  insert into public.club_memberships (club_id,user_id,role,status) values (v_club,v_co,'BASIC_USER','active') returning id into v_ms;
-  insert into public.team_permissions (membership_id,team_id,permission) values (v_ms,v_team,'coach');
+  insert into testing.team_roles (membership_id,team_id,role_key) values (v_ms,v_team,'COACH');
   v_tm  := pg_temp.person('TM');  insert into public.club_memberships (club_id,user_id,role,status) values (v_club,v_tm,'BASIC_USER','active') returning id into v_ms;
-  insert into public.team_permissions (membership_id,team_id,permission) values (v_ms,v_team,'manager');
+  insert into testing.team_roles (membership_id,team_id,role_key) values (v_ms,v_team,'TEAM_MANAGER');
   v_str := pg_temp.person('STR');
   v_farca := pg_temp.person('FARCA'); insert into public.club_memberships (club_id,user_id,role,status) values (v_far,v_farca,'CLUB_ADMIN','active');
   v_sa   := pg_temp.person('SA');   insert into public.site_admins (user_id,status,admin_role) values (v_sa,'active','full');

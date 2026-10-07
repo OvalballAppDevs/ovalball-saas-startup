@@ -197,14 +197,14 @@ declare
   v_perm_count_after integer;
   v_final_age_group text;
 begin
-  select count(*) into v_perm_count_before from public.team_permissions where team_id = '99600000-0000-0000-0000-000000000004';
+  select count(*) into v_perm_count_before from testing.team_roles where team_id = '99600000-0000-0000-0000-000000000004';
 
   v_rollover_id := public.generate_rollover_proposal('10000000-0000-0000-0000-000000000001', 'union', '98000000-0000-0000-0000-000000000102');
   select id into v_proposal_id from public.age_grade_rollover_team_proposals where rollover_id = v_rollover_id and team_id = '99600000-0000-0000-0000-000000000004';
   perform public.confirm_rollover_team_proposal(v_proposal_id, 'confirm', null, null, null, null);
 
   select age_group into v_final_age_group from public.teams where id = '99600000-0000-0000-0000-000000000004';
-  select count(*) into v_perm_count_after from public.team_permissions where team_id = '99600000-0000-0000-0000-000000000004';
+  select count(*) into v_perm_count_after from testing.team_roles where team_id = '99600000-0000-0000-0000-000000000004';
 
   if v_final_age_group = 'U13' and v_perm_count_after = v_perm_count_before then
     raise notice 'PASS 17: normal U12 Boys -> U13 Boys rollover keeps the SAME team_id (age_group updated in place) and team_permissions rows are untouched';

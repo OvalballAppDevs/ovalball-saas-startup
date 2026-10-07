@@ -39,7 +39,7 @@ begin
          (v_member, 'Cal', 'Member', 'cpm-member@ovalball-test.invalid', (current_date - interval '30 years')::date),
          (v_stranger, 'Dan', 'Stranger', 'cpm-stranger@ovalball-test.invalid', (current_date - interval '30 years')::date)
   on conflict (id) do update set first_name = excluded.first_name, surname = excluded.surname, email = excluded.email, date_of_birth = excluded.date_of_birth;
-  insert into public.site_admins (user_id, admin_role, status) values (v_site, 'full', 'active');
+  insert into public.site_admins (user_id, profile_key, status) values (v_site, 'SITE_FULL', 'active');
   insert into public.club_directory (name, rugby_code, country, nation, source, verification_status, normalized_key)
   values ('People Club', 'union', 'England', 'England', 'manual', 'verified', 'people-club') returning id into v_dir;
   insert into public.clubs (directory_id, slug, status) values (v_dir, 'people-club', 'active') returning id into v_club;
@@ -59,8 +59,11 @@ begin
   if v_n = 1 then raise notice 'PASS R3: the caller''s own row is marked'; else raise notice 'FAIL R3: % self rows', v_n; end if;
   select count(*) into v_n from public.club_people(v_club, 'bea');
   if v_n = 1 then raise notice 'PASS R4: search matches a name on the server'; else raise notice 'FAIL R4: % rows for "bea"', v_n; end if;
-  select count(*) into v_n from public.club_people(v_club, null, 'staff');
-  if v_n = 2 then raise notice 'PASS R5: the staff filter is the two Club Admins'; else raise notice 'FAIL R5: % staff', v_n; end if;
+  -- 20270739 (People & Invitations): club access and what somebody does are separate questions. The
+  -- two Club Admins are the ADMINS filter; STAFF is what people do (a team role, a club role beside the
+  -- seat, a club title), which nobody here has yet.
+  select count(*) into v_n from public.club_people(v_club, null, 'admins');
+  if v_n = 2 then raise notice 'PASS R5: the admins filter is the two Club Admins'; else raise notice 'FAIL R5: % admins', v_n; end if;
   select count(*), max(total_count) into v_n, v_total from public.club_people(v_club, null, 'all', 2, 0);
   if v_n = 2 and v_total = 3 then raise notice 'PASS R6: paging returns 2 of a total of 3'; else raise notice 'FAIL R6: % rows total %', v_n, v_total; end if;
 
@@ -89,19 +92,19 @@ begin
   perform public.set_primary_club_role(v_m_member, 'FIXTURE_SECRETARY', 'Taking on fixtures');
   select role into v_row from public.club_memberships where id = v_m_member;
   if v_row.role = 'FIXTURE_SECRETARY' then raise notice 'PASS O1: the primary club role is changed through the operation'; else raise notice 'FAIL O1: role %', v_row.role; end if;
-  select count(*) into v_n from public.club_people(v_club, null, 'staff');
-  if v_n = 3 then raise notice 'PASS O1b: the read model reflects it (staff now 3)'; else raise notice 'FAIL O1b: staff %', v_n; end if;
+  select count(*) into v_n from public.club_people(v_club, null, 'admins');
+  if v_n = 3 then raise notice 'PASS O1b: the read model reflects it (admins now 3)'; else raise notice 'FAIL O1b: admins %', v_n; end if;
   select count(*) into v_n from public.audit_log a where a.table_name = 'club_memberships' and a.record_id = v_m_member and a.actor_user_id = v_admin and a.action = 'update';
   if v_n >= 1 then raise notice 'PASS O1c: the change is in the one audit history with the actor'; else raise notice 'FAIL O1c: no audit row'; end if;
   perform public.set_primary_club_role(v_m_member, 'BASIC_USER', 'Back to member');
 
   -- O2 team role given and removed
   perform public.set_team_access(v_m_member, v_team, 'coach', 'Coaching this season');
-  select id into v_tp from public.team_permissions where membership_id = v_m_member and team_id = v_team;
+  select id into v_tp from testing.team_roles where membership_id = v_m_member and team_id = v_team;
   select count(*) into v_n from public.club_people(v_club, null, 'all', 50, 0, v_m_member) p where jsonb_array_length(p.team_roles) = 1;
   if v_tp is not null and v_n = 1 then raise notice 'PASS O2: a team role is given through the operation and read back'; else raise notice 'FAIL O2: tp % rows %', v_tp, v_n; end if;
   perform public.remove_team_access(v_tp, 'Stepped down');
-  select count(*) into v_n from public.team_permissions where membership_id = v_m_member;
+  select count(*) into v_n from testing.team_roles where membership_id = v_m_member;
   if v_n = 0 then raise notice 'PASS O2b: the team role is removed'; else raise notice 'FAIL O2b: still %', v_n; end if;
 
   -- O3 an additional role (Volunteer) assigned and ended; Safeguarding Officer refused
@@ -187,10 +190,13 @@ begin
   raise notice 'PASS O6d: revoking the override restores the holder';
 
   -- ================================================================= BOUNDARIES
-  select pg_get_functiondef('public.club_people(uuid, text, text, integer, integer, uuid)'::regprocedure) into v_err;
-  if v_err !~ 'date_of_birth' and v_err !~ 'public\.players' and v_err !~ 'public\.guardians' then raise notice 'PASS B1: the read model reads no player, guardian or date of birth';
+  -- 20270739: the owner's People & Invitations brief makes People the one register, players included.
+  -- The boundary is now WHO may see a player there: only a caller who may already read every roster at
+  -- the club (team.roster.view at club, or site support). Still no guardian and no date of birth.
+  select pg_get_functiondef('public.club_people(uuid, text, text, integer, integer, uuid, text, text)'::regprocedure) into v_err;
+  if v_err !~ 'date_of_birth' and v_err !~ 'public\.guardians' and v_err ~ 'team\.roster\.view' and v_err ~ 'where v_players' then raise notice 'PASS B1: the read model reads no guardian or date of birth, and players only for a roster reader';
   else raise notice 'FAIL B1: the read model reaches child data'; end if;
-  if has_function_privilege('anon', 'public.club_people(uuid, text, text, integer, integer, uuid)', 'EXECUTE') or has_function_privilege('anon', 'public.club_assignable_roles(uuid)', 'EXECUTE') then
+  if has_function_privilege('anon', 'public.club_people(uuid, text, text, integer, integer, uuid, text, text)', 'EXECUTE') or has_function_privilege('anon', 'public.club_assignable_roles(uuid, uuid)', 'EXECUTE') then
     raise notice 'FAIL B2: anon can execute a People reader';
   else raise notice 'PASS B2: anon holds no grant'; end if;
   select count(*) into v_n from public.club_assignable_roles(v_club) where role_key = 'SAFEGUARDING_OFFICER' or role_key in ('CLUB_ADMIN', 'FIXTURES_SECRETARY', 'MEMBER');

@@ -93,7 +93,8 @@ begin
   -- that refused case, proven against a genuinely non-partnered/incompatible third club).
   perform set_config('request.jwt.claims', jsonb_build_object('sub',v_ca,'role','authenticated')::text, true);
   perform set_config('role', 'authenticated', true);
-  insert into public.club_partnerships (requesting_club_id, partner_club_id, requested_by) values (v_club_a, v_club_b, v_ca) returning id into v_partnership;
+  -- Asked through the one door (20270743000000): the table takes no direct write.
+  v_partnership := public.request_club_partnership(v_club_a, v_club_b);
   perform set_config('request.jwt.claims', jsonb_build_object('sub',v_cb,'role','authenticated')::text, true);
   perform public.respond_to_club_partnership(v_partnership, true);
   perform set_config('role', 'none', true);

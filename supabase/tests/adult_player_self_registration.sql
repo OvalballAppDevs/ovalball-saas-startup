@@ -60,8 +60,8 @@ insert into public.teams (club_id, rugby_code, category, gender)
 values (v_lclub,'league','senior','mens') returning id into v_open;
 
 -- Tom manages the 2nd XV specifically, and nothing else.
-insert into public.team_permissions (membership_id, team_id, permission, created_by)
-values (v_teammgr_m, v_2nd, 'team_admin', v_clubmgr);
+insert into testing.team_roles (membership_id, team_id, role_key, created_by)
+values (v_teammgr_m, v_2nd, 'TEAM_ADMINISTRATION', v_clubmgr);
 
 -- No capability override. Tom holds 'team_admin' on the 2nd XV, which resolves
 -- to TEAM_MANAGER, and TEAM_MANAGER holds team.roster.manage by default at
@@ -72,8 +72,8 @@ values (v_teammgr_m, v_2nd, 'team_admin', v_clubmgr);
 -- And a coach, for the contrast that matters. Same team, same club, no roster
 -- authority whatsoever.
 insert into public.club_memberships (user_id, club_id, role, status) values (v_coachonly, v_uclub,'BASIC_USER','active') returning id into v_coachonly_m;
-insert into public.team_permissions (membership_id, team_id, permission, created_by)
-values (v_coachonly_m, v_2nd, 'coach', v_clubmgr);
+insert into testing.team_roles (membership_id, team_id, role_key, created_by)
+values (v_coachonly_m, v_2nd, 'COACH', v_clubmgr);
 
 -- =========================================================================
 -- A. AN ADULT CREATES THEIR OWN PLAYER
@@ -278,6 +278,10 @@ begin
   insert into public.fixtures (owning_team_id, raw_opposition_text, kickoff_date, kickoff_time, home_away, status, season_id)
   values (v_1st, 'Someone RFC', current_date + 7, '15:00', 'Home', 'Booked', v_season)
   returning id into v_fix;
+  -- ATTENDANCE OPENS SIX DAYS OUT (Match Centre consolidation, 20270727) unless the team opens it
+  -- earlier. This suite is about WHO may answer, so the team has opened it early, as staff may --
+  -- otherwise a refusal below could be the window speaking rather than the rule under test.
+  update public.fixtures set attendance_opened_at = now() where id = v_fix;
 
   -- respond_to_attendance requires an ACTIVE membership on a team in the
   -- fixture. A pending applicant has none, so availability is closed to them.
@@ -299,6 +303,10 @@ begin
   insert into public.fixtures (owning_team_id, raw_opposition_text, kickoff_date, kickoff_time, home_away, status, season_id)
   values (v_2nd, 'Another RFC', current_date + 14, '15:00', 'Home', 'Booked', v_season2)
   returning id into v_fix2;
+  -- ATTENDANCE OPENS SIX DAYS OUT (Match Centre consolidation, 20270727) unless the team opens it
+  -- earlier. This suite is about WHO may answer, so the team has opened it early, as staff may --
+  -- otherwise a refusal below could be the window speaking rather than the rule under test.
+  update public.fixtures set attendance_opened_at = now() where id = v_fix2;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_adult,'role','authenticated')::text, true);
   perform public.respond_to_attendance(v_fix2, v_player, 'ATTENDING');
@@ -426,6 +434,10 @@ begin
   insert into public.fixtures (owning_team_id, raw_opposition_text, kickoff_date, kickoff_time, home_away, status, season_id)
   values (v_u14, 'Youth RFC', current_date + 21, '11:00', 'Home', 'Booked', v_season3)
   returning id into v_fix3;
+  -- ATTENDANCE OPENS SIX DAYS OUT (Match Centre consolidation, 20270727) unless the team opens it
+  -- earlier. This suite is about WHO may answer, so the team has opened it early, as staff may --
+  -- otherwise a refusal below could be the window speaking rather than the rule under test.
+  update public.fixtures set attendance_opened_at = now() where id = v_fix3;
 
   -- Having an account and a player row does NOT grant self-service to a 14
   -- year old. The existing age rules are untouched by adult self-registration.

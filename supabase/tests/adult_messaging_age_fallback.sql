@@ -83,7 +83,7 @@ begin
   elsif exists (select 1 from public.players where user_id = v_no_dob) then
     raise notice 'SKIP C: this account is now player-linked, so it no longer tests the fallback';
   elsif internal.is_adult_messaging_user(v_no_dob) then
-    raise notice 'PASS C: with no minor identity and no DOB, the account holder is treated as an adult';
+    raise notice 'PASS C: with no DOB, this account is an adult through its own adult standing (guardian or staff role) -- 20270762000000 asks for positive evidence';
   else
     raise notice 'FAIL C: the approved account-model fallback no longer holds';
   end if;

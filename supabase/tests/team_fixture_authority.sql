@@ -102,8 +102,8 @@ begin
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_outsider, 'BASIC_USER', 'active');
 
   -- Both team people are attached to TEAM A. The difference between them is capability, never title.
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_mem_none, v_a, 'coach');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_mem_staff, v_a, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_mem_none, v_a, 'COACH');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_mem_staff, v_a, 'TEAM_MANAGER');
 
   -- THE GRANT. Team-scoped, for team A only, through the canonical override architecture -- not a
   -- boolean on the membership and not a role rename.
@@ -293,7 +293,7 @@ begin
   values (v_club, 'Under 14 Girls', 'youth', 'U14', 'union', 'girls', v_type_girls, true) returning id into v_girls;
   -- CA-M4: a team allow answers only while the person holds a role on that team, so the probe person is
   -- attached to the girls side first (the grant, not the title, is still what carries the authority).
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_mem_staff, v_girls, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_mem_staff, v_girls, 'TEAM_MANAGER');
   insert into public.capability_overrides (user_id, capability_key, scope_type, team_id, club_id, effect, reason, granted_by, granted_level)
   values (v_staff, 'fixture.request.create', 'team', v_girls, v_club, 'grant', 'girls side probe', v_clubadmin, 'CLUB');
   perform pg_temp.act('authenticated', v_staff);

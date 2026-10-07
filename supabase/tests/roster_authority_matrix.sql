@@ -82,9 +82,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_effect text, p_level text,
@@ -183,16 +183,16 @@ begin
   v_stranger := pg_temp.person('Stranger', v_adult);
   v_unknown_age := pg_temp.person('UnknownAge', null);  v_m_unknown := pg_temp.member(v_club, v_unknown_age, 'BASIC_USER');
 
-  perform pg_temp.team_role(v_m_co, v_team, 'coach');
-  perform pg_temp.team_role(v_m_tm, v_team, 'manager');
-  perform pg_temp.team_role(v_m_ta, v_team, 'team_admin');
-  perform pg_temp.team_role(v_m_co_other, v_other_team, 'coach');
+  perform pg_temp.team_role(v_m_co, v_team, 'COACH');
+  perform pg_temp.team_role(v_m_tm, v_team, 'TEAM_MANAGER');
+  perform pg_temp.team_role(v_m_ta, v_team, 'TEAM_ADMINISTRATION');
+  perform pg_temp.team_role(v_m_co_other, v_other_team, 'COACH');
 
   -- a child in the squad, and their guardian
   v_pl := pg_temp.person('PlayerAccount', (current_date - interval '11 years')::date);
   v_pg := pg_temp.person('Guardian', v_adult);
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
-    values ('Ptt', 'Child', (current_date - interval '11 years')::date, 'MALE', v_pl) returning id into v_player;
+    values ('Ptt', 'Child', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE', v_pl) returning id into v_player;
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state)
     values (v_pg, v_player, 'parent', 'active', 'ACTIVE');
   insert into public.player_team_memberships (player_id, team_id, status, state, source)
@@ -343,7 +343,7 @@ begin
   v_club := pg_temp.club('Shadow'); v_team := pg_temp.team(v_club, 'U12');
   v_fs := pg_temp.person('ShadowFS', v_adult); v_m_fs := pg_temp.member(v_club, v_fs, 'FIXTURE_SECRETARY');
   v_co := pg_temp.person('ShadowCO', v_adult); v_m_co := pg_temp.member(v_club, v_co, 'BASIC_USER');
-  perform pg_temp.team_role(v_m_co, v_team, 'coach');
+  perform pg_temp.team_role(v_m_co, v_team, 'COACH');
 
   -- INTENDED CHANGE 1 -- the Fixtures Secretary loses the roster (AI #70). The legacy helper still says
   -- yes because fixture authority used to imply it; the canonical answer says no. This mismatch is
@@ -397,8 +397,8 @@ begin
   v_co := pg_temp.person('GateCO', v_adult); v_m_co := pg_temp.member(v_club, v_co, 'BASIC_USER');
   v_tm := pg_temp.person('GateTM', v_adult); v_m_tm := pg_temp.member(v_club, v_tm, 'BASIC_USER');
   v_far_ca := pg_temp.person('GateFarCA', v_adult); perform pg_temp.member(v_far_club, v_far_ca, 'CLUB_ADMIN');
-  perform pg_temp.team_role(v_m_co, v_team, 'coach');
-  perform pg_temp.team_role(v_m_tm, v_team, 'manager');
+  perform pg_temp.team_role(v_m_co, v_team, 'COACH');
+  perform pg_temp.team_role(v_m_tm, v_team, 'TEAM_MANAGER');
 
   -- the Team Manager holds team.roster.manage at TEAM scope only: the gate must see it there
   perform set_config('request.jwt.claims', jsonb_build_object('sub', v_tm, 'role','authenticated')::text, true);

@@ -224,7 +224,9 @@ begin
   where c.table_schema = 'public'
     and c.column_name in ('meet_time','arrival_time','meet_at')
     and t.table_type = 'BASE TABLE'
-    and c.table_name not in ('fixtures', 'fixture_import_rows');
+    -- club_events.meet_time (20270729) is an EVENT's own arrival time -- a different fact about a
+    -- different thing, not a second home for a fixture's meet time.
+    and c.table_name not in ('fixtures', 'fixture_import_rows', 'club_events');
   if v_n = 0 then
     raise notice 'PASS 13 (F): meet time is STORED only on fixtures -- no second copy, however many views read it';
   else

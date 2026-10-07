@@ -159,9 +159,13 @@ begin
         and not exists (select 1 from pg_policies p
                          where p.schemaname = 'public' and p.tablename = c.relname
                            and p.permissive = 'RESTRICTIVE')
-        and has_table_privilege('authenticated', c.oid, 'INSERT')) = 1,
-    'SB-11 at most one RLS table lets a browser role write without the RESTRICTIVE session gate '
-    '(invitations, whose policies resolve through capability_decision instead)');
+        and has_table_privilege('authenticated', c.oid, 'INSERT')) = 0,
+    'SB-11 NO RLS table lets a browser role write without the RESTRICTIVE session gate. '
+    'This allowed exactly one -- the legacy `invitations` table, whose policies resolved through '
+    'capability_decision instead -- and `20270529000000_the_legacy_estate_stops_being_reachable` '
+    'revoked the browser INSERT on it altogether. The expectation is tightened to zero rather than '
+    'left at one, because an assertion that tolerates an exception nothing needs is an assertion a '
+    'later table can hide behind');
 
   perform pg_temp.check(
     (select count(*) from pg_policies

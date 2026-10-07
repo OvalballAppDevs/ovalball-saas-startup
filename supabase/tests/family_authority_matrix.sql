@@ -78,9 +78,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_effect text, p_level text,
@@ -257,13 +257,13 @@ begin
   perform pg_temp.member(v_a, v, 'BASIC_USER');
 
   v := pg_temp.persona('CO', pg_temp.put('CO', pg_temp.person('Coach')));
-  perform pg_temp.team_role(pg_temp.member(v_a, v, 'BASIC_USER'), v_t1, 'coach');
+  perform pg_temp.team_role(pg_temp.member(v_a, v, 'BASIC_USER'), v_t1, 'COACH');
 
   v := pg_temp.persona('TM', pg_temp.put('TM', pg_temp.person('Manager')));
-  perform pg_temp.team_role(pg_temp.member(v_a, v, 'BASIC_USER'), v_t1, 'manager');
+  perform pg_temp.team_role(pg_temp.member(v_a, v, 'BASIC_USER'), v_t1, 'TEAM_MANAGER');
 
   v := pg_temp.persona('TA', pg_temp.put('TA', pg_temp.person('TeamAdmin')));
-  perform pg_temp.team_role(pg_temp.member(v_a, v, 'BASIC_USER'), v_t1, 'team_admin');
+  perform pg_temp.team_role(pg_temp.member(v_a, v, 'BASIC_USER'), v_t1, 'TEAM_ADMINISTRATION');
 
   v := pg_temp.persona('PL', pg_temp.put('PL', pg_temp.person('Adult Player', (current_date - interval '30 years')::date)));
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id) values ('Adult', 'Player', (current_date - interval '30 years')::date, 'MALE', v)
@@ -271,14 +271,14 @@ begin
   perform pg_temp.put('PL_player', v);
 
   v := pg_temp.persona('PG', pg_temp.put('PG', pg_temp.person('Parent')));
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Child', 'One', (current_date - interval '11 years')::date, 'MALE') returning id into v_c1;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Child', 'One', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_c1;
   perform pg_temp.put('C1', v_c1);
   insert into public.player_team_memberships (player_id, team_id, status) values (v_c1, v_t1, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v, v_c1, 'parent', 'active');
   perform pg_temp.put('G_PG_C1', (select id from public.guardians where guardian_user_id = v and player_id = v_c1));
 
   v := pg_temp.persona('OP', pg_temp.put('OP', pg_temp.person('Other Parent')));
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Child', 'Two', (current_date - interval '13 years')::date, 'MALE') returning id into v_c2;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Child', 'Two', internal.date_of_birth_in_age_grade('union', 'U14'), 'MALE') returning id into v_c2;
   perform pg_temp.put('C2', v_c2);
   insert into public.player_team_memberships (player_id, team_id, status) values (v_c2, v_t2, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v, v_c2, 'parent', 'active');
@@ -287,7 +287,7 @@ begin
   perform pg_temp.member(v_b, v, 'CLUB_ADMIN');
 
   v := pg_temp.persona('OCO', pg_temp.put('OCO', pg_temp.person('Other Team Coach')));
-  perform pg_temp.team_role(pg_temp.member(v_a, v, 'BASIC_USER'), v_t2, 'coach');
+  perform pg_temp.team_role(pg_temp.member(v_a, v, 'BASIC_USER'), v_t2, 'COACH');
 
   v := pg_temp.persona('SUS', pg_temp.put('SUS', pg_temp.person('Suspended Admin')));
   v_ms := pg_temp.member(v_a, v, 'CLUB_ADMIN');
@@ -307,7 +307,7 @@ begin
 
   -- A 14-year-old with their own login.
   v := pg_temp.put('MINOR', pg_temp.person('Minor', (current_date - interval '14 years')::date));
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id) values ('Young', 'Login', (current_date - interval '14 years')::date, 'MALE', v)
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id) values ('Young', 'Login', internal.date_of_birth_in_age_grade('union', 'U14'), 'MALE', v)
   returning id into v;
   perform pg_temp.put('MINOR_player', v);
   insert into public.player_team_memberships (player_id, team_id, status) values (v, v_t2, 'active');

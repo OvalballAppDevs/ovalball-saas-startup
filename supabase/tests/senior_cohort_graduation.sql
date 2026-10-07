@@ -36,8 +36,8 @@ insert into public.players (id, first_name, surname, date_of_birth, active, crea
 insert into public.player_team_memberships (player_id, team_id, status, created_by) values
   ('9d000000-0000-0000-0000-0000000000a1', '9d000000-0000-0000-0000-0000000000f1', 'active', '00000000-0000-0000-0000-000000000002'),
   ('9d000000-0000-0000-0000-0000000000a2', '9d000000-0000-0000-0000-0000000000f1', 'active', '00000000-0000-0000-0000-000000000002');
-insert into public.team_permissions (membership_id, team_id, permission, created_by) values
-  ((select id from public.club_memberships where id = '9d000000-0000-0000-0000-000000600005'), '9d000000-0000-0000-0000-0000000000f1', 'coach', '00000000-0000-0000-0000-000000000002');
+insert into testing.team_roles (membership_id, team_id, role_key, created_by) values
+  ((select id from public.club_memberships where id = '9d000000-0000-0000-0000-000000600005'), '9d000000-0000-0000-0000-0000000000f1', 'COACH', '00000000-0000-0000-0000-000000000002');
 
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated"}';
@@ -72,8 +72,8 @@ begin
     raise notice 'FAIL 3: found % pending_placement rows, expected 2', v_pending_count;
   end if;
 
-  if not exists (select 1 from public.team_permissions where membership_id = (select id from public.club_memberships where id = '9d000000-0000-0000-0000-000000600005') and team_id = '9d000000-0000-0000-0000-0000000000f3') then
-    raise notice 'PASS 4: the graduating team''s coach permission was NOT copied onto Men''s 1st -- staff never auto-follow graduating players';
+  if not exists (select 1 from testing.team_roles where membership_id = (select id from public.club_memberships where id = '9d000000-0000-0000-0000-000000600005') and team_id = '9d000000-0000-0000-0000-0000000000f3') then
+    raise notice 'PASS 4: the graduating team''s coach role_key was NOT copied onto Men''s 1st -- staff never auto-follow graduating players';
   else
     raise notice 'FAIL 4: a team_permissions row for Men''s 1st was unexpectedly created';
   end if;

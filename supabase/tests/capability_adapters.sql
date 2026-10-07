@@ -64,9 +64,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_effect text, p_level text,
@@ -145,12 +145,12 @@ begin
   v_team := pg_temp.team(v_club); v_team2 := pg_temp.team(v_club, 'U14'); v_team_b := pg_temp.team(v_club_b);
   v_ca := pg_temp.person('CA'); v_ca_ms := pg_temp.member(v_club, v_ca, 'CLUB_ADMIN');
   v_ca2 := pg_temp.person('CA2'); perform pg_temp.member(v_club, v_ca2, 'CLUB_ADMIN');
-  v_tm := pg_temp.person('TM'); v_tm_ms := pg_temp.member(v_club, v_tm); perform pg_temp.team_role(v_tm_ms, v_team, 'manager');
-  v_co := pg_temp.person('CO'); v_co_ms := pg_temp.member(v_club, v_co); perform pg_temp.team_role(v_co_ms, v_team, 'coach');
+  v_tm := pg_temp.person('TM'); v_tm_ms := pg_temp.member(v_club, v_tm); perform pg_temp.team_role(v_tm_ms, v_team, 'TEAM_MANAGER');
+  v_co := pg_temp.person('CO'); v_co_ms := pg_temp.member(v_club, v_co); perform pg_temp.team_role(v_co_ms, v_team, 'COACH');
   v_member := pg_temp.person('Member'); perform pg_temp.member(v_club, v_member);
   v_fs := pg_temp.person('FS'); perform pg_temp.member(v_club, v_fs, 'FIXTURE_SECRETARY');
   v_parent := pg_temp.person('Parent');
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Ad', 'Child', (current_date - interval '10 years')::date, 'MALE') returning id into v_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Ad', 'Child', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_child, v_team, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_parent, v_child, 'parent', 'active');
   v_full := pg_temp.person('Full'); insert into public.site_admins (user_id, status, admin_role) values (v_full, 'active', 'full');
@@ -207,7 +207,7 @@ begin
                         and not pg_temp.bool_as(v_co, format('internal.has_capability(''fixture.bulk_edit'', ''team'', %L::uuid, %L::uuid)', v_club, v_team)),
     'FA2: team staff get no Planner, Import, Competition Creator or bulk edit, by canonical or legacy key');
   v_tm := pg_temp.person('TM everywhere'); v_tm_ms := pg_temp.member(v_club, v_tm);
-  perform pg_temp.team_role(v_tm_ms, v_team, 'team_admin'); perform pg_temp.team_role(v_tm_ms, v_team2, 'manager');
+  perform pg_temp.team_role(v_tm_ms, v_team, 'TEAM_ADMINISTRATION'); perform pg_temp.team_role(v_tm_ms, v_team2, 'TEAM_MANAGER');
   perform pg_temp.check(not pg_temp.bool_as(v_tm, format('internal.can_bulk_plan_fixtures(%L)', v_club))
                         and pg_temp.bool_as(v_tm, format('internal.can_create_team_fixture(%L, %L)', v_club, v_team)),
     'FA3: running every team (with Team Administration) still gives single fixtures only, never bulk');

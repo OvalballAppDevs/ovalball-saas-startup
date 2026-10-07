@@ -39,7 +39,7 @@ begin
   insert into public.profiles (id, first_name, surname, date_of_birth)
   values (v_admin, 'Cam', 'Admin', (current_date - interval '40 years')::date), (v_fs, 'Cam', 'Fixtures', (current_date - interval '40 years')::date), (v_volunteer, 'Cam', 'Volunteer', (current_date - interval '40 years')::date)
   on conflict (id) do nothing;
-  insert into public.site_admins (user_id, admin_role, status) values (v_site, 'full', 'active');
+  insert into public.site_admins (user_id, profile_key, status) values (v_site, 'SITE_FULL', 'active');
   insert into public.club_directory (name, rugby_code, country, nation, source, verification_status, normalized_key)
   values ('CA-M2 Union Club', 'union', 'England', 'England', 'manual', 'verified', 'ca-m2-union-club') returning id into v_dir;
   insert into public.clubs (directory_id, slug, status) values (v_dir, 'ca-m2-union-club', 'active') returning id into v_club;
@@ -258,7 +258,7 @@ begin
   else raise notice 'FAIL K3: no kit audit row'; end if;
 
   -- the domain operations never reach anon
-  if has_function_privilege('anon', 'public.save_club_venue(uuid, uuid, text, text, text, text, text, text, text, text, boolean)', 'EXECUTE')
+  if has_function_privilege('anon', 'public.save_club_venue(uuid, uuid, text, text, text, text, text, text, text, text, boolean, boolean, boolean, numeric, numeric, text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.create_club_team(uuid, text, text)', 'EXECUTE') then
     raise notice 'FAIL G1: anon can execute a CA-M2 operation';
   else

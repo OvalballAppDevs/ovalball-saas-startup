@@ -120,7 +120,8 @@ begin
   -- A. Join requests
   -- ===============================================================
   perform pg_temp.act('authenticated', v_joiner);
-  insert into public.club_join_requests (club_id, requesting_user_id, requested_role) values (v_club, v_joiner, 'Coach') returning id into v_join;
+  -- Asked through the one door (20270743000000): the table takes no person's own insert.
+  v_join := public.request_club_membership(v_club, 'Coach');
   perform pg_temp.act_postgres();
   select id, state into v_pending, v_state from public.club_memberships where club_id = v_club and user_id = v_joiner;
   perform pg_temp.check(v_state = 'PENDING' and (select status from public.club_memberships where id = v_pending) = 'pending'
@@ -176,7 +177,7 @@ begin
     'A11: a decided request cannot be decided again (' || v_text || ')');
 
   perform pg_temp.act('authenticated', v_joiner2);
-  insert into public.club_join_requests (club_id, requesting_user_id, requested_role) values (v_club, v_joiner2, 'Parent') returning id into v_join2;
+  v_join2 := public.request_club_membership(v_club, 'Parent');
   perform pg_temp.act_postgres();
   perform pg_temp.act('authenticated', v_admin);
   v_text := pg_temp.try(format('select public.decide_club_join_request(%L, ''DECLINE'', ''Not known to the club'')', v_join2));
@@ -192,7 +193,7 @@ begin
   -- An unanswered request expires (no scheduler yet runs this; the edge is
   -- valid from PENDING only, and terminal).
   perform pg_temp.act('authenticated', v_leaver);
-  insert into public.club_join_requests (club_id, requesting_user_id, requested_role) values (v_club_b, v_leaver, 'Parent');
+  perform public.request_club_membership(v_club_b, 'Parent');
   perform pg_temp.act_postgres();
   v_text := pg_temp.try(format('update public.club_memberships set state = ''EXPIRED'' where club_id = %L and user_id = %L', v_club_b, v_leaver));
   perform pg_temp.check(v_text = 'OK' and (select state || '|' || status from public.club_memberships where club_id = v_club_b and user_id = v_leaver) = 'EXPIRED|expired',
@@ -221,11 +222,14 @@ begin
     and (select state || '|' || suspended_level || '|' || status from public.club_memberships where id = v_ms_coach) = 'SUSPENDED|CLUB|suspended'
     and not exists (select 1 from public.role_assignments where membership_id = v_ms_coach and state = 'ACTIVE')
     and (select count(*) from public.role_assignments where membership_id = v_ms_coach and state = 'SUSPENDED') = 3
-    and not exists (select 1 from public.team_permissions where membership_id = v_ms_coach),
+    and not exists (select 1 from testing.team_roles where membership_id = v_ms_coach),
     'B2: a Club Admin suspends at CLUB level; every role pauses and team access disappears');
 
   perform pg_temp.act('authenticated', v_coach);
-  select count(*) into v_count from public.team_permissions where team_id = v_team;
+  -- (A read of the team's staff used to sit here, as the suspended coach, and its result was never
+  -- asserted on. It counted rows through the `public.team_permissions` compatibility view, which a
+  -- browser role could reach; the canonical fixture surface deliberately cannot be. A dead read is
+  -- not worth keeping alive, and B2 above already proves the team access disappeared.)
   v_text := pg_temp.try(format('select public.transition_club_membership(%L, ''ACTIVE'', ''let me back'')', v_ms_coach));
   perform pg_temp.act_postgres();
   perform pg_temp.check(v_text = '42501', 'B3: the suspended person cannot restore themselves (' || v_text || ')');
@@ -235,7 +239,7 @@ begin
   perform pg_temp.act_postgres();
   perform pg_temp.check(v_text = 'OK' and (select state from public.club_memberships where id = v_ms_coach) = 'ACTIVE'
     and (select count(*) from public.role_assignments where membership_id = v_ms_coach and state = 'ACTIVE') = 3
-    and (select permission from public.team_permissions where membership_id = v_ms_coach and team_id = v_team) = 'team_admin',
+    and (select role_key from testing.team_roles where membership_id = v_ms_coach and team_id = v_team) = 'TEAM_ADMINISTRATION',
     'B4: restoring returns every paused role, including Team Admin');
 
   perform pg_temp.act('authenticated', v_full);
@@ -325,7 +329,7 @@ begin
     and (select state from public.club_memberships where id = v_ms_coach) = 'REVOKED'
     and (select source from public.club_memberships where id = v_ms_new) = 'SITE_ADMIN_ASSIGNMENT'
     and (select string_agg(role_key, ',') from public.role_assignments where membership_id = v_ms_new and state = 'ACTIVE') = 'MEMBER'
-    and not exists (select 1 from public.team_permissions tp join public.club_memberships cm on cm.id = tp.membership_id where cm.user_id = v_coach),
+    and not exists (select 1 from testing.team_roles tp join public.club_memberships cm on cm.id = tp.membership_id where cm.user_id = v_coach),
     'C12: re-admission is a NEW row as Member only; the old row and its roles stay revoked');
 
   perform pg_temp.act('authenticated', v_full);

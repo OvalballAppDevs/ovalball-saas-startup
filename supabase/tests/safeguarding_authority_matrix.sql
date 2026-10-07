@@ -116,30 +116,15 @@ begin
   return coalesce(v,0);
 end $$;
 
--- The dispensation policy as it would be WITHOUT the hoist: the safeguarding term asked once per row.
--- SA-P compares it with the live policy, so the optimisation is shown to be one rather than asserted
--- to be one.
+-- The dispensation policy as it would be WITHOUT the hoists: the one per-row meaning,
+-- internal.may_read_dispensation, asked of every row. SA-P compares it with the live policy, so the
+-- optimisation is shown to be one rather than asserted to be one. (Before the one dispensation workflow,
+-- 20270742000000, this spelled the old policy's terms out by hand; the policy now has a single per-row
+-- meaning, and the hoisted officer and club-wide branches must select nothing it would not.)
 create or replace function pg_temp.unhoisted_dispensations() returns int
 language sql stable security definer set search_path = public as $$
   select count(*)::int from public.player_team_dispensation d
-  where internal.can('safeguarding.dispensation.view', 'club',
-                     (select t.club_id from public.teams t where t.id = d.source_team_id), null, null)
-     or internal.has_site_capability('site.support.view_club')
-     -- The Slice 4 closure pass moved the three fixture/team role-helper terms onto the keys J.7
-     -- lines 471-472 give the act: requesting a dispensation and approving the team stage. Asked here
-     -- once per row, exactly as the policy asks it once per statement.
-     or internal.can('fixture.dispensation.request', 'club',
-                     (select t.club_id from public.teams t where t.id = d.source_team_id), null, null)
-     or internal.can('fixture.dispensation.request', 'team',
-                     (select t.club_id from public.teams t where t.id = d.source_team_id), d.source_team_id, null)
-     or internal.can('fixture.dispensation.approve_team', 'team',
-                     (select t.club_id from public.teams t where t.id = d.source_team_id), d.source_team_id, null)
-     or internal.can('fixture.dispensation.request', 'club',
-                     (select t.club_id from public.teams t where t.id = d.target_team_id), null, null)
-     or internal.can('fixture.dispensation.request', 'team',
-                     (select t.club_id from public.teams t where t.id = d.target_team_id), d.target_team_id, null)
-     or internal.can('fixture.dispensation.approve_team', 'team',
-                     (select t.club_id from public.teams t where t.id = d.target_team_id), d.target_team_id, null);
+  where internal.may_read_dispensation(d.id);
 $$;
 grant execute on function pg_temp.unhoisted_dispensations() to public;
 
@@ -236,7 +221,7 @@ declare
   v_tm uuid; v_ta uuid; v_tgt_tm uuid; v_so2 uuid;
   v_sa uuid; v_sup uuid; v_mod uuid; v_nom uuid; v_unknown uuid; v_pg uuid; v_sanom uuid;
   v_pending uuid; v_susp uuid; v_rev uuid; v_dec uuid; v_exp uuid;
-  v_ms uuid; v_assign uuid; v_assign2 uuid; v_off uuid; v_conv uuid; v_disp uuid; v_player uuid;
+  v_ms uuid; v_assign uuid; v_assign2 uuid; v_off uuid; v_conv uuid; v_disp uuid; v_player uuid; v_uuid uuid;
   v_res jsonb; v_tag text := substr(gen_random_uuid()::text,1,8); n int; v_ok boolean; v_err text;
 begin
   v_club := pg_temp.club('Home'); v_far := pg_temp.club('Far');
@@ -247,15 +232,15 @@ begin
   v_fs  := pg_temp.person('FS');  perform pg_temp.member(v_club, v_fs,  'ACTIVE', 'FIXTURE_SECRETARY');
   v_mb  := pg_temp.person('MB');  perform pg_temp.member(v_club, v_mb,  'ACTIVE');
   v_co  := pg_temp.person('CO');  v_ms := pg_temp.member(v_club, v_co, 'ACTIVE');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms, v_team, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms, v_team, 'COACH');
   -- Team staff, for the dispensation boundary the Slice 4 closure pass canonicalised. A dispensation
   -- moves a child between two teams, so both ends need a named person.
   v_tm  := pg_temp.person('TM');  v_ms := pg_temp.member(v_club, v_tm, 'ACTIVE');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms, v_team, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms, v_team, 'TEAM_MANAGER');
   v_ta  := pg_temp.person('TA');  v_ms := pg_temp.member(v_club, v_ta, 'ACTIVE');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms, v_team, 'team_admin');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms, v_team, 'TEAM_ADMINISTRATION');
   v_tgt_tm := pg_temp.person('TGTTM'); v_ms := pg_temp.member(v_club, v_tgt_tm, 'ACTIVE');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms, v_team2, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms, v_team2, 'TEAM_MANAGER');
   -- A member with NO team role at all, kept clear of every other assertion, so the safeguarding
   -- branch of the dispensation read can be tested through a person who has no other way in.
   v_so2 := pg_temp.person('SO2'); perform pg_temp.member(v_club, v_so2, 'ACTIVE');
@@ -605,18 +590,22 @@ begin
             'sam-'||v_tag) returning id into v_season;
   end if;
   insert into public.players (first_name, surname, active, created_by, playing_pathway, date_of_birth)
-  values ('Sam','Child',true,v_ca,'MALE',(current_date - interval '13 years')::date) returning id into v_player;
+  values ('Sam','Child',true,v_ca,'MALE',internal.date_of_birth_in_age_grade('union', 'U12')) returning id into v_player;
   insert into public.player_team_memberships (player_id, team_id, status, state, source)
   values (v_player, v_team, 'active', 'ACTIVE', 'CLUB_CREATED');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state)
   values (v_pg, v_player, 'parent', 'active', 'ACTIVE');
 
-  insert into public.player_team_dispensation (player_id, source_team_id, target_team_id, season_id, eligibility_rule_reference, status, requested_by)
-  values (v_player, v_team, v_team2, v_season, 'matrix rule', 'requested', v_ca) returning id into v_disp;
+  -- Since the one dispensation workflow (20270742000000) a request is made through request_dispensation and
+  -- decided ONCE, by the club's Safeguarding Officer or a Club Admin -- never by whoever asked. Sam is in
+  -- the U12 grade, so the Under 14 side is an exception to ask for.
+  v_res := pg_temp.json_as(v_ca, format('select to_jsonb(public.request_dispensation(%L,%L,%L,%L,%L))',
+                                        v_player, v_team2, 'matrix rule', v_team, v_season));
+  v_disp := (v_res #>> '{}')::uuid;
 
-  perform pg_temp.check(pg_temp.try_as(v_ca, format('select public.decide_player_dispensation(%L,''source_team'',true)', v_disp)) = '42501',
+  perform pg_temp.check(pg_temp.try_as(v_ca, format('select public.decide_dispensation(%L,true)', v_disp)) = '42501',
     'SA-L1 the person who requested a dispensation cannot approve it (section T, separation of duties)');
-  perform pg_temp.check(pg_temp.try_as(v_ca2, format('select public.decide_player_dispensation(%L,''source_team'',true)', v_disp)) = 'OK',
+  perform pg_temp.check(pg_temp.try_as(v_ca2, format('select public.decide_dispensation(%L,true,%L)', v_disp, 'matrix: approved')) = 'OK',
     'SA-L2 while somebody else at the club can');
   perform pg_temp.check(
     (select count(*) from public.notifications where user_id = v_pg and type = 'safeguarding_guardian_dispensation') >= 1,
@@ -666,15 +655,43 @@ begin
   end loop;
   perform pg_temp.check(pg_temp.count_as(v_tgt_tm, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 1,
     'SA-Q4 including the TARGET team''s manager -- a move has two ends, and the side receiving a child sees it');
-  perform pg_temp.check(pg_temp.count_as(v_mb, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 0
-                        and pg_temp.count_as(v_pg, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 0,
-    'SA-Q5 while an ordinary member and a guardian with no team role read none of it');
+  perform pg_temp.check(pg_temp.count_as(v_mb, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 0,
+    'SA-Q5 while an ordinary member reads none of it');
+  -- INTENDED CHANGE (the one dispensation workflow, 20270742000000). A guardian with no team role used to
+  -- read none of it and was told by notification alone. The family now reads the record about their own
+  -- child -- the request, its state and its outcome -- through the family capability, as they read the
+  -- child's profile; the record's private facts stay out of the row either way (SA-Q8).
+  perform pg_temp.check(pg_temp.count_as(v_pg, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 1,
+    'SA-Q5b INTENDED CHANGE: the child''s own guardian reads the record about their child');
   perform pg_temp.check(pg_temp.count_as(v_farca, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 0
                         and pg_temp.count_as(v_farmb, format('select count(*) from public.player_team_dispensation where id = %L', v_disp)) = 0,
     'SA-Q6 nor does another club, naming this dispensation''s id');
-  -- Separation of duties is a WRITE rule and this is a READ change. It must be untouched.
-  perform pg_temp.check(pg_temp.try_as(v_tm, format('select public.decide_player_dispensation(%L,''club'',true)', v_disp)) <> 'OK',
-    'SA-Q7 and reading is not approving: a Team Manager who can see it cannot decide the club stage (J.7 line 473)');
+  -- Separation of duties is a WRITE rule and this is a READ change. It must be untouched -- asked of a
+  -- request that is still pending, so the refusal is the authority's and not the record's state.
+  insert into public.players (first_name, surname, active, created_by, playing_pathway, date_of_birth)
+  values ('Sid','Child',true,v_ca,'MALE',internal.date_of_birth_in_age_grade('union', 'U12')) returning id into v_uuid;
+  insert into public.player_team_memberships (player_id, team_id, status, state, source)
+  values (v_uuid, v_team, 'active', 'ACTIVE', 'CLUB_CREATED');
+  v_res := pg_temp.json_as(v_ca, format('select to_jsonb(public.request_dispensation(%L,%L,%L,%L,%L))',
+                                        v_uuid, v_team2, 'matrix rule', v_team, v_season));
+  perform pg_temp.check(pg_temp.count_as(v_tm, format('select count(*) from public.player_team_dispensation where id = %L', (v_res #>> '{}')::uuid)) = 1
+                        and pg_temp.try_as(v_tm, format('select public.decide_dispensation(%L,true)', (v_res #>> '{}')::uuid)) = '42501',
+    'SA-Q7 and reading is not approving: a Team Manager who can see a pending request cannot decide it (J.7 line 473)');
+
+  -- The record's PRIVATE FACTS -- the date of birth it snapshots, the requester's words, the decider's
+  -- note -- are not selectable through the API by anybody, however they reach the row.
+  perform pg_temp.check(
+    pg_temp.try_as(v_tm, format('select player_date_of_birth from public.player_team_dispensation where id = %L', v_disp)) = '42501'
+    and pg_temp.try_as(v_ca, format('select reason from public.player_team_dispensation where id = %L', v_disp)) = '42501'
+    and pg_temp.try_as(v_pg, format('select decision_note from public.player_team_dispensation where id = %L', v_disp)) = '42501'
+    and pg_temp.try_as(v_tm, format('select id, status from public.player_team_dispensation where id = %L', v_disp)) = 'OK',
+    'SA-Q8 the date of birth, the reason and the decision note are not selectable through the API, while the record''s state is');
+  perform pg_temp.check(
+    (pg_temp.json_as(v_tm, format('select public.dispensation_record(%L)', v_disp)) #>> '{player,date_of_birth}') is null
+    and (pg_temp.json_as(v_tm, format('select public.dispensation_record(%L)', v_disp)) ->> 'reason') is null
+    and (pg_temp.json_as(v_pg, format('select public.dispensation_record(%L)', v_disp)) #>> '{player,date_of_birth}') is not null
+    and (pg_temp.json_as(v_ca2, format('select public.dispensation_record(%L)', v_disp)) ->> 'reason') = 'matrix rule',
+    'SA-Q9 and the reader hands them to the family and the deciders, never to the team''s staff');
 
   -- ---------------------------------------------------------------------------------------------
   -- SA-P  the hoist is an optimisation, not a change of answer
@@ -704,6 +721,13 @@ begin
   perform pg_temp.check(
     not has_function_privilege('anon','internal.safeguarding_dispensation_team_ids()','EXECUTE'),
     'SA-P4 anon cannot ask which teams a caller may see dispensations for');
+  -- The club-wide hoist the one dispensation workflow added: a Club Admin's own club, nobody else's.
+  perform pg_temp.check(
+    pg_temp.bool_as(v_ca, format('%L = any (internal.dispensation_club_ids())', v_club))
+    and not pg_temp.bool_as(v_farca, format('%L = any (internal.dispensation_club_ids())', v_club))
+    and pg_temp.count_as(v_mb, 'select coalesce(array_length(internal.dispensation_club_ids(),1),0)') = 0
+    and not has_function_privilege('anon','internal.dispensation_club_ids()','EXECUTE'),
+    'SA-P5 the club-wide hoist names a Club Admin''s own club, not another club''s, an ordinary member''s nothing, and anon cannot ask');
 
   -- ---------------------------------------------------------------------------------------------
   -- SA-M  the unknown-age gate (programme section 9)

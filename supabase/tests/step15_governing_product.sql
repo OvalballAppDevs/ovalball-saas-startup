@@ -408,10 +408,17 @@ begin
   -- THE DISPENSATION CHAIN IS UNTOUCHED. Its governing-body stage is the CLUB recording a certificate
   -- it holds off-platform, and Step 15 must not quietly change what an existing record means.
   perform pg_temp.act_postgres();
+  -- The one dispensation workflow (20270742000000) replaced decide_player_dispensation, so the boundary is
+  -- asserted on what replaced it -- and on its existing, so the check cannot pass by naming a function
+  -- that is no longer there.
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'public' and p.proname = 'decide_player_dispensation'
+   where (n.nspname = 'public' and p.proname in ('decide_dispensation', 'record_dispensation_reference', 'revoke_player_dispensation')
+          or n.nspname = 'internal' and p.proname = 'dispensation_decider_role')
      and p.prosrc ~ 'constituent_body|can_manage_body';
-  perform pg_temp.check(v_n = 0, 'H1 no dispensation stage was re-pointed at a governing body officer');
+  perform pg_temp.check(v_n = 0
+      and exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                   where n.nspname = 'public' and p.proname = 'decide_dispensation'),
+    'H1 no dispensation stage was re-pointed at a governing body officer');
 
   -- AFFILIATION STAYED A READ.
   select count(*) into v_n from pg_proc p join pg_namespace n on n.oid = p.pronamespace

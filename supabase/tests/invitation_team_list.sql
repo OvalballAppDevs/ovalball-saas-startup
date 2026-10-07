@@ -199,9 +199,13 @@ begin
     and pg_temp.team_roles(v_per, v_club, 'COACH') = array[v_a]
     and pg_temp.team_roles(v_per, v_club, 'TEAM_MANAGER') = array[v_b],
     'TL-B4 PER-TEAM ROLES: Coach of one team and Team Manager of another, and neither role leaks to the other team');
+  -- Counts TEAM assignments. Since 20270739 the invitee is admitted through admit_club_member, so the
+  -- Member role admission gives them is also (correctly) recorded as coming from this invitation --
+  -- it used to be stamped LEGACY_BACKFILL by the direct insert. The widening this guards is at teams.
   perform pg_temp.check(
     (select count(*) from public.role_assignments ra join public.club_memberships m on m.id = ra.membership_id
-      where m.user_id = v_per and m.club_id = v_club and ra.state = 'ACTIVE' and ra.source = 'INVITATION') = 2,
+      where m.user_id = v_per and m.club_id = v_club and ra.state = 'ACTIVE' and ra.source = 'INVITATION'
+        and ra.team_id is not null) = 2,
     'TL-B5 and that is two assignments from the invitation, not four -- a flat list would have widened both');
   perform pg_temp.check(
     (select a.intended_outcome->'roles' from public.access_invitations a where a.id = v_inv.invitation_id)

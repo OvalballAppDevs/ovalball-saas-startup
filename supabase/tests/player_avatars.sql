@@ -42,8 +42,8 @@ begin
     insert into public.profiles (id, first_name, surname, email) values (v_r.id,'PAV','Tester','pav-'||v_r.id::text||'@ovalball.test');
   end loop;
 
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Pippa','Pavfamily','2016-01-01', 'MALE') returning id into v_child;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Jaxon','Pavfamily','2013-01-01', 'MALE') returning id into v_other_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Pippa','Pavfamily',internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Jaxon','Pavfamily',internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_other_child;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_child, v_team, 'active');
   insert into public.player_team_memberships (player_id, team_id, status) values (v_other_child, v_team, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values (v_guardian, v_child, 'guardian', 'active');
@@ -51,8 +51,8 @@ begin
   -- A coach with real team authority, to prove team staff are NOT included.
   -- team_permissions hangs off a club_memberships row, not a bare user id.
   insert into public.club_memberships (user_id, club_id, role, status) values (v_coach, v_club, 'BASIC_USER', 'active');
-  insert into public.team_permissions (membership_id, team_id, permission)
-  select cm.id, v_team, 'coach' from public.club_memberships cm
+  insert into testing.team_roles (membership_id, team_id, role_key)
+  select cm.id, v_team, 'COACH' from public.club_memberships cm
   where cm.user_id = v_coach and cm.club_id = v_club;
 
   -- =================================================================

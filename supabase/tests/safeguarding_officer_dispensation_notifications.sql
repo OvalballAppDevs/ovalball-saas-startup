@@ -49,7 +49,10 @@ begin
     (v_officer_user, 'Disp', 'Officer', 'sg-disp-officer-' || v_officer_user::text || '@ovalball.test', (current_date - interval '35 years')::date);
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_admin, 'CLUB_ADMIN', 'active');
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_admin2, 'CLUB_ADMIN', 'active');
-  insert into public.players (id, first_name, surname, active, created_by, playing_pathway) values (v_player, 'Test', 'Player', true, v_admin, 'MALE');
+  -- In the U14 grade this season (the canonical resolver's date), so the Under 16 side is an exception to ask
+  -- for -- the one dispensation workflow refuses a request whose age grade cannot be established.
+  insert into public.players (id, first_name, surname, active, created_by, playing_pathway, date_of_birth)
+  values (v_player, 'Test', 'Player', true, v_admin, 'MALE', internal.date_of_birth_in_age_grade('union', 'U14'));
   insert into public.player_team_memberships (player_id, team_id, status, created_by) values (v_player, v_team_source, 'active', v_admin);
 
   -- Nominate + invite + accept a Safeguarding Officer, then grant
@@ -92,11 +95,11 @@ begin
   values (v_officer_user, 'club.dispensation.notify', 'club', v_club, 'grant', v_admin);
 
   -- Q. Dispensation notification reaches the legitimate Safeguarding
-  -- Officer on request.
+  -- Officer on request -- through the one dispensation workflow (20270742000000).
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
   v_season_id := internal.resolve_season_for_date('union', current_date);
-  v_dispensation_id := public.request_player_dispensation(v_player, v_team_source, v_team_target, v_season_id, 'Test dispensation reference');
+  v_dispensation_id := public.request_dispensation(v_player, v_team_target, 'Test dispensation reason', v_team_source, v_season_id);
 
   reset role;
   select count(*) into v_notify_count from public.notifications
@@ -107,76 +110,80 @@ begin
     raise exception 'FAIL Q1: got % notifications', v_notify_count;
   end if;
 
-  -- R. The notification does not grant the officer any approval
-  -- authority -- proven structurally: the officer holds only
-  -- club.dispensation.notify/.view, never approve_player_dispensations,
-  -- and decide_player_dispensation's own authorization is completely
-  -- unchanged by this feature (still gated on approve_player_dispensations
-  -- / is_club_admin, exactly as before).
+  -- R. INTENDED CHANGE (the one dispensation workflow, 20270742000000). This used to prove that being
+  -- notified granted the officer no approval authority. The owner then made the club's CONFIRMED
+  -- Safeguarding Officer a decider beside the Club Admin (2026-10-05). What is asserted now is that rule,
+  -- read from the live record as the officer sees it -- without deciding, so that the Club Admin's decision
+  -- below is the one that counts.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_officer_user::text, 'role', 'authenticated')::text, true);
-  begin
-    perform public.decide_player_dispensation(v_dispensation_id, 'source_team', true);
-    raise exception 'FAIL R: the notified Safeguarding Officer approved a dispensation stage';
-  exception when others then
-    raise notice 'PASS R: being the notified Safeguarding Officer grants no dispensation-approval authority whatsoever: %', sqlerrm;
-  end;
+  if (public.dispensation_record(v_dispensation_id) #>> '{viewer,decides_as}') = 'SAFEGUARDING_OFFICER' then
+    raise notice 'PASS R: INTENDED CHANGE: the notified, confirmed Safeguarding Officer is offered the decision';
+  else
+    raise exception 'FAIL R: the confirmed officer is not offered the decision (%)', public.dispensation_record(v_dispensation_id) -> 'viewer';
+  end if;
+  reset role;
 
-  -- Advance to final approval as the real, unchanged approving party
-  -- (the Club Admin), and confirm the "approved" notification fires only
-  -- at the genuine final (governing_body) stage.
-  reset role;
-  set local role authenticated;
-  perform set_config('request.jwt.claims', json_build_object('sub', v_admin2::text, 'role', 'authenticated')::text, true);
-  perform public.decide_player_dispensation(v_dispensation_id, 'source_team', true);
-  reset role;
-  -- SLICE 4G, separation of duties. The person who asked cannot be the person who decides, at any
-  -- stage -- checked here on the live record rather than asserted about the source.
+  -- SLICE 4G, separation of duties. The person who asked cannot be the person who decides -- checked here
+  -- on the live record rather than asserted about the source.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
   begin
-    perform public.decide_player_dispensation(v_dispensation_id, 'club', true);
+    perform public.decide_dispensation(v_dispensation_id, true);
     raise exception 'FAIL SoD: the requester approved their own dispensation';
   exception
     when sqlstate '42501' then raise notice 'PASS SoD: the person who requested the dispensation cannot approve it';
     when others then
       if sqlerrm like 'FAIL SoD%' then raise; end if;
-      raise notice 'PASS SoD: the person who requested the dispensation cannot approve it';
+      raise exception 'FAIL SoD: refused for the wrong reason: %', sqlerrm;
   end;
   reset role;
   select count(*) into v_notify_count from public.notifications where user_id = v_officer_user and type = 'safeguarding_dispensation_decided';
   if v_notify_count = 0 then
-    raise notice 'PASS (no intermediate notification): the source-team-approval stage alone does not notify the Safeguarding Officer -- only a genuine rejection or the final approval does (spec section 19, "only send events that are genuinely useful")';
+    raise notice 'PASS (no premature notification): nothing tells the Safeguarding Officer a dispensation was decided before somebody decides it (spec section 19, "only send events that are genuinely useful")';
   else
-    raise exception 'FAIL: an intermediate stage approval incorrectly notified the officer';
+    raise exception 'FAIL: the officer was told of a decision nobody made';
   end if;
 
+  -- Q2. A Club Admin decides. Safeguarding must never be silently bypassed because a Club Admin acted
+  -- first: every officer is told -- the child, the team, the decision, who and when -- with the record's id
+  -- to open it by.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin2::text, 'role', 'authenticated')::text, true);
-  perform public.decide_player_dispensation(v_dispensation_id, 'club', true);
-  perform public.decide_player_dispensation(v_dispensation_id, 'governing_body', true, 'TEST-GB-REF-001');
+  perform public.decide_dispensation(v_dispensation_id, true, 'Approved by the second Club Admin');
   reset role;
   select count(*) into v_notify_count from public.notifications
-  where user_id = v_officer_user and type = 'safeguarding_dispensation_decided' and body ilike '%approved%';
+  where user_id = v_officer_user and type = 'safeguarding_dispensation_decided' and body ilike '%approved%'
+    and body ilike '%Club Admin%' and title ilike '%Disp Admintwo%' and title ilike '%Test Player%'
+    and (data->>'dispensation_id')::uuid = v_dispensation_id;
   if v_notify_count = 1 then
-    raise notice 'PASS Q2: the Safeguarding Officer is notified when a dispensation reaches final (governing-body) approval';
+    raise notice 'PASS Q2: the Safeguarding Officer is told when a Club Admin approves a dispensation -- the child, the decision, who decided and the record';
   else
     raise exception 'FAIL Q2: got % notifications', v_notify_count;
   end if;
 
-  -- S. The pre-existing Site Admin / requester notification path
-  -- (fixture_call_up_decided-style plumbing for a LINKED call-up) is
-  -- unaffected -- proven here by confirming the dispensation's own
-  -- normal columns/status still progressed exactly as before this
-  -- feature existed (approved), which is what any pre-existing
-  -- consumer of this table already depends on.
-  if (select status from public.player_team_dispensation where id = v_dispensation_id) = 'approved' then
-    raise notice 'PASS S: the dispensation''s own real approval chain (unrelated to Safeguarding Officer notification) completed exactly as it did before this feature existed -- no pre-existing behaviour was altered';
+  -- FIRST VALID DECISION WINS. The officer, told of the Club Admin's approval, cannot overwrite it.
+  set local role authenticated;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_officer_user::text, 'role', 'authenticated')::text, true);
+  begin
+    perform public.decide_dispensation(v_dispensation_id, false, 'A second opinion');
+    raise exception 'FAIL FDW: a second decision overwrote the first';
+  exception when others then
+    if sqlerrm like 'FAIL FDW%' then raise; end if;
+    raise notice 'PASS FDW: the first valid decision wins -- a later decision is refused: %', sqlerrm;
+  end;
+  reset role;
+
+  -- S. The record's own state is the decision: approved, by whom, as what.
+  if (select status = 'approved' and decided_by = v_admin2 and decided_as = 'CLUB_ADMIN'
+        from public.player_team_dispensation where id = v_dispensation_id) then
+    raise notice 'PASS S: the dispensation is approved, attributed to the Club Admin who decided it';
   else
     raise exception 'FAIL S';
   end if;
 
-  -- Revocation also notifies.
+  -- Revocation also notifies. Revoking can only take an exception away, so the Club Admin who asked for
+  -- it may revoke it.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin::text, 'role', 'authenticated')::text, true);
   perform public.revoke_player_dispensation(v_dispensation_id, 'Test revoke reason');

@@ -49,14 +49,40 @@ begin
   perform public.send_announcement(v_ann);
 
   perform set_config('role', 'postgres', true);
-  select recipient_user_id into v_a from public.messenger_announcement_deliveries
-  where announcement_id = v_ann order by recipient_user_id limit 1;
-  select recipient_user_id into v_b from public.messenger_announcement_deliveries
-  where announcement_id = v_ann and recipient_user_id <> v_a order by recipient_user_id limit 1;
+  -- TWO ORDINARY MEMBERS OF THE AUDIENCE, not merely the two lowest ids.
+  --
+  -- A team's STAFF are in the audience of their own announcement and legitimately read every reply to
+  -- it -- that is the point of a private reply mode: private from the other parents, not from the
+  -- person who asked the question. Picking recipients by id alone picked a coach, and the suite then
+  -- reported a privacy breach that was the product working correctly. Anybody holding a live role on
+  -- this team, or a membership at its club, is excluded.
+  select d.recipient_user_id into v_a
+  from public.messenger_announcement_deliveries d
+  join public.teams t on t.id = v_team
+  where d.announcement_id = v_ann
+    and not exists (select 1 from public.role_assignments ra
+                     where ra.user_id = d.recipient_user_id and ra.club_id = t.club_id
+                       and ra.state = 'ACTIVE')
+    and not exists (select 1 from public.club_memberships cm
+                     where cm.user_id = d.recipient_user_id and cm.club_id = t.club_id
+                       and cm.status = 'active')
+  order by d.recipient_user_id limit 1;
+
+  select d.recipient_user_id into v_b
+  from public.messenger_announcement_deliveries d
+  join public.teams t on t.id = v_team
+  where d.announcement_id = v_ann and d.recipient_user_id <> v_a
+    and not exists (select 1 from public.role_assignments ra
+                     where ra.user_id = d.recipient_user_id and ra.club_id = t.club_id
+                       and ra.state = 'ACTIVE')
+    and not exists (select 1 from public.club_memberships cm
+                     where cm.user_id = d.recipient_user_id and cm.club_id = t.club_id
+                       and cm.status = 'active')
+  order by d.recipient_user_id limit 1;
   perform set_config('role', 'authenticated', true);
 
   if v_a is null or v_b is null then
-    raise notice 'SKIP: this announcement reached fewer than two people, so audience privacy cannot be tested';
+    raise notice 'SKIP: this announcement reached fewer than two ordinary audience members, so audience privacy cannot be tested';
     return;
   end if;
 

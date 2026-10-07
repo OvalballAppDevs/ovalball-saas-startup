@@ -140,11 +140,20 @@ begin
   else raise notice 'FAIL 13: an email was claimed for a type that has none'; end if;
 
   -- =================================================================
-  -- 14. PUSH IS HONEST ABOUT NOT EXISTING
+  -- 14. PUSH NOW EXISTS, AND OBEYS THE SAME MANDATORY RULE AS EVERY OTHER
+  -- CHANNEL (M7, 20270707000000). This pin used to assert the opposite --
+  -- "push reports it cannot deliver" -- back when there was no transport at
+  -- all; the honest-refusal behaviour it protected has been superseded by a
+  -- real one, built and proven in `supabase/tests/push_notifications.sql`.
+  -- What stays invariant, and what this now pins instead, is that a
+  -- MANDATORY type is never silenced on ANY channel -- 'fixture_cancelled'
+  -- is the same mandatory-override-within-an-optional-topic case this whole
+  -- file is about, and push must bypass the preference for it exactly as
+  -- in-app and email already do.
   -- =================================================================
-  if not internal.should_deliver_notification(v_user, 'fixture_cancelled', 'push') then
-    raise notice 'PASS 14: push reports it cannot deliver, rather than pretending';
-  else raise notice 'FAIL 14: push claimed a delivery it cannot make'; end if;
+  if internal.should_deliver_notification(v_user, 'fixture_cancelled', 'push') then
+    raise notice 'PASS 14: a mandatory type is delivered by push, the same as every other channel';
+  else raise notice 'FAIL 14: push silenced a mandatory type'; end if;
 
   -- =================================================================
   -- 15-16. WHAT THE SETTINGS SCREEN IS TOLD
@@ -153,9 +162,12 @@ begin
     raise notice 'PASS 15: the settings view warns that this topic still delivers some events when off';
   else raise notice 'FAIL 15: the settings view would let the UI claim the topic is fully off'; end if;
 
-  if not (select push_ready from public.notification_topic_settings where key = 'messages') then
-    raise notice 'PASS 16: the settings view does not advertise push';
-  else raise notice 'FAIL 16: push is advertised as available'; end if;
+  -- push_ready now reflects a transport that actually exists (M7); it is no
+  -- longer wired to always read false, so the settings screen can show a
+  -- working push switch for every topic rather than hiding one.
+  if (select push_ready from public.notification_topic_settings where key = 'messages') then
+    raise notice 'PASS 16: the settings view advertises push now that it is real';
+  else raise notice 'FAIL 16: push is not advertised even though delivery exists'; end if;
 
   -- =================================================================
   -- 17. ONE WRITER, NOT AN OVERLOADED PAIR

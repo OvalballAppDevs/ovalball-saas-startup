@@ -63,9 +63,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_effect text, p_level text,
@@ -201,17 +201,17 @@ begin
   perform pg_temp.row('P10', v_s, k, 'club', v_club, null, null, false, '2', 'deny beats allow at the same level');
 
   -- P11: a club withhold beats a club allow
-  v_s := pg_temp.person('P11'); v_ms := pg_temp.member(v_club, v_s, 'BASIC_USER'); perform pg_temp.team_role(v_ms, v_team, 'coach');
+  v_s := pg_temp.person('P11'); v_ms := pg_temp.member(v_club, v_s, 'BASIC_USER'); perform pg_temp.team_role(v_ms, v_team, 'COACH');
   perform pg_temp.override(v_s, k, 'club', v_club, null, 'deny', 'CLUB', v_ca);
   perform pg_temp.override(v_s, k, 'team', v_club, v_team, 'grant', 'CLUB', v_ca);
   perform pg_temp.row('P11', v_s, k, 'team', v_club, v_team, null, false, '3', 'club deny beats club allow');
 
   -- P12: a club withhold on an inheriting key reaches the team; a team allow cannot defeat it
-  v_s := pg_temp.person('P12'); v_ms := pg_temp.member(v_club, v_s, 'BASIC_USER'); perform pg_temp.team_role(v_ms, v_team, 'manager');
+  v_s := pg_temp.person('P12'); v_ms := pg_temp.member(v_club, v_s, 'BASIC_USER'); perform pg_temp.team_role(v_ms, v_team, 'TEAM_MANAGER');
   perform pg_temp.override(v_s, k, 'club', v_club, null, 'deny', 'CLUB', v_ca);
   -- the team allow comes from a Team Admin of that team
   declare v_ta uuid := pg_temp.person('P12 Team Admin'); v_ta_ms uuid; begin
-    v_ta_ms := pg_temp.member(v_club, v_ta, 'BASIC_USER'); perform pg_temp.team_role(v_ta_ms, v_team, 'team_admin');
+    v_ta_ms := pg_temp.member(v_club, v_ta, 'BASIC_USER'); perform pg_temp.team_role(v_ta_ms, v_team, 'TEAM_ADMINISTRATION');
     perform pg_temp.override(v_s, k, 'team', v_club, v_team, 'grant', 'TEAM', v_ta);
   end;
   perform pg_temp.row('P12', v_s, k, 'team', v_club, v_team, null, false, '3', 'a club deny on an inheriting key applies to the team');
@@ -222,13 +222,13 @@ begin
   perform pg_temp.row('P13', v_s, k, 'club', v_club, null, null, true, '6', 'deny is scoped to its club');
 
   -- P14: a team withhold beats an allow
-  v_s := pg_temp.person('P14'); v_ms := pg_temp.member(v_club, v_s, 'BASIC_USER'); perform pg_temp.team_role(v_ms, v_team, 'coach');
+  v_s := pg_temp.person('P14'); v_ms := pg_temp.member(v_club, v_s, 'BASIC_USER'); perform pg_temp.team_role(v_ms, v_team, 'COACH');
   perform pg_temp.override(v_s, k, 'team', v_club, v_team, 'deny', 'TEAM', v_ca);
   perform pg_temp.override(v_s, k, 'club', v_club, null, 'grant', 'CLUB', v_ca);
   perform pg_temp.row('P14', v_s, k, 'team', v_club, v_team, null, false, '4', 'team deny beats an allow');
 
   -- P15: a team withhold is scoped to its team
-  v_s := pg_temp.person('P15'); v_ms := pg_temp.member(v_club, v_s, 'BASIC_USER'); perform pg_temp.team_role(v_ms, v_team, 'coach');
+  v_s := pg_temp.person('P15'); v_ms := pg_temp.member(v_club, v_s, 'BASIC_USER'); perform pg_temp.team_role(v_ms, v_team, 'COACH');
   perform pg_temp.override(v_s, k, 'team', v_club, v_team2, 'deny', 'TEAM', v_ca);
   perform pg_temp.row('P15', v_s, k, 'team', v_club, v_team, null, true, '6', 'deny scoped to its team');
 
@@ -296,7 +296,7 @@ begin
   perform pg_temp.row('P23', v_s, k, 'team', v_club, v_team, null, true, '6', 'club role inherits to the team');
 
   -- P24: a team role never answers a club key
-  v_s := pg_temp.person('P24'); v_ms := pg_temp.member(v_club, v_s, 'BASIC_USER'); perform pg_temp.team_role(v_ms, v_team, 'coach');
+  v_s := pg_temp.person('P24'); v_ms := pg_temp.member(v_club, v_s, 'BASIC_USER'); perform pg_temp.team_role(v_ms, v_team, 'COACH');
   perform pg_temp.row('P24', v_s, k, 'club', v_club, null, null, false, '8', 'a team role never answers club keys');
   perform pg_temp.row('P24b', v_s, k, 'team', v_club, v_team, null, true, '6', 'while it answers its own team');
 

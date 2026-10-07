@@ -129,12 +129,12 @@ begin
   v_ca2 := pg_temp.person('SecondAdmin'); perform pg_temp.member(v_club, v_ca2, 'CLUB_ADMIN');
   v_fs := pg_temp.person('FixtureSec'); v_ms_fs := pg_temp.member(v_club, v_fs, 'FIXTURE_SECRETARY');
   v_coach := pg_temp.person('Coach'); v_ms_coach := pg_temp.member(v_club, v_coach);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_coach, v_t12, 'coach');
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_coach, v_t10, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_coach, v_t12, 'COACH');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_coach, v_t10, 'TEAM_MANAGER');
   v_vol := pg_temp.person('Volunteer'); v_ms_vol := pg_temp.member(v_club, v_vol);
   v_member := pg_temp.person('Member'); v_ms_member := pg_temp.member(v_club, v_member);
   v_titled := pg_temp.person('Titled'); v_ms_titled := pg_temp.member(v_club, v_titled);
-  v_full := pg_temp.person('SiteFull'); insert into public.site_admins (user_id, status, admin_role) values (v_full, 'active', 'full');
+  v_full := pg_temp.person('SiteFull'); insert into public.site_admins (user_id, status, profile_key) values (v_full, 'active', 'SITE_FULL');
   v_cab := pg_temp.person('OtherClubAdmin'); perform pg_temp.member(v_club_b, v_cab, 'CLUB_ADMIN');
 
   perform pg_temp.act('authenticated', v_ca);

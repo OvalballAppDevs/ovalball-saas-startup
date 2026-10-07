@@ -59,13 +59,17 @@ begin
   -- below is derived from this one row, so the suite tests one coherent club
   -- rather than a person from one club and a club from another.
   select cm.user_id, tp.team_id, t.club_id into v_team_only_admin, v_own_team_id, v_own_club_id
-  from public.team_permissions tp
+  from testing.team_roles tp
   join public.club_memberships cm on cm.id = tp.membership_id and cm.status = 'active' and cm.authority_suspended = false
   join public.teams t on t.id = tp.team_id
   join auth.users u on u.id = cm.user_id
   where u.email = 'uat.team.manager@ovalball.test'
-    and tp.permission in ('team_admin', 'coach', 'manager')
+    and tp.role_key in ('TEAM_ADMINISTRATION', 'COACH', 'TEAM_MANAGER')
     and cm.role <> 'CLUB_ADMIN'
+    -- The team BY NAME, as the seed names it (local_uat_team_staff_and_adult_player.sql). The persona was
+    -- later enriched with two mini sides that have no players; "first team by id" then picked one of
+    -- those and read its empty playing group as a refusal -- the same defect the header describes.
+    and t.display_name = 'Under 12 Boys'
   order by tp.team_id
   limit 1;
   raise notice 'Selected team-only admin % for team % (club %)', v_team_only_admin, v_own_team_id, v_own_club_id;
@@ -94,7 +98,7 @@ begin
   select t.id into v_sibling_team_id
   from public.teams t
   where t.club_id = v_own_club_id and t.id <> v_own_team_id
-    and not exists (select 1 from public.team_permissions tp
+    and not exists (select 1 from testing.team_roles tp
                     join public.club_memberships cm on cm.id = tp.membership_id
                     where tp.team_id = t.id and cm.user_id = v_team_only_admin)
   order by t.id

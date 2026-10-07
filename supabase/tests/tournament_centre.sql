@@ -96,7 +96,7 @@ insert into public.club_memberships (club_id, user_id, role, status)
 values (v_club, v_club_admin, 'CLUB_ADMIN', 'active');
 insert into public.club_memberships (club_id, user_id, role, status)
 values (v_club, v_u12_manager, 'BASIC_USER', 'active') returning id into v_membership;
-insert into public.team_permissions (membership_id, team_id, permission) values (v_membership, v_u12, 'manager');
+insert into testing.team_roles (membership_id, team_id, role_key) values (v_membership, v_u12, 'TEAM_MANAGER');
 
 -- A CHILD in U13 and the adult responsible for them; and a player with their
 -- OWN ACCOUNT in U12. Neither holds a club membership, which is the normal
@@ -121,6 +121,10 @@ v_tournament := public.save_tournament(
   p_club_id => v_club, p_name => 'TC Festival', p_starts_on => current_date + 30,
   p_ends_on => current_date + 30, p_rugby_code => 'union', p_venue_id => v_venue
 );
+-- A game must belong to a competition the tournament actually runs (20270605000000). The old model
+-- inferred the grades from the host's entries; they are now declared, which is what makes a side's
+-- competition unambiguous.
+perform public.set_tournament_age_groups(v_tournament, array['U12','U13']);
 v_entry_u12 := public.add_tournament_team_entry(v_tournament, v_u12);
 v_entry_u13 := public.add_tournament_team_entry(v_tournament, v_u13);
 
@@ -156,7 +160,7 @@ end if;
 
 -- A game may only be against one of THAT team's own recorded opponents.
 begin
-  perform public.save_tournament_game(v_entry_u13, v_o1, current_date + 30);
+  perform public.save_tournament_game(v_tournament, v_entry_u13, (select participant_id from public.tournament_entry_opponents where id = v_o1), 'U13', current_date + 30);
   raise notice 'FAIL 4 (B): U13 was scheduled against one of U12''s opponents';
 exception when others then
   raise notice 'PASS 4 (B): a game must be against that team''s own opponent -- cross-team opponents refused';
@@ -164,8 +168,8 @@ end;
 
 -- ============ C. THE SCHEDULE ============
 
-v_game := public.save_tournament_game(v_entry_u12, v_o1, current_date + 30, p_start_time => '10:00', p_duration_minutes => 30, p_pitch_id => v_pitch1);
-perform public.save_tournament_game(v_entry_u13, v_o3, current_date + 30, p_start_time => '10:20', p_duration_minutes => 30, p_pitch_id => v_pitch2);
+v_game := public.save_tournament_game(v_tournament, v_entry_u12, (select participant_id from public.tournament_entry_opponents where id = v_o1), 'U12', current_date + 30, p_start_time => '10:00', p_duration_minutes => 30, p_pitch_id => v_pitch1);
+perform public.save_tournament_game(v_tournament, v_entry_u13, (select participant_id from public.tournament_entry_opponents where id = v_o3), 'U13', current_date + 30, p_start_time => '10:20', p_duration_minutes => 30, p_pitch_id => v_pitch2);
 
 select count(*) into v_n from public.tournament_games where tournament_id = v_tournament;
 if v_n = 2 then
@@ -176,7 +180,7 @@ end if;
 
 -- A game outside the days the tournament runs is refused.
 begin
-  perform public.save_tournament_game(v_entry_u12, v_o1, current_date + 90);
+  perform public.save_tournament_game(v_tournament, v_entry_u12, (select participant_id from public.tournament_entry_opponents where id = v_o1), 'U12', current_date + 90);
   raise notice 'FAIL 6 (C): a game was scheduled on a day the tournament is not running';
 exception when others then
   raise notice 'PASS 6 (C): a game must fall on a day the tournament is running';
@@ -244,7 +248,7 @@ else
 end if;
 
 begin
-  perform public.save_tournament_game(v_entry_u13, v_o3, current_date + 30, p_start_time => '13:00');
+  perform public.save_tournament_game(v_tournament, v_entry_u13, (select participant_id from public.tournament_entry_opponents where id = v_o3), 'U13', current_date + 30, p_start_time => '13:00');
   raise notice 'FAIL 12 (F): the U12 manager changed U13''s schedule';
 exception when others then
   raise notice 'PASS 12 (F): the U12 manager is refused U13''s schedule server-side';
@@ -368,7 +372,7 @@ else
 end if;
 
 begin
-  perform public.save_tournament_game(v_entry_u12, v_o1, current_date + 30, p_start_time => '11:00');
+  perform public.save_tournament_game(v_tournament, v_entry_u12, (select participant_id from public.tournament_entry_opponents where id = v_o1), 'U12', current_date + 30, p_start_time => '11:00');
   raise notice 'FAIL 28 (I): a cancelled tournament was still editable';
 exception when others then
   raise notice 'PASS 28 (I): a cancelled tournament refuses further changes';
@@ -395,13 +399,14 @@ begin
     raise notice 'FAIL 31 (MD): % rows for a multi-day tournament', v_n;
   end if;
 
+  perform public.set_tournament_age_groups(v_md, array['U12']);
   v_md_entry := public.add_tournament_team_entry(v_md, v_u12);
   v_md_opp := public.record_tournament_opponent(v_md_entry, v_opp_a, v_type_u12);
-  perform public.save_tournament_game(v_md_entry, v_md_opp, current_date + 61, p_start_time => '11:00', p_duration_minutes => 30);
+  perform public.save_tournament_game(v_md, v_md_entry, (select participant_id from public.tournament_entry_opponents where id = v_md_opp), 'U12', current_date + 61, p_start_time => '11:00', p_duration_minutes => 30);
   raise notice 'PASS 32 (MD): a game on the middle day of the span is accepted';
 
   begin
-    perform public.save_tournament_game(v_md_entry, v_md_opp, current_date + 70, p_start_time => '11:00');
+    perform public.save_tournament_game(v_md, v_md_entry, (select participant_id from public.tournament_entry_opponents where id = v_md_opp), 'U12', current_date + 70, p_start_time => '11:00');
     raise notice 'FAIL 33 (MD): a game outside the span was accepted';
   exception when others then
     raise notice 'PASS 33 (MD): a game outside the span is refused';

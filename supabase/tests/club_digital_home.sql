@@ -96,9 +96,9 @@ begin
     (v_club_a, v_member_a, 'BASIC_USER', 'active'),
     (v_club_b, v_admin_b, 'CLUB_ADMIN', 'active');
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_a, v_coach_a1, 'BASIC_USER', 'active') returning id into v_ms;
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms, v_team_a1, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms, v_team_a1, 'COACH');
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_a, v_manager_a2, 'BASIC_USER', 'active') returning id into v_ms;
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms, v_team_a2, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms, v_team_a2, 'TEAM_MANAGER');
 
   -- =================================================================
   -- A. AUTHORITY

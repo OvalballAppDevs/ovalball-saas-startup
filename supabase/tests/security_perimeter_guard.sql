@@ -45,6 +45,12 @@ declare
     'get_guardian_invitation_preview(text)',
     'get_invitation_preview(text)',
     'get_player_account_invitation_preview(text)',
+    -- Match Centre consolidation (20270727, owner brief 2026-10-03). A team named in a Match Centre
+    -- opens its public page, which anybody may read: the overview, the cover and the staff by name and
+    -- role. It is a projection of the one canonical team, not a widening of `teams`; the squad (first
+    -- name and surname initial) and the photographs are returned only where the club or team chose to
+    -- share them, and an inactive team or club returns nothing. Never a contact detail or a date of birth.
+    'get_public_team_profile(uuid)',
     -- Identity/Auth Slice 1 forward-fix: season team names for the public
     -- Club Digital Home, scoped to public_club_fixtures pairs.
     'get_public_team_season_names(jsonb)',

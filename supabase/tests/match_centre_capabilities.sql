@@ -81,7 +81,13 @@ begin
 
   insert into players (id, first_name, surname, date_of_birth, user_id, playing_pathway) values (gen_random_uuid(), 'Adult', 'Player', current_date - interval '20 years', v_adult_player, 'MALE') returning id into v_player_adult;
   insert into players (id, first_name, surname, date_of_birth, user_id, playing_pathway) values (gen_random_uuid(), 'Sixteen', 'Seventeen', current_date - interval '17 years', v_1617_player, 'MALE') returning id into v_player_1617;
-  insert into players (id, first_name, surname, date_of_birth, user_id, playing_pathway) values (gen_random_uuid(), 'Under', 'Sixteen', current_date - interval '11 years', null, 'MALE') returning id into v_player_u16;
+  insert into players (id, first_name, surname, date_of_birth, user_id, playing_pathway) values (gen_random_uuid(), 'Under', 'Sixteen', internal.date_of_birth_in_age_grade('union', 'U12'), null, 'MALE') returning id into v_player_u16;
+
+  -- A and B depend on these two being an adult and a 16-17 year old, so they stay outside the U12
+  -- grade and the placement carries an approved dispensation, as the age-grade guard requires.
+  insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference) values
+    (v_player_adult, v_team_home, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE'),
+    (v_player_1617, v_team_home, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
 
   insert into player_team_memberships (player_id, team_id, status) values
     (v_player_adult, v_team_home, 'active'),

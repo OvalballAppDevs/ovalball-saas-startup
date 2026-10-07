@@ -153,7 +153,7 @@ begin
   v_off_b := pg_temp.person('OFF-B'); perform pg_temp.member(v_club_b, v_off_b, 'ACTIVE');
   v_member_a := pg_temp.person('MEM-A'); perform pg_temp.member(v_club_a, v_member_a, 'ACTIVE');
   v_guardian_a := pg_temp.person('PG-A'); perform pg_temp.member(v_club_a, v_guardian_a, 'ACTIVE');
-  v_sa := pg_temp.person('SA'); insert into public.site_admins (user_id, status, admin_role) values (v_sa, 'active', 'full');
+  v_sa := pg_temp.person('SA'); insert into public.site_admins (user_id, status, profile_key) values (v_sa, 'active', 'SITE_FULL');
 
   -- The officers are appointed the only way an officer can be: nominated by their club, confirmed by Ovalball.
   v_res := pg_temp.json_as(v_ca_a, format('select public.nominate_club_safeguarding_officer(%L,%L,''primary'',''ca11.1 seed'')', v_club_a, v_off_a));
@@ -317,12 +317,8 @@ begin
   perform pg_temp.check(v_state <> 'OK', format('SG-E13 the website''s own revoke path serves nobody without the key (%s)', v_state));
   v_state := pg_temp.try_as(v_member_a, format('select public.update_safeguarding_officer_contact(%L, ''Edited'', ''edited-%s@ovalball.test'')', v_contact, v_tag));
   perform pg_temp.check(v_state = '42501', format('SG-E14 correcting a contact card that is not yours, without the key, is refused (%s)', v_state));
-  -- DOCUMENTED, NOT ASSERTED: while a contact card's user_id is still NULL (nobody has accepted), the
-  -- gate in update_safeguarding_officer_contact evaluates `v_officer.user_id = auth.uid()` to NULL, and
-  -- `not (null and true or false)` never raises -- so a person holding safeguarding.officer.contact_edit
-  -- at self scope can edit ANY unaccepted card. CA-M11.1 adds no migration; the phone offers Edit
-  -- Contact for the self key only where the card names the signed-in person. The boundary that holds
-  -- today is the one proved here: a card that names SOMEBODY ELSE.
+  -- The NULL-card hole (a card nobody has accepted could be edited by any self-key holder at any club) is CLOSED by
+  -- 20270762000000 and proved by club_admin_audit_remediation.sql R-H2. Proved here: a card that names SOMEBODY ELSE.
   update public.club_safeguarding_officers set user_id = v_member_a where id = v_contact;
   v_state := pg_temp.try_as(v_off_a, format('select public.update_safeguarding_officer_contact(%L, ''Edited'', ''edited-%s@ovalball.test'')', v_contact, v_tag));
   perform pg_temp.check(v_state = '42501', format('SG-E15 the officer''s self-scope contact key does not reach a card that names somebody else (%s)', v_state));

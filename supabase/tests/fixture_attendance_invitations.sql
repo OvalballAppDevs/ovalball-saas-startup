@@ -1,4 +1,8 @@
--- Two weeks out, Ovalball asks who is coming.
+-- When attendance opens, Ovalball asks who is coming.
+--
+-- Attendance used to open two weeks out. The Match Centre consolidation (owner brief, 2026-10-03,
+-- 20270727) made it open SIX days before the match by default -- a club may set its own number -- and
+-- earlier only when the team opens it by hand. Everything else this suite pins is unchanged.
 --
 -- What is worth pinning here is not "a notification row appeared". It is that
 -- the invitation reuses the canonical safeguarding model rather than inventing
@@ -18,7 +22,7 @@
 \set ON_ERROR_STOP off
 \pset pager off
 
-\echo '=== Two-week attendance invitations ==='
+\echo '=== Attendance invitations, when attendance opens ==='
 
 begin;
 
@@ -30,7 +34,7 @@ declare
   v_latecomer_guardian uuid := gen_random_uuid();
   v_dir uuid; v_opp_dir uuid; v_club uuid; v_team uuid; v_season uuid;
   v_child uuid; v_adult_player uuid; v_answered uuid; v_latecomer uuid;
-  v_soon uuid; v_far uuid; v_cancelled uuid;
+  v_soon uuid; v_far uuid; v_cancelled uuid; v_next_week uuid;
   v_count int; v_sent int; v_data jsonb;
 begin
   v_season := internal.resolve_season_for_date('union', current_date);
@@ -68,6 +72,13 @@ begin
   insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
   values ('FAI','Latecomer',(current_date - interval '13 years')::date,true,'MALE') returning id into v_latecomer;
 
+  -- The children are minors on an adult side on purpose (their guardians are asked, never the child), so
+  -- each place carries an approved dispensation with a governing-body reference, as the age-grade guard requires.
+  insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference) values
+    (v_child, v_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE'),
+    (v_answered, v_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE'),
+    (v_latecomer, v_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
+
   insert into public.player_team_memberships (player_id, team_id, status) values
     (v_child, v_team, 'active'),
     (v_adult_player, v_team, 'active'),
@@ -77,15 +88,18 @@ begin
     (v_guardian, v_answered, 'parent', 'active'),
     (v_latecomer_guardian, v_latecomer, 'parent', 'active');
 
-  -- Inside the window, outside it, and one that is not happening at all.
+  -- Inside the window, just outside it, far outside it, and one that is not happening at all.
+  insert into public.fixtures (owning_team_id, season_id, kickoff_date, kickoff_time, home_away, status, game_type, source, raw_opposition_text, opponent_directory_id)
+  values (v_team, v_season, current_date + 5, '14:30', 'Home', 'Booked', 'League Fixture', 'club_created', 'FAI Opposition RFC', v_opp_dir)
+  returning id into v_soon;
   insert into public.fixtures (owning_team_id, season_id, kickoff_date, kickoff_time, home_away, status, game_type, source, raw_opposition_text, opponent_directory_id)
   values (v_team, v_season, current_date + 10, '14:30', 'Home', 'Booked', 'League Fixture', 'club_created', 'FAI Opposition RFC', v_opp_dir)
-  returning id into v_soon;
+  returning id into v_next_week;
   insert into public.fixtures (owning_team_id, season_id, kickoff_date, kickoff_time, home_away, status, game_type, source, raw_opposition_text, opponent_directory_id)
   values (v_team, v_season, current_date + 45, '14:30', 'Home', 'Booked', 'League Fixture', 'club_created', 'FAI Opposition RFC', v_opp_dir)
   returning id into v_far;
   insert into public.fixtures (owning_team_id, season_id, kickoff_date, kickoff_time, home_away, status, game_type, source, raw_opposition_text, opponent_directory_id, cancelled_at, cancellation_reason)
-  values (v_team, v_season, current_date + 5, '14:30', 'Home', 'Booked', 'League Fixture', 'club_created', 'FAI Opposition RFC', v_opp_dir, now(), 'Waterlogged')
+  values (v_team, v_season, current_date + 4, '14:30', 'Home', 'Booked', 'League Fixture', 'club_created', 'FAI Opposition RFC', v_opp_dir, now(), 'Waterlogged')
   returning id into v_cancelled;
 
   -- One player has already answered, and must not be chased.
@@ -97,9 +111,16 @@ begin
   -- =================================================================
   select count(*) into v_count from internal.fixtures_due_attendance_invitation() where fixture_id = v_soon;
   if v_count = 1 then
-    raise notice 'PASS 1 (A): a fixture 10 days out is inside the two-week window';
+    raise notice 'PASS 1 (A): a fixture 5 days out is inside the six-day window';
   else
-    raise exception 'FAIL 1 (A): the fixture 10 days out was not due';
+    raise exception 'FAIL 1 (A): the fixture 5 days out was not due';
+  end if;
+
+  select count(*) into v_count from internal.fixtures_due_attendance_invitation() where fixture_id = v_next_week;
+  if v_count = 0 then
+    raise notice 'PASS 1b (A): a fixture 10 days out is not asked about yet -- the window is six days, not two weeks';
+  else
+    raise exception 'FAIL 1b (A): a fixture 10 days out was due under the six-day window';
   end if;
 
   select count(*) into v_count from internal.fixtures_due_attendance_invitation() where fixture_id = v_far;
@@ -119,6 +140,8 @@ begin
   -- =================================================================
   -- B. Who gets asked
   -- =================================================================
+  -- (The 10-day fixture has a squad too, so had the window been wrong this first run would invite for
+  -- it as well; PASS 1b already pins that it is not due, and the counts below are per fixture.)
   v_sent := internal.send_due_fixture_attendance_invitations();
   if v_sent >= 2 then
     raise notice 'PASS 4 (B): the job sent % invitation(s)', v_sent;
@@ -259,7 +282,30 @@ begin
     raise exception 'FAIL 16 (G): the invitation ledger became client-readable';
   end if;
 
-  raise notice 'Two-week attendance invitation invariants complete.';
+  -- =================================================================
+  -- H. Opening early makes a later match due at once
+  -- =================================================================
+  -- The team may open attendance before the window; that is a decision to ask now, so the very next
+  -- run asks -- and only once, by the same ledger.
+  select count(*) into v_count from public.notifications
+  where type = 'fixture_attendance_invitation' and data->>'fixture_id' = v_next_week::text;
+  if v_count = 0 then
+    raise notice 'PASS 17 (H): nobody was asked about the 10-day match before it opened';
+  else
+    raise exception 'FAIL 17 (H): % invitation(s) went out for a match whose attendance had not opened', v_count;
+  end if;
+  update public.fixtures set attendance_opened_at = now() where id = v_next_week;
+  select count(*) into v_count from internal.fixtures_due_attendance_invitation() where fixture_id = v_next_week;
+  perform internal.send_due_fixture_attendance_invitations();
+  select count(*) into v_sent from public.notifications
+  where user_id = v_guardian and type = 'fixture_attendance_invitation' and data->>'fixture_id' = v_next_week::text;
+  if v_count = 1 and v_sent = 1 then
+    raise notice 'PASS 18 (H): opened early, the 10-day match is due and its guardian is asked exactly once';
+  else
+    raise exception 'FAIL 18 (H): opened early, due=% and the guardian has % invitation(s)', v_count, v_sent;
+  end if;
+
+  raise notice 'Attendance invitation invariants complete.';
 end $$;
 
 rollback;

@@ -49,9 +49,9 @@ begin
   on conflict (id) do nothing;
 
   -- test.tsc.coach@ovalball.local is a Coach for team A ONLY. test.tsc.otherteam@ovalball.local is a Coach for team B ONLY -- used to prove SELECT stays scoped to a caller's own visible requests, not "any team at the club".
-  insert into public.team_permissions (id, membership_id, team_id, permission) values
-    ('99b00000-0000-0000-0000-000000000107', '99b00000-0000-0000-0000-000000000103', '99b00000-0000-0000-0000-000000000105', 'coach'),
-    ('99b00000-0000-0000-0000-000000000108', '99b00000-0000-0000-0000-000000000104', '99b00000-0000-0000-0000-000000000106', 'coach')
+  insert into testing.team_roles (id, membership_id, team_id, role_key) values
+    ('99b00000-0000-0000-0000-000000000107', '99b00000-0000-0000-0000-000000000103', '99b00000-0000-0000-0000-000000000105', 'COACH'),
+    ('99b00000-0000-0000-0000-000000000108', '99b00000-0000-0000-0000-000000000104', '99b00000-0000-0000-0000-000000000106', 'COACH')
   on conflict (id) do nothing;
 end $$;
 

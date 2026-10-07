@@ -106,7 +106,11 @@ begin
     ('people.membership.revoke','{club}'), ('people.role.assign_club','{club}'),
     ('club.profile.view','{club}'), ('club.profile.edit','{club}'), ('club.settings.manage','{club}'),
     ('club.reporting.export','{club}'),
-    ('finance.subscription.view','{club}'), ('finance.subscription.configure','{club}'),
+    -- CLUB AND TEAM. `20270531000000_a_team_manager_can_see_their_own_squads_subscriptions` gave this
+    -- key team scope so a team manager can see their own squad's subscriptions; the club scope the
+    -- club finance surface depends on is unchanged, and that migration guards both. Reading it as
+    -- club-only here is reading the catalogue as it was before that decision.
+    ('finance.subscription.view','{club,team}'), ('finance.subscription.configure','{club}'),
     ('finance.enrolment.manage','{club}'), ('finance.payment.act','{club}'),
     ('finance.subscription.export','{club}'), ('finance.gocardless.connect','{club}'),
     ('finance.platform_billing.view','{club}'), ('finance.platform_billing.manage','{club}')
@@ -156,7 +160,7 @@ begin
   insert into public.role_assignments (club_id,user_id,membership_id,role_key,state,source,granted_by)
   values (v_club,v_vo,v_ms,'VOLUNTEER','ACTIVE','CLUB_ADMIN_ASSIGNMENT',v_ca);
   v_co  := pg_temp.person('CO');  insert into public.club_memberships (club_id,user_id,role,status) values (v_club,v_co,'BASIC_USER','active') returning id into v_ms;
-  insert into public.team_permissions (membership_id,team_id,permission) values (v_ms,v_team,'coach');
+  insert into testing.team_roles (membership_id,team_id,role_key) values (v_ms,v_team,'COACH');
   v_so  := pg_temp.person('SO');  insert into public.club_memberships (club_id,user_id,role,status) values (v_club,v_so,'BASIC_USER','active') returning id into v_ms;
   insert into public.role_assignments (club_id,user_id,membership_id,role_key,state,source,confirmation_state,confirmed_at,granted_by,attributes)
   values (v_club,v_so,v_ms,'SAFEGUARDING_OFFICER','ACTIVE','LEGACY_BACKFILL','CONFIRMED',now(),v_ca,jsonb_build_object('officer_type','primary'));
@@ -166,7 +170,7 @@ begin
   -- persona that proves internal.club_ids_with follows bundle_source rather than the membership table.
   v_pg := pg_temp.person('PG');
   insert into public.players (first_name,surname,active,created_by,playing_pathway,date_of_birth)
-  values ('Cam','Child',true,v_ca,'MALE',(current_date - interval '11 years')::date) returning id into v_player;
+  values ('Cam','Child',true,v_ca,'MALE',internal.date_of_birth_in_age_grade('union', 'U12')) returning id into v_player;
   insert into public.player_team_memberships (player_id,team_id,status,state,source) values (v_player,v_team,'active','ACTIVE','CLUB_CREATED');
   insert into public.guardians (guardian_user_id,player_id,relationship_type,status,state) values (v_pg,v_player,'parent','active','ACTIVE');
 
@@ -320,6 +324,13 @@ begin
     'CH-D5b and a fixture-ops Site Admin cannot start this club''s trial with Ovalball');
   perform pg_temp.check(pg_temp.try_as(v_ca, format('select public.configure_subscription_programme(%L,true,1,''CLUB_PAYS'',''IMMEDIATE'')', v_club)) <> '42501',
     'CH-D5c while the Club Admin is not refused on authority -- so CH-D5 is a boundary, not a broken call');
+  -- Holding the key is not the same as switching memberships on: only Activate does that, and configure refuses it
+  -- even for a well-formed call from the Club Admin. Authority is still asked first.
+  perform pg_temp.check(pg_temp.try_as(v_ca, format('select public.configure_subscription_programme(%L,true,1,''GOCARDLESS_APP_FEE'',''PRORATE_CURRENT_MONTH'')', v_club)) = '22023'
+      and not exists (select 1 from public.club_subscription_programmes where club_id = v_club),
+    'CH-D5d the Club Admin''s well-formed call to switch memberships on through configure is refused, creating nothing -- only Activate switches them on');
+  perform pg_temp.check(pg_temp.try_as(v_ro, format('select public.configure_subscription_programme(%L,true,1,''GOCARDLESS_APP_FEE'',''PRORATE_CURRENT_MONTH'')', v_club)) = '42501',
+    'CH-D5e while the same call from a read-only Site Admin is still refused on authority first');
   perform pg_temp.check(pg_temp.try_as(v_farca, format('select public.export_finance_rows(%L,''2026-01'')', v_club)) <> 'OK',
     'CH-D6 and another club''s admin cannot export this club''s finance rows');
 

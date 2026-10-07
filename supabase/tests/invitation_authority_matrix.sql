@@ -599,7 +599,7 @@ begin
   v_taken     := pg_temp.person('TAKEN','out-taken-'||v_tag||'@ovalball.test');
 
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Harry','Player',(current_date - interval '17 years')::date, 'MALE') returning id into v_player;
+  values ('Harry','Player',internal.date_of_birth_in_age_grade('union', 'U16'), 'MALE') returning id into v_player;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team, 'active');
   insert into public.guardians (player_id, guardian_user_id, relationship_type, status, state, created_by)
   values (v_player, v_guardian, 'parent', 'active', 'ACTIVE', v_guardian);

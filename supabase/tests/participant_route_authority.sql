@@ -123,11 +123,11 @@ begin
   -- A BOYS' SIDE TAKES A BOYS' PATHWAY. The age-grade and pathway rules are governing-body rules and
   -- this suite does not get to override them to keep its own setup short.
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Peter', 'Route', (current_date - interval '11 years')::date, 'MALE') returning id into v_child;
+  values ('Peter', 'Route', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Nate', 'Elsewhere', (current_date - interval '13 years')::date, 'MALE') returning id into v_other_child;
+  values ('Nate', 'Elsewhere', internal.date_of_birth_in_age_grade('union', 'U14'), 'MALE') returning id into v_other_child;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
-  values ('Theo', 'Route', (current_date - interval '16 years')::date, 'MALE', v_teen) returning id into v_teen_player;
+  values ('Theo', 'Route', internal.date_of_birth_in_age_grade('union', 'U16'), 'MALE', v_teen) returning id into v_teen_player;
 
   insert into public.guardians (player_id, guardian_user_id, status, relationship_type) values
     (v_child, v_guardian, 'active', 'parent'),

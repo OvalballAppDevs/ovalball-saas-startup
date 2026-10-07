@@ -202,7 +202,7 @@ begin
     (v_staff,'Sam','Staff','names-s@ovalball-test.invalid');
 
   insert into public.players (first_name, surname, date_of_birth, active)
-  values ('Unknown','Pathway', date '2014-03-02', true) returning id into v_kid;
+  values ('Unknown','Pathway', internal.date_of_birth_in_age_grade('union', 'U11'), true) returning id into v_kid;
   insert into public.player_team_memberships (player_id, team_id, status) values (v_kid, v_mini, 'active');
   insert into public.guardians (player_id, guardian_user_id, status) values (v_kid, v_guardian, 'active');
 

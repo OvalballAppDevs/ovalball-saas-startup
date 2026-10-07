@@ -48,7 +48,10 @@ declare
     'process-due-trials',
     'expire-due-dispensations',
     'send-fixture-attendance-invitations',
-    'reconcile-overdue-fixture-results'
+    'reconcile-overdue-fixture-results',
+    -- 20270749000000: GoCardless events that stopped being redelivered, and the replay's own answers.
+    'gocardless-webhook-replay',
+    'collect-gocardless-replay-responses'
   ];
   v_functions text[] := array[
     'internal.process_due_season_transitions',
@@ -56,7 +59,9 @@ declare
     'internal.process_due_trials',
     'internal.expire_due_dispensations',
     'internal.send_due_fixture_attendance_invitations',
-    'public.reconcile_overdue_fixture_results'
+    'public.reconcile_overdue_fixture_results',
+    'internal.request_gocardless_replay',
+    'internal.collect_gocardless_replay_responses'
   ];
 begin
   v_cron_db := nullif(current_setting('cron.database_name', true), '');

@@ -85,21 +85,21 @@ begin
   on conflict (id) do nothing;
 
   -- Scenario 5: U12-only Team Admin.
-  insert into public.team_permissions (membership_id, team_id, permission)
-  values ('20000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000001', 'team_admin')
+  insert into testing.team_roles (membership_id, team_id, role_key)
+  values ('20000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000001', 'TEAM_ADMINISTRATION')
   on conflict do nothing;
   -- Scenario 6: multi-team Team Admin (U12 A + U13 A).
-  insert into public.team_permissions (membership_id, team_id, permission)
+  insert into testing.team_roles (membership_id, team_id, role_key)
   values
-    ('20000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000001', 'team_admin'),
-    ('20000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000002', 'team_admin')
+    ('20000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000001', 'TEAM_ADMINISTRATION'),
+    ('20000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000002', 'TEAM_ADMINISTRATION')
   on conflict do nothing;
   -- Scenario 7: Coach, U12 A only.
-  insert into public.team_permissions (membership_id, team_id, permission)
-  values ('20000000-0000-0000-0000-000000000005', '30000000-0000-0000-0000-000000000001', 'coach')
+  insert into testing.team_roles (membership_id, team_id, role_key)
+  values ('20000000-0000-0000-0000-000000000005', '30000000-0000-0000-0000-000000000001', 'COACH')
   on conflict do nothing;
   -- Scenario 8: Parent/player, view_only, U12 A only.
-  insert into public.team_permissions (membership_id, team_id, permission)
+  insert into testing.team_roles (membership_id, team_id, role_key)
   values ('20000000-0000-0000-0000-000000000006', '30000000-0000-0000-0000-000000000001', 'view_only')
   on conflict do nothing;
 

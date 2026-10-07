@@ -64,8 +64,11 @@ values (v_club,'union','youth','U14','girls','E2E Girls U14','e2e-gu14-'||gen_ra
 -- Union 27/28 -> school year 2027-28. U17 is born 1.09.2010-31.08.2011.
 insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
 values ('Normal','U17', date '2010-09-01', 'MALE', true) returning id into v_p_normal;
+-- Born inside Under 16 so the place below can be made (a place is refused without a date of birth,
+-- 20270742000000); the date is then removed, the only way the state this suite needs -- a place held whose
+-- date of birth was never recorded -- can arise now.
 insert into public.players (first_name, surname, date_of_birth, active, playing_pathway)
-values ('NoDob','Player', null, true, 'MALE') returning id into v_p_nodob;
+values ('NoDob','Player', internal.date_of_birth_in_age_grade('union', 'U16'), true, 'MALE') returning id into v_p_nodob;
 -- A girl who will be regulatory U13 in 27/28 -> normal identity is Girls U14.
 insert into public.players (first_name, surname, date_of_birth, playing_pathway, active)
 values ('Band','Girl', date '2014-09-01', 'FEMALE', true) returning id into v_p_girl;
@@ -74,6 +77,7 @@ insert into public.player_team_memberships (player_id, team_id, status) values
   (v_p_normal, v_t_u16, 'active'),
   (v_p_nodob,  v_t_u16, 'active'),
   (v_p_girl,   v_t_gu12, 'active');
+update public.players set date_of_birth = null where id = v_p_nodob;
 
 -- ---------- run the REAL rollover ----------
 -- Preparing a handover now runs the per-player check itself. It previously

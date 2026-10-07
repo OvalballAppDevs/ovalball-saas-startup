@@ -54,7 +54,7 @@ begin
   -- v_team_admin_a: a BASIC_USER club membership + a team_admin team_permissions row (Team Admin, NOT Club Admin)
   insert into public.club_memberships (id, club_id, user_id, role, status) values (gen_random_uuid(), v_club_a, v_team_admin_a, 'BASIC_USER', 'active');
   select id into v_membership_team_admin_a from public.club_memberships where user_id = v_team_admin_a;
-  insert into public.team_permissions (id, team_id, membership_id, permission) values (gen_random_uuid(), v_team_a, v_membership_team_admin_a, 'team_admin');
+  insert into testing.team_roles (id, team_id, membership_id, role_key) values (gen_random_uuid(), v_team_a, v_membership_team_admin_a, 'TEAM_ADMINISTRATION');
 
   -- Two-sided, mirror-linked, real confirmed fixture between two CLAIMED clubs (Section D positive case).
   -- enforce_shared_team_fixture_capacity (an existing, unrelated same-day

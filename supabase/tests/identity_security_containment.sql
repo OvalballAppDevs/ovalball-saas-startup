@@ -86,6 +86,7 @@ declare
   v_inv_token text;
   v_sainv_token text;
   v_season uuid;
+  v_child_dob date;
   v_count integer;
   v_text text;
   v_bool boolean;
@@ -134,16 +135,18 @@ begin
     (v_club_a, v_club_admin, 'CLUB_ADMIN', 'active'), (v_club_a, v_member, 'BASIC_USER', 'active'),
     (v_club_a, v_suspended, 'BASIC_USER', 'active'), (v_club_b, v_unrelated, 'CLUB_ADMIN', 'active');
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_a, v_coach, 'BASIC_USER', 'active') returning id into v_ms;
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms, v_team_a, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms, v_team_a, 'COACH');
   -- Two formerly-powerful people whose Club Admin membership was revoked.
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_a, v_revoked_admin, 'CLUB_ADMIN', 'revoked') returning id into v_ms;
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms, v_team_a, 'team_admin');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms, v_team_a, 'TEAM_ADMINISTRATION');
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club_a, v_revoked_admin2, 'CLUB_ADMIN', 'revoked');
 
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Isc', 'Child One', current_date - interval '11 years', 'MALE') returning id into v_p1;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Isc', 'Child Two', current_date - interval '11 years', 'MALE') returning id into v_p2;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Isc', 'Child Three', current_date - interval '11 years', 'MALE') returning id into v_p3;
-  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Isc', 'Child Four', current_date - interval '11 years', 'MALE') returning id into v_p4;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Isc', 'Child One', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_p1;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Isc', 'Child Two', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_p2;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Isc', 'Child Three', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_p3;
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway) values ('Isc', 'Child Four', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_p4;
+  -- Resolved here, as postgres: the browser role that later adds a child cannot call the internal helper.
+  v_child_dob := internal.date_of_birth_in_age_grade('union', 'U12');
   insert into public.player_team_memberships (player_id, team_id, status) values (v_p1, v_team_a, 'active'), (v_p2, v_team_a, 'active'), (v_p4, v_team_a, 'active'), (v_p3, v_team_b, 'active');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status) values
     (v_parent, v_p1, 'guardian', 'active'), (v_other_parent, v_p2, 'guardian', 'active');
@@ -235,7 +238,7 @@ begin
 
   begin
     perform pg_temp.act('authenticated', v_parent2);
-    select t.result into v_text from public.create_player_for_guardian(v_ginv, 'Legit', 'New Child ' || v_tag, (current_date - interval '11 years')::date, 'MALE') t;
+    select t.result into v_text from public.create_player_for_guardian(v_ginv, 'Legit', 'New Child ' || v_tag, v_child_dob, 'MALE') t;
     perform pg_temp.act_postgres();
   exception when others then
     get stacked diagnostics v_err = message_text;
@@ -701,7 +704,7 @@ begin
   exception when others then get stacked diagnostics v_err = message_text;
   end;
   if (select role || '|' || status from public.club_memberships where club_id = v_club_a and user_id = v_revoked_admin and state in ('PENDING', 'ACTIVE', 'SUSPENDED')) = 'BASIC_USER|active'
-     and not exists (select 1 from public.team_permissions tp join public.club_memberships cm on cm.id = tp.membership_id where cm.user_id = v_revoked_admin) then
+     and not exists (select 1 from testing.team_roles tp join public.club_memberships cm on cm.id = tp.membership_id where cm.user_id = v_revoked_admin) then
     raise notice 'PASS I1: approving a join request for a revoked admin makes them a member, not an admin with old team authority';
   else
     raise notice 'FAIL I1: a revoked admin came back through a join request with old authority (% / err %)',

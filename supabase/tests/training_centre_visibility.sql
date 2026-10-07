@@ -86,16 +86,16 @@ values (v_club2,'union','youth','U12','boys','Under 12 Boys','tcv-b-u12-'||v_slu
 -- The coach coaches the training team; the member holds nothing but a club membership; the
 -- stranger holds nothing anywhere.
 insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_coach, 'BASIC_USER', 'active');
-insert into public.team_permissions (membership_id, team_id, permission)
-  select id, v_team, 'coach' from public.club_memberships where club_id = v_club and user_id = v_coach;
+insert into testing.team_roles (membership_id, team_id, role_key)
+  select id, v_team, 'COACH' from public.club_memberships where club_id = v_club and user_id = v_coach;
 insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_member, 'BASIC_USER', 'active');
 
 -- playing_pathway is required before a player may join a gendered team --
 -- Ovalball never assumes it from the side they are being added to.
 insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-values ('Tcv','Child', (current_date - interval '11 years')::date, 'MALE') returning id into v_player;
+values ('Tcv','Child', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_player;
 insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-values ('Tcv','Elsewhere', (current_date - interval '11 years')::date, 'MALE') returning id into v_player2;
+values ('Tcv','Elsewhere', internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_player2;
 
 insert into public.player_team_memberships (player_id, team_id, status) values (v_player, v_team, 'active');
 insert into public.player_team_memberships (player_id, team_id, status) values (v_player2, v_team2, 'active');

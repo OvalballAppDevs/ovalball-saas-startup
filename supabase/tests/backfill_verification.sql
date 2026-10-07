@@ -56,8 +56,8 @@ select pg_temp.zero((select count(*) from public.role_assignments ta
     and not exists (select 1 from public.role_assignments b where b.id = ta.base_assignment_id and b.state = 'ACTIVE' and b.team_id = ta.team_id and b.role_key in ('COACH', 'TEAM_MANAGER'))), 'B3: ACTIVE Team Administration rests on an ACTIVE base role on the same team');
 select pg_temp.zero((select count(*) from public.club_safeguarding_officers o where o.status = 'active' and o.user_id is not null
   and not exists (select 1 from public.role_assignments ra where ra.user_id = o.user_id and ra.club_id = o.club_id and ra.role_key = 'SAFEGUARDING_OFFICER' and ra.state in ('ACTIVE', 'SUSPENDED'))), 'B4: every active Safeguarding Officer with an account holds the role');
-select pg_temp.zero((select count(*) from public.team_permissions tp
-  where tp.permission not in ('team_admin', 'manager', 'coach')
+select pg_temp.zero((select count(*) from testing.team_roles tp
+  where tp.role_key not in ('TEAM_ADMINISTRATION', 'TEAM_MANAGER', 'COACH')
      or not exists (select 1 from public.role_assignments ra where ra.id = tp.id and (ra.state = 'ACTIVE' or (ra.state = 'SUSPENDED' and ra.suspended_level = 'SITE' and ra.attributes ->> 'suspension_cause' = 'CLUB_AUTHORITY')))), 'B5: the team_permissions view projects only open staff roles');
 select pg_temp.zero((select count(*) from public.role_assignments ra join public.role_definitions rd on rd.role_key = ra.role_key
   where (rd.scope = 'CLUB' and ra.team_id is not null) or (rd.scope = 'TEAM' and ra.team_id is null)), 'B6: every role has its scope');
@@ -79,8 +79,13 @@ select pg_temp.zero((select count(*) from public.role_assignments ra join public
 
 -- F. Identity/Auth Slice 3 (Phase 2 AF): capabilities, overrides, Site Admin profiles
 select pg_temp.zero((select count(*) from public.capabilities where status = 'ACTIVE' and (domain is null or grant_level is null or aal is null)), 'F1: every active capability carries its catalogue metadata');
+-- F2 excepts the ORGANISATION scope, which is not a bundle scope at all. A governing-body role lives
+-- in `constituent_body_roles` and is resolved by `internal.can_manage_body`; a bundle row for
+-- `governing.access.manage` would describe a grant path that does not exist. The exception is written
+-- as the SCOPE rather than the key so a second organisation authority does not need this line edited.
 select pg_temp.zero((select count(*) from public.capabilities c where c.status = 'ACTIVE' and c.key not like 'site.%' and c.grant_level <> 'S'
-  and c.valid_scopes <> array['public']::text[] and not exists (select 1 from public.bundle_capabilities b where b.capability_key = c.key)), 'F2: every active non-site key has a default bundle');
+  and c.valid_scopes <> array['public']::text[] and c.valid_scopes <> array['organisation']::text[]
+  and not exists (select 1 from public.bundle_capabilities b where b.capability_key = c.key)), 'F2: every active non-site key has a default bundle');
 select pg_temp.zero((select count(*) from public.capability_overrides where granted_level is null), 'F3: every override records the level it was decided at');
 select pg_temp.zero((select count(*) from public.capability_overrides o join public.capability_key_map m on m.legacy_key = o.capability_key and m.legacy_scope = o.scope_type
   where m.capability_key <> o.capability_key), 'F4: no override is stored under a legacy key');
@@ -102,7 +107,7 @@ select pg_temp.zero((select count(*) from public.site_admins sa where sa.profile
   or sa.view_commercial or sa.view_regulatory_content or sa.manage_regulatory_content or sa.view_hub_content or sa.manage_hub_content
   or exists (select 1 from public.site_capability_grants g where g.user_id = sa.user_id and g.revoked_at is null))), 'F7: no Read Only Site Admin carries an add-on');
 select pg_temp.zero((select count(*) from (select scope_type, role_key, capability_key from public.role_capability_defaults_legacy
-  except select scope_type, role_key, capability_key from public.role_capability_defaults) x) - 49, 'F8: legacy role defaults lost only the 49 intended removals (bundle_legacy_parity names them)');
+  except select scope_type, role_key, capability_key from public.role_capability_defaults) x) - 50, 'F8: legacy role defaults lost only the 50 intended removals (bundle_legacy_parity names them)');
 
 -- E. Compatibility for legacy inserts (rolled back)
 do $$

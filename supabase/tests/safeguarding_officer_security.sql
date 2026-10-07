@@ -444,14 +444,28 @@ begin
     raise notice 'FAIL 30 (J): the notifier does not consult the capability layer';
   end if;
 
-  -- Approval authority is untouched by safeguarding: the decision RPC is
-  -- gated on the dispensation capability, not on being an officer.
+  -- Approval authority. Until the one dispensation workflow (20270742000000) this asserted that
+  -- safeguarding left approval alone. The owner then made the club's Safeguarding Officer a decider
+  -- beside the Club Admin, with team staff never deciding (2026-10-05). What still holds -- and is
+  -- asserted -- is that being an officer by role name decides nothing: both branches ask the canonical
+  -- resolver, a CONFIRMED officer holding safeguarding.dispensation.decide or a Club Admin holding
+  -- fixture.dispensation.approve_club, and only those two bundles carry those keys.
   select count(*) into v_count
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'public' and p.proname = 'decide_player_dispensation'
-    and p.prosrc like '%approve_player_dispensations%';
-  if v_count = 1 then
-    raise notice 'PASS 31 (J): dispensation decisions still require approve_player_dispensations';
+  where n.nspname = 'internal' and p.proname = 'dispensation_decider_role'
+    and p.prosrc like '%is_active_safeguarding_officer%'
+    and p.prosrc like '%capability_decision%safeguarding.dispensation.decide%'
+    and p.prosrc like '%capability_decision%fixture.dispensation.approve_club%';
+  if v_count = 1
+     and exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                  where n.nspname = 'public' and p.proname = 'decide_dispensation'
+                    and p.prosrc like '%dispensation_decider_role%')
+     and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                      where n.nspname = 'public' and p.proname = 'decide_player_dispensation')
+     and (select array_agg(bundle_key || ':' || capability_key order by 1) from public.bundle_capabilities
+           where capability_key in ('safeguarding.dispensation.decide', 'fixture.dispensation.approve_club'))
+         = array['CA:fixture.dispensation.approve_club', 'SO:safeguarding.dispensation.decide'] then
+    raise notice 'PASS 31 (J): dispensation decisions are the confirmed officer''s and the Club Admin''s, each through the capability resolver';
   else
     raise notice 'FAIL 31 (J): dispensation approval authority changed';
   end if;

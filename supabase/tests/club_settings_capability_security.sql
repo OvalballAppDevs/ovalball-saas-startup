@@ -286,8 +286,8 @@ begin
   set local role authenticated;
   set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000003","role":"authenticated"}';
   begin
-    insert into public.team_permissions (membership_id, team_id, permission) values
-      ('20000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001', 'team_admin');
+    insert into testing.team_roles (membership_id, team_id, role_key) values
+      ('20000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001', 'TEAM_ADMINISTRATION');
     get diagnostics v_count = row_count;
     if v_count = 0 then
       raise notice 'PASS 10: Rossendale Club Admin cannot grant themselves a Burnley team_permissions row (0 rows)';

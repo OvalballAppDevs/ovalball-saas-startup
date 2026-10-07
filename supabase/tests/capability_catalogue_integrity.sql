@@ -1,6 +1,7 @@
 -- CAPABILITY CATALOGUE INTEGRITY (Identity/Auth Slice 3, Phase 2 J, Y.6, Y.8).
 --
---   CI1  the Phase 2 catalogue: 182 designed keys (180 active, the two "RETIRE club key -> site" retired),
+--   CI1  the Phase 2 catalogue: 182 designed keys (179 active: the two "RETIRE club key -> site" and the team
+--        dispensation stage retired),
 --        plus the two Club Home keys and the two safeguarding keys held at legacy parity until Slice 4g
 --   CI2  all 73 pre-Slice 3 keys are accounted for: canonical in place, retired with a resolution, or
 --        deliberately retired by a later slice (team.view in Slice 4B; calendar.manage and
@@ -69,9 +70,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_effect text, p_level text,
@@ -145,15 +146,29 @@ declare v_n int; v_list text;
 begin
   select count(*) into v_n from public.capabilities where design_section ~ '^J\.(2|3|4|5|6|7|8|9|10|11|12|13|14)$';
   perform pg_temp.check(v_n = 182
-      and (select count(*) from public.capabilities where design_section ~ '^J\.' and design_section <> 'J.15' and status = 'DEPRECATED') = 2
+      -- 3, not 2: the one dispensation workflow (20270742000000) retired fixture.dispensation.approve_team
+      -- (J.7). Team staff request a dispensation and never decide one; the Safeguarding Officer and the Club
+      -- Admin decide. It is DEPRECATED rather than deleted, for the reason the 4G pair below gives.
+      and (select count(*) from public.capabilities where design_section ~ '^J\.' and design_section <> 'J.15' and status = 'DEPRECATED') = 3
+      and (select status from public.capabilities where key = 'fixture.dispensation.approve_team') = 'DEPRECATED'
+      and not exists (select 1 from public.capability_key_map where capability_key = 'fixture.dispensation.approve_team')
       and (select count(*) from public.capabilities where key in ('club.news.manage', 'team.news.manage') and status = 'ACTIVE') = 2
       -- Slice 4G retired the pair Slice 3 kept at legacy parity "until 4g". They are DEPRECATED
       -- rather than deleted, because a capability key that has ever been granted is part of the
       -- record of what a person once held.
       and (select count(*) from public.capabilities where key in ('club.safeguarding.view', 'club.safeguarding.message')
              and status = 'DEPRECATED' and migration_action like 'TRANSITIONAL%') = 2
-      and (select count(*) from public.capabilities where status = 'ACTIVE') = 182,
-    'CI1: 182 designed keys (2 retired) and the Club Home pair; the two transitional safeguarding keys are DEPRECATED in 4G: 182 active (' || v_n || ')');
+      -- 183, not 182: Convergence Step 16 added `governing.access.manage`, the NAME of the authority
+      -- to manage access at a governing body. It is organisation-scoped, a scope deliberately reserved
+      -- and not implemented in internal.capability_decision, and it is resolved by
+      -- internal.can_manage_body instead -- so it is a real active key with no bundle, counted here
+      -- and excepted in CI4b below.
+      -- Still 183: the one dispensation workflow added `safeguarding.dispensation.decide` (named for that
+      -- programme, outside J.2-J.14, as Step 16 named its key) and retired approve_team, one for one.
+      and (select status from public.capabilities where key = 'safeguarding.dispensation.decide'
+              and design_section = 'Age Dispensation Workflow') = 'ACTIVE'
+      and (select count(*) from public.capabilities where status = 'ACTIVE') = 183,
+    'CI1: 183 designed keys (3 retired) and the Club Home pair; the two transitional safeguarding keys are DEPRECATED in 4G; the team dispensation stage retired for the officer''s decision: 183 active (' || v_n || ')');
 
   select count(*) into v_n from public.capabilities c
   where c.key in ('approve_fixture_callups','approve_player_dispensations','calendar.manage','calendar.view','club.capabilities.manage',
@@ -185,7 +200,12 @@ begin
   perform pg_temp.check(v_list is null, 'CI4a: every active key carries its full metadata ' || coalesce(v_list, ''));
   select string_agg(c.key, ', ') into v_list from public.capabilities c
   where c.status = 'ACTIVE' and not exists (select 1 from public.bundle_capabilities b where b.capability_key = c.key)
-    and c.key not in ('competition.public.view', 'hub.content.view_published', 'player.profile.edit_protected');
+    -- `governing.access.manage` joins the exceptions for a different reason from the other three: it
+    -- is not granted through a bundle at all. A governing-body role is held in constituent_body_roles
+    -- and resolved by internal.can_manage_body, so a bundle row for it would describe a grant path
+    -- that does not exist.
+    and c.key not in ('competition.public.view', 'hub.content.view_published', 'player.profile.edit_protected',
+                      'governing.access.manage');
   perform pg_temp.check(v_list is null, 'CI4b: no orphan: every active key is in a bundle, except the listed public and site-correction keys ' || coalesce(v_list, ''));
 
   select string_agg(key, ', ') into v_list from public.capabilities

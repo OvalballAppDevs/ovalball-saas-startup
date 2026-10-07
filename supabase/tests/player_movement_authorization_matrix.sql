@@ -37,10 +37,10 @@ insert into public.teams (id, club_id, rugby_code, category, age_group, gender, 
 -- 004 = target-team (U14 B) admin only. 005 = source-team (U14 A)
 -- admin only. 006 = an UNRELATED team (U16) admin -- no relationship
 -- to either the source or target team at all.
-insert into public.team_permissions (membership_id, team_id, permission, created_by) values
-  ('9d000000-0000-0000-0000-000000800002', '9d000000-0000-0000-0000-00000000e002', 'team_admin', '00000000-0000-0000-0000-000000000002'),
-  ('9d000000-0000-0000-0000-000000800003', '9d000000-0000-0000-0000-00000000e001', 'team_admin', '00000000-0000-0000-0000-000000000005'),
-  ('9d000000-0000-0000-0000-000000800004', '9d000000-0000-0000-0000-00000000e003', 'team_admin', '00000000-0000-0000-0000-000000000006');
+insert into testing.team_roles (membership_id, team_id, role_key, created_by) values
+  ('9d000000-0000-0000-0000-000000800002', '9d000000-0000-0000-0000-00000000e002', 'TEAM_ADMINISTRATION', '00000000-0000-0000-0000-000000000002'),
+  ('9d000000-0000-0000-0000-000000800003', '9d000000-0000-0000-0000-00000000e001', 'TEAM_ADMINISTRATION', '00000000-0000-0000-0000-000000000005'),
+  ('9d000000-0000-0000-0000-000000800004', '9d000000-0000-0000-0000-00000000e003', 'TEAM_ADMINISTRATION', '00000000-0000-0000-0000-000000000006');
 
 insert into public.players (id, first_name, surname, date_of_birth, active, created_by, playing_pathway) values
   ('9d000000-0000-0000-0000-00000000e010', 'Auth', 'MatrixPlayer', (current_date - interval '14 years')::date, true, '00000000-0000-0000-0000-000000000002', 'MALE');
@@ -154,8 +154,8 @@ insert into public.teams (id, club_id, rugby_code, category, age_group, gender, 
 insert into public.club_memberships (id, club_id, user_id, role, status) values
   ('9d000000-0000-0000-0000-000000800005', '9d000000-0000-0000-0000-0000000c0080', '00000000-0000-0000-0000-000000000009', 'BASIC_USER', 'active')
 on conflict (id) do nothing;
-insert into public.team_permissions (membership_id, team_id, permission, created_by) values
-  ('9d000000-0000-0000-0000-000000800005', '9d000000-0000-0000-0000-00000000e031', 'team_admin', '00000000-0000-0000-0000-000000000002')
+insert into testing.team_roles (membership_id, team_id, role_key, created_by) values
+  ('9d000000-0000-0000-0000-000000800005', '9d000000-0000-0000-0000-00000000e031', 'TEAM_ADMINISTRATION', '00000000-0000-0000-0000-000000000002')
 on conflict do nothing;
 insert into public.players (id, first_name, surname, date_of_birth, active, created_by, playing_pathway) values
   ('9d000000-0000-0000-0000-00000000e032', 'Auth', 'MatrixColt', (current_date - interval '17 years')::date, true, '00000000-0000-0000-0000-000000000002', 'MALE');
@@ -207,8 +207,8 @@ reset role;
 -- club, now ALSO given team_admin on Senior Colts specifically, then
 -- the SAME non-club-admin team identity is proven unable to reach the
 -- club/governing-body stages.
-insert into public.team_permissions (membership_id, team_id, permission, created_by) values
-  ('9d000000-0000-0000-0000-000000800004', '9d000000-0000-0000-0000-00000000e030', 'team_admin', '00000000-0000-0000-0000-000000000002')
+insert into testing.team_roles (membership_id, team_id, role_key, created_by) values
+  ('9d000000-0000-0000-0000-000000800004', '9d000000-0000-0000-0000-00000000e030', 'TEAM_ADMINISTRATION', '00000000-0000-0000-0000-000000000002')
 on conflict do nothing;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000006","role":"authenticated"}';

@@ -335,6 +335,10 @@ begin
       'home_source', jsonb_build_object('winner_of', v_sf1), 'away_source', jsonb_build_object('winner_of', v_sf2))
   ), null, null);
   perform public.issue_competition_matches(v_edition, array[v_sf1]);
+  -- A RESULT NEEDS A GAME THAT HAS KICKED OFF. v_sf1 was drawn with no date or kick-off at all;
+  -- given one in the past here so recording its result is legitimate, not a test that happens to
+  -- run before the kick-off it is itself asserting against.
+  perform public.update_competition_match(v_sf1, jsonb_build_object('match_date', current_date - 1, 'kickoff_time', '09:00'));
   begin
     perform public.record_competition_match_result(v_sf1, 10, 10, null);
     raise notice 'FAIL 8a: a drawn knockout match was completed without a winner';

@@ -106,22 +106,30 @@ begin
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_coach, 'BASIC_USER', 'active') returning id into v_ms_coach;
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_teen, 'BASIC_USER', 'active') returning id into v_ms_teen;
   insert into public.club_memberships (club_id, user_id, role, status) values (v_club, v_grown, 'BASIC_USER', 'active') returning id into v_ms_grown;
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_coach, v_team, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_coach, v_team, 'COACH');
 
   -- Two children of one parent, one of them with a second guardian.
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
   values ('Ava', 'Nine ' || v_tag, (current_date - interval '11 years')::date, 'MALE') returning id into v_child_a;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Ben', 'Nine ' || v_tag, (current_date - interval '10 years')::date, 'MALE') returning id into v_child_b;
+  values ('Ben', 'Nine ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_child_b;
   -- Somebody else's child entirely.
   insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-  values ('Otto', 'Other ' || v_tag, (current_date - interval '11 years')::date, 'MALE') returning id into v_other_player;
+  values ('Otto', 'Other ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), 'MALE') returning id into v_other_player;
   -- A seventeen year old and an eighteen year old, each with their own account.
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
   values ('Tess', 'Teen ' || v_tag, (current_date - interval '17 years')::date, 'MALE', v_teen) returning id into v_teen_player;
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
   values ('Gus', 'Grown ' || v_tag, (current_date - interval '18 years' - interval '2 days')::date, 'MALE', v_grown)
   returning id into v_grown_player;
+
+  -- Two placements here are deliberate mismatches, so each carries an approved dispensation fixture.
+  -- Ava's date of birth stays exactly eleven years ago because C2-C4 probe her eighteenth birthday from
+  -- it, which makes her U11 on this U12 side; Tess is the seventeen-year-old on the adult side that A5
+  -- and D1 are about.
+  insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+  values (v_child_a, v_team, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE'),
+         (v_teen_player, v_team2, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
 
   insert into public.player_team_memberships (player_id, team_id, state) values
     (v_child_a, v_team, 'ACTIVE'), (v_child_b, v_team, 'ACTIVE'), (v_other_player, v_team, 'ACTIVE'),
@@ -142,6 +150,10 @@ begin
   insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, game_type, status, source)
   values (v_team2, 'Home', 'S9 Seniors', (current_date + 14)::date, '15:00', 'Friendly', 'Booked', 'club_created')
   returning id into v_fixture2;
+  -- ATTENDANCE OPENS SIX DAYS OUT (Match Centre consolidation, 20270727) unless the team opens it
+  -- earlier. This suite is about who answers and who is told, not when, so the team has opened these
+  -- fixtures early, exactly as staff may. The window itself is proved in match_centre_consolidation.sql.
+  update public.fixtures set attendance_opened_at = now() where id in (v_fixture, v_fixture2);
 
   -- ===============================================================
   -- A. WHO MAY ANSWER

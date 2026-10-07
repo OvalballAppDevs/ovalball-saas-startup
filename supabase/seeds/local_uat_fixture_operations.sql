@@ -59,7 +59,7 @@ select c.id, 'Lightfoot Green', 'preston-grasshoppers-lightfoot-green', 'Lightfo
 from public.clubs c where c.slug = 'preston-grasshoppers-uat'
 on conflict (slug) do nothing;
 
-insert into public.club_pitches (club_id, display_name, sort_order, venue_id, size_category)
+insert into public.club_pitches (club_id, display_name, sort_order, venue_id, physical_size_category)
 select c.id, 'Pitch 1', 1, v.id, 'full'
 from public.clubs c join public.venues v on v.club_id = c.id and v.slug = 'preston-grasshoppers-lightfoot-green'
 where c.slug = 'preston-grasshoppers-uat'

@@ -103,7 +103,7 @@ declare
   v_permission_exists boolean;
 begin
   select exists (select 1 from public.club_memberships where user_id = '00000000-0000-0000-0000-000000000004' and status = 'active') into v_membership_exists;
-  select exists (select 1 from public.team_permissions tp join public.club_memberships cm on cm.id = tp.membership_id where cm.user_id = '00000000-0000-0000-0000-000000000004') into v_permission_exists;
+  select exists (select 1 from testing.team_roles tp join public.club_memberships cm on cm.id = tp.membership_id where cm.user_id = '00000000-0000-0000-0000-000000000004') into v_permission_exists;
   if v_membership_exists and v_permission_exists then
     raise notice 'PASS 3: leaving the conversation does not touch club membership or team permissions';
   else

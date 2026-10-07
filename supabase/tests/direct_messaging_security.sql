@@ -104,9 +104,10 @@ begin
     raise notice 'PASS 7: guardian -> coach (the reverse direction)';
   else raise notice 'FAIL 7: guardian could not message a coach'; end if;
 
-  if internal.may_direct_message(v_guardian2) then
-    raise notice 'PASS 8: guardian -> guardian';
-  else raise notice 'FAIL 8: two guardians could not message'; end if;
+  -- Owner-locked (20270762000000): a guardian messages only their own children's teams' staff -- never another guardian.
+  if not internal.may_direct_message(v_guardian2) then
+    raise notice 'PASS 8: guardian -> guardian is refused';
+  else raise notice 'FAIL 8: a guardian could message another guardian'; end if;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_adult_player, 'role', 'authenticated')::text, true);
   if internal.may_direct_message(v_coach) then

@@ -67,9 +67,9 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_permission text) returns void language plpgsql as $$
+create or replace function pg_temp.team_role(p_membership uuid, p_team uuid, p_role_key text) returns void language plpgsql as $$
 begin
-  insert into public.team_permissions (membership_id, team_id, permission) values (p_membership, p_team, p_permission);
+  insert into testing.team_roles (membership_id, team_id, role_key) values (p_membership, p_team, p_role_key);
 end $$;
 
 create or replace function pg_temp.override(p_user uuid, p_key text, p_scope text, p_club uuid, p_team uuid, p_effect text, p_level text,
@@ -171,7 +171,7 @@ begin
   v_fs := pg_temp.person('FS'); perform pg_temp.member(v_club, v_fs, 'FIXTURE_SECRETARY');
   v_member := pg_temp.person('Member'); v_member_ms := pg_temp.member(v_club, v_member);
   v_stranger := pg_temp.person('Stranger');
-  v_ta := pg_temp.person('TA'); v_ta_ms := pg_temp.member(v_club, v_ta); perform pg_temp.team_role(v_ta_ms, v_team, 'team_admin');
+  v_ta := pg_temp.person('TA'); v_ta_ms := pg_temp.member(v_club, v_ta); perform pg_temp.team_role(v_ta_ms, v_team, 'TEAM_ADMINISTRATION');
   v_susp := pg_temp.person('Suspended CA'); v_susp_ms := pg_temp.member(v_club, v_susp, 'CLUB_ADMIN');
   perform pg_temp.try_as(v_ca, format('select public.transition_club_membership(%L, ''SUSPENDED'', ''attack matrix'')', v_susp_ms));
   v_rev := pg_temp.person('Revoked CA'); v_rev_ms := pg_temp.member(v_club, v_rev, 'CLUB_ADMIN');

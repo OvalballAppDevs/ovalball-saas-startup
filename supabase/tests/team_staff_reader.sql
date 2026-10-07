@@ -193,6 +193,9 @@ select pg_temp.person('Adult Player Now Staff', '1988-01-01') as adult_player_us
 select pg_temp.member(:'club_a'::uuid, :'adult_player_user_id'::uuid) as adult_player_membership \gset
 insert into public.players (first_name, surname, playing_pathway, date_of_birth, user_id)
 values ('Sta', 'AdultPlayer', 'FEMALE', current_date - interval '25 years', :'adult_player_user_id'::uuid) returning id as adult_player_id \gset
+-- Team A is an Under 14 side, so an adult's place on it needs an approved dispensation.
+insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+values (:'adult_player_id'::uuid, :'team_a'::uuid, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
 insert into public.player_team_memberships (player_id, team_id, status) values (:'adult_player_id'::uuid, :'team_a'::uuid, 'active') returning id as adult_ptm_id \gset
 
 select pg_temp.try_as(:'admin_id'::uuid, format('select public.assign_role(%L::uuid, ''FIRST_AIDER'', %L::uuid, ''seed'')', :'adult_player_membership', :'team_a')) as g5 \gset

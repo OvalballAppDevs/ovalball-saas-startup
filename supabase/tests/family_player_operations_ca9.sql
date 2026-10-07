@@ -100,11 +100,11 @@ begin
   return v;
 end $$;
 
-create or replace function pg_temp.player(p_label text, p_years int, p_team uuid, p_user uuid default null, p_state text default 'ACTIVE') returns uuid language plpgsql as $$
+create or replace function pg_temp.player(p_label text, p_dob date, p_team uuid, p_user uuid default null, p_state text default 'ACTIVE') returns uuid language plpgsql as $$
 declare v uuid;
 begin
   insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
-  values ('P', p_label, (current_date - (p_years || ' years')::interval)::date, 'MALE', p_user) returning id into v;
+  values ('P', p_label, p_dob, 'MALE', p_user) returning id into v;
   insert into public.player_team_memberships (player_id, team_id, state) values (v, p_team, p_state);
   return v;
 end $$;
@@ -159,38 +159,48 @@ begin
 
   v_ca := pg_temp.person('ClubAdmin'); perform pg_temp.member(v_club, v_ca, 'CLUB_ADMIN');
   v_tm := pg_temp.person('TeamManager'); v_ms_tm := pg_temp.member(v_club, v_tm);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_tm, v_t12, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_tm, v_t12, 'TEAM_MANAGER');
   v_coach := pg_temp.person('Coach'); v_ms_coach := pg_temp.member(v_club, v_coach);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_coach, v_t12, 'coach');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_coach, v_t12, 'COACH');
   v_tmb := pg_temp.person('OtherTeamManager'); v_ms_tmb := pg_temp.member(v_club_b, v_tmb);
-  insert into public.team_permissions (membership_id, team_id, permission) values (v_ms_tmb, v_tb, 'manager');
+  insert into testing.team_roles (membership_id, team_id, role_key) values (v_ms_tmb, v_tb, 'TEAM_MANAGER');
 
   -- Family one: a parent of two children on two sides of the same club, and a second guardian of one of them.
   v_parent := pg_temp.person('ParentOne');
   v_parent2 := pg_temp.person('CoGuardian');
-  v_child := pg_temp.player('ChildA ' || v_tag, 11, v_t12);
-  v_sibling := pg_temp.player('ChildB ' || v_tag, 13, v_t14);
+  v_child := pg_temp.player('ChildA ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), v_t12);
+  v_sibling := pg_temp.player('ChildB ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U14'), v_t14);
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state, source, created_by) values
     (v_parent, v_child, 'parent', 'active', 'ACTIVE', 'SELF_ADDED_CHILD', v_parent),
     (v_parent, v_sibling, 'parent', 'active', 'ACTIVE', 'SELF_ADDED_CHILD', v_parent),
     (v_parent2, v_child, 'guardian', 'active', 'ACTIVE', 'SELF_ADDED_CHILD', v_parent2);
   -- Family two: unrelated, one child on the same U12 side.
   v_other := pg_temp.person('ParentOther');
-  v_other_child := pg_temp.player('ChildC ' || v_tag, 11, v_t12);
+  v_other_child := pg_temp.player('ChildC ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), v_t12);
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state, source, created_by)
   values (v_other, v_other_child, 'parent', 'active', 'ACTIVE', 'SELF_ADDED_CHILD', v_other);
   -- The opposition's child.
-  v_b_child := pg_temp.player('ChildBee ' || v_tag, 11, v_tb);
+  v_b_child := pg_temp.player('ChildBee ' || v_tag, internal.date_of_birth_in_age_grade('union', 'U12'), v_tb);
   -- A sixteen-year-old with an account, an adult with an account, and an adult with no date of birth.
   v_teen := pg_temp.person('Teen', (current_date - interval '16 years')::date);
-  v_teen_player := pg_temp.player('Teen ' || v_tag, 16, v_t14, v_teen);
+  -- A sixteen-year-old on the U14 side is outside its age grade on purpose: the place carries an approved dispensation.
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
+  values ('P', 'Teen ' || v_tag, (current_date - interval '16 years')::date, 'MALE', v_teen) returning id into v_teen_player;
+  insert into public.player_team_dispensation (player_id, target_team_id, season_id, eligibility_rule_reference, status, governing_body_reference)
+  values (v_teen_player, v_t14, internal.resolve_season_for_date('union', current_date), 'Suite fixture', 'approved', 'SUITE-FIXTURE');
+  insert into public.player_team_memberships (player_id, team_id, state) values (v_teen_player, v_t14, 'ACTIVE');
   insert into public.guardians (guardian_user_id, player_id, relationship_type, status, state, source, created_by)
   values (v_parent, v_teen_player, 'parent', 'active', 'ACTIVE', 'SELF_ADDED_CHILD', v_parent);
   v_grown := pg_temp.person('Grown', (current_date - interval '30 years')::date);
-  v_grown_player := pg_temp.player('Grown ' || v_tag, 30, v_t1, v_grown);
+  v_grown_player := pg_temp.player('Grown ' || v_tag, (current_date - interval '30 years')::date, v_t1, v_grown);
   v_nodob := pg_temp.person('NoDob');
-  insert into public.players (first_name, surname, playing_pathway, user_id) values ('P', 'NoDob ' || v_tag, 'MALE', v_nodob) returning id into v_nodob_player;
+  -- An adult place with no date of birth on record. A NEW place is refused without one (20270742000000 --
+  -- an adult side has to know the player is 18), so the place is made with an adult date and the date is
+  -- then removed: the only way the state this case is about -- a place held, no date of birth -- arises now.
+  insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id)
+  values ('P', 'NoDob ' || v_tag, (current_date - interval '30 years')::date, 'MALE', v_nodob) returning id into v_nodob_player;
   insert into public.player_team_memberships (player_id, team_id, state) values (v_nodob_player, v_t1, 'ACTIVE');
+  update public.players set date_of_birth = null where id = v_nodob_player;
 
   select id into v_season from public.seasons where rugby_code = 'union' and not is_regression_fixture
     and current_date between coalesce(pre_season_starts_on, starts_on) and ends_on limit 1;
@@ -202,6 +212,10 @@ begin
   values (v_t1, 'Home', 'TO Seniors RFC', current_date + 7, '15:00', 'Booked', 'club_created', v_season) returning id into v_fixture1;
   insert into public.fixtures (owning_team_id, home_away, raw_opposition_text, kickoff_date, kickoff_time, status, source, season_id)
   values (v_tb, 'Home', 'TO Elsewhere RFC', current_date + 8, '10:30', 'Booked', 'club_created', v_season) returning id into v_fixture_b;
+  -- ATTENDANCE OPENS SIX DAYS OUT (Match Centre consolidation, 20270727) unless the team opens it
+  -- earlier. The 7- and 8-day fixtures here are about who answers for whom, not when, so the team has
+  -- opened them early, exactly as staff may. The window itself is proved in match_centre_consolidation.sql.
+  update public.fixtures set attendance_opened_at = now() where id in (v_fixture1, v_fixture_b);
   insert into public.training_sessions (club_id, team_id, session_date, start_time, status, created_by)
   values (v_club, v_t12, current_date + 2, '18:00', 'PLANNED', v_ca) returning id into v_session;
 

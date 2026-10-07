@@ -66,12 +66,19 @@ begin
   update public.player_team_memberships set status = 'active'
   where team_id in ('9f300000-0000-0000-0000-000000000002', '9f300000-0000-0000-0000-000000000003') and status = 'pending';
 
-  v_programme_id := public.configure_subscription_programme('9f300000-0000-0000-0000-000000000001', true, 1, 'NONE', 'NEXT_COLLECTION_DAY');
+  v_programme_id := public.configure_subscription_programme('9f300000-0000-0000-0000-000000000001', false, 1, 'GOCARDLESS_APP_FEE', 'NEXT_COLLECTION_DAY');
   perform public.set_subscription_price(v_programme_id, 2500, current_date);
   perform public.configure_sibling_discount_rule(v_programme_id, 2, 'PERCENTAGE', 50, current_date);
   perform set_config('side_project_1_test.programme_id', v_programme_id::text, false);
   raise notice 'PASS B: Club Admin configured programme % at 2500/month with a 50%% 2nd-child discount', v_programme_id;
 end $$;
+
+-- FIXTURE STEP, as postgres: switch the programme on directly. configure cannot switch memberships on -- only
+-- Activate can, after checking terms, GoCardless verification and a priced membership -- and none of that is
+-- what this suite tests.
+reset role;
+update public.club_subscription_programmes set enabled = true, activated_at = coalesce(activated_at, now())
+ where id = current_setting('side_project_1_test.programme_id')::uuid;
 
 -- ===== Guardian claims responsible payer for both children, in order =====
 reset role; reset request.jwt.claims;

@@ -37,7 +37,7 @@ begin
          (v_admin,       'cpdo-admin@ovalball-test.invalid',    '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated'),
          (v_other_admin, 'cpdo-other@ovalball-test.invalid',    '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated'),
          (v_stranger,    'cpdo-stranger@ovalball-test.invalid', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated');
-  insert into public.site_admins (user_id, admin_role, status) values (v_site, 'full', 'active');
+  insert into public.site_admins (user_id, profile_key, status) values (v_site, 'SITE_FULL', 'active');
 
   insert into public.club_directory (name, rugby_code, country, nation, source, verification_status, normalized_key)
   values ('Domain Op Club', 'union', 'England', 'England', 'manual', 'verified', 'domain-op-club') returning id into v_dir;

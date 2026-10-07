@@ -64,11 +64,18 @@ begin
   -- THE GROUND. A festival needs more than one pitch to be a festival; the UAT
   -- club had only ever needed one. These are ordinary club pitch records, the
   -- same shape Club Settings -> Pitches creates.
-  insert into public.club_pitches (club_id, display_name, sort_order, venue_id, size_category)
+  -- `club_pitches.size_category` was retired outright by migration 20270551000000
+  -- (`a_pitch_says_what_it_physically_is`), which replaced it with `physical_size_category`
+  -- ('full' | 'three_quarter' | 'half' | 'custom'). These seeds predate that migration and still named
+  -- the dropped column, so every boot from empty died here with
+  -- `column "size_category" of relation "club_pitches" does not exist`. It was invisible until the
+  -- migration chain itself could reach the seeding phase. 'mini' is a half-size pitch in the new
+  -- vocabulary; 'full' is unchanged.
+  insert into public.club_pitches (club_id, display_name, sort_order, venue_id, physical_size_category)
   select v_club, 'Pitch 1', 1, (select id from public.venues where club_id = v_club order by is_default_home desc, name limit 1), 'full'
   where not exists (select 1 from public.club_pitches where club_id = v_club and display_name = 'Pitch 1');
-  insert into public.club_pitches (club_id, display_name, sort_order, venue_id, size_category)
-  select v_club, 'Pitch 3', 3, (select id from public.venues where club_id = v_club order by is_default_home desc, name limit 1), 'mini'
+  insert into public.club_pitches (club_id, display_name, sort_order, venue_id, physical_size_category)
+  select v_club, 'Pitch 3', 3, (select id from public.venues where club_id = v_club order by is_default_home desc, name limit 1), 'half'
   where not exists (select 1 from public.club_pitches where club_id = v_club and display_name = 'Pitch 3');
 
   select id into v_pitch1 from public.club_pitches where club_id = v_club and display_name = 'Pitch 1';

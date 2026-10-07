@@ -78,9 +78,9 @@ begin
   -- the correct membership per user.
   select id into v_membership_staff_u12 from public.club_memberships where club_id = v_club and user_id = v_staff_u12;
   select id into v_membership_staff_u16 from public.club_memberships where club_id = v_club and user_id = v_staff_u16;
-  insert into public.team_permissions (id, membership_id, team_id, permission) values
-    (gen_random_uuid(), v_membership_staff_u12, v_team_u12, 'coach'),
-    (gen_random_uuid(), v_membership_staff_u16, v_team_u16, 'coach');
+  insert into testing.team_roles (id, membership_id, team_id, role_key) values
+    (gen_random_uuid(), v_membership_staff_u12, v_team_u12, 'COACH'),
+    (gen_random_uuid(), v_membership_staff_u16, v_team_u16, 'COACH');
 
   -- Players. player_shared has TWO guardians (aggregation test).
   -- player_lone has ONE guardian (orphan test after removal). player16/

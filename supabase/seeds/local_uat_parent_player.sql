@@ -223,19 +223,45 @@ on conflict (id) do update
 -- to agree, rather than one being derived from the other. The names came first and carry no meaning;
 -- what matters for a UAT fixture is that a child placed in a boys' side is recorded as playing in it,
 -- because the governing-body rule this seed has to satisfy is about the pathway and nothing else.
+--
+-- THE YEAR OF BIRTH FOLLOWS THE SEASON. These children were first written with fixed dates, so every
+-- season aged them a grade further from the side this file puts them in -- and a place outside a
+-- child's age grade now needs an approved dispensation for that team and season (20270742000000),
+-- which a seed has no business inventing. So each child is born inside the age grade of the side they
+-- are authored into, in the season a placement made today is judged by, and the band comes from the
+-- canonical resolvers rather than arithmetic of this file's own: internal.date_of_birth_in_age_grade
+-- finds the grade, public.resolve_player_regulatory_age gives its first day. Each child's birthday is
+-- that many days into the band (a band is a whole year, so 0-364 is always inside it). Rowan's is the
+-- first day, so he is 16 for the whole season he plays Under 16 in, as the line above needs.
+--
+-- A database seeded before this keeps its children exactly as they are: the existence check is by
+-- name, which is how the placements below have always matched them, so a re-run never adds a second
+-- Ava with a new date.
+do $$
+begin
+  if internal.edition_season_for_code('union') is null then
+    raise exception 'The Seasons register has no union season for today or after it, so these children have no age grade to be born into. Seed local_uat_seasons.sql first.';
+  end if;
+end $$;
+
 insert into public.players (first_name, surname, date_of_birth, playing_pathway, user_id, active)
-select v.first_name, v.surname, v.dob::date, v.pathway,
+select v.first_name, v.surname,
+       (select r.window_starts_on
+          from public.resolve_player_regulatory_age('union', internal.edition_season_for_code('union'),
+                                                    internal.date_of_birth_in_age_grade('union', v.age_group)) r)
+         + v.days_into_grade,
+       v.pathway,
        (select u.id from auth.users u where u.email = v.login_email),
        true
 from (values
-  ('Ava',  'Whitaker', '2014-04-12', 'MALE',   null),
-  ('Ben',  'Whitaker', '2017-08-03', null,     null),
-  ('Cara', 'Bell',     '2014-11-21', 'MALE',   null),
-  ('Rowan','Whitaker', '2009-02-17', 'MALE',   'uat.player.self@ovalball.test')
-) as v(first_name, surname, dob, pathway, login_email)
+  ('Ava',  'Whitaker', 'U12', 223, 'MALE',   null),                             -- 12 April
+  ('Ben',  'Whitaker', 'U8',  336, null,     null),                             -- 3 August
+  ('Cara', 'Bell',     'U12',  81, 'MALE',   null),                             -- 21 November
+  ('Rowan','Whitaker', 'U16',   0, 'MALE',   'uat.player.self@ovalball.test')   -- 1 September
+) as v(first_name, surname, age_group, days_into_grade, pathway, login_email)
 where not exists (
   select 1 from public.players p
-  where p.first_name = v.first_name and p.surname = v.surname and p.date_of_birth = v.dob::date
+  where p.first_name = v.first_name and p.surname = v.surname
 );
 
 insert into public.player_team_memberships (player_id, team_id, status)
@@ -445,9 +471,14 @@ from (values
 join auth.users u on u.email = v.email
 where not exists (select 1 from public.profiles p where p.id = u.id);
 
--- The child with no response.
+-- The child with no response. An Under 12 born on 9 September, in whichever season this runs (the
+-- same reason, and the same canonical resolvers, as the children above).
 insert into public.players (first_name, surname, date_of_birth, playing_pathway)
-select 'Priya', 'Rao', '2014-09-09', 'MALE'
+select 'Priya', 'Rao',
+       (select r.window_starts_on
+          from public.resolve_player_regulatory_age('union', internal.edition_season_for_code('union'),
+                                                    internal.date_of_birth_in_age_grade('union', 'U12')) r) + 8,
+       'MALE'
 where not exists (select 1 from public.players p where p.first_name = 'Priya' and p.surname = 'Rao');
 
 insert into public.player_team_memberships (player_id, team_id, status)
