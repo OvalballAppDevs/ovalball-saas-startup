@@ -220,7 +220,12 @@ test("no screen builds a fixture or training path by hand any more", () => {
     // Only real code, not prose in a comment.
     for (const line of body.split("\n")) {
       if (/^\s*[*/]/.test(line)) continue
-      if (/router\.(push|replace)\(\s*[`"']\/(fixtures|calendar\/training)\//.test(line)) offenders.push(`${file}: ${line.trim()}`)
+      // A fixture ADDRESS is built by hand when the id goes into the path (a template or a literal id); a named
+      // screen of a flow under /fixtures (Season Planner steps, Add Fixture) is a screen, not a fixture, and is
+      // pushed by name exactly as the object form below already allows. Training paths are always addresses.
+      if (/router\.(push|replace)\(\s*`\/fixtures\/\$\{/.test(line)) offenders.push(`${file}: ${line.trim()}`)
+      if (/router\.(push|replace)\(\s*[`"']\/fixtures\/[0-9a-f]{8}-/.test(line)) offenders.push(`${file}: ${line.trim()}`)
+      if (/router\.(push|replace)\(\s*[`"']\/calendar\/training\//.test(line)) offenders.push(`${file}: ${line.trim()}`)
       if (/pathname:\s*"\/fixtures\/\[fixtureId\]/.test(line)) offenders.push(`${file}: ${line.trim()}`)
       if (/pathname:\s*"\/calendar\/training\//.test(line)) offenders.push(`${file}: ${line.trim()}`)
     }
@@ -325,10 +330,17 @@ test("a participant screen's Back goes to its own surface, never to whichever na
   // `initialRouteName` on the nested stack did not mount the agenda beneath a
   // cross-tab push, so Back asks the STACK whether anything is beneath, and
   // otherwise dismisses to the surface's index, which replaces the parked screen.
+  // ONE BACK RULE (M2): useBackToSurface is the canonical origin helper with the surface as its landing, so an
+  // opener's returnTo is honoured too -- and the guarantees below are the origin helper's.
   const back = readFileSync("apps/mobile/src/links/back.ts", "utf8")
-  assert.match(back, /const state = navigation\.getState\(\)\s*\n\s*if \(state && state\.index > 0\) \{\s*\n\s*router\.back\(\)/)
-  assert.match(back, /router\.dismissTo\(surface\)/)
-  assert.ok(!/router\.canGoBack\(\)/.test(back), "canGoBack() is the router's answer, and the router lets the tabs pop")
+  assert.match(back, /return useOriginBack\(surface\)/, "the surface Back is not the one origin helper")
+  const origin = readFileSync("apps/mobile/src/links/origin.ts", "utf8")
+  assert.match(origin, /const state = navigation\.getState\(\)\s*\n\s*const beneath = !!state && state\.index > 0/, "Back no longer asks the STACK what is beneath")
+  assert.match(origin, /if \(beneath\) \{\s*\n\s*router\.back\(\)/)
+  // At the root of its own surface's stack, Back DISMISSES to the surface, which replaces the parked screen;
+  // only a fallback in another tab is navigated to.
+  assert.match(origin, /const ownSurface = fallback !== "\/" && \(pathname === fallback \|\| pathname\.startsWith\(`\$\{fallback\}\/`\)\)\s*\n\s*if \(ownSurface\) \{\s*\n\s*router\.dismissTo\(fallback/, "a parked screen is left beneath its surface")
+  for (const source of [back, origin]) assert.ok(!/router\.canGoBack\(\)/.test(source), "canGoBack() is the router's answer, and the router lets the tabs pop")
   for (const [file, surface] of [
     ["apps/mobile/app/(tabs)/calendar/training/[sessionId].tsx", "/calendar"],
     ["apps/mobile/src/fixtures/match-centre/index.tsx", "/fixtures"],

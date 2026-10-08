@@ -25,11 +25,12 @@ import { ClubCrest } from "../../../../../src/components/identity"
 import { CalendarSync, ChevronRight, CircleAlert, CircleCheck, CircleX, Clock, FileText, MessageSquare, Pencil, Trophy } from "../../../../../src/components/icons"
 import { Button, EmptyState, ErrorState, Skeleton } from "../../../../../src/components/ui"
 import { ButtonRow, Note } from "../../../../../src/people/ui"
-import { useOriginBack } from "../../../../../src/links/origin"
+import { useOriginBack, withReturnTo } from "../../../../../src/links/origin"
 import { useSeasonPlanner } from "../../../../../src/season-planner/state"
 import { plannerProblem, useClubDayDetail, usePlannerSeasons } from "../../../../../src/season-planner/data"
 import { ClubPairBand, OnForestCount, OnForestPill, PlannerCard, SheetList, STATE_COLOUR } from "../../../../../src/season-planner/ui"
 import { TOUCH_TARGET, colour, radius, space, surface, type } from "../../../../../src/design/tokens"
+import { routeForIntent } from "../../../../../src/links/destinations"
 
 /**
  * ONE CLUB DAY -- one club-to-club proposal, as either club sees it.
@@ -113,7 +114,7 @@ export default function ClubDayScreen() {
   function openFixture(f: ClubDayFixture) {
     if (!detail) return
     const here = `/fixtures/planner/club-day/${detail.groupId}`
-    if (f.resultingFixtureId) router.push({ pathname: "/fixtures/[fixtureId]", params: { fixtureId: f.resultingFixtureId, returnTo: here } } as never)
+    if (f.resultingFixtureId) { const route = routeForIntent({ kind: "FIXTURE", fixtureId: f.resultingFixtureId }); if (route) router.push(withReturnTo(route, here) as never) }
     else router.push({ pathname: "/fixtures/request/[groupId]", params: { groupId: detail.groupId, requestId: f.requestId, returnTo: here } } as never)
   }
 

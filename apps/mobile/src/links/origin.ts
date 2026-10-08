@@ -30,6 +30,14 @@ export function returnHere(pathname: string): { returnTo: string } {
   return { returnTo: pathname }
 }
 
+/**
+ * A route FROM THE ONE TABLE, carrying where it was opened from. The destination is still decided by
+ * `routeForIntent`; only the origin rides along, so Back returns to the screen that opened it.
+ */
+export function withReturnTo(route: { pathname: string; params?: Record<string, string> }, returnTo: string): { pathname: string; params: Record<string, string> } {
+  return { pathname: route.pathname, params: { ...(route.params ?? {}), ...returnHere(returnTo) } }
+}
+
 export function useOriginBack(fallback: string): () => void {
   const router = useRouter()
   const navigation = useNavigation()
@@ -57,7 +65,15 @@ export function useOriginBack(fallback: string): () => void {
       router.back()
       return
     }
-    // The root of its stack: there is nothing in this stack to dismiss to, and the fallback may be in another tab.
+    // The root of its stack. When the fallback is this screen's own surface (a Training Centre opened from another
+    // tab, whose surface is /calendar), DISMISS to it: that replaces the parked screen, where navigating would leave
+    // it sitting beneath the surface with no way out. A fallback in another tab (the Admin Centre's "/") is
+    // navigated to, because there is nothing in this stack to dismiss to.
+    const ownSurface = fallback !== "/" && (pathname === fallback || pathname.startsWith(`${fallback}/`))
+    if (ownSurface) {
+      router.dismissTo(fallback as never)
+      return
+    }
     router.navigate(fallback as never)
   }, [navigation, router, returnTo, fallback, pathname])
 }

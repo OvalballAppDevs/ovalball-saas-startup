@@ -30,6 +30,8 @@ import { useSeasonPlanner, type PlannerSelection } from "../../../../src/season-
 import { defaultPlanningSeason, planningWeekday, todayIso, useClubDay, useClubPlannerTeams, usePlannerSeasons, usePlayingDays, useSeasonBoard } from "../../../../src/season-planner/data"
 import { CountDot, DAY_NAMES, ForestSteps, HomeAwayToggle, OpponentCard, OpponentSearchSheet, PlannerCard, SectionLabel, StateTag, TeamIcon, WeekCard } from "../../../../src/season-planner/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
+import { routeForIntent } from "../../../../src/links/destinations"
+import { withReturnTo } from "../../../../src/links/origin"
 
 /**
  * PLAN A CLUB DAY -- one week, one opponent, my teams matched to theirs.
@@ -120,7 +122,7 @@ export default function PlanClubDay() {
   }
 
   function openCommitment(c: PlannerCommitment) {
-    if (c.kind === "fixture") router.push({ pathname: "/fixtures/[fixtureId]", params: { fixtureId: c.refId, returnTo: "/fixtures/planner/day" } } as never)
+    if (c.kind === "fixture") { const route = routeForIntent({ kind: "FIXTURE", fixtureId: c.refId }); if (route) router.push(withReturnTo(route, "/fixtures/planner/day") as never) }
     else if (c.groupId) router.push({ pathname: "/fixtures/request/[groupId]", params: { groupId: c.groupId, ...(c.kind === "request_out" || c.kind === "request_in" ? { requestId: c.refId } : {}), returnTo: "/fixtures/planner/day" } } as never)
   }
 

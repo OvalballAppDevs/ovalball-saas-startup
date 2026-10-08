@@ -24,14 +24,17 @@ import { Button, EmptyState, ErrorState, Skeleton } from "../../../../src/compon
 import { BottomSheet } from "../../../../src/components/bottom-sheet"
 import { ChoiceSheet } from "../../../../src/components/field-sheet"
 import { Note, PhotoHero } from "../../../../src/people/ui"
-import { useOriginBack } from "../../../../src/links/origin"
+import { useOriginBack, withReturnTo } from "../../../../src/links/origin"
 import { tabBarHeight } from "../../../../src/navigation/tab-bar-height"
 import { useSeasonPlanner } from "../../../../src/season-planner/state"
 import { defaultPlanningSeason, planningWeekday, todayIso, useClubDays, useClubPlannerTeams, usePlannerAccess, usePlannerSeasons, usePlayingDays, useSeasonBoard } from "../../../../src/season-planner/data"
 import { ClubDayCard, CountDot, DAY_NAMES, PlannerCard, SectionLabel, SheetList, StatTile, StatePill } from "../../../../src/season-planner/ui"
 import { TOUCH_TARGET, colour, radius, space, type } from "../../../../src/design/tokens"
+import { libraryAsset } from "../../../../src/media/stock-assets"
+import { routeForIntent } from "../../../../src/links/destinations"
 
-const hero = require("../../../../assets/editorial/rugby-matchday.jpg")
+// Fixed screen art, taken from the one stock library by its key -- never required a second time here.
+const hero = libraryAsset("matchday-scene-01")
 const PREVIEW_WEEKS = 6
 
 /**
@@ -97,7 +100,7 @@ export default function SeasonPlannerHome() {
 
   function openRow(row: BoardRow) {
     setOpenWeek(null)
-    if (row.kind === "fixture") router.push({ pathname: "/fixtures/[fixtureId]", params: { fixtureId: row.refId, returnTo: "/fixtures/planner" } } as never)
+    if (row.kind === "fixture") { const route = routeForIntent({ kind: "FIXTURE", fixtureId: row.refId }); if (route) router.push(withReturnTo(route, "/fixtures/planner") as never) }
     else if (row.groupId) router.push({ pathname: "/fixtures/request/[groupId]", params: { groupId: row.groupId, ...(row.kind === "request_out" || row.kind === "request_in" ? { requestId: row.refId } : {}), returnTo: "/fixtures/planner" } } as never)
   }
 
