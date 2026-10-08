@@ -202,7 +202,13 @@ def isolate(project_dir: Path) -> int:
             raise Fail(f"network {net} exists and is NOT internal; refusing")
     else:
         sh("docker", "network", "create", "--internal", "--label", f"ovalball.isolated-restore={pid}", net)
-    cs = [c for c in containers(pid) if c["State"]["Running"]]
+    scope = containers(pid)
+    foreign = [c["Name"].lstrip("/") for c in scope if ((c.get("Config") or {}).get("Labels") or {}).get("com.supabase.cli.project") != pid]
+    if foreign:
+        # isolate rewires networks; it does that only to the target's own (labelled) containers, and refuses rather
+        # than touch anything else that is attached to the target.
+        raise Fail(f"refusing to isolate: containers that are not the target's are attached to it: {', '.join(sorted(foreign))}")
+    cs = [c for c in scope if c["State"]["Running"]]
     # Connect everything to the internal network first (with the aliases each service is known by), then leave the
     # CLI network: a container is never without its peers.
     for c in cs:
@@ -597,9 +603,12 @@ def destroy_target_data(pid: str, log, project_dir: Path | None = None) -> bool:
             subprocess.run(["docker", "rm", "-f", i], capture_output=True, timeout=DOCKER_TIMEOUT)
         except subprocess.TimeoutExpired:
             pass
-    vols = sorted(owned_volumes(pid))
+    owned_v, unknown_v = classify_volumes(pid)
+    vols = sorted(owned_v)
+    for v in sorted(unknown_v):
+        log(f"not removing volume {v}: Docker could not show whose it is")
     for v in sh("docker", "volume", "ls", "-q").split():
-        if v.endswith(f"_{pid}") and v not in vols:
+        if v.endswith(f"_{pid}") and v not in vols and v not in unknown_v:
             log(f"not removing volume {v}: it is not labelled for this target")
     for v in vols:
         try:
@@ -608,7 +617,11 @@ def destroy_target_data(pid: str, log, project_dir: Path | None = None) -> bool:
             pass
     relay_gone = stop_relay(project_dir, log)
     nets = [n for n in (internal_net(pid), cli_net(pid)) if n in sh("docker", "network", "ls", "--format", "{{.Name}}").split()]
+    net_unknown = [n for n in nets if network_ownership(n, pid) == "unknown"]
     for n in nets:
+        if n in net_unknown:
+            log(f"not removing network {n}: Docker could not show whose it is")
+            continue
         if owned_network(n, pid):
             # A container that is not ours may still hold an endpoint on OUR network: detach it from our network
             # (the container itself is not stopped or removed), then remove the network.
@@ -617,6 +630,10 @@ def destroy_target_data(pid: str, log, project_dir: Path | None = None) -> bool:
             except Fail:
                 members = {}
             for cid, m in members.items():
+                st = persistence(cid)
+                if st != "not":
+                    log(f"not detaching {m.get('Name') or cid[:12]} from {n}: {'it belongs to the persistent project' if st == 'persistent' else 'Docker could not show whose it is'}")
+                    continue
                 log(f"detaching {m.get('Name') or cid[:12]} from the target's network {n}")
                 subprocess.run(["docker", "network", "disconnect", "-f", n, cid], capture_output=True, timeout=DOCKER_TIMEOUT)
             subprocess.run(["docker", "network", "rm", n], capture_output=True, timeout=DOCKER_TIMEOUT)
@@ -627,8 +644,10 @@ def destroy_target_data(pid: str, log, project_dir: Path | None = None) -> bool:
     left_ctrs += sorted(set(sh("docker", "ps", "-aq", "--filter", f"label=com.supabase.cli.project={pid}").split()))
     left_vols = [v for v in sh("docker", "volume", "ls", "-q").split() if v in vols]
     nets_now = sh("docker", "network", "ls", "--format", "{{.Name}}").split()
-    left_net = any(n in nets_now and owned_network(n, pid) for n in (internal_net(pid), cli_net(pid)))
-    ok = not left_ctrs and not left_vols and not left_net and not unknown and relay_gone
+    left_net = any(n in nets_now and network_ownership(n, pid) != "foreign" for n in (internal_net(pid), cli_net(pid)))
+    left_unknown_vols = classify_volumes(pid)[1]
+    ok = (not left_ctrs and not left_vols and not left_net and not unknown and relay_gone
+          and not unknown_v and not left_unknown_vols and not net_unknown)
     log(f"destroyed: {len(targets)} containers, {len(vols) - len(left_vols)} of {len(vols)} volumes, networks "
         f"{'kept' if left_net else 'removed'}, relay {'stopped' if relay_gone else 'STILL RUNNING'}" + ("" if ok else f" -- STILL PRESENT: containers {left_ctrs}, volumes {left_vols}"))
     return ok
@@ -798,25 +817,37 @@ def suffix_named_ours(pid: str, all_containers: bool) -> set[str]:
     return out
 
 
-def owned_volumes(pid: str) -> set[str]:
-    """The target's volumes: named *_<pid> AND labelled com.supabase.cli.project=<pid> (the CLI labels them)."""
-    vols = set()
+def classify_volumes(pid: str) -> tuple[set[str], set[str]]:
+    """(owned, unknown): volumes named *_<pid> that are labelled for this target, and those Docker could not inspect.
+    An unknown volume is never removed and never counted as gone."""
+    owned, unknown = set(), set()
     for v in [v for v in sh("docker", "volume", "ls", "-q").split() if v.endswith(f"_{pid}")]:
         try:
             info = json.loads(sh("docker", "volume", "inspect", v))[0]
         except Fail:
+            unknown.add(v)
             continue
         if (info.get("Labels") or {}).get("com.supabase.cli.project") == pid:
-            vols.add(v)
-    return vols
+            owned.add(v)
+    return owned, unknown
 
 
-def owned_network(name: str, pid: str) -> bool:
+def owned_volumes(pid: str) -> set[str]:
+    """The target's volumes: named *_<pid> AND labelled com.supabase.cli.project=<pid> (the CLI labels them)."""
+    return classify_volumes(pid)[0]
+
+
+def network_ownership(name: str, pid: str) -> str:
+    """'owned', 'foreign' or 'unknown' (Docker could not answer)."""
     try:
         labels = json.loads(sh("docker", "network", "inspect", name))[0].get("Labels") or {}
     except Fail:
-        return False
-    return labels.get("com.supabase.cli.project") == pid or labels.get("ovalball.isolated-restore") == pid
+        return "unknown"
+    return "owned" if labels.get("com.supabase.cli.project") == pid or labels.get("ovalball.isolated-restore") == pid else "foreign"
+
+
+def owned_network(name: str, pid: str) -> bool:
+    return network_ownership(name, pid) == "owned"
 
 
 def emergency_stop(project_dir: Path) -> int:
@@ -871,8 +902,11 @@ def emergency_stop(project_dir: Path) -> int:
         scope = containers(pid)
         own = {c["Id"] for c in scope if owned(c, pid)} | {c["Name"].lstrip("/") for c in scope if owned(c, pid)}
         still |= {c["Name"].lstrip("/") for c in scope if c["State"]["Running"] and owned(c, pid, own)}
-    except Exception:
+    except NoContainers:
         pass
+    except Exception as e:
+        scope_failed = True  # the confirmation could not be made: never report success
+        print(f"emergency stop: the confirmation scope could not be computed ({e})", file=sys.stderr)
     still = {n for n in still if persistence(n) != "persistent"}
     if still or scope_failed or unresolved:
         why = []

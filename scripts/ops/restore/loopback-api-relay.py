@@ -109,7 +109,24 @@ def serve(conn: socket.socket, pid: str, project_dir: Path) -> None:
 
     up = threading.Thread(target=pump, args=(conn, proc.stdin, close_stdin), daemon=True)
     up.start()
+    done = threading.Event()
+
+    def watchdog() -> None:
+        # A connection does not outlive the conditions it was opened under: every 2 s, the guard must still be alive
+        # and Kong still isolated, or the connection is cut (a kept-alive connection would otherwise survive both).
+        while not done.wait(2.0):
+            ok2, why2 = kong_is_isolated(pid)
+            if ok2 and not guard_is_alive(project_dir):
+                ok2, why2 = False, "the isolation guard is not alive"
+            if not ok2:
+                sys.stderr.write(f"[loopback-api-relay] CUT an open connection: {why2}\n")
+                proc.kill()
+                close_conn()
+                return
+
+    threading.Thread(target=watchdog, daemon=True).start()
     pump(proc.stdout, conn, close_conn)  # Kong's answer, until Kong closes
+    done.set()
     proc.kill()
     proc.wait()
     conn.close()
