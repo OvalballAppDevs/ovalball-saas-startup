@@ -161,7 +161,9 @@ Then, outside that transaction:
 
 - **Vault:** `select vault.create_secret('<value>', '<name>', '<description>');` for each secret, values typed from
   the secret manager.
-- **Storage files:** upload each exported file to the same bucket and path (`x-upsert: true`); the object rows
+- **Storage files:** upload each exported file to the same bucket and path (`x-upsert: true`) WITH its original
+  `Content-Type` and `Cache-Control` — an upload without them resets the restored row's metadata (proved: cacheControl
+  fell back to `no-cache`); `copy-storage-objects.py` does this, through the target's relay; the object rows
   already exist from the data load. Copy only objects that have a row; report any row without a file.
 - **Maintenance residue.** A backup taken inside the maintenance window (as the release plan does) carries the
   window with it: `roles.sql` sets `pgrst.db_pre_request` on `authenticator` (every REST/RPC write refused),
@@ -221,7 +223,8 @@ never needed. The final design, all in `scripts/ops/restore/start-isolated-resto
 3. **The API, through a loopback relay.** `loopback-api-relay.py` listens on `127.0.0.1:<api port + 20>` only and pipes
    each connection through `docker exec -i supabase_kong_<id> nc 127.0.0.1 8000` — Kong's own loopback, inside Kong's
    internal-only namespace. A fixed destination (not a proxy); it gives no container a socket, a network or a mount;
-   it re-checks Kong's name, project label and internal-only networks on every connection and refuses otherwise. The
+   on every connection it re-checks Kong's name and project label, that Kong is on exactly the target's internal
+   network, and that the guard is alive (fresh heartbeat) — a dead or frozen guard means the copy is not reachable. The
    database is reached with `docker exec`.
 4. **Proof, then a guard while the target exists.** `verify` must pass; then the relay and
    `restore-target-isolation.py guard` start (detached), and `verify --api-port` passes again through the relay; if
@@ -254,9 +257,12 @@ EXPO_RECOVERY_REDIRECT=http://127.0.0.1:3000     # and the other EXPO_* redirect
 nothing in the target (its only side effect is short-lived probe containers). Its scope (for detection) is every container that
 belongs to the target by name, by the CLI's project label, by mounting one of the target's volumes, by sharing a
 target container's network namespace, or by being attached to (or configured on) a network a target container is on
-— running or stopped. Emergency stop and destroy act only on the containers the target OWNS (label, name, its
-volumes, its own internal network, an owned namespace); a peer that is merely reachable — another application's
-container — is reported, never touched, and nothing of the persistent project is ever touched. It fails on any of: a published port not bound to
+— running or stopped. Emergency stop and destroy act only on what the target OWNS: a container labelled for this
+target, or an unlabelled one with the target's name, a mount of a target-labelled volume or an owned namespace — never
+a container labelled for any other project, whatever its name; volumes and networks only if labelled for the target.
+A peer that is merely reachable (another application's container) is reported, never touched; nothing of the
+persistent project is ever touched; and when Docker cannot show whose something is, it is left alone and the
+emergency stop or destroy reports INCOMPLETE instead of success. It fails on any of: a published port not bound to
 loopback, publish-all, host networking, a privileged container, any mount other than the target's own plain local
 volumes (no Docker socket, no `~/.docker`, no host path, no disguised bind volume, no volume of another project); a
 host listener on a published, configured or relay port that is not loopback (`lsof`); a successful connection to any
@@ -281,12 +287,14 @@ loopback only or the API not answering through it; anything it cannot inspect.
   netns sharing), Docker's availability, and the guard's own liveness (heartbeat).
 - *Detected after it occurs, not prevented*: a deliberate change by someone with Docker access on this Mac. The guard
   is a polling/event watcher: it reacts AFTER the change. Measured, with Kong re-attached to a network with a route
-  out and an attacker executing inside Kong: **15, 24, 29 and 27 successful outbound connections in four runs, before
-  the guard killed Kong 1.30 s, 1.93 s, 2.29 s and 2.09 s after the change.** In that window data can leave. The guard does not prevent
+  out and an attacker executing inside Kong: **15 to 29 successful outbound connections in each of five runs, before
+  the guard killed Kong 1.30–2.29 s after the change.** In that window data can leave. The guard does not prevent
   exfiltration; it bounds the window and then destroys the copy. A person with that access could equally copy the data
   out with `docker cp` without touching the network; Docker Desktop offers no pre-authorisation hook to prevent either.
-- *Not covered at all*: a guard killed with SIGKILL or frozen (SIGSTOP) — the restore tools then refuse the target,
-  but a copy already loaded keeps running, still isolated by topology, unwatched; a Docker daemon or engine defect; a
+- *Not covered at all*: a guard killed with SIGKILL or frozen (SIGSTOP) — the restore tools and the relay then refuse
+  the target, but a copy already loaded keeps running, still isolated by topology, unwatched;
+  `localhost` resolving to something other than loopback on the operator's Mac (the copier accepts `localhost` for
+  the source API; not reproducible here); a Docker daemon or engine defect; a
   host process that forwards a LAN port to the loopback relay, edits the pidfiles or spoofs a process name; anyone
   else using this Mac.
 

@@ -393,7 +393,7 @@ run was repeated, and is listed as such):
 | Emergency destruction / cleanup | T2, T4, T5, T6, T8a/b, T10–T12, G1: every trip ended "destroyed … 2 of 2 volumes", 0 target containers; destroy left a persistent-labelled container untouched (S4); a start that failed verify was destroyed (S6); relay and both networks removed too (after the fix below) | **PASS** (the relay/network leftover FAILED the final leftover check; fixed and re-proved) |
 | Storage copier | HTTP_PROXY ignored (direct to loopback); redirect refused; non-loopback URL refused | **PASS** (code path; no populated source copied) |
 | Wrapper over a live target | T7 REFUSED | **PASS** |
-| Exposure window (G1) | Kong re-attached to a route-out network, attacker executing inside Kong every 50 ms | **MEASURED, not prevented**: before: 0 of 36–37 out; after: **15 / 24 / 29 / 27 connections out; Kong killed 1.30 / 1.93 / 2.29 / 2.09 s after the change** (four runs) |
+| Exposure window (G1) | Kong re-attached to a route-out network, attacker executing inside Kong every 50 ms | **MEASURED, not prevented**: before: 0 of 36–37 out; after: **15 / 24 / 29 / 27 / 24 connections out; Kong killed 1.30 / 1.93 / 2.29 / 2.09 / 1.89 s after the change** (five runs) |
 
 **Consolidated run anomalies, stated:** T8 as first written created the bridge container without starting it and the
 test waited for ever (my test, not the guard); the run was stopped. Thawing a frozen guard whose Docker call had
@@ -434,6 +434,72 @@ or guard process, nothing listening on the relay port.
 Residual, stated in the runbook: SIGKILL/SIGSTOP of the guard is detected (restore refuses) but not contained; Docker
 daemon or engine defects; host processes that forward a LAN port to the relay or spoof the guard's pidfile; anyone
 with Docker or host access on the Mac.
+
+## 5d. Closing the verification gaps (local, disposable; fictional data only)
+
+**Codex (read-only) review of the final tooling, round D** — the first independent look at the round-C fixes and the
+relay/network cleanup. No P0. Each finding was reproduced against the code before it was changed; one was not
+reproducible here and was left as a stated limit.
+
+| # | Finding | Demonstrated (before the fix) | Disposition |
+|---|---|---|---|
+| P1.1 | destroy/emergency-stop acted on containers named `*_<id>` but labelled for another project, and on unlabelled containers merely on the target network | `worker_<id>` labelled `another-project` was destroyed | Fixed: a container with a project label is ours only if the label is ours; unlabelled ones only by our name, a mount of an owned (labelled) volume, or an owned namespace; the name-suffix fallback (used when the full scope cannot be computed) skips foreign labels |
+| P1.2 | the relay kept serving after the guard died, and accepted Kong on any internal network | guard SIGKILLed, Kong on another application's internal network: relay answered 200; the foreign container reached Kong | Fixed: the relay serves only while `guard-status` passes and Kong is on exactly the target network; the copier checks the guard before every object |
+| P2.1 | pidfile/command matching by substring could kill a sibling target's relay or guard (`<dir>-other`) | a `<target>-other` relay process was killed | Fixed: exact `--project-dir <dir>` token match (Python and shell) |
+| P2.2 | emergency-stop could report success while an uninspectable owned container ran | reported "every container … stopped" (exit 0) with the container running | Fixed: an uncomputable scope or an uninspectable container makes it INCOMPLETE (exit 4) |
+| P2.3 | destroy's confirmation treated an inspection error as absence | (same code path as P1.1/P2.2) | Fixed with them: confirmation uses the same tri-state (only Docker's "no such container" is absence) |
+| P2.4 | volumes and networks removed by name only | a volume `data_<id>` labelled for another project was destroyed | Fixed: only volumes and networks labelled for the target are removed; others are reported |
+| P2.5 | the wrapper's retained-data refusal looked at labels only | an unlabelled leftover `supabase_db_<id>` would not have been refused | Fixed: names `*_<id>` are refused too |
+| P2.6 | `localhost` for the source API might not resolve to loopback | not reproducible here (`localhost` → 127.0.0.1) | Not changed; stated limit |
+| P3 | a future or non-finite heartbeat passed `guard-status` | a frozen guard with a far-future heartbeat read as running ("-8.2e9 s ago") | Fixed: finite, not in the future, younger than 15 s |
+
+Found during this round's own tests and fixed: (a) **the Storage copier reset every copied object's `cacheControl`
+to `no-cache`** (it re-uploaded without the header; 169 of 194 objects changed) — it now carries the source's
+Cache-Control; (b) the guard treated Docker's `none` network (no networking at all) as a route out (a false trip);
+(c) emergency-stop reported INCOMPLETE for a target that no longer exists.
+
+Found in the regression run after those fixes, and fixed: (d) a false LAN-probe positive — a connection to the Mac's
+own link-local address on a port in the ephemeral range can connect to ITSELF (TCP simultaneous open) with nothing
+listening; such self-connections are no longer counted as reachability; (e) destroy could not remove the target's
+own network while a container it does not own was still attached (DESTROY INCOMPLETE, reported honestly) — it now
+detaches such endpoints from the target's own network (the foreign container itself is not stopped or removed) and
+then removes the network. Re-run: restore under the guard PASS (276 tables through the relay, pg_net resolves
+nothing); unlabelled bridge container → guard tripped, detached it from the target network, left it running,
+removed every target container, volume and network. The rest of the regression series matched the previous run
+(G1: 24 connections out, Kong killed 1.89 s after the change; with the guard frozen the relay now refuses, so
+"the API answers through the relay" fails as designed).
+
+**Populated fictional Storage copy (end to end).** Source: a disposable fully migrated stack (clean boot) with 4
+buckets (1 public, 3 private), 194 objects, 7.6 MB: 125 files in one folder (more than one 100-entry listing page),
+nested paths up to 6 levels, names with spaces, sizes from 200 B to 3.2 MB, 6 content types, 7 cache-control values
+(a key with accented letters was refused by Storage itself: "InvalidKey"). A read-only logical backup of it (session
+forced read-only; 9 files, SHA-256 recorded) was restored into an isolated target (guard live and isolation verified
+before and after; 194 object rows); the copier then ran with HTTP_PROXY / HTTPS_PROXY / ALL_PROXY pointed at a
+black-hole address.
+
+| Check | Result |
+|---|---|
+| copier | 194 of 194 copied and byte-verified, 0 missing, 0 unserved; isolation verified 3 times during the run; 763–766 s (every relay connection and every object re-checks the guard) |
+| independent check through the relay against the upload manifest | 194/194 byte-identical (SHA-256 and size); Content-Type 194/194; Cache-Control 194/194 (after the fix) |
+| stored metadata, source vs target (bucket, name, MIME type, cacheControl, size, user metadata) | identical for all 194 (after the fix; 169 differed before it) |
+| public bucket object through the relay without a key | 200 |
+| proxy variables set to a black hole | ignored: every request went direct |
+| refusals: unsafe target networking (an all-interfaces listener) / stale heartbeat (guard frozen) / no relay port | REFUSED / REFUSED (and the relay itself refused connections) / REFUSED — nothing read or copied |
+| redirect / non-loopback URL | refused (unit-checked against a local server) |
+
+**Ownership proofs.** A snapshot of every Docker container, volume and network that is not the target (46,
+including the persistent project's 16) was compared before and after every step, together with a digest of the
+persistent project's container ids and states.
+
+| Case | What was done | Result |
+|---|---|---|
+| Docker unreachable | emergency-stop, destroy, verify with Docker pointed nowhere | refused / failed (exit 4 / 2 / 3); nothing changed |
+| Uninspectable owned container | a renamed, unlabelled container holding a target volume that Docker cannot inspect | emergency-stop INCOMPLETE (exit 4), container left running; destroy failed (exit 6) naming the volume it could not remove, container left in place |
+| Ambiguous ownership | `worker_<id>` and volume `data_<id>` labelled for another project | never stopped or removed (by destroy, by the guard's trip, by the fallback) |
+| Persistent-labelled container named like the target | `fake_disguise_<id>` labelled `ovalball-saas-startup` | refused by verify; never removed by `--destroy` |
+| Foreign network | Kong joins another application's internal network, guard live | guard tripped, target destroyed; the foreign container and network left running |
+| Guard killed (SIGKILL) | — | nothing destroyed; guard-status "not running"; relay refused; restore refused; topology isolation still verified |
+| Every case | — | unrelated resources UNCHANGED; persistent container digest unchanged; persistent database fingerprint unchanged |
 
 ## 6. Reproduce
 
