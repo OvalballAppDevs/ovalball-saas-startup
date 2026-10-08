@@ -24,20 +24,27 @@ Operator: **the project owner, sole operator** (owner declaration). Background a
 
 ## 2. Dashboard backup evidence
 
-**OWNER-CONFIRMED — NOT INDEPENDENTLY VERIFIED.** The owner states that Dashboard backups and PITR are available.
-Neither the plan nor the backup screens can be read through SQL or the MCP, and the CLI backup listing needs an
-interactive login. Archived WAL (`pg_stat_archiver`) is **not** treated as evidence of recoverability.
+**Read by the owner in the Dashboard, 8 Oct 2026, 20:02–20:03 (screenshots): the project is on the FREE plan.**
+This supersedes the earlier owner declaration that Dashboard backups and PITR were available.
 
 | Item | Status |
 |---|---|
-| Automated backups enabled | OWNER-CONFIRMED — NOT INDEPENDENTLY VERIFIED |
-| PITR enabled | OWNER-CONFIRMED — NOT INDEPENDENTLY VERIFIED |
-| Latest recoverable point | **not recorded** — the owner reads it on Database → Backups → Point in time |
-| Retention window | **not recorded** — same screen / Settings → Add-ons |
-| Restore procedure | Supabase documents PITR/daily restore as **in place**, project unavailable during the restore, overwriting everything after the restore point. Not exercised. |
-| Plan limitations | Platform backups are physical and **exclude Storage objects** (hence the separate export). PITR replaces daily backups when enabled. |
+| Automated (scheduled) backups | **NONE** — "Free Plan does not include project backups" (Pro: up to 7 days) |
+| PITR | **NONE** — "a Pro Plan add-on … starts at $100/month" |
+| Latest recoverable point | **none exists on the platform** |
+| Retention window | not applicable |
+| Restore procedure | not available on this plan |
+| Plan limitations | Platform backups (on Pro and above) are physical and exclude Storage objects |
 
-The logical backup below does not depend on any of this: it is a second, independent recovery point.
+**Consequence: the logical backup and the Storage export below are the ONLY restore point production has.** Gate 1
+depends on them entirely. Upgrading (Pro for daily backups; PITR as an add-on) is the owner's billing decision and
+is not required to take these backups. Archived WAL (`pg_stat_archiver`) is not evidence of recoverability.
+
+Other setup facts read by the owner in the Dashboard: session-pooler host `aws-1-eu-west-1.pooler.supabase.com` (port
+5432 = session mode; user `postgres.ywwdizmaanbujcfitpcj`; resolves to AWS eu-west-1); database root certificate
+"Supabase Root 2021 CA", valid to 26 Apr 2031, SHA-256 fingerprint
+`80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA` (the file downloaded
+to the Mac must match it).
 
 ## 3. Database backup — exact command (NOT executed)
 
@@ -214,7 +221,7 @@ ref, keys and configuration.
    stop and explain).
 3. No maintenance gate active (or, if the backup is deliberately taken inside the release window, the window's
    state recorded — runbook §6 "Maintenance residue").
-4. Dashboard: latest recoverable point and retention written into the release log.
+4. Dashboard: plan re-checked (Free on 8 Oct: no platform backups; if upgraded since, record the latest recoverable point and retention).
 5. Supabase root CA downloaded (Dashboard → Database → Settings → SSL configuration) into the key folder.
    Dedicated key pair created (`openssl req -x509 -newkey rsa:4096 … -subj "/CN=ovalball-backup-<date>"`, passphrase
    set); key and passphrase in escrow; recovery from escrow tested.
@@ -266,7 +273,7 @@ verifier mismatch. A failed run produces no usable archive by construction.
 
 | # | Item |
 |---|---|
-| A1 | Dashboard latest recoverable point and retention not recorded (owner-confirmed only) |
+| A1 | The project is on the Free plan: no platform backups or PITR. These backups are the only restore point; upgrading is the owner's decision |
 | A2 | Pepper values (P2) escrow not confirmed — required to restore working invitation/recovery codes |
 | A3 | No loader from the Storage export archive into a restore target yet; required before a Storage restore |
 | A4 | Auth/platform configuration, Edge Function secrets, Vercel env and provider configuration have no recorded recovery path |
