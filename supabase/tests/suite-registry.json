@@ -2171,6 +2171,11 @@
       "owner": "Messaging and notifications",
       "reason": "One conversation per opposing team (20270757000000): fixtures between the same two sides share one conversation (mirror-safe, unordered team pair; directory and free-text opponents keyed by my team), a different opponent gets its own, a changed opponent leaves the shared conversation, access is not widened, mute/leave follow the conversation and are inherited by new fixtures, and reading clears every fixture's notifications only for the reader and only where they may read."
     },
+    "release_hardening_corrections": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Security and authority",
+      "reason": "Pre-release corrections (20270598/605/757/763), proved as the people concerned: the tournament age-group impact count answers only the tournament's managers; tournament_team_entries reads with the caller's rights and a game's pitch is the host's or reserved; a fixture's new opponent never reads the previous opponent's conversation by any read path (table, receipts, reactions, reports, attachment rows, storage) while that conversation's own parties keep it; a fixture's conversation and mirror are server-owned; the conversation merge is fail-fast, whole, and keeps mute/leave choices and unread state."
+    },
     "club_admin_audit_remediation": {
       "disposition": "CANONICAL_GATE",
       "owner": "Security and authority",
