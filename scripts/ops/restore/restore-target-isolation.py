@@ -56,6 +56,10 @@ class Fail(Exception):
     pass
 
 
+class NoContainers(Fail):
+    """Docker answered, and nothing of the target exists: nothing to stop -- not a failure to check."""
+
+
 DOCKER_TIMEOUT = 30  # seconds: a stalled Docker call is a failure, never a wait
 
 
@@ -148,7 +152,7 @@ def containers(pid: str) -> list[dict]:
                 internal_seen.add(n)
                 ids |= set((info.get("Containers") or {}).keys())
     if not ids:
-        raise Fail(f"no containers found for project {pid}; is the disposable stack running?")
+        raise NoContainers(f"no containers found for project {pid}; is the disposable stack running?")
     unique = {c["Id"]: c for c in inspect_existing(sorted(ids))}
     # Containers that share the network namespace of one of these (`--network container:<x>`) are in scope too.
     every = sh("docker", "ps", "-aq").split()
@@ -258,7 +262,9 @@ def connects(addr: str, port: int) -> bool:
         s.settimeout(2)
         try:
             s.connect(info[4])
-            return True
+            # A connection to this Mac's own address on a port in the ephemeral range can, rarely, connect to ITSELF
+            # (TCP simultaneous open) with nothing listening. That is not reachability.
+            return s.getsockname()[:2] != s.getpeername()[:2]
         finally:
             s.close()
     except OSError:
@@ -302,8 +308,7 @@ def relay_owner(project_dir: Path, port: int) -> str | None:
     pids = {int(x) for x in r.stdout.split() if x.isdigit()}
     if pids != {recorded}:
         return f"listening processes {sorted(pids)} are not the recorded relay {recorded}"
-    cmd = subprocess.run(["ps", "-p", str(recorded), "-o", "command="], capture_output=True, text=True).stdout
-    if "loopback-api-relay.py" not in cmd or str(project_dir.resolve()) not in cmd or f"--port {port}" not in cmd:
+    if not cmd_is(recorded, "loopback-api-relay.py", project_dir, f"--port {port}"):
         return "the recorded relay is not loopback-api-relay.py for this target and port"
     return None
 
@@ -402,6 +407,9 @@ def verify(project_dir: Path, results: list[tuple[bool, str]], api_port: int | N
             parent = mode.split(":", 1)[1]
             check(parent in scope_keys, f"{name}: shares the network namespace of a target container ({parent[:12]})")
         for n in (c["NetworkSettings"]["Networks"] or {}):
+            if n == "none":
+                check(True, f"{name}: no network at all (none)")
+                continue
             if n not in internal_of:
                 try:
                     internal_of[n] = bool(network(n).get("Internal"))
@@ -409,7 +417,7 @@ def verify(project_dir: Path, results: list[tuple[bool, str]], api_port: int | N
                     internal_of[n] = False  # a network that cannot be inspected is not trusted
             check(internal_of[n], f"{name}: attached only to internal networks ({n})")
             check(n == net, f"{name}: attached to no network but {net} ({n})")
-        if not joiner:
+        if not joiner and list((c["NetworkSettings"]["Networks"] or {}).keys()) != ["none"]:
             check(net in (c["NetworkSettings"]["Networks"] or {}), f"{name}: on {net}")
 
     # OUTBOUND 2: Kong routes only to this stack, and its admin API is local (defence in depth: Kong has no route out).
@@ -513,6 +521,8 @@ def structure_failures(pid: str) -> list[str]:
                 if m.get("HostIp") not in LOOPBACK_IPS:
                     bad.append(f"{name}: mapped port {m.get('HostPort')} on {m.get('HostIp')}")
         for n in (c["NetworkSettings"]["Networks"] or {}):
+            if n == "none":
+                continue  # Docker's "none": no interface but loopback -- no route anywhere
             try:
                 internal = bool(network(n).get("Internal"))
             except Fail:
@@ -522,6 +532,19 @@ def structure_failures(pid: str) -> list[str]:
             elif n != internal_net(pid):
                 bad.append(f"{name}: attached to another network, {n}")
     return bad
+
+
+def cmd_is(pid_: int | str, script: str, project_dir: Path, extra: str | None = None) -> bool:
+    """True only if process `pid_` runs `script` with EXACTLY `--project-dir <project_dir>` (token match, not substring:
+    a sibling target such as '<dir>-other' never matches) and, if given, the exact extra token pair."""
+    cmd = subprocess.run(["ps", "-p", str(pid_), "-o", "command="], capture_output=True, text=True).stdout.split()
+    if not any(t.endswith(script) for t in cmd):
+        return False
+    want = str(project_dir.resolve())
+    pairs = list(zip(cmd, cmd[1:]))
+    if ("--project-dir", want) not in pairs:
+        return False
+    return extra is None or tuple(extra.split()) in pairs
 
 
 def guard_pidfile(project_dir: Path) -> Path:
@@ -537,12 +560,13 @@ def stop_relay(project_dir: Path | None, log) -> bool:
         rpid = int(pf.read_text().split()[0])
     except (OSError, ValueError, IndexError):
         return True
-    cmd = subprocess.run(["ps", "-p", str(rpid), "-o", "command="], capture_output=True, text=True).stdout
-    if "loopback-api-relay.py" in cmd and str(project_dir.resolve()) in cmd:
+    if cmd_is(rpid, "loopback-api-relay.py", project_dir):
         subprocess.run(["kill", str(rpid)], capture_output=True)
         log(f"relay stopped (pid {rpid})")
+    else:
+        log(f"recorded relay pid {rpid} is not this target's relay; left alone")
     pf.unlink(missing_ok=True)
-    return "loopback-api-relay.py" not in subprocess.run(["ps", "-p", str(rpid), "-o", "command="], capture_output=True, text=True).stdout
+    return not cmd_is(rpid, "loopback-api-relay.py", project_dir)
 
 
 def destroy_target_data(pid: str, log, project_dir: Path | None = None) -> bool:
@@ -559,7 +583,7 @@ def destroy_target_data(pid: str, log, project_dir: Path | None = None) -> bool:
     except Exception as e:
         log(f"scope could not be computed ({e}); falling back to label and name")
     ids |= set(sh("docker", "ps", "-aq", "--filter", f"label=com.supabase.cli.project={pid}").split())
-    ids |= {n for n in sh("docker", "ps", "-a", "--format", "{{.Names}}").split() if n.endswith(f"_{pid}")}
+    ids |= suffix_named_ours(pid, all_containers=True)
     states = {i: persistence(i) for i in ids}
     skipped = {i for i, st in states.items() if st == "persistent"}
     unknown = {i for i, st in states.items() if st == "unknown"}
@@ -573,23 +597,37 @@ def destroy_target_data(pid: str, log, project_dir: Path | None = None) -> bool:
             subprocess.run(["docker", "rm", "-f", i], capture_output=True, timeout=DOCKER_TIMEOUT)
         except subprocess.TimeoutExpired:
             pass
-    vols = [v for v in sh("docker", "volume", "ls", "-q").split()
-            if v.endswith(f"_{pid}") and not v.endswith(f"_{PERSISTENT_PROJECT_ID}")]
+    vols = sorted(owned_volumes(pid))
+    for v in sh("docker", "volume", "ls", "-q").split():
+        if v.endswith(f"_{pid}") and v not in vols:
+            log(f"not removing volume {v}: it is not labelled for this target")
     for v in vols:
         try:
             subprocess.run(["docker", "volume", "rm", "-f", v], capture_output=True, timeout=DOCKER_TIMEOUT)
         except subprocess.TimeoutExpired:
             pass
     relay_gone = stop_relay(project_dir, log)
-    for n in (internal_net(pid), cli_net(pid)):
-        subprocess.run(["docker", "network", "rm", n], capture_output=True, timeout=DOCKER_TIMEOUT)
+    nets = [n for n in (internal_net(pid), cli_net(pid)) if n in sh("docker", "network", "ls", "--format", "{{.Name}}").split()]
+    for n in nets:
+        if owned_network(n, pid):
+            # A container that is not ours may still hold an endpoint on OUR network: detach it from our network
+            # (the container itself is not stopped or removed), then remove the network.
+            try:
+                members = json.loads(sh("docker", "network", "inspect", n))[0].get("Containers") or {}
+            except Fail:
+                members = {}
+            for cid, m in members.items():
+                log(f"detaching {m.get('Name') or cid[:12]} from the target's network {n}")
+                subprocess.run(["docker", "network", "disconnect", "-f", n, cid], capture_output=True, timeout=DOCKER_TIMEOUT)
+            subprocess.run(["docker", "network", "rm", n], capture_output=True, timeout=DOCKER_TIMEOUT)
+        else:
+            log(f"not removing network {n}: it is not labelled for this target")
     # Confirm, object by object: every discovered container, every target volume, the label, the network.
-    left_ctrs = sorted(i for i in targets if subprocess.run(["docker", "inspect", "--type", "container", i],
-                                                            capture_output=True, timeout=DOCKER_TIMEOUT).returncode == 0)
+    left_ctrs = sorted(i for i in targets if persistence(i) != "gone")  # an inspection error is NOT absence
     left_ctrs += sorted(set(sh("docker", "ps", "-aq", "--filter", f"label=com.supabase.cli.project={pid}").split()))
     left_vols = [v for v in sh("docker", "volume", "ls", "-q").split() if v in vols]
     nets_now = sh("docker", "network", "ls", "--format", "{{.Name}}").split()
-    left_net = internal_net(pid) in nets_now or cli_net(pid) in nets_now
+    left_net = any(n in nets_now and owned_network(n, pid) for n in (internal_net(pid), cli_net(pid)))
     ok = not left_ctrs and not left_vols and not left_net and not unknown and relay_gone
     log(f"destroyed: {len(targets)} containers, {len(vols) - len(left_vols)} of {len(vols)} volumes, networks "
         f"{'kept' if left_net else 'removed'}, relay {'stopped' if relay_gone else 'STILL RUNNING'}" + ("" if ok else f" -- STILL PRESENT: containers {left_ctrs}, volumes {left_vols}"))
@@ -685,13 +723,17 @@ def guard_alive(project_dir: Path, max_age: float = 15.0) -> int:
     except (OSError, ValueError):
         print("no isolation guard is running for this target", file=sys.stderr)
         return 1
-    cmd = subprocess.run(["ps", "-p", gpid, "-o", "command="], capture_output=True, text=True).stdout
-    if (gproject != project_id(project_dir) or "restore-target-isolation.py" not in cmd or " guard" not in cmd
-            or str(project_dir.resolve()) not in cmd):
+    cmd = subprocess.run(["ps", "-p", gpid, "-o", "command="], capture_output=True, text=True).stdout.split()
+    if gproject != project_id(project_dir) or "guard" not in cmd or not cmd_is(gpid, "restore-target-isolation.py", project_dir):
         print("the isolation guard recorded for this target is not running", file=sys.stderr)
         return 1
-    age = time.time() - float(beat_time)
-    if beat_nonce != nonce or age > max_age:
+    import math
+    try:
+        age = time.time() - float(beat_time)
+    except ValueError:
+        age = float("nan")
+    # Finite, not in the future (beyond a second of clock noise), and young: a forged or frozen heartbeat fails.
+    if beat_nonce != nonce or not math.isfinite(age) or age < -1.0 or age > max_age:
         print(f"the isolation guard is not alive (last heartbeat {age:.0f}s ago)", file=sys.stderr)
         return 1
     print(f"isolation guard running (pid {gpid}, heartbeat {age:.1f}s ago)")
@@ -727,14 +769,54 @@ def owned(c: dict, pid: str, owned_ids: set[str] | None = None) -> bool:
     A peer merely reachable through some other (possibly another application's) network is never owned."""
     labels = (c.get("Config") or {}).get("Labels") or {}
     name = c["Name"].lstrip("/")
-    if labels.get("com.supabase.cli.project") == pid or name.endswith(f"_{pid}"):
+    label = labels.get("com.supabase.cli.project")
+    if label is not None:
+        return label == pid  # a container labelled for ANY other project is never ours, whatever its name
+    # Unlabelled: ours only by our name, a mount of one of OUR volumes, or the namespace of an owned container. Merely
+    # being attached to our network does not make a container ours (it trips the guard; it is not destroyed).
+    if name.endswith(f"_{pid}"):
         return True
-    if any(m.get("Type") == "volume" and m.get("Name", "").endswith(f"_{pid}") for m in c.get("Mounts") or []):
-        return True
-    if internal_net(pid) in ((c.get("NetworkSettings") or {}).get("Networks") or {}):
+    if any(m.get("Type") == "volume" and m.get("Name", "") in owned_volumes(pid) for m in c.get("Mounts") or []):
         return True
     mode = (c.get("HostConfig") or {}).get("NetworkMode") or ""
     return bool(owned_ids) and mode.startswith("container:") and mode.split(":", 1)[1] in owned_ids
+
+
+_owned_vol_cache: dict[str, set[str]] = {}
+
+
+def suffix_named_ours(pid: str, all_containers: bool) -> set[str]:
+    """Containers named *_<pid> that carry NO project label or THIS project's label -- the name-suffix fallback that
+    emergency-stop and destroy use when the full scope cannot be computed. A container labelled for any other project
+    is never picked up by its name."""
+    args = ["docker", "ps"] + (["-a"] if all_containers else []) + ["--format", '{{.Names}}|{{.Label "com.supabase.cli.project"}}']
+    out = set()
+    for line in sh(*args).splitlines():
+        name, _, label = line.partition("|")
+        if name.endswith(f"_{pid}") and label in ("", pid):
+            out.add(name)
+    return out
+
+
+def owned_volumes(pid: str) -> set[str]:
+    """The target's volumes: named *_<pid> AND labelled com.supabase.cli.project=<pid> (the CLI labels them)."""
+    vols = set()
+    for v in [v for v in sh("docker", "volume", "ls", "-q").split() if v.endswith(f"_{pid}")]:
+        try:
+            info = json.loads(sh("docker", "volume", "inspect", v))[0]
+        except Fail:
+            continue
+        if (info.get("Labels") or {}).get("com.supabase.cli.project") == pid:
+            vols.add(v)
+    return vols
+
+
+def owned_network(name: str, pid: str) -> bool:
+    try:
+        labels = json.loads(sh("docker", "network", "inspect", name))[0].get("Labels") or {}
+    except Fail:
+        return False
+    return labels.get("com.supabase.cli.project") == pid or labels.get("ovalball.isolated-restore") == pid
 
 
 def emergency_stop(project_dir: Path) -> int:
@@ -742,21 +824,31 @@ def emergency_stop(project_dir: Path) -> int:
     and by the project label and name in any case, then confirms nothing of the target is running."""
     pid = project_id(project_dir)
     names: set[str] = set()
+    scope_failed = False
     try:
         scope = containers(pid)
         own = {c["Id"] for c in scope if owned(c, pid)} | {c["Name"].lstrip("/") for c in scope if owned(c, pid)}
         names |= {c["Name"].lstrip("/") for c in scope if c["State"]["Running"] and owned(c, pid, own)}
-    except Exception:
-        pass  # the scope could not be computed: fall back to label and name below
+    except NoContainers:
+        pass  # Docker answered: nothing of the target exists
+    except Exception as e:
+        scope_failed = True  # stop what label and name find, but never report success: something may be missed
+        print(f"emergency stop: the target's full scope could not be computed ({e})", file=sys.stderr)
     try:
         names |= set(sh("docker", "ps", "-q", "--filter", f"label=com.supabase.cli.project={pid}").split())
-        names |= {n for n in sh("docker", "ps", "--format", "{{.Names}}").split() if n.endswith(f"_{pid}")}
+        names |= suffix_named_ours(pid, all_containers=False)
     except Fail as e:
         print(f"EMERGENCY STOP INCOMPLETE: Docker did not answer ({e}) -- quit Docker Desktop now", file=sys.stderr)
         return 4
+    unresolved = []
     for n in sorted(names):
-        if is_persistent(n):
-            print(f"emergency stop: skipping {n}: it belongs to (or cannot be shown not to belong to) the persistent project", file=sys.stderr)
+        st = persistence(n)
+        if st in ("persistent", "unknown"):
+            print(f"emergency stop: skipping {n}: {'it belongs to the persistent project' if st == 'persistent' else 'Docker cannot show whose it is'}", file=sys.stderr)
+            if st == "unknown":
+                unresolved.append(n)
+            continue
+        if st == "gone":
             continue
         # No restart policy may bring it back, then down at once (the copy is destroyed afterwards anyway).
         try:
@@ -771,7 +863,7 @@ def emergency_stop(project_dir: Path) -> int:
                 pass  # the confirmation below reports it
     try:
         still = set(sh("docker", "ps", "-q", "--filter", f"label=com.supabase.cli.project={pid}").split())
-        still |= {n for n in sh("docker", "ps", "--format", "{{.Names}}").split() if n.endswith(f"_{pid}")}
+        still |= suffix_named_ours(pid, all_containers=False)
     except Fail as e:
         print(f"EMERGENCY STOP INCOMPLETE: Docker did not answer the confirmation ({e}) -- quit Docker Desktop now", file=sys.stderr)
         return 4
@@ -781,8 +873,13 @@ def emergency_stop(project_dir: Path) -> int:
         still |= {c["Name"].lstrip("/") for c in scope if c["State"]["Running"] and owned(c, pid, own)}
     except Exception:
         pass
-    if still:
-        print(f"EMERGENCY STOP INCOMPLETE: still running: {', '.join(sorted(still))} -- quit Docker Desktop now", file=sys.stderr)
+    still = {n for n in still if persistence(n) != "persistent"}
+    if still or scope_failed or unresolved:
+        why = []
+        if still: why.append(f"still running: {', '.join(sorted(still))}")
+        if scope_failed: why.append("the full scope could not be computed")
+        if unresolved: why.append(f"could not inspect: {', '.join(unresolved)}")
+        print(f"EMERGENCY STOP INCOMPLETE ({'; '.join(why)}) -- quit Docker Desktop now", file=sys.stderr)
         return 4
     print("emergency stop: every container of the target is stopped")
     return 0

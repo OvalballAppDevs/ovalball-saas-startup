@@ -51,13 +51,20 @@ def kong_is_isolated(pid: str) -> tuple[bool, str]:
     if ((c.get("Config") or {}).get("Labels") or {}).get("com.supabase.cli.project") != pid:
         return False, f"{name} does not carry the target's project label"
     nets = list((c["NetworkSettings"]["Networks"] or {}).keys())
-    if not nets:
-        return False, f"{name} has no network"
-    for n in nets:
-        ni = subprocess.run(["docker", "network", "inspect", n, "--format", "{{.Internal}}"], capture_output=True, text=True)
-        if ni.returncode != 0 or ni.stdout.strip() != "true":
-            return False, f"{name} is attached to {n}, which is not internal"
+    if nets != [f"ovb-isolated-{pid}"]:
+        return False, f"{name} is attached to {nets}, not exactly the target's internal network"
+    ni = subprocess.run(["docker", "network", "inspect", nets[0], "--format", "{{.Internal}}"], capture_output=True, text=True)
+    if ni.returncode != 0 or ni.stdout.strip() != "true":
+        return False, f"{nets[0]} is not internal"
     return True, name
+
+
+def guard_is_alive(project_dir: Path) -> bool:
+    """The relay serves only while the target's isolation guard is alive (fresh heartbeat): a killed or frozen guard
+    means nobody is watching, so the copy is not reachable either."""
+    r = subprocess.run([sys.executable, str(Path(__file__).resolve().parent / "restore-target-isolation.py"),
+                        "guard-status", "--project-dir", str(project_dir)], capture_output=True, text=True)
+    return r.returncode == 0
 
 
 def pump(src, dst, close_dst) -> None:
@@ -77,8 +84,10 @@ def pump(src, dst, close_dst) -> None:
         close_dst()
 
 
-def serve(conn: socket.socket, pid: str) -> None:
+def serve(conn: socket.socket, pid: str, project_dir: Path) -> None:
     ok, why = kong_is_isolated(pid)
+    if ok and not guard_is_alive(project_dir):
+        ok, why = False, "the isolation guard is not alive"
     if not ok:
         sys.stderr.write(f"[loopback-api-relay] REFUSED a connection: {why}\n")
         conn.close()
@@ -123,7 +132,7 @@ def main() -> int:
     print(f"[loopback-api-relay] 127.0.0.1:{args.port} -> {why} 127.0.0.1:8000 (docker exec)", flush=True)
     while True:
         conn, _ = server.accept()
-        threading.Thread(target=serve, args=(conn, pid), daemon=True).start()
+        threading.Thread(target=serve, args=(conn, pid, args.project_dir), daemon=True).start()
 
 
 if __name__ == "__main__":

@@ -45,7 +45,8 @@ stop_pidfile() {  # kill the process recorded in $1 only if its command line is 
   p="$(awk '{print $1}' "$f")"
   # Only if that process is still OUR process for THIS target: a recycled PID or another target's relay is left alone.
   local cmd; cmd="$(ps -p "$p" -o command= 2>/dev/null || true)"
-  if [[ "$p" =~ ^[0-9]+$ ]] && [[ "$cmd" == *"$pat"* ]] && [[ "$cmd" == *"$TARGET"* ]]; then kill "$p" 2>/dev/null || true; fi
+  # Exact token: "--project-dir <TARGET>" followed by a space or the end -- never a sibling such as "<TARGET>-other".
+  if [[ "$p" =~ ^[0-9]+$ ]] && [[ "$cmd" == *"$pat"* ]] && { [[ "$cmd" == *"--project-dir $TARGET "* ]] || [[ "$cmd" == *"--project-dir $TARGET" ]]; }; then kill "$p" 2>/dev/null || true; fi
   rm -f "$f"
 }
 
@@ -66,6 +67,9 @@ if python3 "$HERE/restore-target-isolation.py" guard-status --project-dir "$TARG
   refuse "a guarded target already exists for $PID; --destroy it first (a target is never restarted)"
 fi
 existing_ctrs="$(docker ps -aq --filter "label=com.supabase.cli.project=$PID")" || refuse "could not list Docker containers"
+existing_names="$(docker ps -a --format '{{.Names}}')" || refuse "could not list Docker containers"
+# Also by NAME: an unlabelled leftover such as supabase_db_<id> would otherwise be reused before isolation.
+if [[ $'\n'"$existing_names"$'\n' == *"_${PID}"$'\n'* ]]; then existing_ctrs="$existing_ctrs named"; fi
 existing_vols="$(docker volume ls -q)" || refuse "could not list Docker volumes"
 # Matched in the shell, not through a pipe: a pipe closed early (grep -q) would fail the producer under pipefail and
 # read as "absent".

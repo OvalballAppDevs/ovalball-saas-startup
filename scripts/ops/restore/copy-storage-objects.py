@@ -48,14 +48,18 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
 
 
-def call(api, key, method, path, data=None, ctype="application/json", upsert=False):
+def call(api, key, method, path, data=None, ctype="application/json", upsert=False, cache_control=None, want_headers=False):
     if not re.match(r"^http://(127\.0\.0\.1|localhost):\d+$", api):
         die(f"refusing a non-loopback API URL: {api}")
     h = {"apikey": key, "Authorization": "Bearer " + key, "Content-Type": ctype}
     if upsert:
         h["x-upsert"] = "true"
+    if cache_control:
+        h["cache-control"] = cache_control
     r = urllib.request.Request(api + path, data=data, method=method, headers=h)
     with OPENER.open(r, timeout=60) as resp:
+        if want_headers:
+            return resp.read(), resp.headers.get("Content-Type"), resp.headers.get("Cache-Control")
         return resp.read(), resp.headers.get("Content-Type")
 
 
@@ -123,12 +127,17 @@ def main():
             if (bucket, path) not in have:
                 missing += 1; print(f"  MISSING in source: {bucket}/{path}"); continue
             q = urllib.parse.quote(path)
-            body, ct = call(sapi, skey, "GET", f"/storage/v1/object/{bucket}/{q}")
-            call(tapi, tkey, "POST", f"/storage/v1/object/{bucket}/{q}", body, ct or "application/octet-stream", upsert=True)
+            body, ct, cc = call(sapi, skey, "GET", f"/storage/v1/object/{bucket}/{q}", want_headers=True)
+            # Content type AND cache-control travel with the file: an upload without them would reset the restored
+            # object's stored metadata (proved: cacheControl fell back to "no-cache" for every object).
+            call(tapi, tkey, "POST", f"/storage/v1/object/{bucket}/{q}", body, ct or "application/octet-stream", upsert=True, cache_control=cc)
             back, _ = call(tapi, tkey, "GET", f"/storage/v1/object/{bucket}/{q}")
             if hashlib.sha256(back).digest() != hashlib.sha256(body).digest():
                 die(f"byte mismatch after copy: {bucket}/{path}")
             copied += 1; digest.update(hashlib.sha256(body).digest())
+            # The guard must still be alive before EVERY next object (cheap); the full verify runs every 100.
+            if subprocess.run(isolation + ["guard-status", "--project-dir", a.target_project_dir], capture_output=True).returncode != 0:
+                raise SystemExit("the isolation guard is no longer alive")
             if copied % 100 == 0:
                 still_isolated()  # the preflight is a snapshot: re-checked during a long copy
         still_isolated()  # and once more now the files are in
