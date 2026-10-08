@@ -163,11 +163,13 @@ suites; restore isolation inside the restore transaction (fictional data).
 the webhook fix itself deploys with `main` during the cutover (phase 5), because the rest of `main` needs the new
 schema. If the owner prefers the fix live before the window, that is a separate web deployment and approval.
 
-**D. Proposed production backup operation (the smallest next step).** One logical backup of production, taken
-read-only through the DIRECT connection with `PGOPTIONS=-c default_transaction_read_only=on` (backup runbook 5.3–5.4),
-plus the Storage export (5.6) and checksums (5.7). No maintenance window, no migration, no deployment, no restore.
-Pepper escrow, as its own step before it: an owner with Dashboard access copies the two Vault values into the
-secret manager by hand; nothing prints them and no script reads them.
+**D. Proposed production backup operation (the smallest next step).** One encrypted, verified logical backup of
+the production DATABASE, by `scripts/ops/backup/take-production-logical-backup.sh` (backup runbook section 5):
+read-only sessions, identity pinned to production's `system_identifier`, integrity checks, encryption to a dedicated
+key, and a decrypt-and-compare round trip before success. Rehearsed end to end on fictional data, including its
+failure paths, and its output restored into an isolated target with the source's table, ledger and row counts.
+Storage files are a separate decision. No maintenance window, no migration, no deployment, no restore. The owner's
+checklist for it is at the end of backup runbook section 5.
 
 **E. Where the isolated restore would happen.** A disposable local Supabase stack on the owner's FileVault-encrypted
 Mac, from an empty project directory with its own id and ports — never a cloud project, never the persistent local

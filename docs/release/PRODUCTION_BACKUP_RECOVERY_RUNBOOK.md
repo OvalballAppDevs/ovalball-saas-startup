@@ -92,45 +92,61 @@ dropped, conversations are merged), so "rollback" means restore. Decide in this 
    recreated by hand. An in-place LOGICAL restore over the existing project has NOT been rehearsed and must not be
    improvised.
 
-## 5. Taking the release backup (production — needs approval)
+## 5. Taking the production backup (needs the owner's explicit approval for that one backup)
 
-Run from the operator's machine. All capture steps only read. Keep every output off the repository and out of
-shared logs: the data dump contains personal data.
+**The command** — `scripts/ops/backup/take-production-logical-backup.sh` (rehearsed end to end on a disposable
+stack with fictional data; never run against production). Without `--execute` it only prints the plan and connects
+to nothing.
 
-1. **Quiesce writes first** (quiescence runbook, "Enter maintenance"), so the backup is the final pre-migration
-   state. A backup taken before quiescence is still a valid backup, but writes after it would be lost on restore.
-2. Confirm the platform backup state in the Dashboard and record it (time of last daily backup, PITR window).
-3. Logical dump, three parts, into a new dated folder outside the repository:
+```sh
+# 1. Plan (connects to nothing): check every line it prints.
+scripts/ops/backup/take-production-logical-backup.sh \
+  --operator "<named operator>" --out-dir "$HOME/OvalballBackups/<YYYY-MM-DD>" \
+  --recipient-cert "<key folder>/ovalball-backup-<YYYY-MM-DD>.crt" \
+  --verify-key "<key folder>/ovalball-backup-<YYYY-MM-DD>.key" \
+  --connection session-pooler --pooler-host "aws-<n>-<region>.pooler.supabase.com"   # or: --connection direct
+# 2. Only with the approval: the same command with --execute. It asks for the database password (not echoed) and,
+#    for the round trip, the key's passphrase.
+```
 
-   ```sh
-   export PGOPTIONS='-c default_transaction_read_only=on'      # the session cannot write, whatever is run
-   supabase db dump --db-url "$PROD_DB_URL" --role-only -f roles.sql
-   supabase db dump --db-url "$PROD_DB_URL" -f schema.sql
-   supabase db dump --db-url "$PROD_DB_URL" --data-only --use-copy \
-     -x storage.buckets_vectors -x storage.vector_indexes -f data.sql
-   ```
+What it proves before it prints `BACKUP VERIFIED` (each proved in the rehearsal, including by injected failures):
 
-   `$PROD_DB_URL` is the DIRECT database connection (the same one the quiescence runbook requires), typed by the
-   operator, never stored in a file in the repository. pg_dump only reads in any case; `PGOPTIONS` makes the whole
-   session refuse writes as well (verify with `show default_transaction_read_only` → `on`).
+| Requirement | How |
+|---|---|
+| The intended production project | The cluster's `system_identifier` must equal production's `7678069749886157684` (read read-only on 8 Oct), whatever host was typed; a pooler host must match `aws-N-<region>.pooler.supabase.com` with user `postgres.ywwdizmaanbujcfitpcj`. Wrong identity → stop, nothing dumped (rehearsed: exit 3). |
+| Read-only database access | Every session runs with `PGOPTIONS=-c default_transaction_read_only=on` and must report itself read-only before anything is read; `pg_dump` also runs its own READ ONLY transaction; the only statements are SELECTs and `pg_dump`/`pg_dumpall`. |
+| No production configuration change | It runs no DDL, no `ALTER`, no settings change, no API call; the Supabase CLI is used only with `--dry-run` (to obtain its rehearsed `pg_dump` scripts, with a placeholder instead of the password). |
+| Credentials kept out of logs | The password is read from the terminal and passed only as the `PGPASSWORD` environment variable of the local Postgres container — never an argument, never in a URL; the log is scrubbed. Rehearsed: a distinctive wrong password appeared 0 times in the log and output; 47 samples of every process's arguments during a full run held no password. |
+| Fails safely on incomplete output | Every file must be non-empty; `schema.sql` and `data.sql` must end with pg_dump's completion marker; one `COPY` per public table; the ledger part must hold exactly the recorded count and last version; one cron schedule per job; both pepper names. Any failure deletes all plaintext and the partial archive (rehearsed: truncated data → exit 5; empty cron part → exit 5; only the log left). |
+| Integrity verified before success | SHA256SUMS + manifest inside the archive; the archive's own SHA-256 in `custody.json` OUTSIDE it (CMS is not authenticated, so this digest is what detects tampering); then a full round trip: decrypt with the dedicated key, unpack, check every file. Rehearsed: a corrupted archive → exit 7; a wrong key passphrase → exit 7. |
 
-4. The supplement — what the dump leaves out — from the same read-only session:
+It backs up the DATABASE (roles, schema, data and the supplement). Storage files (392 objects, 39 MB on 8 Oct) are
+not in it; exporting them is a separate decision and approval.
 
-   ```sh
-   for part in managed defer recheck cron ledger vaultnames; do
-     psql "$PROD_DB_URL" -X -tA -v ON_ERROR_STOP=1 -v part=$part \
-       -f scripts/ops/restore/capture-supplement.sql > $part.sql
-   done
-   ```
+**Custody plan** (decisions in brackets are the owner's):
 
-5. **Vault values** are NOT captured by any script. Confirm the two pepper values are held in the owner's secret
-   manager. They are irreplaceable: without them every existing invitation code and account recovery code stops
-   validating (the functions refuse rather than fall back — proven in the rehearsal). If they are not already held
-   outside the database, an owner with Dashboard access copies them into the secret manager before the window.
-6. **Storage files:** export all 392 objects with the service role through the Storage API (or the Dashboard), into
-   the same dated folder, keeping bucket and path. Record count and a SHA-256 per file.
-7. **Checksums and custody:** `shasum -a 256 * > SHA256SUMS`; store the folder encrypted, in two places, under the
-   owner's control. Record the dump time, ledger version and row counts (section 7) beside it.
+| Control | Proposal |
+|---|---|
+| Operator | [one named person]; nobody else runs it or holds the key during the operation |
+| Dedicated key | A new RSA-4096 key pair made for this backup alone, on the operator's Mac: `openssl req -x509 -newkey rsa:4096 -keyout ovalball-backup-<date>.key -out ovalball-backup-<date>.crt -days 60 -subj "/CN=ovalball-backup-<date>"` (it asks for a passphrase: the private key is never stored unencrypted). The private key file and its passphrase go into [the owner's secret manager]; the key file is kept on disk only in a mode-700 folder outside any synced folder, for the run's round trip, and deleted afterwards. Never reused for anything else. |
+| Encryption | `openssl cms -encrypt -aes256` (LibreSSL, already on the Mac) to that certificate; nothing else to install. (`age` would add authenticated encryption; it is not installed, and installing it is the owner's call.) |
+| Destination | A new folder `~/OvalballBackups/<date>` (mode 700, files 600) on the FileVault-encrypted Mac, outside the repository and every synced folder — the script refuses anything else. A second copy of the ENCRYPTED archive + `custody.json` on [an owner-controlled encrypted external drive]. The plaintext never leaves the script's own folder and is deleted by it. |
+| Integrity record | `custody.json` (archive SHA-256, certificate fingerprint, operator, time, identity, ledger) copied into the release log as well, so a later check does not rely on a file stored next to the archive. |
+| Retention and deletion | Until [the owner declares the release stable; proposal 30 days]. Then delete every archive copy and destroy every copy of the dedicated private key (cryptographic erasure); record date and method. |
+| Separation from the restore target | The archive is decrypted only at restore time, into a mode-700 folder outside the target's project directory, restored with `rehearse-logical-restore.sh` into an isolated target (section 6, "Restore isolation"), and the decrypted folder deleted straight after; the restore is its own approval. |
+
+**Owner approval checklist — for THIS backup only** (approving it approves nothing else: no restore, no
+maintenance, no migration, no deployment):
+
+1. Platform backups/PITR state read in the Dashboard (section 2) — still UNKNOWN to me.
+2. The named operator.
+3. The connection: `direct` (IPv6 unless the IPv4 add-on is on; the operator's network must reach it) or the
+   `session-pooler` host from Dashboard → Connect (IPv4). The identity check makes either safe.
+4. The dedicated key pair created as above; the private key and passphrase in the secret manager.
+5. The destination folder and the second encrypted copy's location.
+6. Retention period and who performs the deletion.
+7. The plan output (step 1 above) read and matching this checklist.
+8. Explicit approval to run `--execute` ONCE.
 
 ## 6. Restoring a logical backup into an empty project
 

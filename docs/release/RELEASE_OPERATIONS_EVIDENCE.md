@@ -501,6 +501,48 @@ persistent project's container ids and states.
 | Guard killed (SIGKILL) | — | nothing destroyed; guard-status "not running"; relay refused; restore refused; topology isolation still verified |
 | Every case | — | unrelated resources UNCHANGED; persistent container digest unchanged; persistent database fingerprint unchanged |
 
+## 5e. Production backup approval gate (local and read-only; no production backup taken)
+
+**Production, read-only (8 Oct, evening):** ledger 523 / `20270502000000` (parked `20270554000000` absent); 229
+pending against the repository's 752; PostgreSQL 17.6; 65 MB; 231 public tables; 392 Storage objects (39 MB) in 8
+buckets; 7/7 cron jobs active; Vault = the two pepper names; no maintenance gate; WAL archiving 6,010 segments, 0
+failed — not a restore point. `system_identifier` `7678069749886157684` (read as `postgres`, now pinned in the backup
+script). Platform backups, PITR and plan: UNKNOWN — `supabase backups list` (a read-only API call; a CLI login exists
+in the keychain) never returned and was stopped; no Dashboard access here.
+
+**Codex (read-only) review of b6a2380, round E** — five release-blocking findings, four reproduced before fixing:
+
+| # | Finding | Reproduced | Fix |
+|---|---|---|---|
+| B1 | destroy force-detached every endpoint of the target's network, a persistent-project container included | a (fake) persistent-labelled container was detached | only endpoints positively not persistent are detached; others are reported and the network kept (incomplete) |
+| B2 | a volume or network Docker could not inspect was dropped from destroy's list, which could then report success | the target's data volume survived; the destroy function logged no survivor | unknown volumes/networks are never removed and make destroy INCOMPLETE |
+| B3 | emergency-stop's final confirmation swallowed a scope failure | code path (same pattern as P2.2) | a failed confirmation scope makes it INCOMPLETE |
+| B4 | `isolate` rewired every container in scope, another project's included | another project's container was moved off its own network | `isolate` acts only on the target's labelled containers and refuses if anything else is attached |
+| B5 | the relay checked once per connection; a kept-alive connection outlived the guard | after the guard froze, the same connection still got 200 | a per-connection watchdog re-checks every 2 s and cuts the connection (proved: cut, "the isolation guard is not alive") |
+
+Regression after the fixes: B1, B2, B4, B5 now fail safe as above; a fresh isolated target verified (266), relay
+200s, a fictional restore committed, a guard trip destroyed everything with nothing left over. Non-blocking findings
+left as stated limits: some Docker calls in the relay/verify/wrapper have no timeout (a hang never reports success);
+the copier's reconciliation step runs outside its emergency handler (it still exits non-zero); `cmd_is` rejects a
+project directory containing spaces (fails closed).
+
+**The backup command** (`scripts/ops/backup/take-production-logical-backup.sh`), rehearsed against a disposable,
+fully migrated stack (fictional data, 752 migrations): plan mode prints the production plan and connects to nothing;
+refusals proved for an output folder in the repository, in iCloud, already existing; a 2048-bit or non-dedicated
+certificate; an unknown connection mode; a non-pooler host; a missing verify key; the persistent project as a
+"disposable" source. Full run: read-only session, identity matched, roles/schema/data + supplement, integrity
+(completion markers, 276 COPY blocks = 276 tables, 752 ledger versions, 12 cron jobs, both peppers), 26 MB encrypted
+archive, round trip matched every checksum → `BACKUP VERIFIED`; only the archive, `custody.json`, the manifest and the
+log remain. Injected failures, each leaving only the log: wrong identity (exit 3, nothing dumped), truncated data
+(exit 5), empty cron part (exit 5), corrupted archive (exit 7), wrong database password (exit 3), wrong key
+passphrase (exit 7). Secrets: the distinctive wrong password appeared 0 times in log/output; 47 samples of all
+processes' arguments during a full run: 0 password occurrences. Restorability: the archive's digest matched
+`custody.json`, it decrypted to files matching SHA256SUMS, and `rehearse-logical-restore.sh` restored it into an
+isolated target: tables 276 = 276, ledger 752 = 752, clubs 12 = 12. Found by the rehearsal and fixed before it
+passed: the repository root was computed one level short (the in-repository refusal did not fire); the CLI rejects
+`--keep-comments` with `--data-only` (the data dump keeps pg_dump's comments anyway); an empty CLI answer exited
+silently instead of being logged; the identity query read standard input.
+
 ## 6. Reproduce
 
 ```sh
