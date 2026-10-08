@@ -18,6 +18,10 @@ deliberately not touched and now differs from the corrected source for those fou
    management check still recognises entered teams through the old table. Production holds no dispensations,
    tournaments or events today, which limits — but does not remove — the exposure. Writes must be quiesced at the
    database/API level (a website maintenance page alone does not stop direct API calls with existing tokens).
+   **Operations readiness (8 Oct, later):** both blockers now have rehearsed runbooks in `docs/release/` — a logical
+   backup/restore proven on disposable stacks (Gate 1 still needs an owner-approved restore of a PRODUCTION backup)
+   and a three-layer write quiescence proven 53/53 with the full 228-migration push inside the window (Gate 2 still
+   NOT VERIFIED in production; preconditions P4, P9–P11 in `PRODUCTION_RELEASE_EXECUTION_PLAN.md`).
 3. ~~**One audience decision.**~~ **Decided and implemented** (locked owner policy, `20270764000000`): an invitation
    belongs to the conversation it was given for. See "Invitation lifecycle" below.
 
