@@ -176,6 +176,97 @@ UPDATE`, two words — fixed; re-run 53/53). P2 — "proven exact" and "every ca
 with the named exceptions. P2 — the plan presented GoCardless's own retry as proved: separated from the proved inbox
 behaviour.
 
+## 5a. Final release preconditions (8 Oct, after `5e38eb8`)
+
+**Platform-billing webhook — the defect, confirmed in the code.** `app/api/platform-billing/webhooks/route.ts`
+(as deployed at `6d32f5b` and as committed at `5e38eb8`) caught every per-event error, logged it and answered
+`200 {ok:true}`: (1) an inbox write refused by the database — an outage, a lost response, or the maintenance gate
+(SQLSTATE 25006) — acknowledged an event that was never recorded; (2) an event recorded and then failed was skipped
+by every redelivery, because `record_platform_provider_event` returned null on any conflict; (3) the errors of the
+three writes that move billing state (`apply_platform_payment_status`, `attach_platform_subscription_provider`, and
+the reads before them) were never read, so a failed write was marked processed; (4) an invalid signature answered
+401 where GoCardless documents 498.
+
+**Fix.** Migration `20270765000000_platform_billing_events_never_lost.sql` gives `platform_provider_events` the claim
+the member inbox has had since 744 (`attempts`, `claimed_until`, `last_attempt_at`), with an OWNER: `attempts` is the
+claim's generation, returned by `claim_platform_provider_event`, and `mark_platform_provider_event_processed` and
+`platform_provider_event_claim_held` require it — so a delivery that outlives its two-minute lease can neither
+release nor mark its successor's claim, and the route re-checks its claim immediately before every state write.
+`record_platform_provider_event` keeps its signature (the deployed route still calls it until the cutover).
+`platform_provider_event_processed(text)` answers "done?"; a late failure report cannot un-process an event. The
+route answers 2xx only when every event in the delivery is processed or was already processed; 500 when any event
+could not be recorded, failed, lost its claim, or is held right now by another delivery; 498 on a bad signature; 400
+(nothing recorded) on a malformed delivery, an event without id/type/action, or a payment/billing-request/mandate
+event without its string link; 503 when unconfigured. It logs event ids and counts only.
+
+| Proof | Result |
+|---|---|
+| `supabase/tests/js/platform_billing_webhook.test.mts` — real route, real database, GoCardless stubbed; A–M incl. database unreachable, injected 25006, failing payment write, GoCardless 500, 5 concurrent duplicates, lost answers after commit, mixed batch, a delivery outliving its claim, unlinked supported events, log/answer secrecy. Refuses a non-local API and proves API and SQL container are one database before the route writes (both guards exercised: refused, no residue) | **13/13**, twice |
+| The same suite against the OLD route (mutation check) | 12 fail: C, D, E, I, J, K, M on the defect itself (200 where 500 is required); A, B, H on the new answer shape; F because a signed `null` body crashes the old route; G on 401 vs 498 |
+| `supabase/tests/platform_gocardless.sql` (canonical gate) with 7 new claim checks (2a–2g) | **25/25** |
+| Canonical isolated clean boot, all 752 migrations (run three times, the last on the final migration) | **PASS** (120 suites, 0 failed) |
+| Billing/payment/security JS suites (gocardless ×7, service_role_usage, session_boundary_coverage, api_schema_perimeter, the new one) | **90/90** |
+| SQL suites matching platform/gocardless/payment/membership/perimeter/finance/referral (45 files) | All canonical-gate suites pass; 4 non-gate suites fail or error identically with no reference to this inbox (`gocardless_membership_operations_regression`, `gocardless_policy_lock_regression`, `gocardless_sibling_discount_regression` — SPECIAL_PURPOSE; `side_project_1_membership_status_pending` — UNVERIFIED): outside this change |
+| Web typecheck; eslint on the changed files; SQL suite registry | clean; clean; PASS (398 files) |
+
+**Under the real maintenance gate** (disposable clean-boot stack; runbook 4.2 and 4.5 SQL verbatim; the real route;
+GoCardless stubbed): open → 200 processed; canary 405 in the window; a new event → **500**, nothing recorded, payment
+untouched; three more redeliveries → 500, still nothing; a redelivery of an already-processed event → 500 (its
+claim is an upsert, i.e. a write) — safe, acknowledged after reopening; reopen → canary 204, cron 12/12; redelivery →
+200 processed once (attempts 1); again → 200 duplicate; one `payment_confirmed` history row; GoCardless called only
+by GET; no other outbound request. **Simulated:** the redelivery. **Provider's guarantee, not proved here:** that
+GoCardless redelivers — documented as 9 attempts at increasing intervals (intervals not published), none after 498,
+10 s timeout, manual retry from its Dashboard.
+
+**Restore isolation hardening.** `rehearse-logical-restore.sh` now removes push device tokens and empties the
+pg_net queue INSIDE the restore transaction (opt-out `--keep-push-tokens`), printing the tokens' count and content
+hash first; names those optional tables only in dynamic SQL; checks the restore's own exit status; and refuses any
+Vault name but the two peppers. Proved on disposable targets: a fictional token → `1|f172dc0a…` printed, 0 tokens, 0
+queued, 0 cron jobs active at commit; on a database without the tables the new queries answer `n/a` while the old
+reporting expression errors; a deliberately broken backup → "RESTORE FAILED (psql exit 3)", exit 1, target empty;
+`--vault-names …,gocardless_replay_secret` → REFUSED. None of the outbound channels Ovalball uses exists in today's
+production (below). **Not solved by the script:** the Supabase CLI publishes the local stack on all interfaces, so a
+network-exposure control is a precondition of any production-derived restore (backup runbook).
+
+**Production, read-only (Supabase MCP `SELECT` and Edge Function source read only):** ledger 523 /
+`20270502000000`; parked `20270554000000` absent; 229 pending, 0 remote-only; PostgREST 14.5; no gate or read-only
+setting beyond `supabase_read_only_user`; 7 cron jobs active; WAL 5,950 archived, 0 failed; extensions without
+pg_net; no function calling `net.http_*`; no push-token table; Vault names = the two peppers; 0 GoCardless merchant
+connections, 0 member events, 0 platform events, 0 platform payments, 1 platform subscription without provider ids;
+4 Auth users; 392 Storage objects; 65 MB; the 7 cron commands are plain `select internal.…()` / `public.…()` calls. Deployed Edge Functions: `address-lookup` only (v3, `verify_jwt` on) — no
+database client. Backups, PITR, plan: UNKNOWN (not readable without a login). Vercel environment: UNKNOWN (no
+read-only access here). Persistent local database fingerprint unchanged
+(`20270605000000|37|74|86|1588|0f013c9b…`); it does not yet have `20270765000000`, so the new JS suite needs that
+migration applied locally (by the owner) before it can pass there.
+
+**Third review (Codex, read-only) of this work, and disposition:**
+
+| # | Finding | Disposition |
+|---|---|---|
+| P0 | The new JS suite writes through the route to whatever API URL is configured; with production credentials it would write test events to production | Accepted. The suite refuses a non-loopback API before any write and proves (by reading its own fixture through the API) that the API and the SQL container are the same database before the route is called; both refusals exercised |
+| P1 | An expired claimant could clear or mark its successor's claim; a stalled delivery could apply stale state | Accepted. Claim generation returned and required for mark/release (test M, SQL 2f). The verification pass then found the check and the write were separate transactions: now `apply_platform_payment_status_for_event` / `attach_platform_subscription_provider_for_event` lock the event row and check the claim in the write's own transaction (PT409 otherwise; SQL 2g) |
+| P1 | The restore's optional-table queries fail when the table does not exist (today's production) | Confirmed (old expression errors on such a database). Fixed with dynamic SQL; re-proved |
+| P1 | A failed restore was reported as committed (`|| true` over the pipeline) | Confirmed. Exit status captured and checked; broken backup → RESTORE FAILED, exit 1 |
+| P1 | Startup cleanup could delete another live run's fixtures and injections; teardown asserted globally | Accepted. Only abandoned runs (club older than an hour, or an injection with no club) are swept; assertions scoped to the run |
+| P1 | A signed payment/billing-request/mandate event without its link was recorded, skipped and acknowledged | Accepted. Batch refused with 400 before anything is recorded; F extended |
+| P2 | Outbound-isolation claims broader than the evidence; Vault names not enforced; future copies may hold merchant tokens | Accepted. Cron commands read; claims narrowed to the channels inspected; Vault allow-list enforced by the script; credential presence vs inactivity distinguished |
+| P2 | 127.0.0.1 as a destination does not prove loopback-only exposure | Confirmed (`0.0.0.0` bindings on this Mac). A network-exposure control is now a blocking precondition of the restore |
+| P2 | Fingerprint exception omitted `rows` | Fixed |
+| P2 | Cryptographic erasure needs a dedicated key | Fixed (a key made for that backup alone) |
+
+**Verification pass (Codex, read-only):** no P0. P1 — check and write in separate transactions: fixed as above. P1 —
+the legacy calls (`record_platform_provider_event`, a mark without a generation) are unfenced: kept only so the route
+deployed today keeps working until the cutover; this migration is applied inside the maintenance window, where the
+gate refuses every API write, and the new route is deployed before reopening, so the unfenced path never runs against
+an open database (stated in the migration). P2 — the stale-run threshold could still sweep a run suspended for over
+an hour: raised to 24 hours (a run takes seconds); no liveness lock, stated. P2 — two "none possible"/"cannot make an
+outbound request" phrasings: narrowed to the channels inspected.
+
+Residual, stated: retry exhaustion — after GoCardless's 9 attempts an unprocessed platform event stays in the inbox
+with its error and needs a manual resend from GoCardless (no automatic replay worker for this inbox); processing
+several events sequentially with rate-limit waits can exceed GoCardless's 10 s timeout, which only causes a
+redelivery.
+
 ## 6. Reproduce
 
 ```sh

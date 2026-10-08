@@ -22,6 +22,12 @@ deliberately not touched and now differs from the corrected source for those fou
    backup/restore proven on disposable stacks (Gate 1 still needs an owner-approved restore of a PRODUCTION backup)
    and a three-layer write quiescence proven 53/53 with the full 228-migration push inside the window (Gate 2 still
    NOT VERIFIED in production; preconditions P4, P9–P11 in `PRODUCTION_RELEASE_EXECUTION_PLAN.md`).
+   **Final preconditions (8 Oct, latest):** the platform-billing webhook event-loss defect is **fixed in code, not
+   deployed** (`20270765000000` + route; 229 migrations now pending), proved by real-route tests, the clean boot and
+   a rehearsal under the real maintenance gate. P11's Edge Function is verified to write nothing; P1 (platform
+   backups/PITR), P4's window choice, P9's Vercel side, P2 and P10 remain the owner's. The owner checklist and the
+   smallest next production action (a read-only logical backup) are in `PRODUCTION_RELEASE_EXECUTION_PLAN.md`
+   section 9; the isolated restore design is in the backup runbook.
 3. ~~**One audience decision.**~~ **Decided and implemented** (locked owner policy, `20270764000000`): an invitation
    belongs to the conversation it was given for. See "Invitation lifecycle" below.
 

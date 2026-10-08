@@ -1,6 +1,8 @@
 # Production Backup and Recovery Runbook
 
-Project `ywwdizmaanbujcfitpcj` (Ovalball production). Written 8 October 2026 at checkpoint `a1eab03`.
+Project `ywwdizmaanbujcfitpcj` (Ovalball production). Written 8 October 2026 at checkpoint `a1eab03`; capability
+facts, the platform documentation and the restore-isolation design (section 6, "Restore isolation") updated the same
+day after `5e38eb8`.
 
 **Gate 1 status: NOT PASSED.** The procedure below has been rehearsed end to end on disposable local stacks and
 reproduces every compared property of a database exactly — the comparison and its known gaps are listed in
@@ -25,20 +27,39 @@ approval at the time, as listed in "Approvals".
 | pg_cron | 7 jobs, all run as `postgres` |
 | Project objects in Supabase-managed schemas | 3 triggers on `auth.users`; 28 policies on `storage` tables |
 | Default privileges | `postgres` in `public`: tables, sequences, functions granted to `postgres` and `service_role` only |
-| WAL archiving | `archive_mode` on; 5,913 segments archived, last 05:16 UTC 8 Oct, 0 failed |
+| WAL archiving | `archive_mode` on; 5,950 segments archived, last 09:16 UTC 8 Oct, 0 failed (re-read the same day) |
+| Outbound channels Ovalball uses | **none present today** (the channels inspected — not a proof that no outbound mechanism of any kind exists): `pg_net` is not installed (extensions: pg_cron, pg_stat_statements, pg_trgm, pgcrypto, plpgsql, supabase_vault, uuid-ossp); no function in `public`/`internal` calls `net.http_*`; no push-token table exists. Both arrive with the pending migrations (544, 706–707) |
+| Payment providers | 0 GoCardless merchant connections, 0 member events, 0 platform events, 0 platform payments; the one platform subscription has no provider ids |
 
 ## 2. Backup capabilities
 
 | Capability | Status | Notes |
 |---|---|---|
 | Continuous WAL archiving | **VERIFIED (exists)** | `pg_stat_archiver`. Proves WAL is shipped somewhere; does NOT prove a restorable backup, its retention, or that PITR is enabled on the plan. |
-| Platform daily backups | **UNKNOWN** | Not exposed to read-only SQL. `supabase backups list --project-ref …` needs an authenticated CLI session; it was not completed (no login attempted). Owner: Dashboard → Database → Backups. |
-| Point-in-time recovery | **UNKNOWN** | Plan add-on; same as above. |
-| Platform restore in place (same project ref) | **UNKNOWN** | Depends on the two rows above. The only recovery path that keeps the project ref, API keys, JWT secret, Auth sessions and the mobile build's baked-in URL. |
-| Platform "restore to a new project" | **UNKNOWN** | As above. |
+| Project plan | **UNKNOWN** | Decides everything below. Not readable through SQL or the MCP; the CLI needs a login (not attempted). |
+| Platform daily backups | **UNKNOWN** | Supabase documents: **Free plan — no automatic backups** ("regularly export their data using the Supabase CLI"); Pro 7 days, Team 14, Enterprise up to 30. They are physical backups and **do not include Storage objects**. |
+| Point-in-time recovery | **UNKNOWN** | Supabase documents: an add-on for Pro/Team/Enterprise, needs at least the Small compute add-on, seconds of granularity, and **replaces** daily backups once enabled. |
+| Platform restore in place (same project ref) | **UNKNOWN** | Documented as in place with the project **inaccessible during the restore**, and it overwrites everything written since the restore point. The only recovery path that keeps the project ref, API keys, JWT secret, Auth sessions and the mobile build's baked-in URL. |
+| Platform "restore to a new project" | **UNKNOWN** | Documented route: Duplicate Project. A new project ref, so new keys and a new mobile build. |
+| Last automatic backup / retention | **UNKNOWN** | Owner reads it (screens below). |
 | Logical backup (`supabase db dump` + supplement) | **AVAILABLE; rehearsed on disposable stacks** | Read-only against the source. Restores into an EMPTY project. Every compared property matched, with three explained exceptions (section 7). |
 | Storage file export | **AVAILABLE; rehearsed on disposable stacks** | Through the Storage API with the service role (`scripts/ops/restore/copy-storage-objects.py` shows the method; it only accepts local stacks). |
 | Last known restore point | 5 Sep 2026 manual dumps (`~/ovalball-deploy-backups`) | Never restored; predates 30+ days of data. Not acceptable as the release backup. |
+
+**Archived WAL is not a restore point.** It proves the platform ships WAL somewhere; whether any of it can be
+restored, to when, and by whom is exactly the UNKNOWN above.
+
+**Screens the owner reads (read-only; change nothing):**
+
+1. Organization → Billing (or Settings → Billing): the plan of the organisation that owns `ywwdizmaanbujcfitpcj`.
+2. Project → Database → Backups → "Scheduled backups": whether daily backups are listed, the newest one's time, how
+   many days are kept. (On the Free plan this screen offers no backups.)
+3. Project → Database → Backups → "Point in time": whether PITR is enabled and its retention window.
+4. Project → Settings → Add-ons: compute size and PITR add-on.
+5. Note what the restore buttons say (in place, downtime) — do NOT press them.
+
+Record the answers in the release log. If the plan is Free, the logical backup in section 5 is the only restore
+point Ovalball has, and Gate 1 depends on it entirely.
 
 ## 3. Proposed targets and owners (PROPOSALS — not agreed)
 
@@ -161,15 +182,84 @@ Then, outside that transaction:
 - **Platform configuration** (new project only): Auth providers, redirect URLs, SMTP, Auth hooks, API settings,
   Edge Function `address-lookup` and its secret, network restrictions — none of these are in the database.
 
-### Outbound isolation (any restore of PRODUCTION data into a rehearsal environment)
+### Restore isolation (any restore of PRODUCTION data outside production)
 
-A restored copy of real data can act on the outside world. `rehearse-logical-restore.sh` therefore disables every
-cron job INSIDE the restore transaction, so none is ever active after the commit (jobs call HTTP endpoints through
-pg_net), copies only the named Vault secrets (default: the two
-peppers — never the GoCardless replay URL or bearer secret), and reports how many push device tokens the copy holds:
-any write that raises a notification posts to Expo for each of them. Before a write test on a production copy:
-`delete from public.push_device_tokens;` in the COPY (or block the target's outbound network), and keep cron
-disabled. Never run a rehearsal copy with production's provider credentials.
+**Status: a design, not run; BLOCKED until one network-exposure control below is chosen and in force.** Restoring a
+production backup anywhere needs its own approval (section 9). The design below is what that approval would cover.
+What was inspected in production, read-only: no `pg_net` and no other HTTP-capable extension (the full extension
+list is in section 1; no `http`, `dblink` or `postgres_fdw`), no function in `public`/`internal` calling `net.http_*`,
+no push-token table, and all 7 cron jobs are plain SQL function calls (`select internal.…()`). So **none of the
+outbound channels Ovalball uses exists in the current production database**; that is a statement about those
+channels, not a proof that no outbound mechanism of any kind could exist. A backup taken before the migration window
+carries none of them. A backup taken AFTER the release is not (pg_net,
+push tokens and the GoCardless replay arrive with the migrations), which is why the controls below are enforced by
+the restore script rather than by remembering.
+
+**Where.** A disposable local Supabase stack on the owner's Mac (Docker; FileVault verified on), started from an
+EMPTY project directory with its own project id and ports, seeds disabled — the `opsrestore` shape the rehearsal
+used. Not a new cloud project: a cloud project would hold personal data at a second provider location, send Auth
+email through the platform and be reachable from the internet. The local stack's Auth sends mail only to its own
+local mail catcher (no SMTP is configured in `supabase/config.toml`); its Realtime, Storage and Edge runtime are
+local containers.
+
+**Network exposure — the blocking precondition.** The Supabase CLI publishes its ports on **all interfaces**
+(`docker ps` on this Mac shows `0.0.0.0:<port>` for Kong, Postgres — with the default local password — Studio, the
+mail catcher and analytics). A copy of production data in such a stack is reachable from the local network. Before
+any production data is loaded, ONE of these must be in force, and `docker ps` for the disposable stack must show
+only `127.0.0.1:` bindings or the check below must fail from another device:
+1. Docker Desktop's default bind address set to `127.0.0.1` for the duration (daemon `"ip": "127.0.0.1"`). This also
+   rebinds the persistent stack, which interrupts phone-over-LAN testing until it is reverted — owner decision; or
+2. a host packet-filter rule dropping inbound traffic to the disposable stack's port range on every non-loopback
+   interface (a system change on the Mac — owner approval); or
+3. the Mac disconnected from every network for the whole time production data is loaded (the rehearsal needs no
+   internet).
+Record which, and the evidence, in the release log.
+
+**Outbound isolation — in force before the copy is ever committed.** `rehearse-logical-restore.sh` does all of this
+INSIDE the one restore transaction, so there is no moment at which the restored database is both committed and live:
+
+| Channel | Control | Proved |
+|---|---|---|
+| pg_cron (all jobs, including the GoCardless replay and push/reminder jobs) | every job disabled in the same transaction | 12 captured active → 0 active, 0 runs (fictional data) |
+| pg_net (push to `exp.host`, postcodes.io geocoding, replay) | push device tokens deleted and any queued request dropped in the same transaction; the tokens' content hash is printed first, so verification still compares against the source | 1 fictional token → hash recorded, 0 tokens, 0 queued, at commit |
+| Vault | nothing is copied unless named, and the script refuses any name but the two peppers; production peppers are entered by the owner from the secret manager only if the pepper check (section 7, item 5) is wanted — otherwise skipped. GoCardless replay URL/secret never | allow-list enforced by the script |
+| GoCardless (member and platform) | today's production holds no merchant connection or token (0 rows) and Vault holds no replay secret, so a copy of it holds no provider credential. A LATER backup may hold merchant access tokens in `gocardless_merchant_connections`: then the credentials ARE in the copy, and only the absence of any application or job using them (no app pointed at the copy, cron disabled, no replay secret) keeps them inert — treat such a copy as holding live credentials | read-only count; script allow-list |
+| Email | the application's own mailer is not running against the copy; local Auth mail goes to the local catcher | by construction (config) |
+| Auth callbacks / OAuth | local `site_url`; no sign-in through external providers is exercised | by construction |
+| Edge Functions | local `address-lookup` only, and only if called; it reads public lookup services and writes nothing | source read |
+| Realtime | local container; no clients connect | by construction |
+| Storage | objects copied into the local stack's own volume only | rehearsed (fictional) |
+| Application environment | no Next.js or mobile build is pointed at the copy; HTTP checks are made with curl to 127.0.0.1 only (which says where the checks go, not who else can connect — see "Network exposure") | procedure |
+
+**Data protection.** The backup holds personal data, including children's records (safeguarding-sensitive).
+- People: the owner (approver and data controller) and one named operator. No one else reads the dump or the copy.
+- At rest: only on the FileVault-encrypted Mac, in one dated folder (`chmod 700`) outside the repository and outside
+  any synced folder (no iCloud/Dropbox). The archive kept as the release restore point is additionally encrypted
+  (e.g. `age` to the owner's key) before it is copied to its second location; the plain working copy never leaves the
+  Mac.
+- Never: committed, pasted into a chat, an issue or a log, or opened by any tool that uploads content.
+- Retention: the rehearsal copy and its working files for 24 hours after verification; the encrypted release backup
+  until the owner declares the release stable (proposal: 30 days), then destroyed. It is encrypted to a key made for
+  this backup alone (a new `age` key pair, private key held only in the owner's secret manager), never to a key that
+  protects anything else.
+- Destruction: `supabase stop --project-id <the disposable id> --no-backup` (never the persistent project), remove the
+  stack's Docker volumes by name, delete the working folder; for the encrypted archive, destroy every copy of its dedicated key
+  (cryptographic erasure — overwriting files on an SSD is not reliable), then delete the archive copies. Record date and method in the release log.
+
+**Validation checklist.** Before loading: the network-exposure control is in force (`docker ps` shows only
+`127.0.0.1:` for the disposable stack, or the chosen control's evidence). After the restore, before any verification
+step that writes: cron active = 0; `push_device_tokens` = 0 or n/a; `net.http_request_queue` = 0 or n/a; Vault names
+= only those approved; no `.env` in the target folder points at production; the operator has no production key
+exported in that shell.
+
+**Emergency stop (any one → `docker stop` every container of the disposable stack at once, then destroy as above and
+tell the owner):** a cron job found active; a push token or queued pg_net request after commit; any outbound
+connection seen from a container; a mail other than a test account's in the local catcher; a Vault name not
+approved; any sign that a production URL or key is in use.
+
+**What keeps or makes this BLOCKED:** no network-exposure control chosen (today's state); restoring a post-release
+backup without the script's isolation (for example by hand); restoring into a cloud project; any need to run the
+application against the copy.
 
 ## 7. Verifying a restore
 
@@ -185,7 +275,9 @@ All of these passed in the rehearsal; a production restore rehearsal must pass t
    - `vault`: names not restored by design (only the allow-listed secrets, or those entered from the secret manager);
    - `roleset`: the database-level read-only default of a maintenance window, which pg_dump does not carry; and,
      once residue is cleared, the PostgREST gate setting on `authenticator`;
-   - `cron`: compare against the CAPTURED state — the restore disables every job for isolation.
+   - `cron`: compare against the CAPTURED state — the restore disables every job for isolation;
+   - `rows` and `data` for `public.push_device_tokens` (once that table exists): emptied for isolation; compare the
+     source's count and hash with the "push device tokens as captured (count|content md5)" line the restore printed.
    For a backup taken in the window, compare with the source's fingerprint taken in the same window.
 2. **Ledger** equals the source (count and last version).
 3. **SQL suites** from `supabase/tests` run on the target behave identically to the source (rehearsal: 12 suites,
@@ -204,8 +296,9 @@ All of these passed in the rehearsal; a production restore rehearsal must pass t
 - Whether the direct connection is reachable from the operator's network (IPv6, or the IPv4 add-on).
 - Realtime private-channel behaviour after a restore: the 2 `realtime.messages` policies are captured and restore
   identically (fingerprint), but channel authorisation was not exercised.
-- A restore of a PRODUCTION backup (not authorised in this task). Production carries data shapes the synthetic
-  rehearsal data may not (for example function-based CHECKs over real rows).
+- A restore of a PRODUCTION backup (not authorised). Production carries data shapes the synthetic rehearsal data may
+  not (for example function-based CHECKs over real rows).
+- The restore-isolation design on a production-derived copy: its controls are proved on fictional data only.
 - Storage export at production scale (392 objects; sizes not read).
 - In-place logical restore over an existing project.
 

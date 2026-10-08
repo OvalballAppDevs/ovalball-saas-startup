@@ -1,6 +1,7 @@
 # Production Write Quiescence Runbook
 
-Project `ywwdizmaanbujcfitpcj`. Written 8 October 2026 at checkpoint `a1eab03`.
+Project `ywwdizmaanbujcfitpcj`. Written 8 October 2026 at checkpoint `a1eab03`; row 8 (platform-billing webhook)
+and 4.1 step 5 updated the same day after the webhook fix (migration `20270765000000`, rehearsed under this gate).
 
 **Gate 2 status: DESIGN PROVEN ON DISPOSABLE STACKS; NOT VERIFIED IN PRODUCTION.** The procedure below blocked every
 write path that can be reproduced locally while the migration operator kept writing, and reopening restored every
@@ -85,7 +86,7 @@ in-flight handling. "Rehearsed" means proved on the disposable stack.
 | 5 | Mobile app (anon key + user JWT; ~165 direct write sites, push-token registration) | `anon`/`authenticated` via PostgREST | as row 1 | C | Rehearsed ("mobile-equivalent": same API path and key type) | C reset | Fails; no maintenance UX in the app today |
 | 6 | Storage uploads (avatars, crests, club documents, message attachments) | `supabase_storage_admin` + user JWT | `storage.objects` (+ file) | B | Rehearsed: `DatabaseReadOnly` 400 | B reset | Upload fails; user retries |
 | 7 | GoCardless member webhook `app/api/gocardless/webhooks` | `service_role` → `record_gocardless_event` | `gocardless_events` + payment state | C | Rehearsed: refused in window; after reopening the same event is claimed once and skipped on redelivery | C reset | Route answers 500, so GoCardless retries (provider retry schedule NOT VERIFIED). 0 events in production to date. |
-| 8 | **Platform-billing webhook** `app/api/platform-billing/webhooks` | `service_role` | `platform_provider_events` | C | Code read: on a failed write it logs and still answers **200** | — | **DEFECT: an event arriving in the window is acknowledged and lost.** 0 events in production to date. Needs a code fix (answer 5xx on failure, as the GoCardless route does) or the provider's delivery paused for the window. **A precondition, not a risk to accept** (release plan P4). |
+| 8 | **Platform-billing webhook** `app/api/platform-billing/webhooks` | `service_role` → `record_platform_provider_event` | `platform_provider_events` + platform payment/subscription state | C | **Fixed in code (not deployed):** rehearsed with the real route under this gate (runbook 4.2/4.5 SQL verbatim): open → 200; in the window → **500**, nothing recorded, payment untouched, three further redeliveries 500 each; a redelivery of an event already processed → also 500 (its claim is a write) — safe, it is acknowledged after reopening; after 4.5 → 200, processed once; a second redelivery → 200 duplicate; GoCardless reached only by GET (stubbed) | C reset | **The DEPLOYED route (6d32f5b) still answers 200 to a refused write — the event is lost.** It is only exposed if `GOCARDLESS_PLATFORM_WEBHOOK_SECRET` is set in production; unset, it answers 503 and records nothing, so GoCardless keeps the event and retries. GoCardless documents 9 delivery attempts at increasing intervals and no retry after 498 (simulated redelivery here; the schedule itself is the provider's). 0 events in production to date. Precondition P4 (4.1 step 5). |
 | 9 | GoCardless OAuth/app/connection routes | `service_role` | connection records | C | As row 2 | C reset | **Calls the provider BEFORE the database:** `app/api/gocardless/oauth/callback/route.ts` exchanges the code (≈ line 84) before saving the token, so in the window the exchange succeeds and the save is refused. |
 | 9a | GoCardless member actions that change the provider first — cancel membership (`lib/payments/gocardless/cancel-membership.ts`: provider cancel ≈ line 47, local write ≈ line 82), mandate/subscription creation through `lib/payments/gocardless/client.ts` | `service_role` + GoCardless API | provider state, then local rows | C stops only the LOCAL write | Code read | — | **Not blocked at the provider.** Production does not configure GoCardless today (`docs/PRODUCTION_HOSTING.md`: `GOCARDLESS_*` "DO NOT SET"), so these refuse before calling it. Precondition P9: the owner confirms that is still so; if GoCardless is configured, these actions must be switched off for the window and anything in flight reconciled after it. |
 | 10 | GoCardless replay route, called by pg_cron through pg_net | `postgres` (cron) → HTTP → `service_role` | `gocardless_events` | A, B, C | Rehearsed (cron, pg_net) | A/B/C reset | Paused job; nothing queued |
@@ -121,8 +122,14 @@ advance. `$OPERATOR_DB_URL` is the operator's DIRECT database connection, typed 
    `default_transaction_read_only` (except `supabase_read_only_user`) and no `pgrst.db_pre_request`.
 3. Record the cron state: `select jobid, jobname, active from cron.job order by jobname;` — keep it in the release log.
 4. Stop anything you control that writes: no imports, no seed or maintenance scripts, no Dashboard edits.
-5. Platform-billing webhook (row 8): the fix is deployed and tested, or the provider's delivery is confirmed
-   paused. Otherwise stop.
+5. Platform-billing webhook (row 8). The fixed route cannot go live before the window (it ships with `main`, which
+   needs the new schema), so for the window one of these must hold — otherwise stop:
+   (a) the owner confirms `GOCARDLESS_PLATFORM_WEBHOOK_SECRET` is NOT set in the Vercel production environment (the
+   deployed route then answers 503 to every delivery and acknowledges nothing; expected: `docs/PRODUCTION_HOSTING.md`
+   says `GOCARDLESS_*` "DO NOT SET", and production holds no provider-linked platform subscription), or
+   (b) Ovalball's own GoCardless webhook endpoint is disabled in GoCardless for the window and re-enabled after the
+   cutover, then failed deliveries are retried from GoCardless (Developers → Webhooks).
+   After cutover the fixed route and migration `20270765000000` are both live, and a refused write answers 500.
 6. **Credentials custody** for the window: only the operator holds the database password and uses the Dashboard;
    nobody else in the organisation runs SQL, scripts or Dashboard edits. (Rotating the database password before the
    window makes this enforceable; it is a production change and needs its own approval.)
@@ -188,7 +195,7 @@ A transaction still open at this point is rolled back (proved). Its client sees 
 ### 4.4 Migrate (the operator path)
 
 ```sh
-supabase migration list --db-url "$OPERATOR_DB_URL"        # direct connection; 523 applied, 228 pending, nothing remote-only
+supabase migration list --db-url "$OPERATOR_DB_URL"        # direct connection; 523 applied, 229 pending, nothing remote-only
 supabase db push --db-url "$OPERATOR_DB_URL?options=-c%20default_transaction_read_only%3Doff"
 ```
 
@@ -242,7 +249,7 @@ Production adds the operator's verification time; plan a 30-minute window.
 | Realtime (private channels; `supabase_realtime_admin` sessions) | Owner acceptance (row 16) |
 | Deployed `address-lookup` v3 | Owner gate, 4.1 step 7 |
 | Provider-first GoCardless actions | Precondition P9: GoCardless unconfigured in production, or the actions switched off |
-| GoCardless webhook retry schedule | Provider documentation; 0 events to date |
+| GoCardless webhook retry schedule | Provider documentation: 9 attempts at increasing intervals, none after 498, 10 s timeout, manual retry in its Dashboard; intervals not published. Redelivery was simulated, not received from GoCardless. 0 events to date |
 | Web and mobile behaviour facing 405/500 (no maintenance UX in either) | Users told in advance; short window |
 
 ## 8. Approvals
