@@ -16352,7 +16352,10 @@ export type Database = {
       platform_provider_events: {
         Row: {
           action: string;
+          attempts: number;
+          claimed_until: string | null;
           id: string;
+          last_attempt_at: string | null;
           payload: NonNullable<Json>;
           processed: boolean;
           processed_at: string | null;
@@ -16364,7 +16367,10 @@ export type Database = {
         };
         Insert: {
           action: string;
+          attempts?: number;
+          claimed_until?: string | null;
           id?: string;
+          last_attempt_at?: string | null;
           payload: NonNullable<Json>;
           processed?: boolean;
           processed_at?: string | null;
@@ -16376,7 +16382,10 @@ export type Database = {
         };
         Update: {
           action?: string;
+          attempts?: number;
+          claimed_until?: string | null;
           id?: string;
+          last_attempt_at?: string | null;
           payload?: NonNullable<Json>;
           processed?: boolean;
           processed_at?: string | null;
@@ -26288,6 +26297,17 @@ export type Database = {
         };
         Returns: boolean;
       };
+      apply_platform_payment_status_for_event: {
+        Args: {
+          p_claim_generation: number;
+          p_event_id: string;
+          p_failure_reason?: string;
+          p_payment_id: string;
+          p_provider_payment_id?: string;
+          p_status: string;
+        };
+        Returns: boolean;
+      };
       apply_season_handover: {
         Args: { p_expected_revision?: number; p_rollover_id: string };
         Returns: {
@@ -26371,6 +26391,18 @@ export type Database = {
           p_mandate_id?: string;
           p_mandate_status?: string;
           p_subscription_id?: string;
+        };
+        Returns: string;
+      };
+      attach_platform_subscription_provider_for_event: {
+        Args: {
+          p_claim_generation: number;
+          p_club_id: string;
+          p_customer_id?: string;
+          p_environment: string;
+          p_event_id: string;
+          p_mandate_id?: string;
+          p_mandate_status?: string;
         };
         Returns: string;
       };
@@ -26506,6 +26538,18 @@ export type Database = {
           access_token: string;
           environment: string;
           id: string;
+        }[];
+      };
+      claim_platform_provider_event: {
+        Args: {
+          p_action: string;
+          p_payload: Json;
+          p_provider_event_id: string;
+          p_resource_type: string;
+        };
+        Returns: {
+          claim_generation: number;
+          event_id: string;
         }[];
       };
       claim_responsible_payer: {
@@ -29184,8 +29228,8 @@ export type Database = {
       mark_notification_read: { Args: { p_id: string }; Returns: boolean };
       mark_notification_unread: { Args: { p_id: string }; Returns: boolean };
       mark_platform_provider_event_processed: {
-        Args: { p_error?: string; p_event_id: string };
-        Returns: undefined;
+        Args: { p_claim_generation?: number; p_error?: string; p_event_id: string };
+        Returns: boolean;
       };
       mark_thread_read: { Args: { p_message_id: string }; Returns: number };
       membership_charge_plan: { Args: { p_payer_subscription_id: string }; Returns: Json };
@@ -29612,6 +29656,14 @@ export type Database = {
         Returns: {
           user_id: string;
         }[];
+      };
+      platform_provider_event_claim_held: {
+        Args: { p_claim_generation: number; p_event_id: string };
+        Returns: boolean;
+      };
+      platform_provider_event_processed: {
+        Args: { p_provider_event_id: string };
+        Returns: boolean;
       };
       platform_public_state: {
         Args: Record<PropertyKey, never>;

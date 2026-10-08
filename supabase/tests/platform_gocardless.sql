@@ -64,6 +64,87 @@ begin
     raise notice 'FAIL 2: first=%, second=%, rows=%', v_event, v_event2, v_count;
   end if;
 
+  -- ---------- 2a-2e. the inbox is claimable (20270765000000) ----------
+  -- 2a: a recorded, unprocessed, claimed event is neither taken again nor reported processed.
+  select processed into v_bool from public.platform_provider_events where id = v_event;
+  if public.platform_provider_event_processed('EV_TEST_001') = false and v_bool = false
+     and public.platform_provider_event_processed('EV_TEST_NEVER_SEEN') is null then
+    raise notice 'PASS 2a: a claimed event is reported unprocessed, and an unseen one as unknown';
+  else
+    raise notice 'FAIL 2a: processed=%, unseen=%', public.platform_provider_event_processed('EV_TEST_001'), public.platform_provider_event_processed('EV_TEST_NEVER_SEEN');
+  end if;
+
+  -- 2b: a failure keeps it unprocessed with its reason and releases the claim, so the next delivery takes it.
+  perform public.mark_platform_provider_event_processed(v_event, 'injected failure');
+  v_event2 := public.record_platform_provider_event('EV_TEST_001', 'payments', 'confirmed', '{"id":"EV_TEST_001"}'::jsonb);
+  select attempts into v_int from public.platform_provider_events where id = v_event;
+  if v_event2 = v_event and v_int = 2 then
+    raise notice 'PASS 2b: a failed event is claimed again by the next delivery';
+  else
+    raise notice 'FAIL 2b: reclaimed=%, attempts=%', v_event2, v_int;
+  end if;
+
+  -- 2c: a claim that lapsed (its delivery died) is taken again; a live one is not.
+  update public.platform_provider_events set claimed_until = now() - interval '1 second' where id = v_event;
+  v_event2 := public.record_platform_provider_event('EV_TEST_001', 'payments', 'confirmed', '{"id":"EV_TEST_001"}'::jsonb);
+  if v_event2 = v_event and public.record_platform_provider_event('EV_TEST_001', 'payments', 'confirmed', '{"id":"EV_TEST_001"}'::jsonb) is null then
+    raise notice 'PASS 2c: a lapsed claim is taken again, a live claim is not';
+  else
+    raise notice 'FAIL 2c: lapsed claim -> %', v_event2;
+  end if;
+
+  -- 2d: once processed it is never taken again, and is reported processed.
+  perform public.mark_platform_provider_event_processed(v_event, null);
+  update public.platform_provider_events set claimed_until = null where id = v_event;
+  if public.record_platform_provider_event('EV_TEST_001', 'payments', 'confirmed', '{"id":"EV_TEST_001"}'::jsonb) is null
+     and public.platform_provider_event_processed('EV_TEST_001') = true then
+    raise notice 'PASS 2d: a processed event is never claimed again';
+  else
+    raise notice 'FAIL 2d: a processed event was claimed again or not reported processed';
+  end if;
+
+  -- 2e: a late failure report never un-processes an event (a success whose answer was lost must not run twice).
+  perform public.mark_platform_provider_event_processed(v_event, 'late failure report');
+  select processed into v_bool from public.platform_provider_events where id = v_event;
+  if v_bool then
+    raise notice 'PASS 2e: a failure reported after success leaves the event processed';
+  else
+    raise notice 'FAIL 2e: a late failure report un-processed the event';
+  end if;
+
+  -- 2f: the claim has an owner. A stale generation can neither release nor mark a successor's claim.
+  select c.event_id, c.claim_generation into v_event2, v_int
+    from public.claim_platform_provider_event('EV_TEST_002', 'mandates', 'cancelled', '{"id":"EV_TEST_002"}'::jsonb) c;
+  update public.platform_provider_events set claimed_until = now() - interval '1 second' where id = v_event2;
+  perform public.claim_platform_provider_event('EV_TEST_002', 'mandates', 'cancelled', '{"id":"EV_TEST_002"}'::jsonb);
+  if public.mark_platform_provider_event_processed(v_event2, 'stale owner', v_int) = false
+     and public.mark_platform_provider_event_processed(v_event2, null, v_int) = false
+     and public.platform_provider_event_claim_held(v_event2, v_int) = false
+     and public.platform_provider_event_claim_held(v_event2, v_int + 1) = true
+     and public.mark_platform_provider_event_processed(v_event2, null, v_int + 1) = true then
+    raise notice 'PASS 2f: only the current claim generation may mark the event; a stale one changes nothing';
+  else
+    raise notice 'FAIL 2f: a stale claim generation was able to act, or the current one was not';
+  end if;
+
+  -- 2g: the state writes are fenced by the claim in their own transaction: a stale generation is refused (PT409)
+  -- and writes nothing; the current one is let through.
+  v_event2 := (select c.event_id from public.claim_platform_provider_event('EV_TEST_003', 'mandates', 'cancelled', '{"id":"EV_TEST_003"}'::jsonb) c);
+  update public.platform_provider_events set claimed_until = now() - interval '1 second' where id = v_event2;
+  perform public.claim_platform_provider_event('EV_TEST_003', 'mandates', 'cancelled', '{"id":"EV_TEST_003"}'::jsonb);
+  v_err := null;
+  begin
+    perform public.attach_platform_subscription_provider_for_event(v_event2, 1, v_club, 'sandbox', null, 'MD_STALE_003', 'cancelled');
+  exception when others then
+    get stacked diagnostics v_err = returned_sqlstate;
+  end;
+  select count(*) into v_count from public.platform_club_subscriptions where provider_mandate_id = 'MD_STALE_003';
+  if v_err = 'PT409' and v_count = 0 then
+    raise notice 'PASS 2g: a state write under a lost claim is refused in its own transaction and changes nothing';
+  else
+    raise notice 'FAIL 2g: sqlstate=%, rows written=%', v_err, v_count;
+  end if;
+
   -- ---------- 3. an active mandate completes setup ----------
   update public.platform_club_subscriptions
   set provider_billing_request_id = 'BRQ_TEST_001' where id = v_sub;
@@ -220,7 +301,9 @@ begin
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and p.proname in (
-        'record_platform_provider_event', 'mark_platform_provider_event_processed',
+        'record_platform_provider_event', 'mark_platform_provider_event_processed', 'platform_provider_event_processed',
+        'claim_platform_provider_event', 'platform_provider_event_claim_held',
+        'apply_platform_payment_status_for_event', 'attach_platform_subscription_provider_for_event',
         'attach_platform_subscription_provider', 'open_platform_billing_cycle',
         'apply_platform_payment_status'
       )
