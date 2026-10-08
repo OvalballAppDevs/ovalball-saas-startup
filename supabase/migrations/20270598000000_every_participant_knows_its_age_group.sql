@@ -301,11 +301,22 @@ create or replace function public.count_tournament_age_group_impact(
   p_age_groups text[]
 )
 returns table (age_group text, our_teams integer, other_teams integer)
-language sql
+language plpgsql
 stable
 security definer
 set search_path to 'public'
 as $function$
+begin
+  -- ASKED ONLY BY THE PEOPLE WHO RUN THE TOURNAMENT (release readiness, 8 Oct 2026). A definer function reads
+  -- past row level security, so it decides its own audience: a live session and the tournament's canonical
+  -- management authority. Anybody else -- another club, a participant, a guessed id -- is refused, never answered.
+  perform internal.require_live_session();
+  if not coalesce(internal.can_manage_tournament(p_tournament_id), false) then
+    raise exception 'Only the people running this tournament can see what an age-group change would affect.'
+      using errcode = '42501';
+  end if;
+
+  return query
   select g.age_group,
          (select count(*)::int from public.tournament_team_entries e
             join public.teams t on t.id = e.team_id
@@ -316,6 +327,7 @@ as $function$
   where g.tournament_id = p_tournament_id
     and g.age_group <> all (coalesce(p_age_groups, '{}'::text[]))
   order by g.age_group;
+end;
 $function$;
 
 revoke all on function public.count_tournament_age_group_impact(uuid, text[]) from public;

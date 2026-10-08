@@ -650,7 +650,11 @@ begin
   end if;
 end $$;
 
-create view public.tournament_team_entries as
+-- CALLER'S RIGHTS FROM THE MOMENT IT EXISTS (release readiness, 8 Oct 2026). Created owner-rights, this view let
+-- any signed-in user read every host side of every tournament -- private ones included -- past the base tables'
+-- row level security, until 20270608000000 switched it. 608's own `alter view ... set (security_invoker = true)`
+-- and its assertion still run and are now idempotent; the intermediate state between the two no longer exists.
+create view public.tournament_team_entries with (security_invoker = true) as
 select
   p.id,
   p.tournament_id,
@@ -823,3 +827,46 @@ begin
     execute v_def;
   end if;
 end $$;
+
+-- =====================================================================================================
+-- A GAME'S PITCH IS THE HOST'S OR THE TOURNAMENT'S (release readiness, 8 Oct 2026).
+--
+-- `internal.validate_tournament_game()` (20270217000000), dropped above with the host-centric columns, was the
+-- only place that refused a pitch neither owned by the host club nor reserved by the tournament -- and the side
+-- validator that replaced it checks sides, age group and date but not the pitch, while `save_tournament_game`
+-- and `save_tournament_plan_schedule` accept a caller-supplied pitch. This is that rule again, word for word, on
+-- its own trigger so no later rewrite of the side validator can drop it. It is a rule about which pitch a game
+-- may stand on, not about who may place it: arranging pitches stays `venue.pitch_allocation.manage`, and the
+-- authority to save a game stays the tournament's own.
+-- =====================================================================================================
+create or replace function internal.validate_tournament_game_pitch()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+declare
+  v_host_club uuid;
+  v_pitch_club uuid;
+begin
+  if new.pitch_id is null then
+    return new;
+  end if;
+  select tr.host_club_id into v_host_club from public.tournaments tr where tr.id = new.tournament_id;
+  select cp.club_id into v_pitch_club from public.club_pitches cp where cp.id = new.pitch_id;
+  if not exists (
+    select 1 from public.tournament_pitches tp
+    where tp.tournament_id = new.tournament_id and tp.pitch_id = new.pitch_id
+  ) and (v_host_club is null or v_pitch_club is distinct from v_host_club) then
+    raise exception 'That pitch is neither reserved by this tournament nor owned by the host club.' using errcode = '23514';
+  end if;
+  return new;
+end;
+$function$;
+
+revoke all on function internal.validate_tournament_game_pitch() from public, anon, authenticated;
+
+drop trigger if exists tournament_games_validate_pitch on public.tournament_games;
+create trigger tournament_games_validate_pitch
+  before insert or update of pitch_id, tournament_id on public.tournament_games
+  for each row execute function internal.validate_tournament_game_pitch();
