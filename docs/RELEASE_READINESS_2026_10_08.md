@@ -1,19 +1,18 @@
 # Release Readiness — 8 October 2026
 
-Verdict: **NOT READY — BLOCKERS REMAIN.** Nothing was pushed, deployed or applied to production. Every production
+Verdict: **NOT READY — BLOCKERS REMAIN.** (Updated after the 513/630 correction, `335283a`.) Nothing was pushed, deployed or applied to production. Every production
 inspection was a read-only `SELECT` (Supabase MCP) against project `ywwdizmaanbujcfitpcj`.
 
 ## Blockers
 
-1. **Migration-time probes write into the database they run on (RED).**
-   `20270630000000_a_named_place_for_test_role_fixtures.sql` creates a fake auth user (`trfix-…@ovalball.test`, empty
-   password), profile, directory club, active club, Under 12 team and membership, and never removes them.
-   `20270513000000_…pin_it_came_with.sql` removes its probe club and venue, but its writes leave immutable audit rows
-   (8; 630 leaves 4 more). Both confirmed in the rehearsal and by the independent review. A fix exists but is **not
-   applied**: each probe body runs inside a block that always raises a private SQLSTATE (`OVOK1`) its own handler
-   catches, which rolls back every write, audit rows included; any genuine assertion failure still aborts. Proven in
-   the rehearsal: both probes pass, zero residue across ten tables, a forced failure still aborts. Editing committed
-   migrations needs owner approval, then a clean boot.
+1. ~~**Migration-time probes write into the database they run on (RED).**~~ **Resolved in `335283a`.**
+   `20270513000000` and `20270630000000` now run their probe bodies inside a block that always raises a private
+   SQLSTATE (`OVOK1`) its own handler catches, rolling back every probe write, audit and security rows included.
+   Assertions unchanged (8 added lines per file, nothing removed). Proof on disposable databases: canonical isolated
+   clean boot PASS, 118 suites, 4,528 checks, 0 failed; 0 probe rows afterwards in auth.users, profiles,
+   club_directory, clubs, teams, venues, audit_log and security_events; each probe re-run as written passes with
+   identical counts across ten tables before and after; each probe with one assertion deliberately broken aborts
+   with its original error and leaves the same counts.
 2. **No tested recovery path.** The only documented restore point is the 5 September 2026 manual dump
    (`docs/DEPLOYMENT_2026_09_05.md`). There is no evidence of current backups, point-in-time recovery or a rehearsed
    restore. Several pending migrations are irreversible (605 replaces a table with a view, 729 and 742 drop a column
@@ -24,6 +23,13 @@ inspection was a read-only `SELECT` (Supabase MCP) against project `ywwdizmaanbu
    605→608 exposes `tournament_team_entries` as an owner-rights view until 608 sets `security_invoker`; 729→731 lets
    a reminder fail its constraint. Production holds no dispensations, tournaments or events today, which limits —
    but does not remove — the exposure. A maintenance window is required.
+4. **Source corrections proposed for 605 and 757 (owner decision; not applied).** See the section below. A
+   maintenance page does not stop direct API access with existing tokens, and cannot guarantee 608 follows 605 if
+   a push stops part-way, so the 605 exposure is best removed at source.
+5. **Two authority defects in pending migrations (owner decision; not applied).** 605 drops the host-owned-or-
+   reserved pitch check (only `20270217000000` ever had it) and nothing restores it; `count_tournament_age_group_impact`
+   (`20270598000000`) is a definer function any signed-in user can call for any tournament, with no session or
+   authority check. Neither has data to expose today (0 tournaments).
 
 ## Evidence
 
@@ -50,8 +56,8 @@ count must be re-checked immediately before release.
 
 ## Migration classification (226)
 
-- **RED (1):** 630.
-- **AMBER (13):** 513 (audit residue); 544 (installs `pg_net`, starts a per-minute geocoding job calling
+- **RED (0):** 630 was RED (probe residue) — resolved in `335283a`. 605 and 757 carry the open proposals above.
+- **AMBER (12 + 630):** 630 and 513 now only run self-rolling-back probes; 544 (installs `pg_net`, starts a per-minute geocoding job calling
   postcodes.io); 605 (tournament side model, owner-rights view until 608); 707, 755, 756 (push and messaging via
   `pg_net` to Expo); 716, 719 (dismiss existing notifications); 727 (match-award job); 729 (event reminders job,
   conditions above); 742 (drops functions the live web calls); 749 (GoCardless replay, inert until two Vault secrets
@@ -79,7 +85,9 @@ count must be re-checked immediately before release.
 
 ## Proposed release sequence (for approval; not executed)
 
-1. **Owner approves the probe fix**; apply it to 513 and 630, run one isolated clean boot, commit.
+1. ~~Probe fix for 513 and 630~~ — **done** (`335283a`, clean boot PASS).
+   Then: owner decides the 605 and 757 corrections and the two authority defects; any accepted change gets its own
+   disposable proof and one more isolated clean boot before release.
 2. **Recovery gate:** confirm the plan's backup and point-in-time recovery; take a fresh logical backup; restore it
    into a disposable project and verify it. Stop if the restore is not proven.
 3. **Configuration:** confirm `GOOGLE_PLACES_API_KEY` is set; decide whether to add the two GoCardless replay Vault
@@ -100,6 +108,34 @@ count must be re-checked immediately before release.
 12. **If something fails:** fix forward. The destructive migrations cannot be reversed; restore from the step-2
     backup only as a last resort.
 13. **Mobile:** new native build and store release, separately.
+
+## Independent review of 605–608 and 757 (Codex, static, read-only; key claims re-checked in code)
+
+**605–608 — high severity, zero rows exposed today.** 605 creates `tournament_team_entries` as an owner-rights view
+(no `security_invoker`) with `grant select … to authenticated` (605:653–677); until 608 sets `security_invoker`
+(608:34) any signed-in user can read every host-side participant row of every tournament, private ones included
+(participant, tournament, team and club ids, `invited_by`, timestamps). Base tables keep their RLS; no write
+privilege is added; anon gets nothing. Production has 0 tournaments.
+*Proposed change:* create the view `with (security_invoker = true)` in 605:653 and keep 608's `alter view` and
+assertion (idempotent). *Risk:* low — the definer readers between 605 and 608 (`tournament_visible_row`,
+`can_manage_tournament`, `get_tournament_centre`) keep definer execution; 606/607 read the canonical table, not the
+view; the base SELECT grants predate 605.
+
+**757 — high integrity risk: the migration can commit with an incomplete merge.** The per-fixture
+`exception when others` (757:242–248) swallows any error — including existing validators (inactive owning team,
+same-day shared-team capacity) — keeps that fixture on its old conversation, and only raises a notice; nothing
+fails the migration. Both updates in the block roll back together, so a fixture is never repointed without its
+messages. Production's 278 external-opponent fixtures still merge (89 groups by directory/text key), so 757 is not
+a no-op there.
+*Proposed change:* remove the inner exception block and `v_kept`, so any failure aborts 757 with its own error; add
+end-of-migration `raise exception` checks that every opponent-key group has exactly one conversation and every
+fixture-linked message shares its fixture's conversation. *Risk:* the push can stop at 757 on historical data we
+cannot see (earlier migrations stay committed) — preferable to silently committing a partial merge, and checkable
+read-only beforehand.
+*Also reported (medium, empty today: 0 subscriptions, 0 read cursors):* the subscription merge can prefer an
+inherited row's synthesised timestamp over a genuinely later mute; merged read cursors can skip older unread
+messages. *Reported high, design-level:* a singleton fixture whose opponent changes keeps its conversation, so the
+new opponent's staff could read earlier messages through the API — needs a decision on conversation authority.
 
 ## Separate findings
 
