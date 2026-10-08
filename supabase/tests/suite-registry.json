@@ -2171,6 +2171,11 @@
       "owner": "Messaging and notifications",
       "reason": "One conversation per opposing team (20270757000000): fixtures between the same two sides share one conversation (mirror-safe, unordered team pair; directory and free-text opponents keyed by my team), a different opponent gets its own, a changed opponent leaves the shared conversation, access is not widened, mute/leave follow the conversation and are inherited by new fixtures, and reading clears every fixture's notifications only for the reader and only where they may read."
     },
+    "fixture_conversation_invitation_lifecycle": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Security and authority",
+      "reason": "Invitation lifecycle (20270764000000), proved as the people concerned: an invitation belongs to the conversation it was given for; after an opponent change the invited referee keeps read-only access to the earlier conversation (messages, attachment, receipt and read position preserved), cannot post, react or reply there, is neither admitted to nor notified of the new conversation without a new explicit invitation, and loses both on explicit revocation; the new opponent reaches nothing of the earlier conversation; an invitation can never be re-pointed."
+    },
     "release_hardening_corrections": {
       "disposition": "CANONICAL_GATE",
       "owner": "Security and authority",

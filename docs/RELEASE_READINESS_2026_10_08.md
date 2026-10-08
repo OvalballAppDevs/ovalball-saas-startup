@@ -18,10 +18,8 @@ deliberately not touched and now differs from the corrected source for those fou
    management check still recognises entered teams through the old table. Production holds no dispensations,
    tournaments or events today, which limits — but does not remove — the exposure. Writes must be quiesced at the
    database/API level (a website maintenance page alone does not stop direct API calls with existing tokens).
-3. **One audience decision.** Someone explicitly invited into a fixture's conversation (a referee, a neutral-ground
-   contact) is authorised by the fixture, not the conversation. After an opponent change they keep the fixture's new
-   conversation and lose sight of the earlier one. Access only narrows, so this is safe, but whether an invitation
-   should follow the new opponent or stay with the old conversation is the owner's call.
+3. ~~**One audience decision.**~~ **Decided and implemented** (locked owner policy, `20270764000000`): an invitation
+   belongs to the conversation it was given for. See "Invitation lifecycle" below.
 
 ## Corrections made (local, committed; not applied to production)
 
@@ -43,19 +41,52 @@ Paths by which a fixture's opponent can change (all covered by row triggers, so 
 `internal.sync_competition_match_fixtures` (all definer), and direct client updates under row-level security. Nothing
 disables triggers.
 
+## Invitation lifecycle — `20270764000000_an_invitation_belongs_to_its_conversation.sql`
+
+Locked policy: a conversation's invited participants belong to that conversation, not to whichever opponent occupies
+the fixture. On an opposition change the original conversation and its history stay (read-only); its invitees keep
+READ access unless explicitly revoked or withheld by safeguarding authority; the new opposition gets a separate
+conversation; invitations are never transferred; the new opponent gets nothing historical; joining the new
+conversation needs an explicit invitation; an explicit revocation overrides history.
+
+| Path | Now |
+|---|---|
+| Invitation record | `fixture_conversation_participants.conversation_id`, stamped at creation, backfilled, frozen; one invitation per person per conversation. The backfill refuses to run if an invitation's fixture already changed opposition — shown by messages in an earlier conversation or by an audited opposition change after the invitation (it would otherwise transfer); production has 0 invitations |
+| Current thread | admits an invitee only for the conversation they were invited to (through whichever fixture of the pair, a mirror included), with a live session and no explicit withhold |
+| Earlier thread (messages, attachment rows, storage file, receipts) | admits that conversation's own invitees, read-only, with a live session and no explicit withhold |
+| Explicit withhold | an active `messaging.fixture_conversation.participate` deny, scoped as the canonical resolver scopes it (site; a club withhold for either side's club; a team withhold for either side's team), ends invitation access and its notifications |
+| Posting, reactions, replies, deletion | refused in an earlier conversation for everyone, authors included |
+| Notifications | new-message notices reach an invitee only for their conversation; revocation also deletes the stored excerpts |
+| Realtime / people list / invitation records | follow the conversation: a new opponent sees the new conversation's invitees, never the earlier list |
+| Revocation | removes the person's invitations through the fixture to its current and every earlier conversation (mirrors included); a previous opponent's invitee can be revoked by the current sides |
+| A future re-run of 757's merge | carries invitations with their conversation, including historical ones whose messages it moves |
+
+Proof: `fixture_conversation_invitation_lifecycle` 43/43 on a production-shaped rehearsal (763 → data with
+pre-existing invitations → 764 as an upgrade; backfill stamped 3/3), and in the canonical clean boot. Two independent
+review rounds (Codex). Round one found seven defects — withholds and revoked sessions ignored on the historical path,
+old invitee lists visible to the new opponent, previous-opponent invitees unrevocable, historical deletion, no realtime
+for invitees, excerpts kept after revocation — plus backfill, merge and mirror risks. Round two confirmed those fixed
+and found four more: a withhold on an unrelated team of the same club wrongly applied (over-strict scoping), withheld
+invitees still notified, revocation not reaching an invitation held only on the mirror fixture, and a merge stranding
+historical invitations; all corrected and covered. The suite also exposed one pre-existing limitation, now removed: an
+invitation given through one fixture of a pair did not admit to the shared conversation through the other.
+Note: three legacy SPECIAL_PURPOSE suites (`conversation_participation_management`, `conversation_add_participant`,
+`unified_fixture_conversation`) cannot run on the current schema at all — their prerequisite `permission_matrix`
+creates clubs without the long-required `directory_id` — so they were not usable evidence either way.
+
 ## Evidence
 
 | Check | Result |
 |---|---|
 | Production ledger | 523 versions, `20260830143452`…`20270502000000`; production-only 0 |
-| Outstanding | **227** (`20270503000000`…`20270763000000`), none out of order; 71 already in `origin/main` |
+| Outstanding | **228** (`20270503000000`…`20270764000000`), none out of order; 71 already in `origin/main` |
 | Drift | Baseline booted from exactly the 523 migrations; fingerprints of 1,044 function bodies, 3,182 columns, 590 policies, 604 function grants, 234 table grants, 595 triggers and 8 catalogues **identical** to production |
 | 763 preconditions in production (read-only) | 0 fixture messages without a conversation; 0 conversations shared by fixtures |
 | Production data | 1 club, 4 profiles, 17 teams, 278 fixtures (external opponents), 1 text message, 2 guardians, 2 attendance rows, 11 notifications, 2 venues, 2 pitches; no tournaments, events, payments, invitations, dispensations or requests |
 | Staged rehearsal (edited chain) | Disposable project at 598 → proof; +599–605 → proof; +606–756, production-shaped data, +757 → merge proof; +758–763 → full suite |
-| Permanent suite `release_hardening_corrections` | 58/58, five consecutive runs |
+| Permanent suites | `release_hardening_corrections` 58/58 (five consecutive runs); `fixture_conversation_invitation_lifecycle` 43/43 |
 | JavaScript | 165 files run one at a time: 1,973/1,973; web typecheck clean |
-| Canonical isolated clean boot | **PASS — 119 suites, 4,586 checks, 0 failed** (includes `release_hardening_corrections` 58/58 and `messenger_one_conversation_per_opponent` 19/19) |
+| Canonical isolated clean boot | **PASS — 120 suites, 4,629 checks, 0 failed** (includes `fixture_conversation_invitation_lifecycle` 43/43, `release_hardening_corrections` 58/58, `messenger_one_conversation_per_opponent` 19/19, `canonical_recipient_safeguarding` 24/24) |
 
 ## Migration 729 — `20270729000000_an_event_has_a_centre.sql`
 
@@ -63,7 +94,7 @@ Unchanged. Production: 0 attendance rows with `event_id`, 0 events, 0 communicat
 has no backfill for an existing event at an external location and does not carry old event answers across, so the
 event count must be re-checked immediately before release.
 
-## Migration classification (227)
+## Migration classification (228)
 
 - **RED (0).**
 - **AMBER (13):** 513 and 630 (probes now roll themselves back); 544 (installs `pg_net`, per-minute geocoding job
@@ -71,7 +102,7 @@ event count must be re-checked immediately before release.
   727, 729 (scheduled jobs; 729's data conditions above); 742 (drops functions the live web calls); 749 (GoCardless
   replay inert until two Vault secrets exist). 605, 757 and 763 moved to GREEN on the evidence above, with 757's merge
   verified after the push (step 7).
-- **GREEN (214).** **UNKNOWN (0).**
+- **GREEN (215)** (764 included). **UNKNOWN (0).**
 
 ## Production configuration
 
@@ -88,7 +119,7 @@ event count must be re-checked immediately before release.
 
 ## Proposed release sequence (for approval; not executed)
 
-1. **Owner decision** on invited participants after an opponent change (blocker 3).
+1. ~~Owner decision on invited participants~~ — decided and implemented (764).
 2. **Recovery gate:** confirm backups and point-in-time recovery; take a fresh logical backup; restore it into a
    disposable project and verify it. Stop if the restore is not proven.
 3. **Configuration:** confirm `GOOGLE_PLACES_API_KEY`; decide on the GoCardless replay secrets.
