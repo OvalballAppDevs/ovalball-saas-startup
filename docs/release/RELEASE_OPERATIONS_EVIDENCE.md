@@ -269,6 +269,9 @@ redelivery.
 
 ## 5b. Restore-target isolation preflight (local, disposable; no production data)
 
+*Superseded in part by 5c: Kong no longer keeps a route out (it was a real one), the API is reached through a
+loopback relay, and a guard watches the target while it exists.*
+
 **What the platform does (measured on this Mac, Docker Desktop 29.7.2, Supabase CLI 2.120.0):** a plain
 `supabase start` publishes Kong, Postgres, Studio, the mail catcher and analytics on `0.0.0.0` and `[::]`; from the
 LAN address `192.168.55.46` the unsafe control answered HTTP 200 and Postgres accepted a connection. A bridge network
@@ -348,6 +351,89 @@ stopping and starting a target holding production data (destroy and restore afre
 design; it routes only to the stack (verified, and tampering is caught). The LAN probes run from this Mac against
 its own non-loopback addresses (the listener is loopback-only, so no interface can reach it), not from a second
 device. Everything here used fictional data; no production backup exists.
+
+## 5c. Final restore-isolation gate (local, disposable; fictional data only)
+
+**The finding that started it.** In the 5b design Kong stayed on the CLI's network so its port could be published.
+From Kong's own namespace a full HTTP exchange with an internet host succeeded: Kong had a real route out, which it
+never needed (all its upstreams are on the internal network). Removed.
+
+**Final architecture.** Every container of the target — Kong included — is attached to ONE `--internal` Docker
+network and nothing else (no IPv4/IPv6 default route, no outside DNS). Docker Desktop then forwards none of their
+published ports; the API is reached through `loopback-api-relay.py` on `127.0.0.1:59341`, which pipes each connection
+through `docker exec -i supabase_kong_<id> nc 127.0.0.1 8000` (a fixed destination, re-checking Kong's identity and
+networks per connection). `restore-target-isolation.py guard` runs while the target exists: it re-checks the
+structure on every Docker event and every 3 s, writes a heartbeat, and on a detected failure kills the target and
+destroys its containers, volumes and network (confirmed object by object). The restore and Storage tools refuse to
+start without a live guard and re-check at the end.
+
+**Final test matrix** (final code; the consolidated run, the targeted re-run and the final series; any inconclusive
+run was repeated, and is listed as such):
+
+| Area | Test | Result |
+|---|---|---|
+| Isolated target startup | wrapper: proxy start → isolate → verify → relay + guard → verify through the relay | **PASS** (266 checks, 0 failed) |
+| Outbound, every container | auth, db, inbucket, kong, realtime, rest, storage: no IPv4 route, no IPv6 route, TCP to 1.1.1.1:443 blocked, DNS fails; control on Docker's default bridge: route, TCP and DNS open | **PASS** |
+| Outbound, the copy's own channel | pg_net in the restored copy → Expo push, GoCardless, postcodes.io, Resend: 4 requests, 0 answered, "Couldn't resolve host name" | **PASS** |
+| Inbound LAN refusal | ports 59321, 59322, 59324, 59341 through 192.168.55.46: refused; the verify LAN sweep (every non-loopback address × every published/configured/relay port): no connection | **PASS** |
+| Loopback access | relay → Auth, REST, Storage 200; restored clubs read through the relay (13); leftover Docker forwarders on 127.0.0.1 accept and close without answering | **PASS** |
+| Loopback relay identity | U9: an impostor HTTP service on the relay port → verify FAIL (listener is not the recorded relay) | **PASS** |
+| Fictional-data restoration | restore under the guard: guard live and isolation verified before and after; 276 tables; cron 0 active | **PASS** |
+| Heartbeat / hung guard | guard frozen (SIGSTOP): guard-status "not alive (heartbeat 17 s)"; restore REFUSED | **PASS** |
+| Unlabelled bridge container | U8 configured-not-started and started → verify FAIL; T8a started, T8b configured-only → guard tripped, destroyed | **PASS** (U8 FAILED in the consolidated run — scope missed a container configured but not running; fixed, re-run PASS) |
+| Second internal network | U10 Kong on another internal network with a bridging peer → verify FAIL; T10 → guard tripped, destroyed the target, left the unowned peer alone | **PASS** |
+| Foreign application's network | T11 Kong joined another application's internal network → guard tripped, destroyed the target; the foreign container was reported and left running | **PASS** |
+| Borrowed namespace | T12 a target-labelled container in the network namespace of an unrelated internet-connected container → guard tripped ("shares the network namespace of a container outside the target"), removed the joiner, left the unrelated parent running | **PASS** |
+| Unsafe configuration refusals | U1 Kong on a route-out network; U2 Kong route outside; U3 Docker socket; U4 privileged; U5 host networking; U6 host bind mount; U7/U11 persistent-project containers linked/disguised → verify FAIL or REFUSED; U2 also guard-independent | **PASS** |
+| Guard termination | T6 SIGTERM → tripped, destroyed (21 containers, 2/2 volumes, network); SIGKILL → guard-status "not running" | **PASS** (SIGKILL: detected by guard-status only, not contained) |
+| Docker stop/start | T5 plain `supabase stop` of a guarded target holding data → guard tripped, both volumes destroyed; plain `start` afterwards → 0 tables. S6: after a guard SIGKILL and a stop that kept the volumes, the wrapper REFUSED to start | **PASS** |
+| Isolation loss before restore | T3 → guard destroyed the target; restore REFUSED | **PASS** |
+| Isolation loss during restore | T4 db given a route out as the restore starts → guard killed it, restore "RESTORE FAILED (psql exit 137)", rolled back, destroyed (0 containers, 0 volumes) | **PASS** (one run in the final series triggered early, during the preflight, off a stale file — the preflight refused, exit 2, and the guard destroyed; re-run as designed: PASS) |
+| Isolation loss during the preflight | (the early trigger above) → preflight REFUSED, backup not opened, guard destroyed | **PASS** |
+| Emergency destruction / cleanup | T2, T4, T5, T6, T8a/b, T10–T12, G1: every trip ended "destroyed … 2 of 2 volumes", 0 target containers; destroy left a persistent-labelled container untouched (S4); a start that failed verify was destroyed (S6); relay and both networks removed too (after the fix below) | **PASS** (the relay/network leftover FAILED the final leftover check; fixed and re-proved) |
+| Storage copier | HTTP_PROXY ignored (direct to loopback); redirect refused; non-loopback URL refused | **PASS** (code path; no populated source copied) |
+| Wrapper over a live target | T7 REFUSED | **PASS** |
+| Exposure window (G1) | Kong re-attached to a route-out network, attacker executing inside Kong every 50 ms | **MEASURED, not prevented**: before: 0 of 36–37 out; after: **15 / 24 / 29 / 27 connections out; Kong killed 1.30 / 1.93 / 2.29 / 2.09 s after the change** (four runs) |
+
+**Consolidated run anomalies, stated:** T8 as first written created the bridge container without starting it and the
+test waited for ever (my test, not the guard); the run was stopped. Thawing a frozen guard whose Docker call had
+been in flight tripped it (fail-closed) and destroyed the target before G1, so G1 was re-run. T2/T4 state was read
+before the guard finished destroying; re-run waiting for the guard's log.
+
+**Enforced vs monitored vs prevented vs detected.** Enforced by topology (no route, loopback-only listeners) and
+therefore prevented: any outbound request by the copy or its services, any inbound connection from the network —
+while the Docker configuration is unchanged. Monitored by the guard: changes to that configuration and the guard's
+own liveness. Detected only after it occurs: a deliberate change by someone with Docker access — the measured window
+above, during which data can leave. The guard does not prevent exfiltration, and its ability to destroy a copy after
+the fact is not a reason to treat a production-derived restore as safe.
+
+**Codex (read-only) — final rounds.** Round A (after the Kong change): P1 unscoped bridge container; P1 killed /
+frozen / hung guard counted as alive; P1 relay identity unchecked; P2 start-up outside the fail-closed region,
+destroy scope, cleanup reporting with Docker unavailable; P3 pidfile spoofing → scope by network membership,
+heartbeat with per-run nonce, timeouts, non-blocking event reads, start-up protected, relay listener tied to the
+recorded process, full-scope destroy with confirmation; IPv6 route check added. Round B (after the consolidated
+run): P1 another internal network as a bridge; P1 copier proxies/redirects; P1 wrapper over retained data and
+unguarded failed starts; P1 cleanup fallbacks vs a disguised persistent container; P1 stop without timeout; P2 destroy
+confirmation; P2 runbook absolutes → all fixed and re-proved (U10/T10, S5, S6, U11/S4, timeouts, runbook rewritten).
+Round C (verifying round B's fixes): P1 destructive scope could reach another application's containers → destroy and
+emergency-stop act only on containers the target OWNS (label, name, its volumes, its own network, an owned
+namespace) — T10/T11/T12 left the unowned containers untouched; P1 `is_persistent` treated a Docker transport error
+as "gone" → tri-state, anything not positively "not persistent"/"gone" is protected (unit-checked: unreachable Docker
+→ unknown → protected); P1 a namespace joiner borrowing an unrelated container's network → refused (T12); P1 the
+wrapper's retained-volume check could read "absent" through SIGPIPE → matched in the shell, listing failures refuse
+(S6); P2 destroy success with an uninspected container, and a failed emergency stop ignored → both now fail the
+destroy; P2 `stop_pidfile` could kill another target's relay → must match the target directory too. These round-C
+fixes are proved by the final series above; they were not put through a further Codex round.
+
+Found in the final leftover check: a guard trip destroyed the containers and volumes but left the target's relay
+running (listening on 127.0.0.1, forwarding to nothing) and the CLI's empty network. Fixed: destroy stops this
+target's relay (only if its command line names this target) and removes both target networks, and fails if either
+survives. Re-proved on a trip, a guard SIGTERM and a manual `--destroy`: 0 containers, 0 volumes, 0 networks, no relay
+or guard process, nothing listening on the relay port.
+
+Residual, stated in the runbook: SIGKILL/SIGSTOP of the guard is detected (restore refuses) but not contained; Docker
+daemon or engine defects; host processes that forward a LAN port to the relay or spoof the guard's pidfile; anyone
+with Docker or host access on the Mac.
 
 ## 6. Reproduce
 

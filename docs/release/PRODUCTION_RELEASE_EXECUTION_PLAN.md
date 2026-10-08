@@ -172,10 +172,11 @@ secret manager by hand; nothing prints them and no script reads them.
 **E. Where the isolated restore would happen.** A disposable local Supabase stack on the owner's FileVault-encrypted
 Mac, from an empty project directory with its own id and ports — never a cloud project, never the persistent local
 project (backup runbook, "Restore isolation"), started by `scripts/ops/restore/start-isolated-restore-target.sh`:
-every published port on `127.0.0.1` only (a Docker API proxy sets it; nothing global on the Mac changes, and the
-persistent stack is untouched), every container but Kong on a network with no route out, and a fail-closed preflight
-that the restore and Storage tools run before they open anything. Never stopped and started while it holds
-production data — destroyed instead.
+no container (Kong included) has any route out; the API is reached only through a loopback relay; a fail-closed
+preflight runs before anything is opened; a guard detects topology changes and destroys the copy — after the fact
+(measured exposure window 1.3–2.3 s, 15–29 outbound connections, for a deliberate change by someone with Docker access). Never stopped and started
+while it holds production data — destroyed instead. Custody of the Mac remains the control against a person with
+Docker access.
 
 **F. How outbound traffic and personal data are protected.** None of the outbound channels Ovalball uses exists in
 today's production database (no pg_net or other HTTP-capable extension, no push tokens, cron jobs are plain SQL).
