@@ -72,6 +72,13 @@ def main():
     ap.add_argument("--target-project-dir", required=True)
     ap.add_argument("--execute", action="store_true")
     a = ap.parse_args()
+    # The target receives the files, so it must be network-isolated before anything is read from the source or
+    # written to it (restore-target-isolation.py; the same preflight the database restore runs). No flag skips it.
+    here = __import__("pathlib").Path(__file__).resolve().parent
+    print("Isolation preflight of the target (nothing has been read from the source)...")
+    if subprocess.run([sys.executable, str(here / "restore-target-isolation.py"), "verify",
+                       "--project-dir", a.target_project_dir, "--quiet"]).returncode != 0:
+        die("the target is not network-isolated (see the failures above); nothing was read or copied")
     sp, sapi, skey = stack(a.source_project_dir)
     tp, tapi, tkey = stack(a.target_project_dir)
     if sp == tp:
@@ -81,18 +88,33 @@ def main():
     print(f"target holds {len(want)} object row(s); source has {len(have)} file(s)")
     if not a.execute:
         print("DRY RUN. Re-run with --execute. Nothing was copied."); return
-    copied = missing = 0
-    digest = hashlib.sha256()
-    for bucket, path in sorted(want):
-        if (bucket, path) not in have:
-            missing += 1; print(f"  MISSING in source: {bucket}/{path}"); continue
-        q = urllib.parse.quote(path)
-        body, ct = call(sapi, skey, "GET", f"/storage/v1/object/{bucket}/{q}")
-        call(tapi, tkey, "POST", f"/storage/v1/object/{bucket}/{q}", body, ct or "application/octet-stream", upsert=True)
-        back, _ = call(tapi, tkey, "GET", f"/storage/v1/object/{bucket}/{q}")
-        if hashlib.sha256(back).digest() != hashlib.sha256(body).digest():
-            die(f"byte mismatch after copy: {bucket}/{path}")
-        copied += 1; digest.update(hashlib.sha256(body).digest())
+    isolation = [sys.executable, str(here / "restore-target-isolation.py")]
+
+    def still_isolated() -> None:
+        if subprocess.run(isolation + ["verify", "--project-dir", a.target_project_dir, "--quiet"]).returncode != 0:
+            raise SystemExit("isolation lost")
+
+    try:
+        copied = missing = 0
+        digest = hashlib.sha256()
+        for bucket, path in sorted(want):
+            if (bucket, path) not in have:
+                missing += 1; print(f"  MISSING in source: {bucket}/{path}"); continue
+            q = urllib.parse.quote(path)
+            body, ct = call(sapi, skey, "GET", f"/storage/v1/object/{bucket}/{q}")
+            call(tapi, tkey, "POST", f"/storage/v1/object/{bucket}/{q}", body, ct or "application/octet-stream", upsert=True)
+            back, _ = call(tapi, tkey, "GET", f"/storage/v1/object/{bucket}/{q}")
+            if hashlib.sha256(back).digest() != hashlib.sha256(body).digest():
+                die(f"byte mismatch after copy: {bucket}/{path}")
+            copied += 1; digest.update(hashlib.sha256(body).digest())
+            if copied % 100 == 0:
+                still_isolated()  # the preflight is a snapshot: re-checked during a long copy
+        still_isolated()  # and once more now the files are in
+    except BaseException as exc:
+        # ANY way out of the copy -- a lost isolation, a timeout, a byte mismatch, an interrupt -- stops the target.
+        print(f"EMERGENCY STOP ({type(exc).__name__}: {exc}); stopping the target...", file=sys.stderr)
+        subprocess.run(isolation + ["emergency-stop", "--project-dir", a.target_project_dir])
+        die("the copy did not finish with the target isolated; the target was stopped -- destroy it and tell the owner")
     # Reconcile: after the copy the target must serve a file for every object it lists.
     unserved = 0
     for bucket, path in sorted(want):
