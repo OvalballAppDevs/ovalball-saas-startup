@@ -19,7 +19,7 @@ A gate that passed only on a disposable stack is never VERIFIED here.
 |---|---|---|
 | P1 | Platform backup / PITR state confirmed by the owner (Dashboard) | **UNKNOWN.** Plan, daily backups, PITR and retention are not readable read-only; WAL archiving is on (5,950 segments, 0 failed) but that is not a restore point. Supabase documents no automatic backups on the Free plan. Owner reads the five screens in the backup runbook, section 2 |
 | P2 | Pepper values (`invitation_code_pepper`, `recovery_code_pepper`) held in the owner's secret manager | **OWNER DECISION.** Names VERIFIED (exactly these two Vault secrets in production; values never read). Escrow procedure below (section 9 D) |
-| P3 | A production logical backup restored into a disposable environment and verified (Gate 1) | **BLOCKED**: needs backup approval, then restore approval, and — before any production data is loaded — a network-exposure control (the CLI publishes the local stack on all interfaces; backup runbook, "Restore isolation"). The rest of the isolated restore design is ready |
+| P3 | A production logical backup restored into a disposable environment and verified (Gate 1) | **BLOCKED on approvals** (backup creation, then restore). The isolated target is implemented and proved with fictional data: loopback-only ports, no route out, a fail-closed preflight the restore runs before opening the backup (backup runbook, "Restore isolation") |
 | P4 | Platform-billing webhook cannot acknowledge and lose an event in the window | **CODE FIXED, NOT DEPLOYED.** Fix + migration `20270765000000` + 13 route tests + 7 SQL checks + rehearsal under the real gate. The deployed route still has the defect, so for the window: **OWNER DECISION** — confirm `GOCARDLESS_PLATFORM_WEBHOOK_SECRET` is unset in Vercel production (then it answers 503 and acknowledges nothing), or disable Ovalball's own GoCardless webhook endpoint for the window (quiescence runbook 4.1 step 5). Production: 0 platform events ever, 0 platform payments, no provider-linked subscription |
 | P5 | Window booked at low traffic; users told (web and mobile have no maintenance message) | **OWNER DECISION** |
 | P6 | `GOOGLE_PLACES_API_KEY` present for `address-lookup`; decision on GoCardless replay Vault secrets (749 is inert without them) | **OWNER DECISION** (secrets not readable; Vault holds only the peppers today) |
@@ -171,15 +171,18 @@ secret manager by hand; nothing prints them and no script reads them.
 
 **E. Where the isolated restore would happen.** A disposable local Supabase stack on the owner's FileVault-encrypted
 Mac, from an empty project directory with its own id and ports — never a cloud project, never the persistent local
-project (backup runbook, "Restore isolation"). **Blocked until the owner picks one network-exposure control:** the
-CLI publishes every service (including Postgres with its default local password) on all interfaces, so the copy
-must be bound to loopback, firewalled, or the Mac taken off every network while it holds production data.
+project (backup runbook, "Restore isolation"), started by `scripts/ops/restore/start-isolated-restore-target.sh`:
+every published port on `127.0.0.1` only (a Docker API proxy sets it; nothing global on the Mac changes, and the
+persistent stack is untouched), every container but Kong on a network with no route out, and a fail-closed preflight
+that the restore and Storage tools run before they open anything. Never stopped and started while it holds
+production data — destroyed instead.
 
 **F. How outbound traffic and personal data are protected.** None of the outbound channels Ovalball uses exists in
 today's production database (no pg_net or other HTTP-capable extension, no push tokens, cron jobs are plain SQL).
 The restore script still disables every cron job, removes push tokens and empties the pg_net queue inside the
 restore transaction, refuses any Vault name but the two peppers, and nothing runs the application against the copy.
-Inbound: one network-exposure control (E). Data stays on the encrypted Mac with two named people, is never committed
+Inbound: loopback only, verified from Docker, the host's own sockets and live attempts through every non-loopback
+address (E). Data stays on the encrypted Mac with two named people, is never committed
 or shared, and is destroyed 24 hours after verification; the release backup is encrypted to a dedicated key and
 erased by destroying that key when the owner declares the release stable.
 
@@ -187,9 +190,8 @@ erased by destroying that key when the owner declares the release stable.
 
 1. Pepper escrow by the owner (Dashboard → Vault, values into the secret manager).
 2. **Production backup creation** (D) — the smallest next production action; read-only on production.
-3. The network-exposure control for the restore (E) — a change on the owner's Mac.
-4. **Restore rehearsal** of that backup into the isolated local stack (E, F) — passes Gate 1 if it verifies.
-5. P4 choice and P9/P10 confirmations (owner statements; P4 (b) is a change at GoCardless).
-6. **Maintenance configuration** at a booked time (phases 2 and 6).
-7. **Migration execution** (phase 4, 229 migrations).
-8. **Push and deploy** (phase 5: web, Edge Function; mobile separately).
+3. **Restore rehearsal** of that backup into the isolated local stack (E, F) — passes Gate 1 if it verifies.
+4. P4 choice and P9/P10 confirmations (owner statements; P4 (b) is a change at GoCardless).
+5. **Maintenance configuration** at a booked time (phases 2 and 6).
+6. **Migration execution** (phase 4, 229 migrations).
+7. **Push and deploy** (phase 5: web, Edge Function; mobile separately).

@@ -184,7 +184,8 @@ Then, outside that transaction:
 
 ### Restore isolation (any restore of PRODUCTION data outside production)
 
-**Status: a design, not run; BLOCKED until one network-exposure control below is chosen and in force.** Restoring a
+**Status: the isolated target is implemented and proved on disposable stacks with fictional data (9 Oct, see
+"Network isolation of the target" and the evidence report). Not run with production data.** Restoring a
 production backup anywhere needs its own approval (section 9). The design below is what that approval would cover.
 What was inspected in production, read-only: no `pg_net` and no other HTTP-capable extension (the full extension
 list is in section 1; no `http`, `dblink` or `postgres_fdw`), no function in `public`/`internal` calling `net.http_*`,
@@ -202,18 +203,62 @@ email through the platform and be reachable from the internet. The local stack's
 local mail catcher (no SMTP is configured in `supabase/config.toml`); its Realtime, Storage and Edge runtime are
 local containers.
 
-**Network exposure — the blocking precondition.** The Supabase CLI publishes its ports on **all interfaces**
-(`docker ps` on this Mac shows `0.0.0.0:<port>` for Kong, Postgres — with the default local password — Studio, the
-mail catcher and analytics). A copy of production data in such a stack is reachable from the local network. Before
-any production data is loaded, ONE of these must be in force, and `docker ps` for the disposable stack must show
-only `127.0.0.1:` bindings or the check below must fail from another device:
-1. Docker Desktop's default bind address set to `127.0.0.1` for the duration (daemon `"ip": "127.0.0.1"`). This also
-   rebinds the persistent stack, which interrupts phone-over-LAN testing until it is reverted — owner decision; or
-2. a host packet-filter rule dropping inbound traffic to the disposable stack's port range on every non-loopback
-   interface (a system change on the Mac — owner approval); or
-3. the Mac disconnected from every network for the whole time production data is loaded (the rehearsal needs no
-   internet).
-Record which, and the evidence, in the release log.
+**Network isolation of the target — enforced, and checked before the backup is opened.** The Supabase CLI publishes
+its ports on **all interfaces** (`0.0.0.0` and `[::]`: Postgres with its default local password, Kong, Studio, the mail
+catcher, analytics) and has no setting for the bind address; Docker Desktop ignores a bridge network's default bind
+address but honours an explicit one; a container on an `--internal` network has no route out but gets no published
+port either. So the target is built in three steps, all in `scripts/ops/restore/start-isolated-restore-target.sh`:
+
+1. **Inbound — loopback only.** The CLI is run against `docker-loopback-proxy.py`, a local Docker API proxy that sets
+   the host IP of every published port of every container it creates to `127.0.0.1`, and refuses host networking and
+   publish-all. Only the services a restore needs are started (no vector — it mounts the Docker socket — no
+   analytics, Studio, Meta, Edge runtime, imgproxy or pooler). The persistent stack, started without the proxy, is
+   untouched.
+2. **Outbound — no route out.** `restore-target-isolation.py isolate` puts every container on an `--internal` network
+   (keeping its service aliases) and removes all but Kong from the CLI's network. Kong is the only way in (the API, on
+   `127.0.0.1` only) and routes only to this stack's containers. The database is reached with `docker exec`.
+3. **Proof.** `restore-target-isolation.py verify` (below) must pass.
+
+The target has its own `.env` (never the repository's — that one points Auth's links at a LAN address):
+
+```sh
+SUPABASE_AUTH_EXTERNAL_URL=http://127.0.0.1:<api port>
+SUPABASE_SITE_URL=http://127.0.0.1:3000
+EXPO_RECOVERY_REDIRECT=http://127.0.0.1:3000     # and the other EXPO_* redirects likewise
+# every provider secret (OPENAI_API_KEY, SENDGRID_API_KEY, SUPABASE_AUTH_EXTERNAL_*_SECRET, ...) left empty
+```
+
+**The preflight — `restore-target-isolation.py verify`, fail-closed.** It trusts no configuration file and changes
+nothing in the target (its only side effect is short-lived probe containers). Its scope is every container that
+belongs to the target by name, by the CLI's project label, or by mounting one of the target's volumes — running or
+stopped. It fails (and the restore and Storage tools refuse to start, dry run included, before opening the backup or
+reading the source) on any of: a published port not bound to loopback, publish-all, host networking, a privileged
+container, any mount other than the target's own named volumes (so no Docker socket, no `~/.docker`, no host path,
+no volume of another project); a host listener on a published or configured port that is not
+loopback (`lsof`); a successful connection to any of those ports through ANY non-loopback address of the Mac (IPv4,
+IPv6, link-local); the API not answering on loopback; a container other than Kong — stopped ones
+included — on a non-internal network; a Kong upstream (`url:` or `host:`, quoted or not) that is not exactly one of
+this stack's containers or service names, or Kong's admin API off loopback; a successful TCP connection to the
+internet or a resolvable outside name from inside any container's network namespace (a probe joins each namespace,
+so distroless images are covered; a probe that cannot run or answer is a failure, and Kong's own open route — TCP and
+DNS — is the probe's positive control); Auth mailing anything but this stack's
+catcher, Auth links that are not loopback, or an external sign-in provider enabled; anything it cannot inspect.
+
+**After the restore.** The preflight is a snapshot, so both tools run it again when they finish; if the target lost
+its isolation meanwhile they stop every container of it and fail (proved: the database was given a route out during a
+restore → "EMERGENCY STOP", 0 containers left running). The Storage copier also re-checks every 100 objects, and
+any way out of a copy (a lost isolation, a timeout, a byte mismatch, an interrupt) stops the target. Nothing in the copy can start an outbound request in that
+window — cron is disabled and the push tokens and pg_net queue are emptied in the restore transaction itself.
+
+**Not covered by the preflight** (operator custody, as for the database password): a separate relay process the
+operator starts on this Mac that forwards a LAN port to the loopback API; someone changing the target between the
+post-restore check and the end of use. Only the named operator uses the Mac while it holds production data.
+
+**Restarting.** A `docker restart` keeps the isolation (proved). A CLI `supabase stop`/`start` does NOT: the CLI
+recreates the containers on its own network with `0.0.0.0` ports, and the preflight then fails (proved: 49
+failures). **A target holding production data is therefore never stopped and started:** if it must go down, destroy
+it (below) and restore afresh into a target started by `start-isolated-restore-target.sh`. A Docker Desktop restart
+counts as a stop.
 
 **Outbound isolation — in force before the copy is ever committed.** `rehearse-logical-restore.sh` does all of this
 INSIDE the one restore transaction, so there is no moment at which the restored database is both committed and live:
@@ -246,20 +291,20 @@ INSIDE the one restore transaction, so there is no moment at which the restored 
   stack's Docker volumes by name, delete the working folder; for the encrypted archive, destroy every copy of its dedicated key
   (cryptographic erasure — overwriting files on an SSD is not reliable), then delete the archive copies. Record date and method in the release log.
 
-**Validation checklist.** Before loading: the network-exposure control is in force (`docker ps` shows only
-`127.0.0.1:` for the disposable stack, or the chosen control's evidence). After the restore, before any verification
-step that writes: cron active = 0; `push_device_tokens` = 0 or n/a; `net.http_request_queue` = 0 or n/a; Vault names
+**Validation checklist.** Before loading: `start-isolated-restore-target.sh` ended with `ISOLATION VERIFIED` (the
+restore re-checks it itself). After the restore, the preflight passes again, and before any verification step that
+writes: cron active = 0; `push_device_tokens` = 0 or n/a; `net.http_request_queue` = 0 or n/a; Vault names
 = only those approved; no `.env` in the target folder points at production; the operator has no production key
 exported in that shell.
 
-**Emergency stop (any one → `docker stop` every container of the disposable stack at once, then destroy as above and
-tell the owner):** a cron job found active; a push token or queued pg_net request after commit; any outbound
+**Emergency stop (any one → `restore-target-isolation.py emergency-stop --project-dir <target>` — it stops every container in the target's scope and fails loudly if any is still running; if it fails, quit Docker Desktop — then destroy as above and
+tell the owner):** the isolation preflight failing at any time; a cron job found active; a push token or queued pg_net request after commit; any outbound
 connection seen from a container; a mail other than a test account's in the local catcher; a Vault name not
 approved; any sign that a production URL or key is in use.
 
-**What keeps or makes this BLOCKED:** no network-exposure control chosen (today's state); restoring a post-release
-backup without the script's isolation (for example by hand); restoring into a cloud project; any need to run the
-application against the copy.
+**What would make this BLOCKED:** restoring by hand (bypassing the scripts and their preflight); a target holding
+production data stopped and started with the CLI instead of destroyed; restoring into a cloud project; any need to run
+the application against the copy.
 
 ## 7. Verifying a restore
 

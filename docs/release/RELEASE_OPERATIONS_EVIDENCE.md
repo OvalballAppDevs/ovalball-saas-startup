@@ -267,6 +267,88 @@ with its error and needs a manual resend from GoCardless (no automatic replay wo
 several events sequentially with rate-limit waits can exceed GoCardless's 10 s timeout, which only causes a
 redelivery.
 
+## 5b. Restore-target isolation preflight (local, disposable; no production data)
+
+**What the platform does (measured on this Mac, Docker Desktop 29.7.2, Supabase CLI 2.120.0):** a plain
+`supabase start` publishes Kong, Postgres, Studio, the mail catcher and analytics on `0.0.0.0` and `[::]`; from the
+LAN address `192.168.55.46` the unsafe control answered HTTP 200 and Postgres accepted a connection. A bridge network
+created with `com.docker.network.bridge.host_binding_ipv4=127.0.0.1` is IGNORED (its container listened on `*` and
+answered on the LAN address). An explicit host IP (`-p 127.0.0.1:…`) is honoured (listener `127.0.0.1` only; LAN
+address and `[::1]` refused). A container on an `--internal` network has no egress and no outside DNS, but gets no
+published port. The CLI has no bind-address setting; it does take `--network-id` and `-x`.
+
+**Built:** `scripts/ops/restore/docker-loopback-proxy.py` (Docker API proxy: every published port of a container it
+creates bound to `127.0.0.1`; host networking and publish-all refused), `restore-target-isolation.py` (`isolate`,
+`verify`), `start-isolated-restore-target.sh` (proxy → `supabase start -x vector,logflare,studio,postgres-meta,
+edge-runtime,imgproxy,supavisor` → isolate → verify). `rehearse-logical-restore.sh` and `copy-storage-objects.py` run
+`verify` before they open the backup or read the source, dry run included, with no flag to skip it.
+
+**Ports of the isolated target** (project `ovalball-isolated-restore`): Kong `127.0.0.1:59321`, Postgres
+`127.0.0.1:59322`, mail catcher `127.0.0.1:59324` (Docker and `lsof` agree; Studio 59323 and analytics 59327 were
+also loopback-only while they ran, and are no longer started). Auth, REST, Storage and Realtime publish nothing.
+After isolation Docker Desktop forwards only Kong's port; Postgres is reached with `docker exec`.
+
+| Control | Result |
+|---|---|
+| Proxy, plain `docker run`: default publish / explicit `0.0.0.0` | both rewritten to `127.0.0.1`; LAN refused; exec and logs pass through |
+| Proxy: `-P` / `--network host` | refused (403), nothing created |
+| Isolated target, `verify` (final code) | **ISOLATION VERIFIED** — 234 checks, 0 failed (270 with the full service set, earlier code), ~30 s |
+| Non-loopback probes | every published and configured port × every non-loopback address (`192.168.55.46` and 14 IPv6 link-local addresses): all refused |
+| Local access | Kong → Auth/REST/Storage 200 on `127.0.0.1:59321`; a sign-up and a magic link worked; the magic-link mail reached only the stack's own catcher |
+| Egress, probe in each container's network namespace | TCP to `1.1.1.1:443` blocked and `exp.host` unresolvable from db, auth, rest (distroless), storage, realtime, mail catcher (and, with the full set, studio, meta, edge runtime, analytics, vector); Kong (positive control) open by design |
+| Egress through the database's own channel, restored fictional copy | `net.http_get` to Expo push, GoCardless live and sandbox, postcodes.io, Google Places, Resend, SendGrid: all "Couldn't resolve host name"; raw TCP from the db namespace to those hosts, `1.1.1.1:443` and `8.8.8.8:53`: blocked |
+| N1 project container published on `0.0.0.0` without the proxy (LAN answered 200) | **FAIL** (binding, listener `*`, LAN connections, non-internal network) → removed → pass |
+| N2 a host process on `0.0.0.0` on a configured port | **FAIL** (listener, LAN connection) → stopped → pass |
+| N3 db re-attached to the CLI network | **FAIL** (network; TCP and DNS open) → detached → pass |
+| N4 Kong route to `example.com` | **FAIL** → restored → pass |
+| N5 Docker unreachable | **FAIL** ("could not verify") |
+| N6 the persistent project | **FAIL**, refused on its project id before any Docker access |
+| N7 whole stack started without the proxy; restore of a sealed (`chmod 000`) fictional backup | preflight **FAIL** (85); restore **REFUSED** exit 2 with no permission error (the backup was never opened); target still empty; Storage copier likewise refused |
+| A container mounting a Docker socket (vector, through the proxy socket) | **FAIL** — found during the restart test (its restart also failed on the socket mount); vector is no longer started |
+| Restore of the fictional backup into the isolated target | preflight passed; restore committed (276 tables), cron 0 active, tokens 0, queue 0; preflight passes after it |
+| `docker restart` of every container | still **VERIFIED** |
+| CLI `supabase stop` + plain `start` (data kept) | **FAIL** (49) — the CLI recreates containers on its own network with `0.0.0.0` ports |
+| `start-isolated-restore-target.sh` again | **VERIFIED**; restored data intact (276 tables, 13 clubs, cron 0 active) |
+
+**Independent review (Codex, read-only) and disposition.** No P0. P1: Kong upstreams only partly parsed (quoted `url`,
+`host:`) and accepted by suffix → exact names only (N10: quoted URL and `host:` to outside → FAIL).
+P1: scope by name only → scope is name ∪ CLI project label ∪ containers mounting the target's volumes (N8: database
+container renamed and given a route out → FAIL). P1: stopped containers not checked → network checks cover stopped
+containers (N9 → FAIL). P1: snapshot/TOCTOU → both tools re-verify when done and stop the target on failure (proved,
+above). P1: mounts → only the target's named volumes allowed (N11: `~/.docker` bind mount and a volume named for the
+persistent project → FAIL). P2: percent-encoded create path, case-insensitive JSON keys, a client-claimed upgrade
+→ path decoded, keys matched case-insensitively, upgrade honoured only for exec/attach/session paths (proved: all
+rewritten or refused; a second create on a falsely "upgraded" connection was never processed). P2: probe failures
+read as "blocked" → exit statuses parsed, anything unexpected is a failure, Kong control requires TCP and DNS open.
+P2: a host relay on another port, UDP → stated as operator custody (not detectable by the preflight). P3: "changes
+nothing" and "tampering is caught" → narrowed.
+
+**Verification pass (Codex, read-only):** no P0. P1: Kong still parsed by layout (a flow-style `{url: …}` or a plugin
+endpoint missed) → the whole file is scanned, comments and `_comment` metadata excepted, for every URL and every
+host/target/upstream value; anything not exactly this stack fails (N10b: flow-style service + `http-log` endpoint to
+outside → FAIL; the first scan also flagged prose in `_comment` strings, which Kong ignores — those are now excluded).
+P1: a target-named volume could be a bind in disguise → volumes must be the `local` driver with no options (N12 →
+FAIL). P1: the scope union could pull in a persistent-project container → any such container makes `verify` fail
+and `isolate` refuse (N13, a fake persistent-named container → both refused; the real persistent stack untouched).
+P1: the emergency stop used the label only and ignored failures → `restore-target-isolation.py emergency-stop` stops
+the whole scope and fails loudly if anything is still running (re-proved: route out given after the preflight →
+EMERGENCY STOP → "every container of the target is stopped", 0 running). P1: the Storage copier skipped the re-check
+on error paths → any exit from the copy (lost isolation, timeout, byte mismatch, interrupt) stops the target, and it
+re-verifies every 100 objects (code-reviewed; not exercised against a populated source). P1: TOCTOU is detection,
+not prevention → stated (below). P2: an "upgrade" to a path that does not switch protocol could smuggle a pipelined
+create → raw relay only after a real `101` from Docker (proved: `/exec/nonexistent/start` + pipelined create → one
+404, connection closed, create never processed).
+
+**Limits, stated.** The post-operation checks DETECT a lost isolation and stop the target; they do not prevent the
+seconds of exposure between a change and the check. Nothing in the copy starts an outbound request in that window
+(cron disabled; tokens and pg_net queue emptied in the restore transaction), and only the named operator uses the
+Mac. A target holding data that is restarted with the plain CLI is exposed until it is isolated
+again — the preflight stops a restore or a Storage copy into it, not the restart itself; the runbook therefore forbids
+stopping and starting a target holding production data (destroy and restore afresh). Kong keeps a route out by
+design; it routes only to the stack (verified, and tampering is caught). The LAN probes run from this Mac against
+its own non-loopback addresses (the listener is loopback-only, so no interface can reach it), not from a second
+device. Everything here used fictional data; no production backup exists.
+
 ## 6. Reproduce
 
 ```sh
