@@ -82,10 +82,20 @@ test("the team route group holds the recurring jobs and the settings hub, and no
   for (const expected of ["availability/index.tsx", "availability/[kind]/[eventId].tsx", "people/index.tsx", "people/[kind]/[id].tsx", "requests.tsx", "settings/index.tsx", "settings/requests.tsx", "settings/player-requests.tsx", "settings/join-codes.tsx"]) {
     assert.ok(files.includes(expected), `${expected} exists`)
   }
-  for (const f of teamFiles) {
-    const src = code(f)
-    assert.doesNotMatch(src, /fixture\.planner|fixture\.import|bulk_edit|fixtures\/management|fixtures\/planner|fixtures\/import|competition\.creator/i, `${f} reaches no Planner, Import, bulk edit or Competition Creator`)
+  const DESK_TOOLS = /fixture\.planner|fixture\.import|bulk_edit|fixtures\/management|fixtures\/planner|fixtures\/import|competition\.creator/i
+  const MORE = join(MOBILE, "app/(tabs)/more.tsx")
+  for (const f of teamFiles.filter((f) => f !== MORE)) {
+    assert.doesNotMatch(code(f), DESK_TOOLS, `${f} reaches no Planner, Import, bulk edit or Competition Creator`)
   }
+  // More is shared by every context. Its TEAM section reaches no desk tool; the Season Planner row lives in the
+  // CLUB section only, behind the club-scope planner capability (bulk planning is club authority, never a team's).
+  const more = code(MORE)
+  const teamSection = more.slice(more.indexOf("{inTeam && ("), more.indexOf("{inFamily && ("))
+  assert.ok(teamSection.length > 0, "More's team section is no longer where this test looks")
+  assert.doesNotMatch(teamSection, DESK_TOOLS, "More's team section reaches a desk tool")
+  assert.match(more, /const clubIdForCaps = inClub \?/, "the planner probe runs only in a club context")
+  assert.match(more, /planner: a\.plannerUse/, "the Season Planner row is the club-scope planner capability")
+  assert.match(more, /\{clubFixtureCaps\.planner && <Row[^\n]*label="Season Planner"/, "the Season Planner row is gated on it")
 })
 
 test("the app decides nothing from a role label, and holds no service role", () => {

@@ -256,7 +256,13 @@ test("teams: creation is the domain operation by Directory key; identity is neve
     assert.doesNotMatch(src, /\b(U6|U7|U8|U9|U1[0-9])\b/, `${f} hard-codes an age grade`)
     assert.doesNotMatch(src, /displayName\.(includes|match|startsWith)|fullLabel\.(includes|match)|\/U\\d|Under \\d/, `${f} derives identity from a name`)
     assert.doesNotMatch(src, /role\s*===?\s*["']CLUB_ADMIN["']|clubRoleKey/, `${f} decides from a role`)
-    assert.doesNotMatch(src, /from ["'][^"']*(fixtures|availability|match-centre|messages)|router\.push\([^)]*(fixtures|calendar|messages)/, `${f} must stay configuration, not operations`)
+    assert.doesNotMatch(src, /from ["'][^"']*(fixtures|availability|match-centre|messages)/, `${f} must stay configuration, not operations`)
+    // The team's page is not a dead end: it may HAND OFF to the one shared Fixtures list for this team (no fixture
+    // operation lives here), but never into a message, calendar or other fixture route of its own.
+    const pushes = [...src.matchAll(/router\.push\(([^)]*(?:fixtures|calendar|messages)[^)]*)\)/g)].map((m) => m[1])
+    for (const target of pushes) {
+      assert.match(target, /^\{ pathname: "\/fixtures", params: \{ teamId: team\.id \} \}/, `${f} reaches an operational route: ${target}`)
+    }
   }
   assert.match(code(join(ADMIN_ROUTES, "teams/[teamId].tsx")), /Confirm Fold/, "folding is confirmed with a reason")
   assert.doesNotMatch(code(join(ADMIN_ROUTES, "teams/[teamId].tsx")), /age_group|ageGroup:\s*[a-z]+\.value|onChangeText=\{[^}]*ageGroup/, "the age grade is not editable on the phone")

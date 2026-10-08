@@ -65,7 +65,14 @@ test("the Fixture Control Centre and the desk tools are a hand-off from the Admi
   const adminCentre = code("packages/contracts/src/club/admin-centre.ts")
   for (const capability of ["fixture.planner.use", "fixture.import.run", "competition.creator.use"]) {
     assert.match(adminCentre, new RegExp(`capability: "${capability.replace(/\./g, "\\.")}"`), `the Admin Centre section list is missing a desk-tool row for ${capability}`)
-    assert.match(adminCentre, new RegExp(`capability: "${capability.replace(/\./g, "\\.")}", native: false`), `${capability}'s Admin Centre row must be a web hand-off, never a native reimplementation`)
+  }
+  // The Season Planner is native (owner-commissioned, 7 Oct 2026: club days over canonical fixture requests,
+  // 20270760/761) and opens in the app. Import Fixtures and Competition Creator are still hand-offs until H6
+  // gives them native outcomes over the same shared contracts; either way, mobile never calls their RPCs
+  // itself (checked below), so a native version cannot fork the domain.
+  assert.match(adminCentre, /capability: "fixture\.planner\.use", native: true, appPath: "\/fixtures\/planner"/, "the Season Planner opens natively")
+  for (const capability of ["fixture.import.run", "competition.creator.use"]) {
+    assert.match(adminCentre, new RegExp(`capability: "${capability.replace(/\./g, "\\.")}", native: false`), `${capability} is a web hand-off until it has a native outcome over the shared contracts`)
   }
   for (const f of walk(join(MOBILE, "src/team")).concat(walk(join(MOBILE, "app/(tabs)/team")))) {
     assert.doesNotMatch(code(f), /fixtures\/management|planner|fixture\.import|competition\.creator/i, `${f} reaches for a desk tool from a team context`)
@@ -121,12 +128,20 @@ test("club requests use the shared My Requests view across every side, negotiati
   assert.doesNotMatch(requests, /acceptFixtureRequest|declineFixtureRequest\(supabase, r\.id/, "accept/decline no longer live inline on the list screen")
   const detail = code(join(MOBILE, "app/(tabs)/fixtures/request/[groupId].tsx"))
   assert.match(detail, /acceptFixtureRequest\(supabase, requestId\)/)
-  assert.match(detail, /declineFixtureRequest\(supabase, requestId, session\?\.user\.id/)
-  assert.match(detail, /withdrawFixtureRequest\(supabase, id, session\?\.user\.id/)
+  // H1 (20270762000000): a client no longer writes a request's state or names who decided -- decline and
+  // withdraw are guarded RPCs that take only the request, and the server records auth.uid() as the decider.
+  assert.match(detail, /declineFixtureRequest\(supabase, requestId\)/)
+  assert.match(detail, /withdrawFixtureRequest\(supabase, id\)/)
+  assert.doesNotMatch(detail, /(decline|withdraw)FixtureRequest\([^)]*session/, "the client never supplies the decider")
+  const contract = code("packages/contracts/src/team/requests.ts")
+  assert.match(contract, /rpc\("decline_fixture_request"/, "decline is the guarded RPC")
+  assert.match(contract, /rpc\("withdraw_fixture_request"/, "withdraw is the guarded RPC")
+  assert.doesNotMatch(contract, /from\("fixture_requests"\)\s*\.update\(/, "no direct table update of a request")
   const more = code(join(MOBILE, "app/(tabs)/more.tsx"))
   assert.match(more, /\{inClub && \(/)
   assert.match(more, /router\.push\("\/club\/teams" as never\)/)
-  assert.match(more, /router\.push\("\/club\/requests" as never\)/)
+  // Admin and inbox screens opened from More carry where they were opened from (origin-aware Back, M2/M3).
+  assert.match(more, /router\.push\(\{ pathname: "\/club\/requests" as never, params: \{ returnTo: "\/more" \} \}\)/)
   // CA-M11.1: the club's jobs that were missing from the phone are offered from More, each behind the
   // Admin Centre's own capability probe -- never a role. Configuration screens themselves stay in the Admin Centre.
   assert.match(more, /s\.key === "rollover"\) && <Row/, "Season Handover is offered behind its section")

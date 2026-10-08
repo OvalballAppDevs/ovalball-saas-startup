@@ -45,7 +45,6 @@ test("the contract calls the same server operations the website does, and no oth
     "update_safeguarding_officer_contact",
     "invite_safeguarding_officer",
     "resend_safeguarding_officer_invitation",
-    "revoke_safeguarding_officer_invitation",
     "deactivate_safeguarding_officer",
     "start_or_get_safeguarding_officer_conversation",
     "send_safeguarding_officer_message",
@@ -54,6 +53,14 @@ test("the contract calls the same server operations the website does, and no oth
     assert.match(contract, new RegExp(`rpc\\("${rpc}"`), `the contract wraps ${rpc}`)
     assert.match(web, new RegExp(`rpc\\("${rpc}"`), `the website calls ${rpc} too`)
   }
+  // Withdrawing the open invitation (M10) is ONE shared operation both clients call: the contract chooses the
+  // issuer's own revoker -- revoke_invitation (authority and a recorded reason on the server) for a canonical
+  // invitation, revoke_safeguarding_officer_invitation for a legacy row -- and the website calls the contract
+  // rather than either RPC itself, so the two clients cannot drift apart on it.
+  assert.match(contract, /rpc\("revoke_safeguarding_officer_invitation"/, "the contract still withdraws a legacy invitation")
+  assert.match(contract, /rpc\("revoke_invitation", \{ p_invitation_id: invitation\.id, p_reason: reason \}\)/, "a canonical invitation is withdrawn with a recorded reason")
+  assert.match(code(WEB_ACTIONS), /revokeSafeguardingOfficerInvitation as revokeOfficerInvitation \} from "@ovalball\/contracts\/club\/safeguarding"/, "the website withdraws through the shared contract")
+  assert.doesNotMatch(code(WEB_ACTIONS), /rpc\("revoke_(safeguarding_officer_)?invitation"/, "the website does not withdraw on its own")
   // The officer's reads exist on the server and have no website page; the phone reads them as they are.
   for (const rpc of ["welfare_member_view", "club_message_reports", "my_capabilities"]) assert.match(contract, new RegExp(`rpc\\("${rpc}"`), `the contract reads ${rpc}`)
   // The canonical invitation architecture, for the open invitation and its withdrawal.

@@ -53,7 +53,8 @@ test("Club Admin Home has no 'From Here' section and no mobile Fixture Control C
     assert.match(src, new RegExp(tile), `the ${tile} tile is missing from the four-tile grid`)
   }
   // Pitch Allocation became functionality inside Arena: the tile is Arena and opens the Arena Hub.
-  assert.match(src, /label="Arena"[^\n]*router\.push\("\/admin\/arena"/, "the Arena tile opens the Arena Hub")
+  // Opened with Home as its origin, so Back returns Home (origin-aware Back, M2/M3).
+  assert.match(src, /label="Arena"[^\n]*router\.push\(\{ pathname: "\/admin\/arena" as never, params: \{ returnTo: "\/" \} \}\)/, "the Arena tile opens the Arena Hub")
   assert.doesNotMatch(src, /label="Pitch Allocation"/, "the old Pitch Allocation tile is still on Home")
 })
 

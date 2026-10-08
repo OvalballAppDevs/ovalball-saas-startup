@@ -17,6 +17,10 @@ test("CLUBHOUSE_NOTIFICATION_TYPES contains exactly the network-relevant types, 
       "calendar_share_approved",
       "calendar_share_declined",
       "club_claim_approved",
+      // A Club Day is a group of fixture requests between two clubs (20270760/761): its two club-scope
+      // notices are network business exactly as a single fixture request is.
+      "club_day_request_received",
+      "club_day_responded",
       "fixture_opportunity_cancelled",
       "fixture_opportunity_filled",
       "fixture_opportunity_response_declined",

@@ -414,15 +414,26 @@ test("a message bubble is coloured and ordered the way the website does it", () 
   // THE FIRST DRAFT HAD IT INVERTED -- forest for mine, white for received -- which misattributes
   // every message on the screen to the wrong side for anybody who learned the product in a browser.
   // The website is blue-right for your own and mint-left for received, newest at the top.
-  const bubble = strip(read("app/(tabs)/messages/[kind]/[id].tsx"))
-  assert.match(bubble, /mine \? colour\.messengerBlue : colour\.mint100/, "the bubble colours no longer match the website")
+  // The messenger rebuild (7 Oct 2026) drew every bubble from ONE component (src/components/messenger/thread.tsx),
+  // shared by the full conversation screen and the compact messenger, with the colours named once in tokens.
+  const screen = strip(read("app/(tabs)/messages/[kind]/[id].tsx"))
+  assert.match(screen, /from "[^"]*components\/messenger\/thread"/, "the conversation screen draws its own bubbles again")
+  const tokens = strip(read("src/design/tokens.ts"))
+  assert.match(tokens, /mine: colour\.messengerBlue,/, "your own messages are no longer messenger blue")
+  assert.match(tokens, /theirs: colour\.mint100,/, "received messages are no longer mint")
+  const bubble = strip(read("src/components/messenger/thread.tsx"))
+  assert.match(bubble, /backgroundColor: mine \? messenger\.mine : messenger\.theirs/, "the bubble colours no longer match the website")
+  assert.match(bubble, /alignItems: mine \? "flex-end" : "flex-start"/, "yours is not on the right -- colour must never be the only signal")
   assert.match(bubble, /const mine = message\.isOwn/, "ownership is derived from something other than the server's answer")
   assert.ok(!/senderUserId === /.test(bubble), "ownership is recomputed from a sender id")
-  // Newest at the top, as the web thread sorts it -- and a virtualised list, because a club thread
-  // can run for a season and a ScrollView would build every message before the first frame.
-  assert.match(bubble, /new Date\(b\.createdAt\)\.getTime\(\) - new Date\(a\.createdAt\)\.getTime\(\)/, "the thread is not newest-first")
-  assert.ok(!/scrollToEnd/.test(bubble), "the thread scrolls to the oldest message after sending")
+  // Owner, 7 Oct 2026: inside a conversation the NEWEST message sits at the BOTTOM beside the composer (an inverted
+  // list over newest-first data) -- never flipped to the top. A virtualised list, because a club thread can run
+  // for a season and a ScrollView would build every message before the first frame.
   assert.match(bubble, /<FlatList/, "the conversation renders every message rather than a window")
+  assert.match(bubble, /\binverted\b/, "the thread is no longer anchored to the composer at the bottom")
+  const items = strip(read("src/messages/thread-items.ts"))
+  assert.match(items, /\.sort\(\(a, b\) => \(a\.createdAt < b\.createdAt \? 1 : a\.createdAt > b\.createdAt \? -1 : 0\)\)/, "the thread data is not newest-first")
+  assert.ok(!/scrollToEnd/.test(bubble), "an inverted thread scrolls to the oldest message after sending")
 
   // And the website still says the same thing, so this test fails if the product changes rather than
   // quietly describing a rule that has moved.

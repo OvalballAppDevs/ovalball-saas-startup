@@ -7381,7 +7381,7 @@
         "signature": "revoke_safeguarding_officer_invitation(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/club/settings/safeguarding/actions.ts"
+          "packages/contracts/src/club/safeguarding.ts"
         ]
       },
       {

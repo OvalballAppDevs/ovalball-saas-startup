@@ -162,7 +162,10 @@ test("the Admin Centre's Season Handover section is native and gated on team.han
   assert.equal(row!.capability, "team.handover.prepare")
   assert.equal(row!.label, "Season Handover")
   const index = code(join(MOBILE, "app/(tabs)/admin/index.tsx"))
-  assert.match(index, /router\.push\(`\/admin\/\$\{s\.key\}`/, "native sections are routed by key")
+  // Native sections are routed by key, unless a section names its own app path (the Season Planner lives under
+  // /fixtures); Season Handover names none, so it opens /admin/rollover.
+  assert.match(index, /router\.push\(\{ pathname: \(s\.appPath \?\? `\/admin\/\$\{s\.key\}`\)/, "native sections are routed by key")
+  assert.equal(row!.appPath, undefined, "Season Handover opens at /admin/rollover")
   for (const file of ["_layout.tsx", "index.tsx", "teams.tsx", "players.tsx", "attention.tsx", "apply.tsx"]) {
     assert.ok(existsSync(join(ROLLOVER_DIR, file)), `${file} is missing under admin/rollover`)
   }

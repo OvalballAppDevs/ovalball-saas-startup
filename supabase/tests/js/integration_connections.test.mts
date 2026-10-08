@@ -220,7 +220,8 @@ test("a club job offered from More and from the Admin Centre has one name and on
   // work under the shorter "Safeguarding".
   const RECORDED = new Set(["news", "safeguarding"])
   let compared = 0
-  for (const m of more.matchAll(/<Row icon=\{<(\w+) [^>]*\/>\} label="([^"]+)"[^\n]*?router\.push\("\/admin\/([a-z-]+)"/g)) {
+  // A row pushes either the bare path or `{ pathname, params: { returnTo } }` (origin-aware Back, M2/M3).
+  for (const m of more.matchAll(/<Row icon=\{<(\w+) [^>]*\/>\} label="([^"]+)"[^\n]*?router\.push\((?:\{ pathname: )?"\/admin\/([a-z-]+)"/g)) {
     const [, icon, label, key] = m
     if (!sections.has(key) || RECORDED.has(key)) continue
     compared++

@@ -215,7 +215,9 @@ test("Save is ONE plan of every staged fixture, checked whole by the server and 
   const ops = code("packages/contracts/src/pitch-allocation/operations.ts")
   assert.match(ops, /rpc\("update_fixture_schedule"/, "placing uses the canonical schedule RPC")
   assert.match(ops, /p_source: "PITCH_ALLOCATION"/, "and is audited as a pitch allocation")
-  assert.match(ops, /rpc\("update_fixture_pitch"/, "clearing uses the canonical single-fixture RPC")
+  // Clearing is allocation authority (20270762000000, H5), never the fixture-edit pitch path.
+  assert.match(ops, /rpc\("allocate_fixture_pitch"/, "clearing uses the allocation-only RPC")
+  assert.doesNotMatch(ops, /rpc\("update_fixture_pitch"/, "and never the fixture-edit pitch path")
   // The phone's board (Arena Planning's Pitches view) sends the staged changes as one plan. ARENA PLANNING
   // REBUILD: the retired panel (src/arena/pitch-board-panel.tsx) re-read the capability pair before saving; the
   // day plan is checked by the server inside the same transaction instead (apply_arena_allocation refuses

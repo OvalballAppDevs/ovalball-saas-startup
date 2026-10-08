@@ -58,7 +58,10 @@ test("pitch allocation is one shared domain: the website and the phone read and 
   assert.match(settings, /saveSharedSchedulingPolicy\(/)
   const ops = code("packages/contracts/src/pitch-allocation/operations.ts")
   assert.match(ops, /p_source: "PITCH_ALLOCATION"/, "the board's audit fingerprint")
-  assert.match(ops, /rpc\("update_fixture_pitch"/, "clearing a pitch uses the canonical single-fixture RPC")
+  // Pitch placement is pitch-allocation authority, not fixture editing (20270762000000, H5): clearing goes
+  // through the allocation-only RPC, and the shared operations never reach the fixture-edit pitch path.
+  assert.match(ops, /rpc\("allocate_fixture_pitch"/, "clearing a pitch uses the allocation-only RPC")
+  assert.doesNotMatch(ops, /rpc\("update_fixture_pitch"/, "pitch placement never goes through the fixture-edit path")
   for (const file of walk("packages/contracts/src/pitch-allocation")) assert.doesNotMatch(read(file), /server-only|from "react|from "next/, `${file} is not platform-neutral`)
 })
 
@@ -229,7 +232,8 @@ test("the club's jobs are reachable from More behind their canonical capabilitie
   for (const [label, key] of [["Guardians & Players", "guardians"], ["Subscriptions & Payments", "subscriptions"], ["Season Handover", "rollover"], ["Roles & Permissions", "permissions"]] as const) {
     assert.match(club, new RegExp(`s\\.key === "${key}"\\) && <Row[^\\n]*label="${label.replace(/&/g, "&")}"`), `${label} is not gated on the "${key}" section`)
   }
-  assert.match(club, /\(venueCaps\.allocate \|\| venueCaps\.viewAllocation\) && <Row[^\n]*label="Arena"[^\n]*router\.push\("\/admin\/arena"/)
+  // Opened with its origin, so Back returns to More (M2/M3 origin-aware Back).
+  assert.match(club, /\(venueCaps\.allocate \|\| venueCaps\.viewAllocation\) && <Row[^\n]*label="Arena"[^\n]*router\.push\(\{ pathname: "\/admin\/arena" as never, params: \{ returnTo: "\/more" \} \}\)/)
   assert.match(club, /\(admin\.sections\.some\(\(s\) => s\.key === "safeguarding"\) \|\| officer\) && <Row[^\n]*label="Safeguarding"/)
   const team = more.slice(more.indexOf("{inTeam && ("), more.indexOf("{inFamily && ("))
   for (const forbidden of ["Guardians & Players", "Subscriptions & Payments", "Season Handover", "Pitch Allocation", "Arena", "Roles & Permissions", "Safeguarding", "Fixture Control Centre", "Planner", "Import", "Admin Centre"]) {
