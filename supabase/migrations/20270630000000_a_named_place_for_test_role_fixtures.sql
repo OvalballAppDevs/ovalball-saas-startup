@@ -150,42 +150,50 @@ declare
   v_u uuid := gen_random_uuid(); v_dir uuid; v_club uuid; v_team uuid; v_m uuid;
   v_tag text := substr(gen_random_uuid()::text, 1, 8); v_n int;
 begin
-  insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-    created_at, updated_at, raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token,
-    email_change_token_new, email_change, email_change_token_current, phone_change, phone_change_token,
-    reauthentication_token)
-  values (v_u, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-          'trfix-' || v_tag || '@ovalball.test', '', now(), now(), now(), '{}', '{}', '', '', '', '', '', '', '', '');
-  insert into public.profiles (id, first_name, surname, email)
-  values (v_u, 'Fixture', 'Probe', 'trfix-' || v_tag || '@ovalball.test');
-  insert into public.club_directory (name, town, county, rugby_code, country, nation, active,
-                                     verification_status, source, normalized_key)
-  values ('TRFIX ' || v_tag, 'T', 'T', 'union', 'United Kingdom', 'England', true, 'unverified',
-          'site_admin_manual', 'trfix-' || v_tag) returning id into v_dir;
-  insert into public.clubs (directory_id, slug, status) values (v_dir, 'trfix-' || v_tag, 'active') returning id into v_club;
-  insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
-  values (v_club, 'Under 12 Boys', 'trfix-' || v_tag, 'youth', 'U12', 'boys', 'union', true) returning id into v_team;
-  insert into public.club_memberships (club_id, user_id, role, status)
-  values (v_club, v_u, 'BASIC_USER', 'active') returning id into v_m;
+  -- THE PROBE LEAVES NOTHING BEHIND: it ends by raising a private SQLSTATE its own handler catches, which
+  -- rolls back every row it wrote (and every audit row those writes produced). Any genuine assertion
+  -- failure raises something else and still aborts the migration.
+  begin
+    insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+      created_at, updated_at, raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token,
+      email_change_token_new, email_change, email_change_token_current, phone_change, phone_change_token,
+      reauthentication_token)
+    values (v_u, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+            'trfix-' || v_tag || '@ovalball.test', '', now(), now(), now(), '{}', '{}', '', '', '', '', '', '', '', '');
+    insert into public.profiles (id, first_name, surname, email)
+    values (v_u, 'Fixture', 'Probe', 'trfix-' || v_tag || '@ovalball.test');
+    insert into public.club_directory (name, town, county, rugby_code, country, nation, active,
+                                       verification_status, source, normalized_key)
+    values ('TRFIX ' || v_tag, 'T', 'T', 'union', 'United Kingdom', 'England', true, 'unverified',
+            'site_admin_manual', 'trfix-' || v_tag) returning id into v_dir;
+    insert into public.clubs (directory_id, slug, status) values (v_dir, 'trfix-' || v_tag, 'active') returning id into v_club;
+    insert into public.teams (club_id, display_name, slug, category, age_group, gender, rugby_code, active)
+    values (v_club, 'Under 12 Boys', 'trfix-' || v_tag, 'youth', 'U12', 'boys', 'union', true) returning id into v_team;
+    insert into public.club_memberships (club_id, user_id, role, status)
+    values (v_club, v_u, 'BASIC_USER', 'active') returning id into v_m;
 
-  insert into testing.team_roles (membership_id, team_id, role_key) values (v_m, v_team, 'TEAM_ADMINISTRATION');
+    insert into testing.team_roles (membership_id, team_id, role_key) values (v_m, v_team, 'TEAM_ADMINISTRATION');
 
-  -- The canonical model, not a compatibility row: a manager base and an administration assignment
-  -- elevated from it, both ACTIVE, both canonical keys.
-  select count(*) into v_n from public.role_assignments
-  where membership_id = v_m and team_id = v_team and state = 'ACTIVE'
-    and role_key in ('TEAM_MANAGER', 'TEAM_ADMINISTRATION');
-  if v_n <> 2 then raise exception 'testing.team_roles wrote % canonical assignment(s), expected 2.', v_n; end if;
+    -- The canonical model, not a compatibility row: a manager base and an administration assignment
+    -- elevated from it, both ACTIVE, both canonical keys.
+    select count(*) into v_n from public.role_assignments
+    where membership_id = v_m and team_id = v_team and state = 'ACTIVE'
+      and role_key in ('TEAM_MANAGER', 'TEAM_ADMINISTRATION');
+    if v_n <> 2 then raise exception 'testing.team_roles wrote % canonical assignment(s), expected 2.', v_n; end if;
 
-  -- And the one canonical projection shows exactly one row, with the highest role winning.
-  select count(*) into v_n from internal.team_role_assignments
-  where membership_id = v_m and team_id = v_team and role_key = 'TEAM_ADMINISTRATION';
-  if v_n <> 1 then raise exception 'the canonical projection does not see the fixture''s role.'; end if;
+    -- And the one canonical projection shows exactly one row, with the highest role winning.
+    select count(*) into v_n from internal.team_role_assignments
+    where membership_id = v_m and team_id = v_team and role_key = 'TEAM_ADMINISTRATION';
+    if v_n <> 1 then raise exception 'the canonical projection does not see the fixture''s role.'; end if;
 
-  -- Deleting through the fixture surface revokes the lot.
-  delete from testing.team_roles where membership_id = v_m and team_id = v_team;
-  select count(*) into v_n from internal.team_role_assignments where membership_id = v_m and team_id = v_team;
-  if v_n <> 0 then raise exception 'deleting through testing.team_roles left % live role(s).', v_n; end if;
+    -- Deleting through the fixture surface revokes the lot.
+    delete from testing.team_roles where membership_id = v_m and team_id = v_team;
+    select count(*) into v_n from internal.team_role_assignments where membership_id = v_m and team_id = v_team;
+    if v_n <> 0 then raise exception 'deleting through testing.team_roles left % live role(s).', v_n; end if;
 
-  raise notice 'testing.team_roles writes and revokes canonical role assignments.';
+    raise notice 'testing.team_roles writes and revokes canonical role assignments.';
+    raise exception using errcode = 'OVOK1', message = 'testing.team_roles: probe passed; rolling back its rows';
+  exception when sqlstate 'OVOK1' then
+    null;
+  end;
 end $$;

@@ -47,34 +47,42 @@ declare
   v_dir uuid; v_club uuid; v_venue uuid;
   v_lat numeric; v_lon numeric; v_status text;
 begin
-  -- Proved against real rows rather than asserted from the body, because the whole defect was an
-  -- interaction between a function and a trigger that each looked correct alone.
-  insert into public.club_directory (name, normalized_key, source, rugby_code, country, nation, verification_status, active)
-  values ('Step 6 Pin Probe', 'step-6-pin-probe', 'MANUAL', 'union', 'England', 'England', 'unverified', true)
-  returning id into v_dir;
-  insert into public.clubs (directory_id, slug) values (v_dir, 'step-6-pin-probe') returning id into v_club;
-  insert into public.venues (club_id, name, slug, active) values (v_club, 'Pin Probe Ground', 'step-6-pin-probe-ground', true)
-  returning id into v_venue;
+  -- THE PROBE LEAVES NOTHING BEHIND: it ends by raising a private SQLSTATE its own handler catches, which
+  -- rolls back every row it wrote (and every audit row those writes produced). Any genuine assertion
+  -- failure raises something else and still aborts the migration.
+  begin
+    -- Proved against real rows rather than asserted from the body, because the whole defect was an
+    -- interaction between a function and a trigger that each looked correct alone.
+    insert into public.club_directory (name, normalized_key, source, rugby_code, country, nation, verification_status, active)
+    values ('Step 6 Pin Probe', 'step-6-pin-probe', 'MANUAL', 'union', 'England', 'England', 'unverified', true)
+    returning id into v_dir;
+    insert into public.clubs (directory_id, slug) values (v_dir, 'step-6-pin-probe') returning id into v_club;
+    insert into public.venues (club_id, name, slug, active) values (v_club, 'Pin Probe Ground', 'step-6-pin-probe-ground', true)
+    returning id into v_venue;
 
-  -- A first address entry carrying the provider's own pin: postcode moves NULL -> set.
-  update public.venues
-  set postcode = 'BB11 3JA', latitude = 53.7856, longitude = -2.2280, geocode_status = 'success'
-  where id = v_venue;
-  select latitude, longitude, geocode_status into v_lat, v_lon, v_status from public.venues where id = v_venue;
-  if v_lat is null or v_lon is null then
-    raise exception 'STEP 6: a postcode change still discards coordinates supplied with it';
-  end if;
+    -- A first address entry carrying the provider's own pin: postcode moves NULL -> set.
+    update public.venues
+    set postcode = 'BB11 3JA', latitude = 53.7856, longitude = -2.2280, geocode_status = 'success'
+    where id = v_venue;
+    select latitude, longitude, geocode_status into v_lat, v_lon, v_status from public.venues where id = v_venue;
+    if v_lat is null or v_lon is null then
+      raise exception 'STEP 6: a postcode change still discards coordinates supplied with it';
+    end if;
 
-  -- A postcode correction with NO new pin still invalidates the old one.
-  update public.venues set postcode = 'BB12 0AA' where id = v_venue;
-  select latitude, longitude, geocode_status into v_lat, v_lon, v_status from public.venues where id = v_venue;
-  if v_lat is not null or v_lon is not null or v_status <> 'pending' then
-    raise exception 'STEP 6: a postcode change without a new pin must still invalidate the old one (lat %, status %)', v_lat, v_status;
-  end if;
+    -- A postcode correction with NO new pin still invalidates the old one.
+    update public.venues set postcode = 'BB12 0AA' where id = v_venue;
+    select latitude, longitude, geocode_status into v_lat, v_lon, v_status from public.venues where id = v_venue;
+    if v_lat is not null or v_lon is not null or v_status <> 'pending' then
+      raise exception 'STEP 6: a postcode change without a new pin must still invalidate the old one (lat %, status %)', v_lat, v_status;
+    end if;
 
-  delete from public.venues where id = v_venue;
-  delete from public.clubs where id = v_club;
-  delete from public.club_directory where id = v_dir;
+    delete from public.venues where id = v_venue;
+    delete from public.clubs where id = v_club;
+    delete from public.club_directory where id = v_dir;
 
-  raise notice 'Step 6: a postcode change invalidates a derived pin, and keeps one supplied with it';
+    raise notice 'Step 6: a postcode change invalidates a derived pin, and keeps one supplied with it';
+    raise exception using errcode = 'OVOK1', message = 'Step 6 pin: probe passed; rolling back its rows';
+  exception when sqlstate 'OVOK1' then
+    null;
+  end;
 end $$;
