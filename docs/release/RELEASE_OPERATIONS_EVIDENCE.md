@@ -543,6 +543,42 @@ passed: the repository root was computed one level short (the in-repository refu
 `--keep-comments` with `--data-only` (the data dump keeps pg_dump's comments anyway); an empty CLI answer exited
 silently instead of being logged; the identity query read standard input.
 
+## 5f. Final backup approval gate (local and read-only; no production backup or export taken)
+
+Read-only preflight 8 Oct: HEAD `ca5a2849`; production `system_identifier` 7678069749886157684; ledger 523 /
+`20270502000000` (unchanged; 229 pending); no maintenance gate; cron 7/7; parked migration unchanged and not applied;
+persistent local database unchanged. Production Storage, aggregate only: 8 buckets, 392 objects, ~39 MB. Legacy JWT
+API keys enabled. Dashboard backups/PITR: OWNER-CONFIRMED — NOT INDEPENDENTLY VERIFIED.
+
+New, rehearsed on disposable `ovalball-saas-startup-cleanboot` with fictional objects and a fictional key pair
+(164 objects, 11 buckets, 137 folders in one bucket, depth 4):
+
+| Test | Result |
+|---|---|
+| `take-production-storage-export.py` plan mode | exit 0, nothing created |
+| full run | EXPORT VERIFIED; API listing = `storage.objects` (164); 164 MD5 ETags matched; modes 700/600 |
+| independent decrypt | 164/164 byte-identical to a fresh download; MIME + cache-control 164/164 |
+| faults: wrong identity, unlisted object, failed fetch, truncated, corrupted, corrupted ciphertext, wrong DB password, anon key, non-JWT key | each exit 3, only the log left |
+| wrong key passphrase; certificate of another key | refused before connecting (both scripts) |
+| refusals: existing / relative / in-repo / iCloud / CloudStorage out-dir; foreign pooler host; persistent project | each refused |
+| secrets | 0 service-key, 0 password, 0 object-path occurrences in logs/output; 0 in 19 process-argument samples |
+| `verify-backup-archive.py` | DB archive (9 files) and Storage archive (164 objects) verified against the escrowed digest; wrong digest → exit 4 before decrypting; tampered archive: raw CMS decrypt exits 0 (unauthenticated), verifier refuses it, and catches the content change even when the digest beside it was replaced |
+| `take-production-logical-backup.sh` after the key-match/umask change | BACKUP VERIFIED (276 tables, 752 ledger, 12 cron, both pepper names) |
+
+Codex review of the new code: 6 release-blocking + 2 advisory findings, all fixed and re-rehearsed:
+
+| Finding | Fix | Proof (fictional) |
+|---|---|---|
+| plaintext survives SIGTERM | signals raise/trap into the checked cleanup | SIGTERM with 32 objects on disk → only the log left; DB SIGTERM mid-dump → exit 130, only the log; verifier SIGTERM → scratch 0 |
+| passphrase in argv / child env | `-passin env:NAME`, stripped from children; production uses openssl's prompt | 0 in arguments (14 + 53 samples), 0 in docker processes' environment |
+| verifier hash/decrypt race | hash and decrypt the same private copy | by construction |
+| cleanup failure unchecked | remnants → `PLAINTEXT NOT DELETED`, exit 8, archive discarded; verdict only after cleanup | — |
+| `sslmode=require` | `--db-root-cert` required, `verify-full` | production plans refuse without it; **not exercised against production** |
+| verifier scratch via `$TMPDIR` | scratch beside the archive or `--scratch-dir`; repo/synced refused | repo and iCloud refused; `$TMPDIR` in iCloud ignored |
+| zero-byte object; empty export | size 0 accepted; `objects/` always present | both verified |
+
+Operator package: `PRODUCTION_BACKUP_APPROVAL_PACKAGE.md`.
+
 ## 6. Reproduce
 
 ```sh

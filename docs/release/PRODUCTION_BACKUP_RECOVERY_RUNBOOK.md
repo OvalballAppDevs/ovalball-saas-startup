@@ -43,7 +43,7 @@ approval at the time, as listed in "Approvals".
 | Platform "restore to a new project" | **UNKNOWN** | Documented route: Duplicate Project. A new project ref, so new keys and a new mobile build. |
 | Last automatic backup / retention | **UNKNOWN** | Owner reads it (screens below). |
 | Logical backup (`supabase db dump` + supplement) | **AVAILABLE; rehearsed on disposable stacks** | Read-only against the source. Restores into an EMPTY project. Every compared property matched, with three explained exceptions (section 7). |
-| Storage file export | **AVAILABLE; rehearsed on disposable stacks** | Through the Storage API with the service role (`scripts/ops/restore/copy-storage-objects.py` shows the method; it only accepts local stacks). |
+| Storage file export | **AVAILABLE; rehearsed on disposable stacks** | `scripts/ops/backup/take-production-storage-export.py`: a separate, encrypted, verified export of every object (bytes + manifest of path, size, MIME, cache-control, ETag, SHA-256). Never run against production. A loader from its archive into a restore target is not yet written. |
 | Last known restore point | 5 Sep 2026 manual dumps (`~/ovalball-deploy-backups`) | Never restored; predates 30+ days of data. Not acceptable as the release backup. |
 
 **Archived WAL is not a restore point.** It proves the platform ships WAL somewhere; whether any of it can be
@@ -104,6 +104,7 @@ scripts/ops/backup/take-production-logical-backup.sh \
   --operator "<named operator>" --out-dir "$HOME/OvalballBackups/<YYYY-MM-DD>" \
   --recipient-cert "<key folder>/ovalball-backup-<YYYY-MM-DD>.crt" \
   --verify-key "<key folder>/ovalball-backup-<YYYY-MM-DD>.key" \
+  --db-root-cert "<key folder>/supabase-root-ca.crt" \
   --connection session-pooler --pooler-host "aws-<n>-<region>.pooler.supabase.com"   # or: --connection direct
 # 2. Only with the approval: the same command with --execute. It asks for the database password (not echoed) and,
 #    for the round trip, the key's passphrase.
@@ -120,8 +121,9 @@ What it proves before it prints `BACKUP VERIFIED` (each proved in the rehearsal,
 | Fails safely on incomplete output | Every file must be non-empty; `schema.sql` and `data.sql` must end with pg_dump's completion marker; one `COPY` per public table; the ledger part must hold exactly the recorded count and last version; one cron schedule per job; both pepper names. Any failure deletes all plaintext and the partial archive (rehearsed: truncated data → exit 5; empty cron part → exit 5; only the log left). |
 | Integrity verified before success | SHA256SUMS + manifest inside the archive; the archive's own SHA-256 in `custody.json` OUTSIDE it (CMS is not authenticated, so this digest is what detects tampering); then a full round trip: decrypt with the dedicated key, unpack, check every file. Rehearsed: a corrupted archive → exit 7; a wrong key passphrase → exit 7. |
 
-It backs up the DATABASE (roles, schema, data and the supplement). Storage files (392 objects, 39 MB on 8 Oct) are
-not in it; exporting them is a separate decision and approval.
+It backs up the DATABASE (roles, schema, data and the supplement). Storage files are exported separately by
+`scripts/ops/backup/take-production-storage-export.py` under their own approval. The operator-facing package for
+both, with exact commands, checklist and blockers, is `PRODUCTION_BACKUP_APPROVAL_PACKAGE.md`.
 
 **Custody plan** (decisions in brackets are the owner's):
 
@@ -131,7 +133,7 @@ not in it; exporting them is a separate decision and approval.
 | Dedicated key | A new RSA-4096 key pair made for this backup alone, on the operator's Mac: `openssl req -x509 -newkey rsa:4096 -keyout ovalball-backup-<date>.key -out ovalball-backup-<date>.crt -days 60 -subj "/CN=ovalball-backup-<date>"` (it asks for a passphrase: the private key is never stored unencrypted). The private key file and its passphrase go into [the owner's secret manager]; the key file is kept on disk only in a mode-700 folder outside any synced folder, for the run's round trip, and deleted afterwards. Never reused for anything else. |
 | Encryption | `openssl cms -encrypt -aes256` (LibreSSL, already on the Mac) to that certificate; nothing else to install. (`age` would add authenticated encryption; it is not installed, and installing it is the owner's call.) |
 | Destination | A new folder `~/OvalballBackups/<date>` (mode 700, files 600) on the FileVault-encrypted Mac, outside the repository and every synced folder — the script refuses anything else. A second copy of the ENCRYPTED archive + `custody.json` on [an owner-controlled encrypted external drive]. The plaintext never leaves the script's own folder and is deleted by it. |
-| Integrity record | `custody.json` (archive SHA-256, certificate fingerprint, operator, time, identity, ledger) copied into the release log as well, so a later check does not rely on a file stored next to the archive. |
+| Integrity record | CMS here is NOT authenticated encryption (a modified archive still decrypts), so the archive SHA-256 printed at `BACKUP VERIFIED` is copied into the escrow entry that holds the key (and the release log). `scripts/ops/backup/verify-backup-archive.py` checks an archive against the digest typed from escrow before decrypting, then every file. `custody.json` beside the archive is a convenience, not the trusted record. |
 | Retention and deletion | Until [the owner declares the release stable; proposal 30 days]. Then delete every archive copy and destroy every copy of the dedicated private key (cryptographic erasure); record date and method. |
 | Separation from the restore target | The archive is decrypted only at restore time, into a mode-700 folder outside the target's project directory, restored with `rehearse-logical-restore.sh` into an isolated target (section 6, "Restore isolation"), and the decrypted folder deleted straight after; the restore is its own approval. |
 
@@ -403,7 +405,7 @@ All of these passed in the rehearsal; a production restore rehearsal must pass t
 - A restore of a PRODUCTION backup (not authorised). Production carries data shapes the synthetic rehearsal data may
   not (for example function-based CHECKs over real rows).
 - The restore-isolation design on a production-derived copy: its controls are proved on fictional data only.
-- Storage export at production scale (392 objects; sizes not read).
+- The Storage export against production (392 objects, ~39 MB): rehearsed only on fictional data; a loader from its archive into a restore target is not written.
 - In-place logical restore over an existing project.
 
 ## 9. Approvals

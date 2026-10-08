@@ -3,7 +3,8 @@
 #
 #   PLAN (default; connects to nothing):
 #     scripts/ops/backup/take-production-logical-backup.sh --operator NAME --out-dir DIR \
-#         --recipient-cert CERT.pem --verify-key KEY.pem --connection direct|session-pooler [--pooler-host HOST]
+#         --recipient-cert CERT.pem --verify-key KEY.pem --db-root-cert SUPABASE_CA.crt \
+#         --connection direct|session-pooler [--pooler-host HOST]
 #   EXECUTE (only with the owner's explicit approval for this one backup):
 #     ... the same ... --execute
 #   REHEARSAL against a DISPOSABLE local stack (fictional data; same procedure end to end):
@@ -36,6 +37,7 @@
 # no connection string with a password, no data.
 set -euo pipefail
 umask 077
+OVB_PP="${OVB_BACKUP_KEY_PASSPHRASE:-}"; unset OVB_BACKUP_KEY_PASSPHRASE   # before any child process exists
 
 PROD_REF="ywwdizmaanbujcfitpcj"
 PROD_SYSTEM_IDENTIFIER="7678069749886157684"
@@ -43,13 +45,14 @@ PERSISTENT_PROJECT_ID="ovalball-saas-startup"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 CAPTURE="$REPO/scripts/ops/restore/capture-supplement.sql"
 
-OPERATOR=""; OUT=""; CERT=""; VKEY=""; CONN=""; POOLER_HOST=""; TEST_DIR=""; EXECUTE=0
+OPERATOR=""; OUT=""; CERT=""; VKEY=""; ROOTCERT=""; CONN=""; POOLER_HOST=""; TEST_DIR=""; EXECUTE=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --operator) OPERATOR="$2"; shift 2 ;;
     --out-dir) OUT="$2"; shift 2 ;;
     --recipient-cert) CERT="$2"; shift 2 ;;
     --verify-key) VKEY="$2"; shift 2 ;;
+    --db-root-cert) ROOTCERT="$2"; shift 2 ;;
     --connection) CONN="$2"; shift 2 ;;
     --pooler-host) POOLER_HOST="$2"; shift 2 ;;
     --test-local-project-dir) TEST_DIR="$2"; shift 2 ;;
@@ -100,6 +103,12 @@ else
     *) refuse "--connection must be direct or session-pooler" ;;
   esac
   HOST_FOR_CONTAINER="$HOST_FOR_CLI"; EXPECTED_ID="$PROD_SYSTEM_IDENTIFIER"
+  # TLS must AUTHENTICATE the server (sslmode=require does not): libpq checks the chain against the project's Supabase
+  # root CA (Dashboard -> Database -> Settings -> SSL configuration -> Download certificate) and the host name BEFORE
+  # any credential is sent, so an interceptor cannot collect the password or answer the identity query.
+  [ -n "$ROOTCERT" ] && [ -f "$ROOTCERT" ] || refuse "--db-root-cert (the project's Supabase root CA) is required for production"
+  openssl x509 -in "$ROOTCERT" -noout >/dev/null 2>&1 || refuse "--db-root-cert is not a PEM certificate"
+  SSLMODE=verify-full
   TARGET_DESC="PRODUCTION project $PROD_REF via $CONN ($HOST_FOR_CLI:$PORT, user $DBUSER)"
 fi
 
@@ -112,10 +121,22 @@ Backup plan
   encryption   : openssl cms -aes256 to $(basename "$CERT") (RSA-4096, SHA-256 fingerprint $CERT_FP)
   round trip   : decrypt with $(basename "$VKEY"), check every file against SHA256SUMS
   dump image   : $PGIMAGE
+  TLS          : ${SSLMODE:-disable (local rehearsal)}${ROOTCERT:+ against $(basename "$ROOTCERT")}
 PLAN
 if [ "$EXECUTE" -ne 1 ]; then echo "PLAN ONLY. Nothing was connected to, read or written. Re-run with --execute."; exit 0; fi
 
-# ---------------------------------------------------------------------------------------------- 2. secret + workspace
+# ---------------------------------------------------------------------------------------------- 2. key match, secret, workspace
+umask 077
+# The key's passphrase is typed at openssl's own prompt. Rehearsals may set OVB_BACKUP_KEY_PASSPHRASE: it reaches
+# openssl as `-passin env:NAME` (the NAME, never the value, in any argument) and is removed from every other child.
+# Production: openssl's own prompt only. A rehearsal may supply OVB_BACKUP_KEY_PASSPHRASE; it is taken out of the
+# environment here and handed ONLY to the openssl commands that need it (`ossl`), as `-passin env:NAME`.
+[ -z "$OVB_PP" ] || [ -n "$TEST_DIR" ] || refuse "OVB_BACKUP_KEY_PASSPHRASE is for rehearsals only; production types the passphrase at openssl's prompt"
+PASSIN=(); [ -n "$OVB_PP" ] && PASSIN=(-passin env:OVB_BACKUP_KEY_PASSPHRASE)
+ossl() { if [ -n "$OVB_PP" ]; then OVB_BACKUP_KEY_PASSPHRASE="$OVB_PP" openssl "$@"; else openssl "$@"; fi; }
+[ "$(openssl x509 -in "$CERT" -noout -pubkey)" = "$(ossl pkey -in "$VKEY" -pubout ${PASSIN[@]+"${PASSIN[@]}"} 2>/dev/null)" ] \
+  || refuse "the verify key is not the private key of the recipient certificate (or its passphrase is wrong)"
+echo "  key match    : the verify key is the recipient certificate's private key"
 if [ -n "$TEST_DIR" ]; then PGPASSWORD="${OVB_BACKUP_TEST_PASSWORD:-postgres}"; else
   printf "Database password for %s (not echoed): " "$DBUSER" >&2; IFS= read -rs PGPASSWORD; echo >&2
 fi
@@ -126,15 +147,29 @@ WORK="$OUT/.plain"; VERIFY="$OUT/.verify"; mkdir -m 700 "$WORK"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"; ARCHIVE="$OUT/ovalball-db-backup-$STAMP.tar.cms"; LOG="$OUT/backup.log"
 OK=0
 finish() {
-  rm -rf "$WORK" "$VERIFY"                      # plaintext never survives, success or failure
-  if [ "$OK" -ne 1 ]; then rm -f "$ARCHIVE" "$OUT/custody.json"; echo "BACKUP FAILED -- nothing usable was produced; plaintext deleted. See $LOG" >&2; fi
-  unset PGPASSWORD
+  local rc=$?
+  trap '' INT TERM HUP; set +e                  # nothing interrupts or aborts the cleanup
+  rm -rf "$WORK" "$VERIFY" 2>/dev/null          # plaintext never survives, success or failure
+  if [ -e "$WORK" ] || [ -e "$VERIFY" ]; then   # ...and that is checked, not assumed
+    echo "PLAINTEXT NOT DELETED: remove $WORK and $VERIFY by hand NOW; treat this run as failed" >&2; OK=0; rc=8
+  fi
+  if [ "$OK" -ne 1 ]; then
+    rm -f "$ARCHIVE" "$OUT/custody.json" 2>/dev/null
+    echo "BACKUP FAILED -- nothing usable was produced. See $LOG" >&2
+    if [ "$rc" -eq 0 ]; then rc=1; fi
+  else
+    log "BACKUP VERIFIED: $(basename "$ARCHIVE") SHA-256 $CIPHER_SHA (custody record: $OUT/custody.json); plaintext deleted"
+  fi
+  unset PGPASSWORD OVB_PP
+  exit "$rc"
 }
 trap finish EXIT
+trap 'exit 130' INT TERM HUP                    # a signal still runs finish (SIGKILL cannot be caught: see the package)
 scrub() { python3 -c 'import os,sys; p=os.environ.get("PGPASSWORD",""); d=sys.stdin.read(); sys.stdout.write(d.replace(p,"***") if p else d)'; }
 log() { echo "[$(date -u +%H:%M:%S)] $*" | scrub | tee -a "$LOG"; }
+TLSARGS=(); [ -n "$ROOTCERT" ] && TLSARGS=(-v "$(cd "$(dirname "$ROOTCERT")" && pwd -P)/$(basename "$ROOTCERT"):/ovb-root.crt:ro" -e PGSSLROOTCERT=/ovb-root.crt)
 pg() {  # read-only psql in the local Postgres image; credentials only in the environment
-  docker run --rm -i -e PGPASSWORD -e PGOPTIONS='-c default_transaction_read_only=on' "$PGIMAGE" \
+  env -u OVB_BACKUP_KEY_PASSPHRASE docker run --rm -i -e PGPASSWORD -e PGOPTIONS='-c default_transaction_read_only=on' ${TLSARGS[@]+"${TLSARGS[@]}"} "$PGIMAGE" \
     psql "host=$HOST_FOR_CONTAINER port=$PORT user=$DBUSER dbname=postgres sslmode=${SSLMODE:-require} connect_timeout=15" -X -v ON_ERROR_STOP=1 "$@"
 }
 [ -n "$TEST_DIR" ] && SSLMODE=disable
@@ -160,7 +195,7 @@ dump() {  # $1 file, rest: CLI flags
   local script; script="$(cli_script "$@")" || script=""
   grep -q 'OVBPLACEHOLDER' <<<"$script" && { log "the dump script still carries a credential placeholder: stopping"; exit 4; }
   grep -qE '^(pg_dump|pg_dumpall) ' <<<"$script" || { log "could not obtain the CLI's dump script for $f"; exit 4; }
-  docker run --rm -i -e PGPASSWORD -e PGSSLMODE="${SSLMODE:-require}" -e PGOPTIONS='-c default_transaction_read_only=on' \
+  env -u OVB_BACKUP_KEY_PASSPHRASE docker run --rm -i -e PGPASSWORD -e PGSSLMODE="${SSLMODE:-require}" -e PGOPTIONS='-c default_transaction_read_only=on' ${TLSARGS[@]+"${TLSARGS[@]}"} \
     "$PGIMAGE" bash -s <<<"$script" > "$WORK/$f" 2>>"$LOG" || { log "dump of $f failed"; exit 4; }
   log "dumped $f ($(wc -c < "$WORK/$f" | tr -d ' ') bytes)"
 }
@@ -208,7 +243,7 @@ log "encrypted: $(basename "$ARCHIVE") ($(wc -c < "$ARCHIVE" | tr -d ' ') bytes)
 # ---------------------------------------------------------------------------------------------- 7. round trip
 mkdir -m 700 "$VERIFY"
 log "round trip: decrypting with the dedicated private key (openssl may ask for its passphrase)"
-openssl cms -decrypt -binary -inform DER -in "$ARCHIVE" -inkey "$VKEY" ${OVB_BACKUP_KEY_PASSIN:+-passin "$OVB_BACKUP_KEY_PASSIN"} \
+ossl cms -decrypt -binary -inform DER -in "$ARCHIVE" -inkey "$VKEY" ${PASSIN[@]+"${PASSIN[@]}"} \
   | tar -C "$VERIFY" -xf - 2>>"$LOG" || { log "the archive does not decrypt and unpack with the verify key"; exit 7; }
 (cd "$VERIFY" && shasum -a 256 -c SHA256SUMS >/dev/null 2>&1) || { log "the decrypted files do not match SHA256SUMS"; exit 7; }
 (cd "$VERIFY" && shasum -a 256 *.sql) | diff -q - "$WORK/SHA256SUMS" >/dev/null || { log "decrypted digests differ from the plaintext digests"; exit 7; }
@@ -219,5 +254,4 @@ json.dump({"archive": "$(basename "$ARCHIVE")", "archive_sha256": "$CIPHER_SHA",
            "operator": "$OPERATOR", "created_utc": "$STAMP", "source": "$TARGET_DESC", "system_identifier": "$SYSID",
            "ledger_last": "$LEDGER_MAX", "verified": "decrypted and every file matched SHA256SUMS"}, open(sys.argv[1], "w"), indent=1)
 PY
-OK=1
-log "BACKUP VERIFIED: $(basename "$ARCHIVE") SHA-256 $CIPHER_SHA (custody record: $OUT/custody.json)"
+OK=1   # BACKUP VERIFIED is printed by finish, only after the plaintext is proved gone
