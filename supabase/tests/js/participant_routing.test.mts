@@ -224,7 +224,7 @@ test("no screen builds a fixture or training path by hand any more", () => {
       // screen of a flow under /fixtures (Season Planner steps, Add Fixture) is a screen, not a fixture, and is
       // pushed by name exactly as the object form below already allows. Training paths are always addresses.
       if (/router\.(push|replace)\(\s*`\/fixtures\/\$\{/.test(line)) offenders.push(`${file}: ${line.trim()}`)
-      if (/router\.(push|replace)\(\s*[`"']\/fixtures\/[0-9a-f]{8}-/.test(line)) offenders.push(`${file}: ${line.trim()}`)
+      if (/router\.(push|replace)\(\s*[`"']\/fixtures\/[0-9a-f]{8}-/i.test(line)) offenders.push(`${file}: ${line.trim()}`)
       if (/router\.(push|replace)\(\s*[`"']\/calendar\/training\//.test(line)) offenders.push(`${file}: ${line.trim()}`)
       if (/pathname:\s*"\/fixtures\/\[fixtureId\]/.test(line)) offenders.push(`${file}: ${line.trim()}`)
       if (/pathname:\s*"\/calendar\/training\//.test(line)) offenders.push(`${file}: ${line.trim()}`)

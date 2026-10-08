@@ -410,7 +410,7 @@ test("the launch canvas gets out of the way rather than fading in place", () => 
 })
 
 
-test("a message bubble is coloured and ordered the way the website does it", () => {
+test("a message bubble is coloured the way the website does it, and the thread reads newest at the bottom", () => {
   // THE FIRST DRAFT HAD IT INVERTED -- forest for mine, white for received -- which misattributes
   // every message on the screen to the wrong side for anybody who learned the product in a browser.
   // The website is blue-right for your own and mint-left for received, newest at the top.
@@ -426,6 +426,8 @@ test("a message bubble is coloured and ordered the way the website does it", () 
   assert.match(bubble, /alignItems: mine \? "flex-end" : "flex-start"/, "yours is not on the right -- colour must never be the only signal")
   assert.match(bubble, /const mine = message\.isOwn/, "ownership is derived from something other than the server's answer")
   assert.ok(!/senderUserId === /.test(bubble), "ownership is recomputed from a sender id")
+  // ORDER IS NOT WEBSITE PARITY: the website's thread is still newest-at-top (components/messenger/message-thread.tsx);
+  // the phone follows the owner's later rule, recorded as an open web parity item rather than asserted as shared.
   // Owner, 7 Oct 2026: inside a conversation the NEWEST message sits at the BOTTOM beside the composer (an inverted
   // list over newest-first data) -- never flipped to the top. A virtualised list, because a club thread can run
   // for a season and a ScrollView would build every message before the first frame.
