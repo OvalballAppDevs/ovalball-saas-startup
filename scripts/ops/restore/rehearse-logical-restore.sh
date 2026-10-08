@@ -63,8 +63,11 @@ PID="$(sed -n 's/^[[:space:]]*project_id[[:space:]]*=[[:space:]]*"\([a-z0-9-]*\)
 # stack, Auth mailing only this stack's catcher with loopback links. Any failure, or anything it cannot inspect,
 # stops here, dry run included. There is no flag to skip it.
 echo "Isolation preflight of the target (nothing in the backup has been read)..."
+if ! python3 "$HERE/restore-target-isolation.py" guard-status --project-dir "$TARGET"; then
+  refuse "no live isolation guard for the target; the backup was not opened. Start the target with start-isolated-restore-target.sh"
+fi
 if ! python3 "$HERE/restore-target-isolation.py" verify --project-dir "$TARGET" --quiet; then
-  refuse "the target is not network-isolated (see the failures above); the backup was not opened. Start it through docker-loopback-proxy.py, run 'restore-target-isolation.py isolate', and try again"
+  refuse "the target is not network-isolated (see the failures above); the backup was not opened. Start it with start-isolated-restore-target.sh"
 fi
 
 [ -n "$BACKUP" ] && [ -d "$BACKUP" ] || refuse "--backup-dir must name a directory"
@@ -160,8 +163,9 @@ echo "restore committed in $(( $(date +%s) - start ))s"
 
 # The preflight was a snapshot. Check again now that the data is in: if the target lost its isolation meanwhile (a
 # container re-attached to a network with a route out, a port re-published), stop every container of it at once.
-if ! python3 "$HERE/restore-target-isolation.py" verify --project-dir "$TARGET" --quiet; then
-  echo "EMERGENCY STOP: the target lost its network isolation after the restore. Stopping it..." >&2
+if ! python3 "$HERE/restore-target-isolation.py" guard-status --project-dir "$TARGET" \
+   || ! python3 "$HERE/restore-target-isolation.py" verify --project-dir "$TARGET" --quiet; then
+  echo "EMERGENCY STOP: the target lost its network isolation (or its guard) during the restore. Stopping it..." >&2
   python3 "$HERE/restore-target-isolation.py" emergency-stop --project-dir "$TARGET" >&2 || true
   echo "Destroy it (PRODUCTION_BACKUP_RECOVERY_RUNBOOK.md, 'Restore isolation') and tell the owner." >&2
   exit 1

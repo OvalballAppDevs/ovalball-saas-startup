@@ -37,12 +37,25 @@ def stack(d):
     return m.group(1), e["API_URL"], e["SERVICE_ROLE_KEY"]
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, f"redirect to {newurl} refused", headers, fp)
+
+
+# Straight to the loopback API and nowhere else: no proxy from the environment (HTTP_PROXY and friends are ignored),
+# and no redirect followed -- a service answering with a redirect could otherwise send the host, and the data it
+# carries, anywhere.
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+
+
 def call(api, key, method, path, data=None, ctype="application/json", upsert=False):
+    if not re.match(r"^http://(127\.0\.0\.1|localhost):\d+$", api):
+        die(f"refusing a non-loopback API URL: {api}")
     h = {"apikey": key, "Authorization": "Bearer " + key, "Content-Type": ctype}
     if upsert:
         h["x-upsert"] = "true"
     r = urllib.request.Request(api + path, data=data, method=method, headers=h)
-    with urllib.request.urlopen(r, timeout=60) as resp:
+    with OPENER.open(r, timeout=60) as resp:
         return resp.read(), resp.headers.get("Content-Type")
 
 
@@ -71,16 +84,23 @@ def main():
     ap.add_argument("--source-project-dir", required=True)
     ap.add_argument("--target-project-dir", required=True)
     ap.add_argument("--execute", action="store_true")
+    ap.add_argument("--target-relay-port", type=int, help="an isolated target's loopback API relay port (start-isolated-restore-target.sh prints it)")
     a = ap.parse_args()
     # The target receives the files, so it must be network-isolated before anything is read from the source or
     # written to it (restore-target-isolation.py; the same preflight the database restore runs). No flag skips it.
     here = __import__("pathlib").Path(__file__).resolve().parent
     print("Isolation preflight of the target (nothing has been read from the source)...")
+    if a.target_relay_port is None:
+        die("--target-relay-port is required: an isolated target is reached only through its loopback API relay")
+    if subprocess.run([sys.executable, str(here / "restore-target-isolation.py"), "guard-status",
+                       "--project-dir", a.target_project_dir]).returncode != 0:
+        die("no live isolation guard for the target; start it with start-isolated-restore-target.sh. Nothing was read or copied")
     if subprocess.run([sys.executable, str(here / "restore-target-isolation.py"), "verify",
-                       "--project-dir", a.target_project_dir, "--quiet"]).returncode != 0:
+                       "--project-dir", a.target_project_dir, "--quiet", "--api-port", str(a.target_relay_port)]).returncode != 0:
         die("the target is not network-isolated (see the failures above); nothing was read or copied")
     sp, sapi, skey = stack(a.source_project_dir)
-    tp, tapi, tkey = stack(a.target_project_dir)
+    tp, _, tkey = stack(a.target_project_dir)
+    tapi = f"http://127.0.0.1:{a.target_relay_port}"  # the relay: the target publishes nothing that forwards
     if sp == tp:
         die("source and target are the same project")
     want = rows(tapi, tkey)
@@ -91,7 +111,9 @@ def main():
     isolation = [sys.executable, str(here / "restore-target-isolation.py")]
 
     def still_isolated() -> None:
-        if subprocess.run(isolation + ["verify", "--project-dir", a.target_project_dir, "--quiet"]).returncode != 0:
+        if (subprocess.run(isolation + ["guard-status", "--project-dir", a.target_project_dir]).returncode != 0 or
+                subprocess.run(isolation + ["verify", "--project-dir", a.target_project_dir, "--quiet",
+                                            "--api-port", str(a.target_relay_port)]).returncode != 0):
             raise SystemExit("isolation lost")
 
     try:
