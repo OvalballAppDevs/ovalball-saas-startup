@@ -577,7 +577,8 @@ export async function updateFixtureStatus(fixtureId: string, status: string): Pr
     return { ok: false, error: "That status change isn't available here." }
   }
   const supabase = await createClient()
-  // fixtures_update_scoped's RLS is the real boundary -- see createFixture's comment above.
+  // update_fixture_details is the real boundary (D-001): owning club's fixture staff or `site.fixtures.support`,
+  // the same status list, and a cancelled fixture is never reopened by a bare status write.
   const auth = await requireAuthenticated(supabase)
   if (!auth.ok) return { ok: false, error: auth.error }
 
@@ -587,7 +588,7 @@ export async function updateFixtureStatus(fixtureId: string, status: string): Pr
     return { ok: false, error: "A cancelled fixture can't be reopened this way -- edit the fixture directly if that's genuinely needed." }
   }
 
-  const { error } = await supabase.from("fixtures").update({ status }).eq("id", fixtureId)
+  const { error } = await supabase.rpc("update_fixture_details", { p_fixture_id: fixtureId, p_patch: { status } })
   if (error) {
     console.error("updateFixtureStatus failed:", error)
     return { ok: false, error: toPublicSubmissionError() }
@@ -598,15 +599,14 @@ export async function updateFixtureStatus(fixtureId: string, status: string): Pr
 }
 
 export async function cancelFixture(fixtureId: string, reason: string): Promise<ActionResult> {
+  if (!reason.trim()) return { ok: false, error: "Give a reason for cancelling, so the other side and the players are told why." }
   const supabase = await createClient()
-  // fixtures_update_scoped's RLS is the real boundary -- see createFixture's comment above.
+  // cancel_fixture is the real boundary (D-001): the cancel capability or `site.fixtures.support`, a reason, and the
+  // mirror fixture, system message and notifications handled in one place.
   const auth = await requireAuthenticated(supabase)
   if (!auth.ok) return { ok: false, error: auth.error }
 
-  const { error } = await supabase
-    .from("fixtures")
-    .update({ status: "Cancelled", cancelled_at: new Date().toISOString(), cancelled_by: auth.user.id, cancellation_reason: reason.trim() || null })
-    .eq("id", fixtureId)
+  const { error } = await supabase.rpc("cancel_fixture", { p_fixture_id: fixtureId, p_reason: reason.trim() })
 
   if (error) {
     console.error("cancelFixture failed:", error)

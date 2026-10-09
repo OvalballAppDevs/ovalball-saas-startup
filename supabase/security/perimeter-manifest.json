@@ -730,12 +730,24 @@
       },
       "authenticated": {
         "select": "all",
-        "update": "all",
+        "update": [
+          "bio",
+          "website",
+          "facebook_url",
+          "address_display",
+          "show_website",
+          "show_home_ground",
+          "show_address",
+          "show_postcode",
+          "logo_storage_path",
+          "cover_storage_path"
+        ],
         "write_consumers": [
           "app/(app)/admin/clubs/[directoryId]/actions.ts",
-          "app/(app)/club/actions.ts"
+          "app/(app)/club/actions.ts",
+          "apps/mobile/src/identity/images.ts"
         ],
-        "write_reason": "Direct application write; RLS write policies decide which rows.",
+        "write_reason": "Direct application write of profile and image columns only; RLS (clubs_update_admin) decides which rows. status, slug, directory_id, timezone, location and the deactivation record are not writable (D-001, 20270766000000): status changes through deactivate_club, reactivate_club and set_club_public_status.",
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns."
       }
     },
@@ -1318,11 +1330,8 @@
       "authenticated": {
         "select": "all",
         "insert": "none",
-        "update": "all",
-        "write_consumers": [
-          "app/(app)/admin/fixtures/actions.ts"
-        ],
-        "write_reason": "Direct application UPDATE; RLS write policies decide which rows. INSERT is no longer granted: fixtures are created only through public.create_fixture.",
+        "update": "none",
+        "write_reason": "No browser write (D-001, 20270766000000). Every fixture change goes through a controlled SECURITY DEFINER action -- update_fixture_details, update_fixture_schedule, cancel_fixture, the result flow and the rest -- so neither side's staff can change status, scores, kick-off, pitch or teams directly.",
         "select_reason": "Row access decided by RLS policies; no browser role may read secret columns.",
         "insert_reason": "Slice 4C retired the direct-insert bypass (AA.3 row 4c; J.6 line 457). Creation travels through public.create_fixture, which enforces canonical fixture.fixture.create and routes an Ovalball opponent into the request/verification flow. With no INSERT privilege there is no second route that could book a fixture against another club without asking them."
       }
@@ -4742,7 +4751,8 @@
         "signature": "cancel_fixture(uuid, text)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "app/(app)/calendar/fixture-lifecycle-actions.ts"
+          "app/(app)/calendar/fixture-lifecycle-actions.ts",
+          "app/(app)/admin/fixtures/actions.ts"
         ]
       },
       {
@@ -7643,6 +7653,14 @@
         ]
       },
       {
+        "signature": "set_club_public_status(uuid, text)",
+        "category": "APPLICATION_RPC",
+        "consumers": [
+          "app/(app)/admin/clubs/[directoryId]/actions.ts"
+        ],
+        "reason": "D-001 (20270766000000): the Site Admin's Active/Suspended club setting, formerly a direct write of clubs.status; site.clubs.profile.manage only, never a deactivated club."
+      },
+      {
         "signature": "set_default_venue(uuid)",
         "category": "APPLICATION_RPC",
         "consumers": [
@@ -8476,7 +8494,8 @@
         "signature": "update_fixture_details(uuid, jsonb)",
         "category": "APPLICATION_RPC",
         "consumers": [
-          "apps/mobile/src/agenda/mutations.ts"
+          "apps/mobile/src/agenda/mutations.ts",
+          "app/(app)/admin/fixtures/actions.ts"
         ]
       },
       {

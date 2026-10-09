@@ -198,15 +198,28 @@ export interface ClubProfileInput {
 }
 
 /**
- * Only ever touches `clubs` -- never club_directory. clubs_update_admin
- * (is_site_admin() or is_club_admin(id)) is the real boundary, same policy
- * a Club Admin's own /club page already relies on; a Site Admin editing
- * here is exercising the same RLS grant, not a separate bypass.
+ * Only ever touches `clubs` -- never club_directory. The profile columns go
+ * through clubs_update_admin (the same policy a Club Admin's own /club page
+ * relies on) and the column-limited grant; the Active/Suspended status is a
+ * controlled action, set_club_public_status, because `status` is no longer
+ * directly writable by any signed-in user (D-001).
  */
 export async function updateClubProfile(input: ClubProfileInput): Promise<ActionResult> {
   const supabase = await createClient()
   const auth = await requireSiteAdmin(supabase, ['full', 'club_data'])
   if (!auth.ok) return { ok: false, error: auth.error }
+
+  // The status goes first, so a refused change never leaves the profile half-saved; a deactivated club's status is
+  // deactivate_club / reactivate_club's business and is left exactly as it is.
+  const { data: current } = await supabase.from("clubs").select("status").eq("id", input.clubId).maybeSingle()
+  if (!current) return { ok: false, error: "Club not found." }
+  if (current.status !== "deactivated" && current.status !== input.status) {
+    const { error: statusError } = await supabase.rpc("set_club_public_status", { p_club_id: input.clubId, p_status: input.status })
+    if (statusError) {
+      console.error("updateClubProfile status failed:", statusError)
+      return { ok: false, error: toPublicSubmissionError() }
+    }
+  }
 
   const { error } = await supabase
     .from("clubs")
@@ -215,7 +228,6 @@ export async function updateClubProfile(input: ClubProfileInput): Promise<Action
       website: input.website.trim() || null,
       facebook_url: input.facebookUrl.trim() || null,
       address_display: input.addressDisplay.trim() || null,
-      status: input.status,
       show_website: input.showWebsite,
       show_home_ground: input.showHomeGround,
       show_address: input.showAddress,
@@ -227,6 +239,7 @@ export async function updateClubProfile(input: ClubProfileInput): Promise<Action
     console.error("updateClubProfile failed:", error)
     return { ok: false, error: toPublicSubmissionError() }
   }
+
   revalidatePath(`/admin/clubs/${input.directoryId}`)
   revalidatePath("/admin/clubs")
   return { ok: true }

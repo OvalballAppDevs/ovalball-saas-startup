@@ -278,22 +278,46 @@ begin
     raise notice 'FAIL 4b: no change notification';
   end if;
 
-  -- Drift guard: the club cannot move a competition-controlled field itself.
+  -- Drift guard: the club cannot move a competition-controlled field itself. Since 20270766000000 (D-001) no client
+  -- writes public.fixtures directly at all, so the guard is proved through the controlled action a club would use.
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin_a::text, 'role', 'authenticated')::text, true);
   begin
     update public.fixtures set kickoff_date = v_day + 30 where id = v_fixture;
-    raise notice 'FAIL D: a club moved a competition fixture''s date directly';
+    raise notice 'FAIL D0: a club wrote a competition fixture''s date directly';
+  exception when insufficient_privilege then
+    raise notice 'PASS D0: a direct write of the fixture is refused outright';
+  end;
+  -- Through the controlled action a club with an opponent can only PROPOSE a new kick-off; the date itself must not
+  -- move. (Whether a competition fixture should accept a proposal at all is Blueprint B2, not this guard.)
+  begin
+    perform public.update_fixture_kickoff(v_fixture, v_day + 30, null);
+  exception when insufficient_privilege then
+    null;
+  end;
+  if (select kickoff_date from public.fixtures where id = v_fixture) <> v_day + 30 then
+    raise notice 'PASS D: a club cannot move a competition fixture''s date through the controlled action either';
+  else
+    raise notice 'FAIL D: a club moved a competition fixture''s date';
+  end if;
+  -- And the table's own drift guard still refuses the date, naming the competition, for any writer (the server
+  -- writes fixtures as the owner now, so the guard is proved as the owner).
+  reset role;
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub', v_admin_a::text, 'role', 'authenticated')::text, true);
+    update public.fixtures set kickoff_date = v_day + 30 where id = v_fixture;
+    raise notice 'FAIL D1: the competition drift guard let the date be written';
   exception when insufficient_privilege then
     get stacked diagnostics v_text = message_text;
     if v_text like '%scheduled by the competition%' then
-      raise notice 'PASS D: a club changing a competition fixture''s date directly is refused, naming the competition';
+      raise notice 'PASS D1: the drift guard still refuses the date, naming the competition';
     else
-      raise notice 'FAIL D: refused with an unexpected message: %', v_text;
+      raise notice 'FAIL D1: refused with an unexpected message: %', v_text;
     end if;
   end;
+  set local role authenticated;
   begin
-    update public.fixtures set meet_time = '13:15' where id = v_fixture;
+    perform public.update_fixture_meet_time(v_fixture, '13:15');
     raise notice 'PASS D2: the club still owns operational fields such as the meet time';
   exception when others then
     raise notice 'FAIL D2: a club could not set its own meet time: %', sqlerrm;
@@ -388,9 +412,13 @@ begin
   exception when insufficient_privilege then
     raise notice 'PASS 9e: a club organiser cannot edit another competition''s match';
   end;
-  update public.fixtures set notes = 'echo was here' where id = v_fixture;
-  get diagnostics n = row_count;
-  if n = 0 then
+  begin
+    update public.fixtures set notes = 'echo was here' where id = v_fixture;
+    get diagnostics n = row_count;
+  exception when insufficient_privilege then
+    n := 0;   -- since 20270766000000 no client writes fixtures directly at all
+  end;
+  if n = 0 and (select notes from public.fixtures where id = v_fixture) is distinct from 'echo was here' then
     raise notice 'PASS 9f: running a competition gives no edit rights over an unrelated club''s fixture';
   else
     raise notice 'FAIL 9f: a competition organiser edited an unrelated club''s fixture';

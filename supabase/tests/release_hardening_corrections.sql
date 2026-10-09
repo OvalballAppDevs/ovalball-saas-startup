@@ -279,8 +279,11 @@ begin
   v_state := pg_temp.try_as(v_ca_a, format('update public.fixtures set mirror_fixture_id = %L where id = %L', v_g1, v_fx));
   perform pg_temp.check(v_state = '42501', format('RH-SRV-b nor adopt another fixture''s conversation by naming it as a mirror (%s)', v_state));
   -- The supported client edits of a fixture are untouched by the guard (an opponent change goes through the
-  -- canonical RPC, RH-OPP-b, where the server picks the conversation).
+  -- canonical RPC, RH-OPP-b, where the server picks the conversation). Since 20270766000000 (D-001) every client edit
+  -- is a controlled action: the direct write is refused, the RPC works.
   v_state := pg_temp.try_as(v_ca_a, format('update public.fixtures set notes = ''Bring the spare kit'' where id = %L', v_fx));
+  perform pg_temp.check(v_state = '42501', format('RH-SRV-c0 a direct edit of a fixture is refused, even on their own fixture (%s)', v_state));
+  v_state := pg_temp.try_as(v_ca_a, format('select public.update_fixture_details(%L, %L::jsonb)', v_fx, jsonb_build_object('notes', 'Bring the spare kit')));
   perform pg_temp.check(v_state = 'OK', format('RH-SRV-c an ordinary edit of their own fixture still works (%s)', v_state));
 
   -- A fixture update that is not HOT recomputes every index, including the expression index on the opponent key, as
@@ -288,7 +291,7 @@ begin
   perform pg_temp.check(has_function_privilege('authenticated', 'internal.fixture_opponent_key(uuid,uuid,uuid,text,text)', 'execute'),
     'RH-SRV-d a signed-in writer can maintain the opponent-key index (no intermittent permission failure on fixture updates)');
   for v_n in 1..12 loop
-    v_state := pg_temp.try_as(v_ca_a, format('update public.fixtures set notes = %L where id = %L', 'Kit check ' || v_n, v_fx));
+    v_state := pg_temp.try_as(v_ca_a, format('select public.update_fixture_details(%L, %L::jsonb)', v_fx, jsonb_build_object('notes', 'Kit check ' || v_n)));
     exit when v_state <> 'OK';
   end loop;
   perform pg_temp.check(v_state = 'OK', format('RH-SRV-e twelve successive client edits of the same fixture all succeed (%s)', v_state));

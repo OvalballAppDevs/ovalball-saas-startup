@@ -30966,6 +30966,10 @@ export type Database = {
         Args: { p_club_id: string; p_share_media: boolean; p_share_squad: boolean };
         Returns: undefined;
       };
+      set_club_public_status: {
+        Args: { p_club_id: string; p_status: string };
+        Returns: undefined;
+      };
       set_content_section_audience_copy: {
         Args: { p_audience: string; p_body: string; p_content_section_id: string };
         Returns: string;

@@ -1551,6 +1551,12 @@
       ],
       "measured": "Run standalone in Batch A: 0 assertions, setup fails on club_memberships_user_id_fkey. Declared manual, transaction-scoped."
     },
+    "sensitive_fields_controlled_actions": {
+      "disposition": "CANONICAL_GATE",
+      "owner": "Platform security (Blueprint B0)",
+      "reason": "Blueprint B0 (owner decisions D-001, D-002, D-004; migration 20270766000000). Proves no signed-in user can write public.fixtures directly (owning club, opposing club or stranger), the owning club still edits through update_fixture_details and the opposing club cannot, the Site Admin status control and cancel work through update_fixture_details and cancel_fixture; a Club Admin cannot write a club's status, slug, directory link, timezone or deactivation record directly but still edits their own club's profile and crest; the Active/Suspended setting is a Site Admin action that never touches a deactivated club; and a dual-registered child's welfare lookup shows each club's confirmed officer only their own club's team, records the event against their own club only, and is never refused by row order.",
+      "prerequisites": []
+    },
     "session_boundary": {
       "disposition": "CANONICAL_GATE",
       "owner": "Identity/Auth and platform security",
